@@ -1,6 +1,6 @@
 {
-  "version": "6.0.8",
-  "file": "ZakazkyApp_v6.0.8.zip",
-  "sha256": "8cd221f6c58f47f0b056d8199d5ba5c36edde36bf5264302b0c413493b8a5822",
-  "notes": "• Stabilizační verze: novější funkce už nepřepisují dříve domluvené chování CRM.\n• Vrácena výraznější a odlišná barevnost stavů ve světlém i tmavém režimu.\n• Vráceny vyšší dialogy s omezením podle velikosti monitoru a maximalizovaný start hlavního CRM.\n• MIVO používá pouze jeden symbol ⚠ u data Poptáno při Čekám déle než 10 dní; délka čekání nebarví celý řádek.\n• Klasické Poptávky: 0–5 dní bez upozornění, 6–10 dní mírné, 11+ dní výrazné upozornění u data.\n• Příjemci Poptávek se nově skutečně řadí podle četnosti a posledního použití pro konkrétní společnost; nic se automaticky nezaškrtává.\n• Ruční řazení tabulek se po překliku záložky resetuje do výchozího chování.\n• Rozvětvená procesní Nápověda zůstává zachována a bude se aktualizovat s každou další verzí."
+  "version": "6.0.9",
+  "file": "ZakazkyApp_v6.0.9.zip",
+  "sha256": "dd9befae204a809ea634ea3d84c49a47920dbecf1943fafb247e3b154288517d",
+  "notes": "• Rychlé akce na Přehledu jsou znovu barevně odlišené: nová Příležitost, Poptávka, Úkol, Společnost a Osoba mají vlastní výraznou barvu ve světlém i tmavém režimu.\n• Dialogová okna se nově otevírají výrazně větší – přibližně na 84 % šířky a 88 % výšky obrazovky, ale stále nepřesáhnou dostupný monitor a zůstávají ihned zmenšitelná.\n• Hlavní CRM se nadále spouští maximalizované.\n• Zachována výrazná barevnost stavů, reset ručního řazení po překliku záložek a rozvětvená procesní Nápověda.\n• MIVO používá pouze jeden symbol ⚠ u data Poptáno při Čekám déle než 10 dní; délka čekání nebarví celý řádek.\n• Klasické Poptávky: 0–5 dní bez upozornění, 6–10 dní mírné, 11+ dní výrazné upozornění u data.\n• Příjemci Poptávek se řadí podle četnosti a posledního použití pro konkrétní společnost; nic se automaticky nezaškrtává."
 }
