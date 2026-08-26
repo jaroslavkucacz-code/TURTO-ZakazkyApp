@@ -35,8 +35,30 @@ jobs:
           STAGE="ZakazkyApp_v${VERSION}"
           rm -rf "$STAGE"
           cp -a "$APP_DIR" "$STAGE"
-          [ ! -f v58_features.py ] || cp v58_features.py "$STAGE/v58_features.py"
-          [ ! -f v581_cleanup.py ] || cp v581_cleanup.py "$STAGE/v581_cleanup.py"
+
+          # Stable distributed names from v5.8.2 onward.
+          cp v58_features.py "$STAGE/crm_features.py"
+          cp crm_runtime.py "$STAGE/crm_runtime.py"
+
+          # Keep only current launchers / runtime files in the distributed folder.
+          rm -f "$STAGE/v58_features.py" "$STAGE/v581_cleanup.py"
+          rm -f "$STAGE/Spustit_Zakazky_v5.bat" "$STAGE/Spustit_Zakazky_v5.vbs"
+          rm -f "$STAGE/Spustit_QT_PREVIEW.bat" "$STAGE/qt_preview_v5.py"
+          rm -f "$STAGE/AUDIT_v2.22.txt" "$STAGE/DULEZITE_v2.8_JEDNORAZOVY_RESET.txt"
+          rm -f "$STAGE/latest.example.json" "$STAGE/Vytvorit_EXE.bat" "$STAGE/Vytvorit_manifest_aktualizace.py"
+
+          # Stable launcher without version in the filename.
+          cat > "$STAGE/Spustit_Zakazky.vbs" <<'VBS'
+Set sh = CreateObject("WScript.Shell")
+sh.CurrentDirectory = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)
+sh.Run "pyw app.py", 0, False
+VBS
+          cat > "$STAGE/Spustit_Zakazky.bat" <<'BAT'
+@echo off
+cd /d "%~dp0"
+start "" pyw app.py
+BAT
+
           python - "$STAGE/app.py" "$VERSION" <<'PY'
           import pathlib,re,sys
           p=pathlib.Path(sys.argv[1]);v=sys.argv[2];s=p.read_text(encoding='utf-8')
@@ -44,14 +66,10 @@ jobs:
           if n!=1:raise SystemExit('APP_VERSION replacement failed')
           s=s.replace("VALUES('schema_version','5.7')","VALUES('schema_version','5.8')",1)
           marker='\nif __name__=="__main__":\n'
-          hooks=[]
-          if 'v58_features as _turto_features' not in s:
-              hooks.append('try:\n    import v58_features as _turto_features\n    _turto_features.apply(sys.modules[__name__])\nexcept Exception:\n    pass\n')
-          if 'v581_cleanup as _turto_cleanup' not in s:
-              hooks.append('try:\n    import v581_cleanup as _turto_cleanup\n    _turto_cleanup.apply(sys.modules[__name__])\nexcept Exception:\n    pass\n')
-          if hooks:
+          hook='''\n# --- TURTO stable CRM layers ---\ntry:\n    import crm_features as _crm_features\n    _crm_features.apply(sys.modules[__name__])\nexcept Exception as _e:\n    try:(ROOT/"crm_features_error.log").write_text(str(_e),encoding="utf-8")\n    except Exception:pass\ntry:\n    import crm_runtime as _crm_runtime\n    _crm_runtime.apply(sys.modules[__name__])\nexcept Exception as _e:\n    try:(ROOT/"crm_runtime_error.log").write_text(str(_e),encoding="utf-8")\n    except Exception:pass\n\n'''
+          if 'crm_features as _crm_features' not in s:
               if marker not in s:raise SystemExit('main marker not found')
-              s=s.replace(marker,'\n# --- TURTO release layers ---\n'+''.join(hooks)+marker,1)
+              s=s.replace(marker,hook+marker,1)
           p.write_text(s,encoding='utf-8')
           PY
           echo "dir=$STAGE" >> "$GITHUB_OUTPUT"
@@ -61,14 +79,15 @@ jobs:
         shell: bash
         run: |
           DIR='${{ steps.app.outputs.dir }}'
-          python -m py_compile "$DIR/app.py" "$DIR/v58_features.py" "$DIR/v581_cleanup.py"
+          python -m py_compile "$DIR/app.py" "$DIR/crm_features.py" "$DIR/crm_runtime.py"
 
       - name: Build ZIP and manifest
         shell: bash
         run: |
           set -euo pipefail
           DIR='${{ steps.app.outputs.dir }}'; VER='${{ steps.app.outputs.version }}'; ZIP="ZakazkyApp_v${VER}.zip"
-          rm -f "$ZIP"; zip -qr "$ZIP" "$DIR" -x '*/__pycache__/*' '*.pyc' '*/v5_error.log' '*/v58_feature_error.log'
+          rm -f "$ZIP"
+          zip -qr "$ZIP" "$DIR" -x '*/__pycache__/*' '*.pyc' '*/v5_error.log' '*/crm_features_error.log' '*/crm_runtime_error.log'
           SHA=$(sha256sum "$ZIP" | awk '{print $1}')
           python - <<PY
           import json
