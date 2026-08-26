@@ -1,5 +1,5 @@
 {
-  "version": "5.7.1",
-  "status": "bootstrap",
-  "note": "GitHub update channel initialized; binary bootstrap package not yet published."
+  "version": "5.7.2",
+  "file": "ZakazkyApp_v5.7.2.zip",
+  "sha256": "baea07ce65a9d801453b9ee1d3963381a541cfc8947b24bcc617ffaedbc56413"
 }
