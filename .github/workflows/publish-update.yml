@@ -4,141 +4,63 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - release_version.txt
-
+    paths: [release_version.txt]
 permissions:
   contents: write
-
 concurrency:
   group: zakazkyapp-publish
   cancel-in-progress: false
-
 jobs:
   build-update:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
       - name: Prepare release
         id: app
         shell: bash
         run: |
           set -euo pipefail
-          APP_DIR="ZakazkyApp_v5.7.2"
-          VERSION="$(tr -d ' \r\n' < release_version.txt)"
-          STAGE="ZakazkyApp_v${VERSION}"
-          test -d "$APP_DIR"
-          test -n "$VERSION"
-          rm -rf "$STAGE"
-          cp -a "$APP_DIR" "$STAGE"
-          cp v58_features.py "$STAGE/crm_features.py"
-          cp crm_runtime.py "$STAGE/crm_runtime.py"
-          rm -f "$STAGE/v58_features.py" "$STAGE/v581_cleanup.py"
-          rm -f "$STAGE/Spustit_QT_PREVIEW.bat" "$STAGE/Spustit_Qt_PREVIEW.bat" "$STAGE/qt_preview_v5.py"
-          rm -f "$STAGE/AUDIT_v2.22.txt" "$STAGE/DULEZITE_v2.8_JEDNORAZOVY_RESET.txt"
-          rm -f "$STAGE/latest.example.json" "$STAGE/Vytvorit_EXE.bat" "$STAGE/Vytvorit_manifest_aktualizace.py"
-
+          APP_DIR="ZakazkyApp_v5.7.2"; VERSION="$(tr -d ' \r\n' < release_version.txt)"; STAGE="ZakazkyApp_v${VERSION}"
+          rm -rf "$STAGE"; cp -a "$APP_DIR" "$STAGE"
+          cp v58_features.py "$STAGE/crm_features.py"; cp crm_runtime.py "$STAGE/crm_runtime.py"; cp crm_v605.py "$STAGE/crm_v605.py"
+          rm -f "$STAGE/v58_features.py" "$STAGE/v581_cleanup.py" "$STAGE/qt_preview_v5.py" "$STAGE/AUDIT_v2.22.txt" "$STAGE/DULEZITE_v2.8_JEDNORAZOVY_RESET.txt"
           python - "$STAGE/app.py" "$VERSION" <<'PY'
-          import pathlib, re, sys
-          p = pathlib.Path(sys.argv[1]); version = sys.argv[2]
-          s = p.read_text(encoding="utf-8")
-          s, n = re.subn(r'APP_VERSION\s*=\s*["\'][^"\']+["\']', f'APP_VERSION="{version}"', s, count=1)
-          if n != 1: raise SystemExit("APP_VERSION replacement failed")
-          s = s.replace("VALUES('schema_version','5.7')", "VALUES('schema_version','5.8')", 1)
-          start = '        focus=ttk.Frame(p,style="Card.TFrame",padding=(14,10));focus.pack(fill="x",pady=(0,12))\n'
-          end = '        ttk.Button(focus,text="Otevřít upozornění",style="Toolbar.TButton",command=self.open_notifications).pack(side="right")\n'
-          a = s.find(start)
-          if a < 0: raise SystemExit("CRM FOCUS start not found")
-          b = s.find(end, a)
-          if b < 0: raise SystemExit("CRM FOCUS end not found")
-          b += len(end)
-          while b < len(s) and s[b] == "\n": b += 1
-          s = s[:a] + s[b:]
-          p.write_text(s, encoding="utf-8")
+          import pathlib,re,sys
+          p=pathlib.Path(sys.argv[1]);s=p.read_text(encoding='utf-8');v=sys.argv[2]
+          s,n=re.subn(r'APP_VERSION\s*=\s*["\'][^"\']+["\']',f'APP_VERSION="{v}"',s,count=1)
+          if n!=1:raise SystemExit('APP_VERSION replacement failed')
+          start='        focus=ttk.Frame(p,style="Card.TFrame",padding=(14,10));focus.pack(fill="x",pady=(0,12))\n';end='        ttk.Button(focus,text="Otevřít upozornění",style="Toolbar.TButton",command=self.open_notifications).pack(side="right")\n';a=s.find(start);b=s.find(end,a)
+          if a>=0 and b>=0:s=s[:a]+s[b+len(end):]
+          p.write_text(s,encoding='utf-8')
           PY
-
           cat > "$STAGE/ZakazkyCRM.pyw" <<'PYW'
-          import app
-          import crm_features
-          import crm_runtime
-          crm_features.apply(app)
-          crm_runtime.apply(app)
-          app.cleanup_stale_test_session()
-          app.ensure_schema()
-          app.ensure_test_user()
-          app.migrate_v41_visual_once()
-          app.import_mail_contacts_v220_once()
-          app.import_mail_contacts_v221_once()
-          app.restore_people_from_v280_backup_once()
-          app.post_import_cleanup_v222_once()
-          app.App().mainloop()
+          import app,crm_features,crm_runtime,crm_v605
+          crm_features.apply(app);crm_runtime.apply(app);crm_v605.apply(app)
+          app.cleanup_stale_test_session();app.ensure_schema();app.ensure_test_user();app.migrate_v41_visual_once();app.import_mail_contacts_v220_once();app.import_mail_contacts_v221_once();app.restore_people_from_v280_backup_once();app.post_import_cleanup_v222_once();app.App().mainloop()
           PYW
-
           cat > "$STAGE/Spustit_Zakazky.vbs" <<'VBS'
           Set sh = CreateObject("WScript.Shell")
           sh.CurrentDirectory = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)
           sh.Run "pyw ZakazkyCRM.pyw", 0, False
           VBS
-
-          cat > "$STAGE/Spustit_Zakazky.bat" <<'BAT'
-          @echo off
-          cd /d "%~dp0"
-          start "" pyw ZakazkyCRM.pyw
-          BAT
-
-          cat > "$STAGE/Spustit_Zakazky_v5.vbs" <<'VBS5'
-          Set sh = CreateObject("WScript.Shell")
-          sh.CurrentDirectory = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)
-          sh.Run "pyw ZakazkyCRM.pyw", 0, False
-          VBS5
-
-          echo "dir=$STAGE" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
+          cp "$STAGE/Spustit_Zakazky.vbs" "$STAGE/Spustit_Zakazky_v5.vbs"
+          echo "dir=$STAGE" >> "$GITHUB_OUTPUT"; echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Validate Python
-        shell: bash
-        run: |
-          set -euo pipefail
-          DIR="${{ steps.app.outputs.dir }}"
-          python -m py_compile "$DIR/app.py" "$DIR/crm_features.py" "$DIR/crm_runtime.py" "$DIR/ZakazkyCRM.pyw"
-
+        run: python -m py_compile "${{ steps.app.outputs.dir }}/app.py" "${{ steps.app.outputs.dir }}/crm_features.py" "${{ steps.app.outputs.dir }}/crm_runtime.py" "${{ steps.app.outputs.dir }}/crm_v605.py" "${{ steps.app.outputs.dir }}/ZakazkyCRM.pyw"
       - name: Build ZIP and manifest
         shell: bash
         run: |
           set -euo pipefail
-          DIR="${{ steps.app.outputs.dir }}"
-          VER="${{ steps.app.outputs.version }}"
-          ZIP="ZakazkyApp_v${VER}.zip"
-          rm -f "$ZIP"
-          zip -qr "$ZIP" "$DIR" -x '*/__pycache__/*' '*.pyc' '*/v5_error.log' '*/update_error.log' '*/crm_features_error.log' '*/crm_runtime_error.log'
-          SHA="$(sha256sum "$ZIP" | awk '{print $1}')"
+          DIR="${{ steps.app.outputs.dir }}"; VER="${{ steps.app.outputs.version }}"; ZIP="ZakazkyApp_v${VER}.zip"; rm -f "$ZIP"; zip -qr "$ZIP" "$DIR" -x '*/__pycache__/*' '*.pyc'; SHA="$(sha256sum "$ZIP"|awk '{print $1}')"
           python - "$VER" "$ZIP" "$SHA" <<'PY'
-          import json, sys, pathlib
-          version, filename, sha = sys.argv[1:]
-          notes_path = pathlib.Path("release_notes.txt")
-          notes = notes_path.read_text(encoding="utf-8").strip() if notes_path.exists() else ""
-          with open("latest.json", "w", encoding="utf-8") as f:
-              json.dump({"version": version, "file": filename, "sha256": sha, "notes": notes}, f, ensure_ascii=False, indent=2)
-              f.write("\n")
+          import json,sys,pathlib
+          v,f,s=sys.argv[1:];p=pathlib.Path('release_notes.txt');n=p.read_text(encoding='utf-8').strip() if p.exists() else ''
+          pathlib.Path('latest.json').write_text(json.dumps({'version':v,'file':f,'sha256':s,'notes':n},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
           PY
-
       - name: Publish package
         shell: bash
         run: |
           set -euo pipefail
-          VER="${{ steps.app.outputs.version }}"
-          ZIP="ZakazkyApp_v${VER}.zip"
-          git config user.name "TURTO Update Bot"
-          git config user.email "actions@users.noreply.github.com"
-          git add -f "$ZIP" latest.json
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Publish ZakazkyApp v${VER} update"
-          for try in 1 2 3; do
-            if git pull --rebase origin main && git push origin HEAD:main; then exit 0; fi
-            sleep $((try * 2))
-          done
-          exit 1
+          VER="${{ steps.app.outputs.version }}"; ZIP="ZakazkyApp_v${VER}.zip"; git config user.name "TURTO Update Bot"; git config user.email "actions@users.noreply.github.com"; git add -f "$ZIP" latest.json; git diff --cached --quiet && exit 0; git commit -m "Publish ZakazkyApp v${VER} update"
+          for try in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((try*2)); done; exit 1
