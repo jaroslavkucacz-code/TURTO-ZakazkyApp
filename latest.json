@@ -1,6 +1,6 @@
 {
-  "version": "6.0.5",
-  "file": "ZakazkyApp_v6.0.5.zip",
-  "sha256": "f01c81e1399c83eaef61356e563bc17345af03b10aec4dca8729886815c49a3a",
-  "notes": "• ADMIN HISTORIE začíná zaznamenávat změny stavu Příležitostí včetně uživatele a PC.\n• Připraven základ pro bezpečné vracení auditovaných změn.\n• Nabídka/Připraveno používá tyrkysovou místo fialové, aby se nepletla s modrou.\n• Ruční řazení tabulek se při přechodu mezi záložkami ruší a vrací se výchozí pořadí.\n• MIVO má benevolentnější čekací prahy: 0–7 bez varování, 8–14 mírné, 15–21 oranžové, 22+ červené.\n• Hořící termíny zůstávají výrazně označené vykřičníkem a tučným varovným stylem.\n• Databáze je připravená ukládat četnost použití příjemců poptávek pro jejich budoucí řazení."
+  "version": "6.0.6",
+  "file": "ZakazkyApp_v6.0.6.zip",
+  "sha256": "6474eeaa04471653185b1b718804dda488ff0c2cbc95693f7cad0611faafdcb5",
+  "notes": "• Nápověda byla výrazně rozšířena podle aktuálního stavu CRM a od této verze se bude aktualizovat s každou další verzí.\n• MIVO: stáří čekání už nemění barvu celého řádku; při stavu Čekám se po více než 10 dnech zvýrazní pouze datum Poptáno symbolem !.\n• Pokud je MIVO nabídka Obdrženo, stáří původní poptávky se jako problém nezvýrazňuje.\n• Stavové barvy ve světlém i tmavém režimu mají vyšší kontrast; Připraveno/Nabídka zůstává jasně tyrkysová oproti modrému Rozpracováno.\n• Dialogová okna jsou vyšší, ale stále omezená velikostí monitoru.\n• Hlavní CRM se po spuštění maximalizuje.\n• ADMIN HISTORIE a audit změn zůstávají součástí dalšího rozšiřování víceuživatelského provozu."
 }
