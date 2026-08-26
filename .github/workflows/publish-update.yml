@@ -45,25 +45,53 @@ jobs:
           rm -f "$STAGE/AUDIT_v2.22.txt" "$STAGE/DULEZITE_v2.8_JEDNORAZOVY_RESET.txt"
           rm -f "$STAGE/latest.example.json" "$STAGE/Vytvorit_EXE.bat" "$STAGE/Vytvorit_manifest_aktualizace.py"
 
-          sed -E -i "0,/APP_VERSION=\"[^\"]+\"/s//APP_VERSION=\"${VERSION}\"/" "$STAGE/app.py"
-          sed -i "s/VALUES('schema_version','5.7')/VALUES('schema_version','5.8')/" "$STAGE/app.py"
+          python - "$STAGE/app.py" "$VERSION" <<'PY'
+          import pathlib,re,sys
+          p=pathlib.Path(sys.argv[1]);v=sys.argv[2]
+          s=p.read_text(encoding='utf-8')
+          s,n=re.subn(r'APP_VERSION\s*=\s*["\'][^"\']+["\']',f'APP_VERSION="{v}"',s,count=1)
+          if n!=1: raise SystemExit('APP_VERSION replacement failed')
+          s=s.replace("VALUES('schema_version','5.7')","VALUES('schema_version','5.8')",1)
 
-          printf '%s\n' \
-            'import app' \
-            'import crm_features' \
-            'import crm_runtime' \
-            'crm_features.apply(app)' \
-            'crm_runtime.apply(app)' \
-            'app.cleanup_stale_test_session()' \
-            'app.ensure_schema()' \
-            'app.ensure_test_user()' \
-            'app.migrate_v41_visual_once()' \
-            'app.import_mail_contacts_v220_once()' \
-            'app.import_mail_contacts_v221_once()' \
-            'app.restore_people_from_v280_backup_once()' \
-            'app.post_import_cleanup_v222_once()' \
-            'app.App().mainloop()' \
-            > "$STAGE/ZakazkyCRM.pyw"
+          # Remove CRM FOCUS directly from the dashboard source, not by hiding widgets later.
+          focus='''        focus=ttk.Frame(p,style="Card.TFrame",padding=(14,10));focus.pack(fill="x",pady=(0,12))\n        ttk.Label(focus,text="CRM FOCUS",style="FocusBadge.TLabel").pack(side="left",padx=(0,12))\n        self.crm_focus=tk.StringVar(value="Načítám priority…")\n        ttk.Label(focus,textvariable=self.crm_focus,style="FocusText.TLabel").pack(side="left",fill="x",expand=True)\n        ttk.Button(focus,text="Otevřít upozornění",style="Toolbar.TButton",command=self.open_notifications).pack(side="right")\n\n'''
+          if focus not in s: raise SystemExit('CRM FOCUS block not found')
+          s=s.replace(focus,'',1)
+          p.write_text(s,encoding='utf-8')
+          PY
+
+          cat > "$STAGE/ZakazkyCRM.pyw" <<'PYW'
+from pathlib import Path
+import os
+ROOT=Path(__file__).resolve().parent
+# Safe one-time cleanup of obsolete program-only files from previous versions.
+for name in (
+    'v58_features.py','v581_cleanup.py','Spustit_Zakazky_v5.bat','Spustit_Zakazky_v5.vbs',
+    'Spustit_QT_PREVIEW.bat','qt_preview_v5.py','AUDIT_v2.22.txt','DULEZITE_v2.8_JEDNORAZOVY_RESET.txt',
+    'latest.example.json','Vytvorit_EXE.bat','Vytvorit_manifest_aktualizace.py'
+):
+    try:(ROOT/name).unlink(missing_ok=True)
+    except Exception:pass
+try:
+    cache=ROOT/'__pycache__'
+    if cache.exists():
+        import shutil; shutil.rmtree(cache,ignore_errors=True)
+except Exception:pass
+import app
+import crm_features
+import crm_runtime
+crm_features.apply(app)
+crm_runtime.apply(app)
+app.cleanup_stale_test_session()
+app.ensure_schema()
+app.ensure_test_user()
+app.migrate_v41_visual_once()
+app.import_mail_contacts_v220_once()
+app.import_mail_contacts_v221_once()
+app.restore_people_from_v280_backup_once()
+app.post_import_cleanup_v222_once()
+app.App().mainloop()
+PYW
 
           printf '%s\n' \
             'Set sh = CreateObject("WScript.Shell")' \
