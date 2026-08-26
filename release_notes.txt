@@ -1,0 +1,7 @@
+• Poslední běžný uživatel se pamatuje zvlášť pro každý PC; ADMIN se po startu nepřihlásí bez hesla.
+• Dialogová okna se otevírají v bezpečné velikosti podle obrazovky a zůstávají součástí jedné aplikace.
+• TURTO ikona je sjednocená pro hlavní okno i dialogy a zástupce pro hlavní panel.
+• Světlý a tmavý režim mají oddělené, kontrastnější stavové barvy.
+• Automatické aktualizace se kontrolují i během běhu aplikace přibližně každých 10 minut.
+• Nabídka aktualizace nově stručně ukazuje, co verze obsahuje.
+• Test síťové databáze jasně ukazuje testovanou cestu a nelze ho spustit bez vybrané DB.
