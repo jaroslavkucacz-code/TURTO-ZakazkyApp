@@ -1,0 +1,3978 @@
+[
+  {
+    "name": "STAVIREZEK s.r.o.",
+    "email": "a.andrejskova@stavirezek.cz",
+    "phone": "739 461 862",
+    "company": "BVS HK s.r.o.",
+    "role": "asistentka",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Adam Cholt",
+    "email": "a.cholt@bk25.cz",
+    "phone": "+420 603 974 594",
+    "company": "BK25 s.r.o.",
+    "role": "Stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "PORR a.s.",
+    "email": "adam.sadecky@porr.cz",
+    "phone": "",
+    "company": "PORR a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Adéla PRŮCHOVÁ",
+    "email": "adela.pruchova@vces.cz",
+    "phone": "+420 778 880 905",
+    "company": "VCES a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Adéla Steidlová",
+    "email": "adela.steidlova@roadfin.cz",
+    "phone": "+420 604 376 626",
+    "company": "ROADFIN STAVBY s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "ARDEM STAVEBNÍ s.r.o.",
+    "email": "ah@ardem.cz",
+    "phone": "15.20.9769.016",
+    "company": "ARDEM STAVEBNÍ s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Alena Bohatcová",
+    "email": "alena.bohatcova@pragoelast.cz",
+    "phone": "+420 737 252 534",
+    "company": "HET - Pragoelast s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Alena Burešová",
+    "email": "alena.buresova@bbpgroup.cz",
+    "phone": "",
+    "company": "BBP Monolit s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Alena Duchková",
+    "email": "alena.duchkova@roadfin.cz",
+    "phone": "+420 721 656 531",
+    "company": "ROADFIN STAVBY s.r.o.",
+    "role": "vedoucí nákupu",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Králová Alena Ing.",
+    "email": "alena.kralova@metrostav.cz",
+    "phone": "+420 731914912",
+    "company": "Metrostav a.s.",
+    "role": "Přípravář provozu ŽBK",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Daněk Aleš Ing.",
+    "email": "ales.danek@metrostav.cz",
+    "phone": "702 242 389",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Kymlička Aleš",
+    "email": "ales.kymlicka@pohl.cz",
+    "phone": "+420 775 420 998",
+    "company": "POHL cz, a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Alice Hrabovska",
+    "email": "alice.hrabovska@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Alzbeta Durovicova",
+    "email": "alzbeta.durovicova@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Anastasia Panfilova",
+    "email": "anastasia.panfilova@strabag.com",
+    "phone": "+420 603 941 663",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Robert Andresík",
+    "email": "andresik@japsten.cz",
+    "phone": "+420 774 052 367",
+    "company": "JAPS TEN s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Anna Bartova",
+    "email": "anna.bartova@strabag.com",
+    "phone": "+420 734 543 614",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Antolík Rastislav",
+    "email": "antolik@cteam.cz",
+    "phone": "50.0604993",
+    "company": "CONSTRUCTION TEAM s.r.o.",
+    "role": "Stavbyvedoucí/stavební technik",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Schejbalova Barbora",
+    "email": "b.schejbalova@swietelsky.cz",
+    "phone": "26-125-0050",
+    "company": "SWIETELSKY stavební s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Cervenkova Barbora",
+    "email": "barbora.cervenkova@porr.cz",
+    "phone": "+420 702 295 808",
+    "company": "PORR a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Basaraba Michal",
+    "email": "basaraba@gemo.cz",
+    "phone": "+420 606 636 853",
+    "company": "GEMO a.s.",
+    "role": "manažer projektu střediska monolitických konstrukcí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Prefab Factory a.s.",
+    "email": "basl@prefabfactory.cz",
+    "phone": "",
+    "company": "Prefab Factory a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jan Beier",
+    "email": "beier@japsten.cz",
+    "phone": "",
+    "company": "JAPS TEN s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Filip Běla",
+    "email": "bela@pp53.cz",
+    "phone": "+420 702 268 884",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Biedrava Zbyněk",
+    "email": "biedrava@cteam.cz",
+    "phone": "50.0604993",
+    "company": "CONSTRUCTION TEAM s.r.o.",
+    "role": "stavbyvedoucí monolit",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jan Bína",
+    "email": "bina@pp53.cz",
+    "phone": "",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Konrad Büttel",
+    "email": "bk@mastertec.eu",
+    "phone": "49 9503 - 50470",
+    "company": "MASTERTEC GmbH & Co. KG",
+    "role": "Area Sales Manager",
+    "source": "existing-domain"
+  },
+  {
+    "name": "a.s. SLÁDEK GROUP",
+    "email": "bohata@sladekgroup.cz",
+    "phone": "",
+    "company": "SLÁDEK GROUP, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Lukáš Bohatý",
+    "email": "bohaty.lukas@fosalli.cz",
+    "phone": "",
+    "company": "Fosalli s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Michaela Böhmová",
+    "email": "bohmova@detalon.cz",
+    "phone": "+420 720036010",
+    "company": "Detalon, s.r.o.",
+    "role": "Obchodní zástupce společnosti Detalon, s.r.o.",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Boris Dvořáček",
+    "email": "boris.dvoracek@bbpgroup.cz",
+    "phone": "",
+    "company": "BBP Monolit s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Boubalík Stanislav",
+    "email": "boubalik@syner.cz",
+    "phone": "+420 731 796 775",
+    "company": "SYNER, s.r.o.",
+    "role": "Stavbyvedoucí",
+    "source": "existing-domain"
+  },
+  {
+    "name": "ELRAIL s.r.o.",
+    "email": "brechlicuk@elrail.cz",
+    "phone": "602 155 773",
+    "company": "ELRAIL s.r.o.",
+    "role": "Stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Brož Jaroslav",
+    "email": "broz@syner.cz",
+    "phone": "",
+    "company": "SYNER, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "V.D.O. Group s.r.o.",
+    "email": "broz@vdogroup.cz",
+    "phone": "",
+    "company": "V.D.O. Group s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Barbora Šlehubrová",
+    "email": "bslehubrova@ggcz.eu",
+    "phone": "",
+    "company": "GEOSAN GROUP a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Pavel Bubeníček",
+    "email": "bubenicek@abpholding.cz",
+    "phone": "",
+    "company": "ABP HOLDING a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Budžak Building s.r.o.",
+    "email": "budzakoski@budzakbuilding.cz",
+    "phone": "",
+    "company": "BUDZAK BUILDING s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Ondřej Burant",
+    "email": "burant@japsten.cz",
+    "phone": "",
+    "company": "JAPS TEN s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Čech Radek",
+    "email": "cech.radek@izomat.cz",
+    "phone": "442503432---",
+    "company": "IZOMAT stavebniny s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "ceo praha",
+    "email": "ceo.praha@seznam.cz",
+    "phone": "603 729 567",
+    "company": "CEO Praha spol. s r.o.",
+    "role": "CEO Praha spol. s r.o.",
+    "source": "repeated-signature"
+  },
+  {
+    "name": "Viktor Čermák",
+    "email": "cermak@amopraha.cz",
+    "phone": "",
+    "company": "AMO, spol. s r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Petr Chochola",
+    "email": "chochola@amopraha.cz",
+    "phone": "",
+    "company": "AMO, spol. s r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "David CHODERA",
+    "email": "chodera.david@pragis.cz",
+    "phone": "602 378 471",
+    "company": "PRAGIS a.s.",
+    "role": "Stavbyvedoucí",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Adam Cholt",
+    "email": "cholt@ferax-vl.cz",
+    "phone": "",
+    "company": "FERAX VL s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Vojtěch Chramosta",
+    "email": "chramosta@pp53.cz",
+    "phone": "+420 725 816 036",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "CZ-Shared-JXD-CustomerService",
+    "email": "cz.sm.jxd.customerservice@dbschenker.com",
+    "phone": "017246832",
+    "company": "SCHENKER spol. s r. o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "CZ-Shared-PRG-CustomerService",
+    "email": "cz.sm.prg.customerservice@dbschenker.com",
+    "phone": "017516401",
+    "company": "SCHENKER spol. s r. o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "CIKHART Dominik",
+    "email": "d.cikhart@hobst.cz",
+    "phone": "725 956 992",
+    "company": "Stavební firma HOBST a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Damko",
+    "email": "damko@armovna.cz",
+    "phone": "+420 777 718 140",
+    "company": "DAMKO s.r.o.",
+    "role": "Vedoucí armovny",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Daniel Boiciuc",
+    "email": "daniel.boiciuc@fosalli.cz",
+    "phone": "+420776562282",
+    "company": "Fosalli s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Daniel Kolouch",
+    "email": "daniel.kolouch@archconstruct.cz",
+    "phone": "733 346 158",
+    "company": "Arch Construct s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Šetková Daniela Ing.",
+    "email": "daniela.setkova@metrostav.cz",
+    "phone": "+420 601 338 552",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Lenka Dankova",
+    "email": "dankova.lenka@cz.sika.com",
+    "phone": "",
+    "company": "Sika CZ, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "David Flieger",
+    "email": "david.flieger@bbpgroup.cz",
+    "phone": "",
+    "company": "BBP Monolit s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "David Havlik",
+    "email": "david.havlik@strabag.com",
+    "phone": "250102567",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "David Houcek",
+    "email": "david.houcek@strabag.com",
+    "phone": "+420 602 138 657",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "David Štefek",
+    "email": "david.stefek@mavi-monolity.cz",
+    "phone": "+420 603 884 200",
+    "company": "MAVI monolity s.r.o.",
+    "role": "Stavební technik, MAVI monolity",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Denys Nakonechnyi",
+    "email": "denys.nakonechnyi@strabag.com",
+    "phone": "+420 736 545 635",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Dmytro Serebrianskyi",
+    "email": "dmytro.serebrianskyi@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Dominik Smid",
+    "email": "dominik.smid@stavmat.cz",
+    "phone": "733 169 606",
+    "company": "STAVMAT STAVEBNINY a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Drahomíra Dvořáková",
+    "email": "drahomira.dvorakova@linarit.cz",
+    "phone": "702 035 300",
+    "company": "Linarit s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "ARMONTIS BeSt s.r.o.",
+    "email": "drahos@armontis.cz",
+    "phone": "15.20.9769.016",
+    "company": "ARMONTIS BeSt s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Drbohlav Martin",
+    "email": "drbohlav@syner.cz",
+    "phone": "+420 702 031 208",
+    "company": "SYNER, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Drdlová Ilona",
+    "email": "drdlova@stormware.cz",
+    "phone": "567 112 611",
+    "company": "Tento zpravodaj je elektronickým zpravodajem rozesílaným zákazníkům společnosti STORMWARE s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Kamil Duchek",
+    "email": "duchek@deltaflor.cz",
+    "phone": "739 570 157",
+    "company": "DELTAFLOR plus, spol. s r. o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Dušan Janík",
+    "email": "dusan.janik@profi-tesari.cz",
+    "phone": "777 707 343",
+    "company": "PROFI-TESAŘI s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Ing. Jakub Dykas",
+    "email": "dykas@japsten.cz",
+    "phone": "+420 774 817 505",
+    "company": "JAPS TEN s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Egor Grigorenko",
+    "email": "eg@ardem.cz",
+    "phone": "15.20.9769.17",
+    "company": "ARDEM STAVEBNÍ s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Zuzana Belháčová",
+    "email": "ekonom@bbpgroup.cz",
+    "phone": "",
+    "company": "BBP Monolit s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Zuzana Engelmaierová",
+    "email": "engelmaierova@psp-gds.cz",
+    "phone": "778 712 408",
+    "company": "PSP-GDS, s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "V.D.O. Group s.r.o.",
+    "email": "farkas@vdogroup.cz",
+    "phone": "",
+    "company": "V.D.O. Group s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Florentina Ernst",
+    "email": "fe@mastertec.eu",
+    "phone": "",
+    "company": "MASTERTEC GmbH & Co. KG",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Martin Fér",
+    "email": "fer@pp53.cz",
+    "phone": "",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Filip Voska",
+    "email": "filip.voska@orlimex.cz",
+    "phone": "+420 461 653 911",
+    "company": "Orlimex CZ, s. r. o.",
+    "role": "Obchodní manažer",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Finance",
+    "email": "finance@pp53.cz",
+    "phone": "",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Firon Josef",
+    "email": "firon@cteam.cz",
+    "phone": "50.0604993",
+    "company": "CONSTRUCTION TEAM s.r.o.",
+    "role": "hlavní stavbyvedoucí pověřený řízením",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "František Kynzl",
+    "email": "fkynzl@sostmeier.cz",
+    "phone": "+420 313 03 31 53",
+    "company": "SOSTMEIER s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jiří Fojtík",
+    "email": "fojtik@pp53.cz",
+    "phone": "+420 602 286 713",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "FORECO Praha",
+    "email": "foreco.praha@seznam.cz",
+    "phone": "603 418 927",
+    "company": "FORECO Praha s.r.o.",
+    "role": "jednatel společnosti",
+    "source": "repeated-signature"
+  },
+  {
+    "name": "Dlouhý František",
+    "email": "frantisek.dlouhy2@dek-cz.com",
+    "phone": "+420 704 686 133",
+    "company": "Stavebniny DEK a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Frantisek Havelka",
+    "email": "frantisek.havelka@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Frýdlová Michaela",
+    "email": "frydlova@hinton.cz",
+    "phone": "+420 731 661 103",
+    "company": "Hinton, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Michal Fučík",
+    "email": "fucik@pp53.cz",
+    "phone": "+420 721 834 929",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Mekni Gabriela",
+    "email": "gabriela.mekni@pohl.cz",
+    "phone": "+420 724 205 242",
+    "company": "POHL cz, a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Ivan Gašpár",
+    "email": "gaspar@ferrum.cz",
+    "phone": "775 852 313",
+    "company": "FERRUM PLZEŇ spol. s r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Tomáš Gellner",
+    "email": "gellner@japsten.cz",
+    "phone": "",
+    "company": "JAPS TEN s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Gergela Stanislav",
+    "email": "gergela@syner.cz",
+    "phone": "777 757 368",
+    "company": "SYNER, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "German Stroev",
+    "email": "german.stroev@strabag.com",
+    "phone": "+420 736 431 701",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "HEBEX Group s.r.o.",
+    "email": "geryk@hebex.cz",
+    "phone": "",
+    "company": "HEBEX Group s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Giannitsis Georgios",
+    "email": "giannitsis@cteam.cz",
+    "phone": "",
+    "company": "CONSTRUCTION TEAM s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "GEMO a.s.",
+    "email": "gregor@gemo.cz",
+    "phone": "",
+    "company": "GEMO a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Hadraba Michal",
+    "email": "hadraba@syner.cz",
+    "phone": "+420 739 504 471",
+    "company": "SYNER, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Hana Chytková",
+    "email": "hana.chytkova@archconstruct.cz",
+    "phone": "",
+    "company": "Arch Construct s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Szerhij Hanhur",
+    "email": "hanhur@smpbuilding.cz",
+    "phone": "",
+    "company": "SMP building a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Ladislav Hanzlík",
+    "email": "hanzlik@comet-obaly.cz",
+    "phone": "+420 581 701 850",
+    "company": "COMET OBALY s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "HAUSMATZOVÁ Pavlína",
+    "email": "hausmatzova@armontis.cz",
+    "phone": "+420 773 515 612",
+    "company": "ARMONTIS BeSt s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Petr Hejra",
+    "email": "hejra.petr@kondor.cz",
+    "phone": "",
+    "company": "KONDOR, s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Tomáš Hejtmanec",
+    "email": "hejtmanec@sis-systemy.cz",
+    "phone": "100093417499",
+    "company": "SIS Systémy a.s.",
+    "role": "VEDOUCÍ PROJEKTOVÝCH TÝMŮ / PROJECT LEADER",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Doubková Helena",
+    "email": "helena.doubkova@pro-doma.cz",
+    "phone": "+420 775 055 883",
+    "company": "PRO-DOMA, SE",
+    "role": "Produktový manažer",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Jeřábková Helena",
+    "email": "helena.jerabkova@metrostav.cz",
+    "phone": "+420 603438562",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "BETONSERVIS s.r.o.",
+    "email": "herman@betonservis.cz",
+    "phone": "777 910 464",
+    "company": "BS BETONSERVIS a.s.",
+    "role": "Stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Pavel Heřmánek",
+    "email": "hermanek@temastav.cz",
+    "phone": "+420 723 534 658",
+    "company": "TEMASTAV s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Hladovec Jan",
+    "email": "hladovec@dereza.cz",
+    "phone": "+420 606 437 123",
+    "company": "DEREZA s.r.o.",
+    "role": "Výrobní ředitel",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Monika Hofmeisterová",
+    "email": "hofmeisterova@pp53.cz",
+    "phone": "+420 720 828 931",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Dagmar Holá",
+    "email": "holadagmar@feri-hk.cz",
+    "phone": "+420 724 202 712",
+    "company": "FERI, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Martin Holub",
+    "email": "holub@biggest.cz",
+    "phone": "+420 602 119 421",
+    "company": "BIGGEST s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Bross spol. s r.o.",
+    "email": "horacek@bross-stavby.cz",
+    "phone": "",
+    "company": "Bross, spol. s r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Hynek Jelinek",
+    "email": "hynek.jelinek@strabag.com",
+    "phone": "+420 739 381 812",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Ivana Wolfová / GEROtop",
+    "email": "i.wolfova@gerotop.cz",
+    "phone": "+420 777 166 835",
+    "company": "GEROtop spol. s r.o.",
+    "role": "asistentka provozu",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Ingrid Folvarcna",
+    "email": "ingrid.folvarcna@peikko.com",
+    "phone": "+420 725 397 973",
+    "company": "PEIKKO CZECH REPUBLIC s.r.o.",
+    "role": "Sales manager",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Ulehlova Ivana",
+    "email": "ivana.ulehlova@porr.cz",
+    "phone": "+420 720 872 926",
+    "company": "PORR a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "BEDNÁŘOVÁ Iveta",
+    "email": "iveta.bednarova@vinci-construction.com",
+    "phone": "+420 727 812 386",
+    "company": "Stavby mostů a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Iveta Chylíková",
+    "email": "iveta.chylikova@leviat.com",
+    "phone": "",
+    "company": "Leviat s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Jan Linhart - WH Stawo s.r.o.",
+    "email": "j.linhart@stawo.cz",
+    "phone": "735 150 485",
+    "company": "WH STAWO Přeštice s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jakub Matěna STAVIREZEK s.r.o.",
+    "email": "j.matena@stavirezek.cz",
+    "phone": "+420 601 003 017",
+    "company": "BVS HK s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "ŠOMEK Jan",
+    "email": "j.somek@hobst.cz",
+    "phone": "+420 608 320 062",
+    "company": "Stavební firma HOBST a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "SYNEK Jakub",
+    "email": "j.synek@hobst.cz",
+    "phone": "",
+    "company": "Stavební firma HOBST a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "UNISTAV CONSTRUCTION a.s.",
+    "email": "jakub.galac@unistav.cz",
+    "phone": "",
+    "company": "UNISTAV CONSTRUCTION a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Hoskovec Jakub",
+    "email": "jakub.hoskovec@porr.cz",
+    "phone": "+420 602 580 753",
+    "company": "PORR a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jakub Kraupner",
+    "email": "jakub.kraupner@dccc.cz",
+    "phone": "+420 720 301 894",
+    "company": "D&CC Czechia s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Kucera Jakub",
+    "email": "jakub.kucera@porr.cz",
+    "phone": "+420 601 230 159",
+    "company": "PORR a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jakub Sadowski",
+    "email": "jakub.sadowski@archconstruct.cz",
+    "phone": "",
+    "company": "Arch Construct s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "STRABAG a.s.",
+    "email": "jakub.skorkovsky@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Jakub Zak",
+    "email": "jakub.zak@strabag.com",
+    "phone": "42 731 627 942",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Jan Cón",
+    "email": "jan.con@bbpgroup.cz",
+    "phone": "",
+    "company": "BBP Monolit s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jan Dastych",
+    "email": "jan.dastych@strabag.com",
+    "phone": "+420 739 329 247",
+    "company": "STRABAG a.s.",
+    "role": "stavbyvedoucí",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Jan Doležal",
+    "email": "jan.dolezal@arswin.cz",
+    "phone": "773 909 007",
+    "company": "ARSWIN s.r.o.",
+    "role": "vedoucí projektu",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Hájek Jan",
+    "email": "jan.hajek@pro-doma.cz",
+    "phone": "+420 608 577 585",
+    "company": "PRO-DOMA, SE",
+    "role": "Obchodní zástupce - hutní materiály",
+    "source": "existing-domain"
+  },
+  {
+    "name": "BERGER BOHEMIA a. s.",
+    "email": "jan.hornik@bergerbohemia.cz",
+    "phone": "",
+    "company": "BERGER BOHEMIA a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jan Rademacher",
+    "email": "jan.rademacher@arswin.cz",
+    "phone": "725 700 318",
+    "company": "ARSWIN s.r.o.",
+    "role": "stavbyvedoucí",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Jan Rothe",
+    "email": "jan.rothe@profi-tesari.cz",
+    "phone": "",
+    "company": "PROFI-TESAŘI s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jan Růžička",
+    "email": "jan.ruzicka@bbpgroup.cz",
+    "phone": "",
+    "company": "BBP Monolit s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Vachutka Jan Ing. et Ing.",
+    "email": "jan.vachutka@metrostav.cz",
+    "phone": "",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Jana Drechselova",
+    "email": "jana.drechselova@strabag.com",
+    "phone": "+ 420 736 766 717",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "MATOUŠOVÁ Jana",
+    "email": "jana.matousova@vinci-construction.com",
+    "phone": "",
+    "company": "Stavby mostů a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jana Palečková",
+    "email": "jana.paleckova@bergerbohemia.cz",
+    "phone": "+420 378 777 273",
+    "company": "BERGER BOHEMIA a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Pavla Jandová",
+    "email": "jandova@amamarketing.cz",
+    "phone": "+420 605 507 095",
+    "company": "AMA, s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Janotová Dana",
+    "email": "janotova@step-praha.cz",
+    "phone": "+420 606 602 718",
+    "company": "STEP, spol. s r.o",
+    "role": "asistentka ředitele společnosti a výrobní přípravářka",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Janská Věra",
+    "email": "janska.vera@kondor.cz",
+    "phone": "",
+    "company": "KONDOR, s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "PREFA Roudná s. r. o.",
+    "email": "jaromir.drs@prefaroudna.cz",
+    "phone": "",
+    "company": "PREFA Roudná s. r. o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Jaroslav Málek",
+    "email": "jaroslav.malek@markgraf-stav.cz",
+    "phone": "",
+    "company": "W. Markgraf stav s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jaroslav Slivansky",
+    "email": "jaroslav.slivansky@stavmat.cz",
+    "phone": "724 364 492",
+    "company": "STAVMAT STAVEBNINY a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Spektra PRO spol. s r.o.",
+    "email": "jaroslav.vesely@spektrapro.cz",
+    "phone": "",
+    "company": "Spektra PRO spol. s r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Ing. Tomáš Javůrek - STATUS stavební a.s.",
+    "email": "javurek@status.cz",
+    "phone": "565 532 305",
+    "company": "STATUS stavební a.s.",
+    "role": "Vedoucí střediska HSV 101",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "ARDEM STAVEBNÍ s.r.o.",
+    "email": "jf@ardem.cz",
+    "phone": "15.20.9769.17",
+    "company": "ARDEM STAVEBNÍ s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jarmila Jílková",
+    "email": "jilkova@fert.cz",
+    "phone": "+420 381 521 166",
+    "company": "FERT a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Kuchař Jindřich",
+    "email": "jindrich.kuchar@pro-doma.cz",
+    "phone": "3271669941",
+    "company": "PRO-DOMA, SE",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Kalina Jiri",
+    "email": "jiri.kalina@porr.cz",
+    "phone": "4502687594",
+    "company": "PORR a.s.",
+    "role": "To: Tomáš Benda - technik , dispečer <cerveny.i@seznam.cz <mailto:cerveny.i@seznam.cz> >",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jiri Venzhofer",
+    "email": "jiri.venzhofer@stavmat.cz",
+    "phone": "",
+    "company": "STAVMAT STAVEBNINY a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Vydra Jiri",
+    "email": "jiri.vydra@porr.cz",
+    "phone": "",
+    "company": "PORR a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "ARDEM STAVEBNÍ s.r.o.",
+    "email": "jk@ardem.cz",
+    "phone": "",
+    "company": "ARDEM STAVEBNÍ s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jakob Kropfelder",
+    "email": "jk@mastertec.eu",
+    "phone": "9503 - 50470",
+    "company": "MASTERTEC GmbH & Co. KG",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Jakub Majer",
+    "email": "jmajer@ggcz.eu",
+    "phone": "",
+    "company": "GEOSAN GROUP a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Josef Jokeš",
+    "email": "jokes@stavitelstvi-jokes.cz",
+    "phone": "+420 777 618 920",
+    "company": "STAVITELSTVÍ JOKEŠ spol. s r. o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Franz Jonáš",
+    "email": "jonas.franz@pro-doma.cz",
+    "phone": "+420 778 408 390",
+    "company": "PRO-DOMA, SE",
+    "role": "Obchodní zástupce",
+    "source": "existing-domain"
+  },
+  {
+    "name": "BEZDĚK Josef",
+    "email": "josef.bezdek@vinci-construction.com",
+    "phone": "1679.3005217",
+    "company": "Stavby mostů a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Josef BRŮHA",
+    "email": "josef.bruha@vces.cz",
+    "phone": "2001214675",
+    "company": "VCES a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Josef Plincelner",
+    "email": "josef.plincelner@markgraf-stav.cz",
+    "phone": "",
+    "company": "W. Markgraf stav s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jan Roudnický",
+    "email": "jroudnicky@roudnickystavitel.cz",
+    "phone": "+420 736 274 757",
+    "company": "Roudnický-Stavitel s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jan Treuter",
+    "email": "jt@mastertec.eu",
+    "phone": "9503 - 50470",
+    "company": "MASTERTEC GmbH & Co. KG",
+    "role": "Area Sales Manager",
+    "source": "existing-domain"
+  },
+  {
+    "name": "ARDEM STAVEBNÍ s.r.o.",
+    "email": "jv@ardem.cz",
+    "phone": "",
+    "company": "ARDEM STAVEBNÍ s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "STAVIREZEK s.r.o.",
+    "email": "k.fejkl@stavirezek.cz",
+    "phone": "",
+    "company": "BVS HK s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "CZ841 Kalkulace PD",
+    "email": "kalkulace.pd@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Jan Kalvoda I MONOKON s.r.o.",
+    "email": "kalvoda@monokon.cz",
+    "phone": "+420 731 141 010",
+    "company": "MONOKON s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Kamil Tuma",
+    "email": "kamil.tuma@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Kamil Urban",
+    "email": "kamil.urban@bbpgroup.cz",
+    "phone": "",
+    "company": "BBP Monolit s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Karabová Jitka",
+    "email": "karabova.jitka@kondor.cz",
+    "phone": "",
+    "company": "KONDOR, s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Nerudova Karolina",
+    "email": "karolina.nerudova@porr.cz",
+    "phone": "+420 720 835 664",
+    "company": "PORR a.s.",
+    "role": "To: Tomáš Benda - technik , dispečer <cerveny.i@seznam.cz <mailto:cerveny.i@seznam.cz> >",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Katerina Kukalova",
+    "email": "katerina.kukalova@peri.cz",
+    "phone": "+420 731 403 141",
+    "company": "PERI, spol. s r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Jan Kindl",
+    "email": "kindl@psp-gds.cz",
+    "phone": "",
+    "company": "PSP-GDS, s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Buresova Klara",
+    "email": "klara.buresova@porr.cz",
+    "phone": "+420 267 226 257",
+    "company": "PORR a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Klára Herinková",
+    "email": "klara.herinkova@bbpgroup.cz",
+    "phone": "",
+    "company": "BBP Monolit s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Klára Hummelová",
+    "email": "klara.hummelova@prefabfactory.cz",
+    "phone": "+420 734 510 701",
+    "company": "Prefab Factory a.s.",
+    "role": "Product manager",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Klara Pudilova",
+    "email": "klara.pudilova@strabag.com",
+    "phone": "731 697 624",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "ŠOBROVÁ Klára",
+    "email": "klara.sobrova@vinci-construction.com",
+    "phone": "+420 605 224 548",
+    "company": "Stavby mostů a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Klejchová",
+    "email": "klejchova@stavby-eda.cz",
+    "phone": "+420 777 754 131",
+    "company": "Stavby-Eda s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Kristýna Lekarová",
+    "email": "klekarova@ulmaconstruction.cz",
+    "phone": "+420 326 910 600",
+    "company": "ULMA Construcción CZ, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Klempa Tomáš",
+    "email": "klempa@vstav.cz",
+    "phone": "+420 724 400 475",
+    "company": "V-STAV A, spol. s r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Martin Kohout",
+    "email": "kohout@pp53.cz",
+    "phone": "+420 727 883 968",
+    "company": "PP 53, a.s.",
+    "role": "vedoucí rozpočtář obchodního oddělení",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Kristýna Konvrzková",
+    "email": "konvrzkova@sis-systemy.cz",
+    "phone": "100093417499",
+    "company": "SIS Systémy a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "s.r.o. SYNER",
+    "email": "korinek@syner.cz",
+    "phone": "",
+    "company": "SYNER, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Leona Kosarova",
+    "email": "kosarova.leona@cz.sika.com",
+    "phone": "",
+    "company": "Sika CZ, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Petr Košvanec",
+    "email": "kosvanec@akostav.cz",
+    "phone": "+420 723 749 604",
+    "company": "Akostav s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Tomáš Kouba",
+    "email": "kouba@pp53.cz",
+    "phone": "699 007 706",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Koubek Jaroslav",
+    "email": "koubek@gemo.cz",
+    "phone": "+420 739 501 617",
+    "company": "GEMO a.s.",
+    "role": "hlavní stavbyvedoucí střediska monolitických konstrukcí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Koudelková Jiřina",
+    "email": "koudelkova@hinton.cz",
+    "phone": "+420 737 255 512",
+    "company": "Hinton, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Vlastislav Kozel",
+    "email": "kozel@fosalli.cz",
+    "phone": "601104588",
+    "company": "Fosalli s.r.o.",
+    "role": "projektový manažer",
+    "source": "existing-domain"
+  },
+  {
+    "name": "David Kozík",
+    "email": "kozik@pp53.cz",
+    "phone": "",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Král Šimon",
+    "email": "kral.simon@syner.cz",
+    "phone": "+420 725 639 417",
+    "company": "SYNER, s.r.o.",
+    "role": "Asistent výrobního úseku",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Kateřina Krejsarová",
+    "email": "krejsarova@sis-systemy.cz",
+    "phone": "+420 731 806 976",
+    "company": "SIS Systémy a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Křístek Tomáš",
+    "email": "kristek@vstav.cz",
+    "phone": "",
+    "company": "V-STAV A, spol. s r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Kristina Yuryeva",
+    "email": "kristina.yuryeva@csmonolitia.cz",
+    "phone": "+420 739 357 787",
+    "company": "C&S MONOLITIA s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Kroc Jan",
+    "email": "kroc@hsfsystem.cz",
+    "phone": "",
+    "company": "HSF System a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Krutský Jan",
+    "email": "krutsky@cteam.cz",
+    "phone": "",
+    "company": "CONSTRUCTION TEAM s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Janac Krystof",
+    "email": "krystof.janac@porr.cz",
+    "phone": "+420 724 952 043",
+    "company": "PORR a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Kateřina Šmidtová",
+    "email": "ksmidtova@vdogroup.cz",
+    "phone": "725 949 834",
+    "company": "V.D.O. Group s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Ing. Marek Kubr",
+    "email": "kubrmarek@feri-hk.cz",
+    "phone": "",
+    "company": "FERI, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "FERRUM PLZEŇ spol. s r.o.",
+    "email": "kucerova@ferrum.cz",
+    "phone": "+420 770 129 922",
+    "company": "FERRUM PLZEŇ spol. s r.o.",
+    "role": "Obchodní zástupce",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Zdeněk Kuchař",
+    "email": "kuchar@pp53.cz",
+    "phone": "+420 724 645 984",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Kuchař Marek",
+    "email": "kuchar@psg.cz",
+    "phone": "+420 731 400 172",
+    "company": "PSG Construction a.s.",
+    "role": "odborný přípravář",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Kundrtová Petra",
+    "email": "kundrtova.petra@izomat.cz",
+    "phone": "+420 724882644",
+    "company": "IZOMAT stavebniny s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Kuníková Jana",
+    "email": "kunikova.jana@kondor.cz",
+    "phone": "",
+    "company": "KONDOR, s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Kuška",
+    "email": "kuska@staveko.com",
+    "phone": "724 133 641",
+    "company": "STAVEKO, spol. s r. o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "STAVIREZEK s.r.o.",
+    "email": "l.dyntar@stavirezek.cz",
+    "phone": "",
+    "company": "BVS HK s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Ladislav Kratina",
+    "email": "ladislav.kratina@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Lamprecht Jiří",
+    "email": "lamprecht@hinton.cz",
+    "phone": "+420 731 273 039",
+    "company": "Hinton, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Live Dream Create s.r.o.",
+    "email": "ldcstav@gmail.com",
+    "phone": "+420 773 012 757",
+    "company": "Live Dream Create s.r.o.",
+    "role": "",
+    "source": "repeated-signature"
+  },
+  {
+    "name": "Spektra PRO spol. s r.o.",
+    "email": "lenka.dejdarova@spektrapro.cz",
+    "phone": "",
+    "company": "Spektra PRO spol. s r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Lenka Kosvancova",
+    "email": "lenka.kosvancova@mc-bauchemie.cz",
+    "phone": "+420 602 144 535",
+    "company": "MC-Bauchemie s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Lenka Steinerova",
+    "email": "lenka.steinerova@mc-bauchemie.cz",
+    "phone": "",
+    "company": "MC-Bauchemie s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Ulčová Lenka",
+    "email": "lenka.ulcova@pohl.cz",
+    "phone": "+420 771 125 684",
+    "company": "POHL cz, a.s.",
+    "role": "Přípravář",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Radka Lesáková",
+    "email": "lesakova@betonservis.cz",
+    "phone": "",
+    "company": "BS BETONSERVIS a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Vitalie Lesanu",
+    "email": "lesanu@ferax-vl.cz",
+    "phone": "",
+    "company": "FERAX VL s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jan Lhota",
+    "email": "lhota@pp53.cz",
+    "phone": "",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Lucie Soprová",
+    "email": "lucie.soprova@leviat.com",
+    "phone": "+420 602 733 357",
+    "company": "Leviat s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Lukas Chabada",
+    "email": "lukas.chabada@stavmat.cz",
+    "phone": "531042489",
+    "company": "STAVMAT STAVEBNINY a.s.",
+    "role": "vedoucí obchodního střediska",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Dítě Lukáš",
+    "email": "lukas.dite@pro-doma.cz",
+    "phone": "+420 771 271 862",
+    "company": "PRO-DOMA, SE",
+    "role": "Vedoucí pobočky",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Kmeť Lukáš Ing.",
+    "email": "lukas.kmet@metrostav.cz",
+    "phone": "+420720941353",
+    "company": "Metrostav a.s.",
+    "role": "Stavbyvedoucí",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Lukas Kretek",
+    "email": "lukas.kretek@strabag.com",
+    "phone": "+420 736 167 762",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Lukáš Sekeli",
+    "email": "lukas.sekeli@sis-construction.cz",
+    "phone": "100093417499",
+    "company": "SIS Construction a.s.",
+    "role": "Project Manager",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Lukáš TOTH",
+    "email": "lukas.toth@vces.cz",
+    "phone": "",
+    "company": "VCES a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Lukas Vacek",
+    "email": "lukas.vacek@strabag.com",
+    "phone": "+420 734 792 220",
+    "company": "STRABAG a.s.",
+    "role": "Vedoucí přípravy CS Campus Praha",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Štěpán Lukeš",
+    "email": "lukes@amopraha.cz",
+    "phone": "+420 739 877 677",
+    "company": "AMO, spol. s r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Lupač Felix",
+    "email": "lupac.felix@gemo.cz",
+    "phone": "+420 604 735 445",
+    "company": "GEMO a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "ROLAND CZ s.r.o.",
+    "email": "lvorasicka@ulmaconstruction.cz",
+    "phone": "",
+    "company": "ULMA Construcción CZ, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Bohunčák Marek",
+    "email": "m.bohuncak@aedproject.cz",
+    "phone": "+420 603 883 997",
+    "company": "AED PROJECT, A.S.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Matěj Homolka",
+    "email": "m.homolka@bk25.cz",
+    "phone": "+420 736 187 474",
+    "company": "BK25 s.r.o.",
+    "role": "Stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jakubcik Milan",
+    "email": "m.jakubcik@swietelsky.cz",
+    "phone": "+420 352 624 508",
+    "company": "SWIETELSKY stavební s.r.o.",
+    "role": "Technik oddělení přípravy a kalkulací",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "m.kohut",
+    "email": "m.kohut@stavirezek.cz",
+    "phone": "",
+    "company": "BVS HK s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "MARYŠKO Michal",
+    "email": "m.marysko@hobst.cz",
+    "phone": "608 320 063",
+    "company": "Stavební firma HOBST a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "POŽÁR Marek",
+    "email": "m.pozar@hobst.cz",
+    "phone": "+420 737 359 157",
+    "company": "Stavební firma HOBST a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Tremerová Miluše",
+    "email": "m.tremerova@stavirezek.cz",
+    "phone": "",
+    "company": "BVS HK s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "MIRO ZADA",
+    "email": "m.zada@bk25.cz",
+    "phone": "",
+    "company": "BK25 s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "STRABAG a.s.",
+    "email": "magdalena.ruzickova@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Jakub Maier",
+    "email": "maier@owndevelopment.cz",
+    "phone": "+420 702 070 147",
+    "company": "OWN Development s.r.o.",
+    "role": "Vedoucí nákupu",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Maryna Malíková",
+    "email": "malikova@betonit.eu",
+    "phone": "+420 734 883 232",
+    "company": "BETONIT EU s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Marek Lanzendorf",
+    "email": "marek.lanzendorf@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Segéňová Marie",
+    "email": "marie.segenova@metrostav.cz",
+    "phone": "+420 606370893",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Marketa Padourkova",
+    "email": "marketa.padourkova@strabag.com",
+    "phone": "+420 704 866 518",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Marta Kozáková",
+    "email": "marta.kozakova@rocksalt.cz",
+    "phone": "",
+    "company": "ROCK SALT, s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Martin Bašta",
+    "email": "martin.basta@sis-systemy.cz",
+    "phone": "100093417499",
+    "company": "SIS Systémy a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Břečka Martin Ing.",
+    "email": "martin.brecka@metrostav.cz",
+    "phone": "",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Spektra PRO spol. s r.o.",
+    "email": "martin.dejdar@spektrapro.cz",
+    "phone": "",
+    "company": "Spektra PRO spol. s r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Spektra PRO spol. s r.o.",
+    "email": "martin.donda@spektrapro.cz",
+    "phone": "+420 724 056 952",
+    "company": "Spektra PRO spol. s r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Martin Foltýn",
+    "email": "martin.foltyn@bergerbohemia.cz",
+    "phone": "",
+    "company": "BERGER BOHEMIA a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Martin Grainda",
+    "email": "martin.grainda@fosalli.cz",
+    "phone": "+420 775031469",
+    "company": "Fosalli s.r.o.",
+    "role": "Stavbyvedoucí",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Kubíček Martin Ing.",
+    "email": "martin.kubicek@metrostav.cz",
+    "phone": "+420 737 255 372",
+    "company": "Metrostav a.s.",
+    "role": "přípravář ŽBK",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Martin Nademlejnský",
+    "email": "martin.nademlejnsky@mavi-monolity.cz",
+    "phone": "",
+    "company": "MAVI monolity s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Martin Šitner",
+    "email": "martin.sitner@arswin.cz",
+    "phone": "602 617 581",
+    "company": "ARSWIN s.r.o.",
+    "role": "stavbyvedoucí",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Martin Tomis",
+    "email": "martin.tomis@stavmat.cz",
+    "phone": "+420 724 276 927",
+    "company": "STAVMAT STAVEBNINY a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "STRABAG a.s.",
+    "email": "martina.wirthova@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Martin Antalyk",
+    "email": "martinantalyk@gmail.com",
+    "phone": "+420 725 569 341",
+    "company": "Velton Real Estate s.r.o.",
+    "role": "",
+    "source": "repeated-signature"
+  },
+  {
+    "name": "Karel Martínek",
+    "email": "martinek@pp53.cz",
+    "phone": "",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Robert Mašinda",
+    "email": "masinda@pp53.cz",
+    "phone": "+420 724 337 259",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Červenka Matěj",
+    "email": "matej.cervenka@mavi-monolity.cz",
+    "phone": "+420 704 614 355",
+    "company": "MAVI monolity s.r.o.",
+    "role": "Stavební technik, MAVI monolity",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Matěj Homolka",
+    "email": "matej.homolka@archconstruct.cz",
+    "phone": "+420 736 187 474",
+    "company": "Arch Construct s.r.o.",
+    "role": "Stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "KUDERA Matěj",
+    "email": "matej.kudera@vinci-construction.com",
+    "phone": "1679.3005217",
+    "company": "Stavby mostů a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "NOVOTNÝ Matěj",
+    "email": "matej.novotny@vinci-construction.com",
+    "phone": "+420 730 167 617",
+    "company": "Stavby mostů a.s.",
+    "role": "stavbyvedoucí junior",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Matej Vomacka",
+    "email": "matej.vomacka@linarit.cz",
+    "phone": "728 992 502",
+    "company": "Linarit s.r.o.",
+    "role": "Stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Josef Matějka",
+    "email": "matejka@pp53.cz",
+    "phone": "",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Matoušek Roman",
+    "email": "matousek@syner.cz",
+    "phone": "+420 731 796 724",
+    "company": "SYNER, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Matúš Bandžak",
+    "email": "matus.bandzak@rocksalt.cz",
+    "phone": "+420 778 471 297",
+    "company": "ROCK SALT, s.r.o.",
+    "role": "Přípravář",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Matyáš Šampalík",
+    "email": "matyas.sampalik@bergerbohemia.cz",
+    "phone": "+420 378 777 226",
+    "company": "BERGER BOHEMIA a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Maxim Moscovciuc",
+    "email": "maxim.moscovciuc@bbpgroup.cz",
+    "phone": "",
+    "company": "BBP Monolit s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Maxim Sčerbinin",
+    "email": "maxim.scerbinin@archconstruct.cz",
+    "phone": "774 915 667",
+    "company": "Arch Construct s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Meluzín Jakub",
+    "email": "meluzin@syner.cz",
+    "phone": "+420 776 463 483",
+    "company": "SYNER, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Andrea Mengler",
+    "email": "mengler@baufera.cz",
+    "phone": "",
+    "company": "BAUFERA s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "PREFA Roudná s. r. o.",
+    "email": "michael.drs@prefaroudna.cz",
+    "phone": "+420 721 832 407",
+    "company": "PREFA Roudná s. r. o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Kodeda Michael",
+    "email": "michael.kodeda@porr.cz",
+    "phone": "+420 734 154 303",
+    "company": "PORR a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Špičáková Michaela",
+    "email": "michaela.spicakova@metrostav.cz",
+    "phone": "+420 774708632",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Michal Bílý",
+    "email": "michal.bily@bergerbohemia.cz",
+    "phone": "+420 731 550 787",
+    "company": "BERGER BOHEMIA a.s.",
+    "role": "stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Michal Cabejšek",
+    "email": "michal.cabejsek@bbpgroup.cz",
+    "phone": "",
+    "company": "BBP Monolit s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Michal Dobes",
+    "email": "michal.dobes@strabag.com",
+    "phone": "260102528",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Floch Michal",
+    "email": "michal.floch@pro-doma.cz",
+    "phone": "+420 775 055 884",
+    "company": "PRO-DOMA, SE",
+    "role": "Obchodní manažer specialista HUTNÍ",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Michal Magur",
+    "email": "michal.magur@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Mareš Michal",
+    "email": "michal.mares@pro-doma.cz",
+    "phone": "+420 771 230 469",
+    "company": "PRO-DOMA, SE",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Michal Prais",
+    "email": "michal.prais@bergerbohemia.cz",
+    "phone": "+420 378 777 225",
+    "company": "BERGER BOHEMIA a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "RAŠKA Michal",
+    "email": "michal.raska@vinci-construction.com",
+    "phone": "",
+    "company": "Stavby mostů a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Ing. Michal Tomeček",
+    "email": "michal.tomecek@ktmonolity.cz",
+    "phone": "+420 736 135 014",
+    "company": "K&T Monolity s.r.o.",
+    "role": "Výrobní ředitel",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Michal Tomšovic",
+    "email": "michal.tomsovic@wespo.cz",
+    "phone": "+420 602 953 644",
+    "company": "WESPO Bohemia s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "FERRUM PLZEŇ spol. s r.o.",
+    "email": "mikes@ferrum.cz",
+    "phone": "",
+    "company": "FERRUM PLZEŇ spol. s r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "BERNARD Milan",
+    "email": "milan.bernard@vinci-construction.com",
+    "phone": "+420 602703612",
+    "company": "Stavby mostů a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Milan Záleský",
+    "email": "milan.zalesky@bbpgroup.cz",
+    "phone": "",
+    "company": "BBP Monolit s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Miloš Fišer",
+    "email": "milos.fiser@cechasyn.cz",
+    "phone": "+420604397396",
+    "company": "Čech & syn Stavební společnost a.s.",
+    "role": "HLAVNÍ STAVBYVEDOUCÍ",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Miloslav Les",
+    "email": "miloslav.les@strabag.com",
+    "phone": "+420 732 281 078",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Lacman Miroslav",
+    "email": "miroslav.lacman@metrostav.cz",
+    "phone": "+420 605473641",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Miroslava Neubauerová",
+    "email": "miroslava.neubauerova@roadfin.cz",
+    "phone": "+420 605 722 031",
+    "company": "ROADFIN STAVBY s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Mitro Róbert",
+    "email": "mitro@syner.cz",
+    "phone": "+420 731 796 666",
+    "company": "SYNER, s.r.o.",
+    "role": "Hlavní stavbyvedoucí",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Mlsnová Helena",
+    "email": "mlsnova.helena@izomat.cz",
+    "phone": "724 128 714",
+    "company": "IZOMAT stavebniny s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Molhancová Olga",
+    "email": "molhancova@cteam.cz",
+    "phone": "",
+    "company": "CONSTRUCTION TEAM s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Monika Hoblíková",
+    "email": "monika.hoblikova@roadfin.cz",
+    "phone": "+420 724 124 715",
+    "company": "ROADFIN STAVBY s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Iryna Morozova",
+    "email": "morozova@betonit.eu",
+    "phone": "",
+    "company": "BETONIT EU s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Mrázek Lukáš",
+    "email": "mrazek@sladekgroup.cz",
+    "phone": "+420 317 470 000",
+    "company": "SLÁDEK GROUP, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Martina Šimůnková",
+    "email": "msimunkova@ulmaconstruction.cz",
+    "phone": "+420 720 881 387",
+    "company": "ULMA Construcción CZ, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Marek Štěrba",
+    "email": "msterba@ggcz.eu",
+    "phone": "+ 420 734 640 919",
+    "company": "GEOSAN GROUP a.s.",
+    "role": "projektant nepovolil změny velikostí prostupů bílou vanou.",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Michael Musialek",
+    "email": "musialek@sis-systemy.cz",
+    "phone": "+420 730 186 741",
+    "company": "SIS Systémy a.s.",
+    "role": "ROZPOČTÁŘ / COST MANAGER",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "ARDEM STAVEBNÍ s.r.o.",
+    "email": "mv@ardem.cz",
+    "phone": "",
+    "company": "ARDEM STAVEBNÍ s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "SMP Vodohospodářské stavby a.s.",
+    "email": "mykhailo.hanchyn@vinci-construction.com",
+    "phone": "",
+    "company": "Stavby mostů a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "ARDEM STAVEBNÍ s.r.o.",
+    "email": "mz@ardem.cz",
+    "phone": "608 797 644",
+    "company": "ARDEM STAVEBNÍ s.r.o.",
+    "role": "Stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Nejedlý Pavel",
+    "email": "nejedly@vstav.cz",
+    "phone": "724 400 489",
+    "company": "V-STAV A, spol. s r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Monika Nekolová",
+    "email": "nekolovamonika@feri-hk.cz",
+    "phone": "+420 603 100 894",
+    "company": "FERI, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Robert Nemec",
+    "email": "nemec@pp53.cz",
+    "phone": "+420 702 205 734",
+    "company": "PP 53, a.s.",
+    "role": "Stavbyvedoucí",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Netolický Petr",
+    "email": "netolicky@gemo.cz",
+    "phone": "+420 733 676 215",
+    "company": "GEMO a.s.",
+    "role": "Hlavní stavbyvedoucí střediska monolitických kcí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Nikol Nisova",
+    "email": "nikol.nisova@strabag.com",
+    "phone": "+420 734 668 784",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Adéla Nováková",
+    "email": "novakovaadela@feri-hk.cz",
+    "phone": "+420 602 408 020",
+    "company": "FERI, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Jaroslav Novotný",
+    "email": "novotnyjaroslav@feri-hk.cz",
+    "phone": "+420 774 403 160",
+    "company": "FERI, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Zdenek Ondrej",
+    "email": "o.zdenek@swietelsky.cz",
+    "phone": "+420 607 025 201",
+    "company": "SWIETELSKY stavební s.r.o.",
+    "role": "vedoucí stavby",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "ARDEM STAVEBNÍ s.r.o.",
+    "email": "oa@ardem.cz",
+    "phone": "15.20.9769.17",
+    "company": "ARDEM STAVEBNÍ s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Jiří Obadal",
+    "email": "obadal@pp53.cz",
+    "phone": "+420 737 478 102",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "obchod cz",
+    "email": "obchod.cz@leviat.com",
+    "phone": "0304-20-100-35 1",
+    "company": "Leviat s.r.o.",
+    "role": "Sales Representative | Czech Republic",
+    "source": "existing-domain"
+  },
+  {
+    "name": "TEPSYSTEM s.r.o.",
+    "email": "obchod.tepsystem@gmail.com",
+    "phone": "607 693 805",
+    "company": "TEPSYSTEM s.r.o.",
+    "role": "",
+    "source": "repeated-signature"
+  },
+  {
+    "name": "Obecny Profil",
+    "email": "obecny@ferax-vl.cz",
+    "phone": "",
+    "company": "FERAX VL s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Objednavky CS Campus",
+    "email": "obj.campus@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "ondrej.langmajer",
+    "email": "ondrej.langmajer@mavi-monolity.cz",
+    "phone": "+420 605 599 180",
+    "company": "MAVI monolity s.r.o.",
+    "role": "Vedoucí ekonomického oddělení, MAVI monolity",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Malíček Ondřej",
+    "email": "ondrej.malicek@pro-doma.cz",
+    "phone": "+420 775 055 887",
+    "company": "PRO-DOMA, SE",
+    "role": "Vedoucí pobočky",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Metrostav a.s.",
+    "email": "ondrej.vojtek@metrostav.cz",
+    "phone": "",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Michalek Petr",
+    "email": "p.michalek@swietelsky.cz",
+    "phone": "+420 601 566 438",
+    "company": "SWIETELSKY stavební s.r.o.",
+    "role": "Stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Petra Sloupova",
+    "email": "p.sloupova@maxfrank.cz",
+    "phone": "+420 727 962 192",
+    "company": "MAX FRANK",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "spol. s r.o. TAZATA",
+    "email": "p.takac@tazata.cz",
+    "phone": "",
+    "company": "TAZATA, spol. s r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Pankiv Lukáš",
+    "email": "pankiv@gemo.cz",
+    "phone": "+420 737 783 803",
+    "company": "GEMO a.s.",
+    "role": "stavbyvedoucí střediska monolitických konstrukcí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Ing. Šimon Papcún",
+    "email": "papcun@japsten.cz",
+    "phone": "",
+    "company": "JAPS TEN s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Pášová Ladislava",
+    "email": "pasova@sladekgroup.cz",
+    "phone": "+420 317 470 022",
+    "company": "SLÁDEK GROUP, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Bužga Patrik Ing. arch.",
+    "email": "patrik.buzga@metrostav.cz",
+    "phone": "+420 734 549 358",
+    "company": "Metrostav a.s.",
+    "role": "Stavbyvedoucí",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Šťastný Patrik",
+    "email": "patrik.stastny@metrostav.cz",
+    "phone": "",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Paulis Marek",
+    "email": "paulis@cteam.cz",
+    "phone": "50.0604993",
+    "company": "CONSTRUCTION TEAM s.r.o.",
+    "role": "projektový manager",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Felix Pavel Ing.",
+    "email": "pavel.felix@metrostav.cz",
+    "phone": "+420602139633",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Pavel Nový",
+    "email": "pavel.novy@bergerbohemia.cz",
+    "phone": "+420 378 777 222",
+    "company": "BERGER BOHEMIA a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Pavel Pavlu",
+    "email": "pavel.pavlu@strabag.com",
+    "phone": "+ 420 776 229 951",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "PELOUŠEK Pavel",
+    "email": "pavel.pelousek@vinci-construction.com",
+    "phone": "",
+    "company": "Stavby mostů a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Pavel Roj",
+    "email": "pavel.roj@roadfin.cz",
+    "phone": "+420 774 911 995",
+    "company": "ROADFIN STAVBY s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Pavel Šimsa",
+    "email": "pavel.simsa@bergerbohemia.cz",
+    "phone": "",
+    "company": "BERGER BOHEMIA a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Švec Pavel",
+    "email": "pavel.svec@metrostav.cz",
+    "phone": "2243 193 04",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Pavel Třísko",
+    "email": "pavel.trisko@regutec.com",
+    "phone": "606 724 230",
+    "company": "REGUTEC a.s.",
+    "role": "Sales Manager",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "TŮMA Pavel",
+    "email": "pavel.tuma@vinci-construction.com",
+    "phone": "+420 724 830 940",
+    "company": "Stavby mostů a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Wiesner Pavel",
+    "email": "pavel.wiesner@metrostav.cz",
+    "phone": "",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Pavel Wölfl",
+    "email": "pavel.wolfl@wespo.cz",
+    "phone": "",
+    "company": "WESPO Bohemia s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Pavel Hornsteiner ml.",
+    "email": "pavelhor@pp53.cz",
+    "phone": "+420 774 596 601",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "BAUFERA s.r.o.",
+    "email": "pavlat@baufera.cz",
+    "phone": "",
+    "company": "BAUFERA s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Pavlína Voplakalová",
+    "email": "pavlina.voplakalova@mivocz.cz",
+    "phone": "",
+    "company": "MIVO, spol. s r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Žihlová Pavlína",
+    "email": "pavlina.zihlova@metrostav.cz",
+    "phone": "+420731140528",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Hana Pavlinská",
+    "email": "pavlinska@steelag.cz",
+    "phone": "+420 724 980 895",
+    "company": "STEELAG Praha s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Perzl Karel",
+    "email": "perzl@syner.cz",
+    "phone": "+420 731 796 662",
+    "company": "SYNER, s.r.o.",
+    "role": "Hlavní stavbyvedoucí",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Vojtěch Pešek",
+    "email": "pesek@abpholding.cz",
+    "phone": "+420 604 106 177",
+    "company": "ABP HOLDING a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Peter Kampe",
+    "email": "peter.kampe@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Pavlína Peterková",
+    "email": "peterkova@s-b.cz",
+    "phone": "+420 734 253 187",
+    "company": "S-B s.r.o.",
+    "role": "Asistentka, recepce",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Petr Doležal",
+    "email": "petr.dolezal@arswin.cz",
+    "phone": "15.20.9769.016",
+    "company": "ARSWIN s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "STRABAG a.s.",
+    "email": "petr.girard@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "LANDSFELD Petr",
+    "email": "petr.landsfeld@vinci-construction.com",
+    "phone": "+420 705502110",
+    "company": "Stavby mostů a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Petr Pixa",
+    "email": "petr.pixa@fkbau.cz",
+    "phone": "+420 777 523 000",
+    "company": "FK Bau a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Plhal Petr",
+    "email": "petr.plhal@porr.cz",
+    "phone": "+420 720 027 858",
+    "company": "PORR a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Štefl Petr",
+    "email": "petr.stefl@pohl.cz",
+    "phone": "+420 720 347 743",
+    "company": "POHL cz, a.s.",
+    "role": "Stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Petr Vlcek",
+    "email": "petr@stavitelstvi-vlcek.cz",
+    "phone": "+420 602 767 128",
+    "company": "Stavitelství Vlček s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Petra Mrzenova",
+    "email": "petra.mrzenova@strabag.com",
+    "phone": "+420 222 868 108",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Petra Bayramová",
+    "email": "petra@empl.cz",
+    "phone": "+420 606 759 015",
+    "company": "EMPL - LIBEREC spol. s r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Petr Štučka",
+    "email": "petrstucka@pp53.cz",
+    "phone": "+420 602 500 542",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Philipp Schreier",
+    "email": "phs@mastertec.eu",
+    "phone": "49 9503 - 50470",
+    "company": "MASTERTEC GmbH & Co. KG",
+    "role": "Team Leader Sales",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Jan Pilík",
+    "email": "pilik@s-b.cz",
+    "phone": "+420 603 457 627",
+    "company": "S-B s.r.o.",
+    "role": "Přípravář",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "David Piňos",
+    "email": "pinosdavid@feri-hk.cz",
+    "phone": "",
+    "company": "FERI, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Martin Pitra / TAZATA",
+    "email": "pitra@tazata.cz",
+    "phone": "373 701 255",
+    "company": "TAZATA, spol. s r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Zdeněk Plincner",
+    "email": "plincner.zdenek@fosalli.cz",
+    "phone": "",
+    "company": "Fosalli s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "POHODA",
+    "email": "pohoda@stormware.cz",
+    "phone": "",
+    "company": "Tento zpravodaj je elektronickým zpravodajem rozesílaným zákazníkům společnosti STORMWARE s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Lucie Pokorná",
+    "email": "pokorna@fert.cz",
+    "phone": "+420 777 793 001",
+    "company": "FERT a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Polz Roman",
+    "email": "polz@hinton.cz",
+    "phone": "+420 737 255 581",
+    "company": "Hinton, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Tamara Pourová",
+    "email": "pourova@baufera.cz",
+    "phone": "",
+    "company": "BAUFERA s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Hron Přemysl",
+    "email": "premysl.hron@pohl.cz",
+    "phone": "+420 723 462 474",
+    "company": "POHL cz, a.s.",
+    "role": "vedoucí střediska monolitů",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Eva Prezmecká",
+    "email": "prezmecka@fert.cz",
+    "phone": "262000579",
+    "company": "FERT a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Přibyl Martin",
+    "email": "pribyl.martin@pro-doma.cz",
+    "phone": "",
+    "company": "PRO-DOMA, SE",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Přibylová Kateřina",
+    "email": "pribylova.katerina@izomat.cz",
+    "phone": "+420 601 131 017",
+    "company": "IZOMAT stavebniny s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Ondřej Ševčík",
+    "email": "priprava@baufera.cz",
+    "phone": "",
+    "company": "BAUFERA s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Příprava",
+    "email": "priprava@ferax-vl.cz",
+    "phone": "774 220 671",
+    "company": "FERAX VL s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Příprava",
+    "email": "priprava@monokon.cz",
+    "phone": "+420 606 762 074",
+    "company": "MONOKON s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Pýcha Stanislav",
+    "email": "pycha@cteam.cz",
+    "phone": "",
+    "company": "CONSTRUCTION TEAM s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "r.ruda",
+    "email": "r.ruda@stavirezek.cz",
+    "phone": "+420 733 197 222",
+    "company": "BVS HK s.r.o.",
+    "role": "tak jsem to prověřoval a technik si toho schodiště úplně nevšiml.",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Čermák Radek Bc.",
+    "email": "radek.cermak@metrostav.cz",
+    "phone": "606 029 186",
+    "company": "Metrostav a.s.",
+    "role": "vedoucí projektu",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Radek Ulč",
+    "email": "radek.ulc@ikoplzen.cz",
+    "phone": "+420 371 656 921",
+    "company": "IKO stavby s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Mádr Radim",
+    "email": "radim.madr@metrostav.cz",
+    "phone": "724 006 906",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Portál POHODA",
+    "email": "redakce@stormware.cz",
+    "phone": "567 112 611",
+    "company": "Tento zpravodaj je elektronickým zpravodajem rozesílaným zákazníkům společnosti STORMWARE s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Lukáš Regner",
+    "email": "regner@pp53.cz",
+    "phone": "",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "ARSWIN s.r.o.",
+    "email": "richard.hynek@arswin.cz",
+    "phone": "",
+    "company": "ARSWIN s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "OWN Development s.r.o.",
+    "email": "roflik@owndevelopment.cz",
+    "phone": "",
+    "company": "OWN Development s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Roman Kodera",
+    "email": "roman.kodera@mc-bauchemie.cz",
+    "phone": "",
+    "company": "MC-Bauchemie s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Metrostav a.s.",
+    "email": "roman.ruzicka@metrostav.cz",
+    "phone": "",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Roman Tuna",
+    "email": "roman.tuna@roadfin.cz",
+    "phone": "",
+    "company": "ROADFIN STAVBY s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "BERGER BOHEMIA a. s.",
+    "email": "roman.zahrobsky@bergerbohemia.cz",
+    "phone": "",
+    "company": "BERGER BOHEMIA a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Romana Bunkova",
+    "email": "romana.bunkova@strabag.com",
+    "phone": "+420 603 457 227",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "ELRAIL s.r.o.",
+    "email": "roubal@elrail.cz",
+    "phone": "",
+    "company": "ELRAIL s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Roušalová Alena",
+    "email": "rousalova@syner.cz",
+    "phone": "+420 725 639 404",
+    "company": "SYNER, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Rudolf Frlička",
+    "email": "rudolf.frlicka@sis-construction.cz",
+    "phone": "+420 724 363 070",
+    "company": "SIS Construction a.s.",
+    "role": "Project Manager",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Kalytchuk Ruslana",
+    "email": "ruslana.kalytchuk@metrostav.cz",
+    "phone": "+420720861394",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "FERAX VL s.r.o.",
+    "email": "rusu@ferax-vl.cz",
+    "phone": "",
+    "company": "FERAX VL s.r.o.",
+    "role": "Stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "V.D.O. Group s.r.o.",
+    "email": "sabacky@vdogroup.cz",
+    "phone": "",
+    "company": "V.D.O. Group s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Šach Michal",
+    "email": "sach@sladekgroup.cz",
+    "phone": "+420 733 157 354",
+    "company": "SLÁDEK GROUP, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Juraj Sahul",
+    "email": "sahuljuraj@feri-hk.cz",
+    "phone": "+420 724 373 019",
+    "company": "FERI, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Šárka Ďurejová",
+    "email": "sarka.pohankova@sis-systemy.cz",
+    "phone": "100093417499",
+    "company": "SIS Systémy a.s.",
+    "role": "COST MANAGER – ROZPOČTÁŘ/PŘÍPRAVÁŘ",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Sabine Schipke",
+    "email": "sas@mastertec.eu",
+    "phone": "49 9503 - 50470",
+    "company": "MASTERTEC GmbH & Co. KG",
+    "role": "Sales Department",
+    "source": "existing-domain"
+  },
+  {
+    "name": "IZOMAT stavebniny s.r.o.",
+    "email": "schreibova.alice@izomat.cz",
+    "phone": "",
+    "company": "IZOMAT stavebniny s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Sebastian Stedry",
+    "email": "sebastian.stedry@strabag.com",
+    "phone": "733 156 778",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Sedlicky Jaromir",
+    "email": "sedlicky@syner.cz",
+    "phone": "",
+    "company": "SYNER, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Šefl Jaroslav",
+    "email": "sefl.jaroslav@izomat.cz",
+    "phone": "+420 724 033 145",
+    "company": "IZOMAT stavebniny s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "serhej0706_seznam.cz",
+    "email": "serhej0706@seznam.cz",
+    "phone": "773076959",
+    "company": "SDMstavPraha s.r.o",
+    "role": "",
+    "source": "repeated-signature"
+  },
+  {
+    "name": "Ing. Nicolette Shejbalová",
+    "email": "shejbalova.nicolette@japsten.cz",
+    "phone": "+420 722 144 444",
+    "company": "JAPS TEN s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Metelová Silvie",
+    "email": "silvie.metelova@pro-doma.cz",
+    "phone": "+420 778 965 852",
+    "company": "PRO-DOMA, SE",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Truhlářová Silvie",
+    "email": "silvie.truhlarova@pro-doma.cz",
+    "phone": "+420 778 408 281",
+    "company": "PRO-DOMA, SE",
+    "role": "Vedoucí pobočky",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Simaco Reconstruction",
+    "email": "simaco.reconstruction@gmail.com",
+    "phone": "+420 724 283 383",
+    "company": "Simaco Reconstruction & Maintenance s.r.o.",
+    "role": "",
+    "source": "repeated-signature"
+  },
+  {
+    "name": "Šiška Jiří",
+    "email": "siska.jiri@izomat.cz",
+    "phone": "+420 606654317",
+    "company": "IZOMAT stavebniny s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Skála Milan",
+    "email": "skala.milan@izomat.cz",
+    "phone": "+420727911054",
+    "company": "IZOMAT stavebniny s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Michal Skuhrovec",
+    "email": "skuhrovec@pp53.cz",
+    "phone": "+420 739 275 741",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Soňa Sládková",
+    "email": "sladkova@ferrum.cz",
+    "phone": "377 200 302",
+    "company": "FERRUM PLZEŇ spol. s r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "slivenec",
+    "email": "slivenec@izomat.cz",
+    "phone": "+420606626197",
+    "company": "IZOMAT stavebniny s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Martin Sochor",
+    "email": "sochor@pp53.cz",
+    "phone": "+420 774 099 999",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Alena Soukenková",
+    "email": "soukenkova@pohlcon.cz",
+    "phone": "+420 272 700 701",
+    "company": "PohlCon Česká republika s.r.o.",
+    "role": "účetní asistentka",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Denisa Šoulová",
+    "email": "soulova@itbohemia.cz",
+    "phone": "+420 608 551 141",
+    "company": "IT Bohemia, s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Tomáš Spilka",
+    "email": "spilka@s-b.cz",
+    "phone": "+420 731 723 537",
+    "company": "S-B s.r.o.",
+    "role": "Přípravář",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "spol. s r.o. AMO",
+    "email": "spinka@amopraha.cz",
+    "phone": "+420 724 800 460",
+    "company": "AMO, spol. s r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "David Špirit",
+    "email": "spirit@pp53.cz",
+    "phone": "43-6216400297/",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Springer Emil",
+    "email": "springer@hinton.cz",
+    "phone": "+420 732 353 283",
+    "company": "Hinton, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Susanne Rausch",
+    "email": "sr@mastertec.eu",
+    "phone": "49 9503 - 50470",
+    "company": "MASTERTEC GmbH & Co. KG",
+    "role": "Sales / Export department",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Šrámek Jiří",
+    "email": "sramek@cteam.cz",
+    "phone": "",
+    "company": "CONSTRUCTION TEAM s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "K.K.Beton CZ s.r.o.",
+    "email": "stanek@kkbetoncz.cz",
+    "phone": "",
+    "company": "K.K.Beton CZ, s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Stanislav Hodonsky",
+    "email": "stanislav.hodonsky@strabag.com",
+    "phone": "",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "GEMO a.s.",
+    "email": "staskova.zuzana@gemo.cz",
+    "phone": "",
+    "company": "GEMO a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Stavekomont",
+    "email": "stavekomont@email.cz",
+    "phone": "724 372 910",
+    "company": "Stavekomont s.r.o.",
+    "role": "",
+    "source": "repeated-signature"
+  },
+  {
+    "name": "Stepan Kloub",
+    "email": "stepan.kloub@strabag.com",
+    "phone": "+420 605 845 187",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "a.s. Hinton",
+    "email": "stepan@hinton.cz",
+    "phone": "+420 775 882 992",
+    "company": "Hinton, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "BERGER BOHEMIA a. s.",
+    "email": "stepanka.formankova@bergerbohemia.cz",
+    "phone": "",
+    "company": "BERGER BOHEMIA a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Eliška Strakatá",
+    "email": "strakata@pp53.cz",
+    "phone": "",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Miloš Strnad",
+    "email": "strnad@pp53.cz",
+    "phone": "+420 602 335 823",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Jakub Štučka",
+    "email": "stucka@pp53.cz",
+    "phone": "+420 725 992 007",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Nikolas Štýbnar",
+    "email": "stybnar@monokon.cz",
+    "phone": "+420 608 053 929",
+    "company": "MONOKON s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Michal Šuhajík",
+    "email": "suhajikmichal@feri-hk.cz",
+    "phone": "+420 773 303 313",
+    "company": "FERI, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Marek Šumník",
+    "email": "sumnik@ferax-vl.cz",
+    "phone": "602 618 188",
+    "company": "FERAX VL s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Suslyk Nazarii",
+    "email": "suslyk@hinton.cz",
+    "phone": "+420773167655",
+    "company": "Hinton, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Veronika Svadlenkova",
+    "email": "svadlenkova.veronika@cz.sika.com",
+    "phone": "+420 469 607 204",
+    "company": "Sika CZ, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "ŠVEŇHOVÁ Veronika",
+    "email": "svenhova@armontis.cz",
+    "phone": "325/140 186 00",
+    "company": "ARMONTIS BeSt s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Světla Kestlerová",
+    "email": "svetla.kestlerova@mavi-monolity.cz",
+    "phone": "",
+    "company": "MAVI monolity s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Svoboda Betocon",
+    "email": "svoboda.betokon@seznam.cz",
+    "phone": "",
+    "company": "za spol. Betokon s.r.o.",
+    "role": "",
+    "source": "repeated-signature"
+  },
+  {
+    "name": "Tomáš Svoboda",
+    "email": "svoboda@pp53.cz",
+    "phone": "+420 724 176 248",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "STAVIREZEK s.r.o.",
+    "email": "t.dopitova@stavirezek.cz",
+    "phone": "+420 793 984 704",
+    "company": "BVS HK s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Tadeas Simurda",
+    "email": "tadeas.simurda@strabag.com",
+    "phone": "737 254 998",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Tibor Turčáni",
+    "email": "tibor.turcani@cechasyn.cz",
+    "phone": "",
+    "company": "Čech & syn Stavební společnost a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "ticháček",
+    "email": "tichacek@s3-stavby.cz",
+    "phone": "+420 725520804",
+    "company": "S3 - Servis, Statika, Stavby s.r.o.",
+    "role": "Stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "ARMONTIS BeSt s.r.o.",
+    "email": "toman@armontis.cz",
+    "phone": "",
+    "company": "ARMONTIS BeSt s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Tomáš Chramosta",
+    "email": "tomas.chramosta@bergerbohemia.cz",
+    "phone": "+420 378 777 445",
+    "company": "BERGER BOHEMIA a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Filinger Tomáš",
+    "email": "tomas.filinger@pro-doma.cz",
+    "phone": "+420 724 001 818",
+    "company": "PRO-DOMA, SE",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Tomáš Janeček",
+    "email": "tomas.janecek@csmonolitia.cz",
+    "phone": "+420 731 145 165",
+    "company": "C&S MONOLITIA s.r.o.",
+    "role": "Stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Tomáš JELÍNEK",
+    "email": "tomas.jelinek@vces.cz",
+    "phone": "",
+    "company": "VCES a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "KRAPF Tomáš",
+    "email": "tomas.krapf@vinci-construction.com",
+    "phone": "+420 724 779 224",
+    "company": "Stavby mostů a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Tomáš Marek",
+    "email": "tomas.marek@budzakbuilding.cz",
+    "phone": "",
+    "company": "BUDZAK BUILDING s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Nechanický Tomáš Ing.",
+    "email": "tomas.nechanicky@metrostav.cz",
+    "phone": "+420 727802378",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Tomas Sitek",
+    "email": "tomas.sitek@strabag.com",
+    "phone": "+420 604 222 098",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Tůma Tomáš",
+    "email": "tomas.tuma@metrostav.cz",
+    "phone": "720 042 305",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Veverka Tomáš",
+    "email": "tomas.veverka@metrostav.cz",
+    "phone": "+420604655481",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Woller Tomáš",
+    "email": "tomas.woller@metrostav.cz",
+    "phone": "+420603375557",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Tomsa Filip",
+    "email": "tomsa@hinton.cz",
+    "phone": "+420 603 230 746",
+    "company": "Hinton, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "TOPTRANS",
+    "email": "topis@toptrans.cz",
+    "phone": "",
+    "company": "Toptrans EU, a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Trajhan Tomáš",
+    "email": "trajhan.tomas@kondor.cz",
+    "phone": "+420 603 426 432",
+    "company": "KONDOR, s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Tvrdý Michal",
+    "email": "tvrdy@hinton.cz",
+    "phone": "",
+    "company": "Hinton, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Uctarna",
+    "email": "uctarna@ferax-vl.cz",
+    "phone": "+420 774 025 482",
+    "company": "FERAX VL s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Vladimir Gajdošík",
+    "email": "v.gajdosik@bk25.cz",
+    "phone": "+420 606 700 626",
+    "company": "BK25 s.r.o.",
+    "role": "Stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "PARTYNGLOVÁ Veronika",
+    "email": "v.partynglova@hobst.cz",
+    "phone": "777 437 497",
+    "company": "Stavební firma HOBST a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Livora Václav",
+    "email": "vaclav.livora@pro-doma.cz",
+    "phone": "+420 778 408 438",
+    "company": "PRO-DOMA, SE",
+    "role": "Obchodní zástupce",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Václav Pícka",
+    "email": "vaclav.picka@bergerbohemia.cz",
+    "phone": "+420 378 777 442",
+    "company": "BERGER BOHEMIA a.s.",
+    "role": "vedoucí projektu",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Erika Václavovicová",
+    "email": "vaclavovicova@pp53.cz",
+    "phone": "",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "valetom",
+    "email": "valetom@email.cz",
+    "phone": "+420 603 380 273",
+    "company": "VALENS, s.r.o",
+    "role": "",
+    "source": "repeated-signature"
+  },
+  {
+    "name": "Petr Vaněk",
+    "email": "vanek@pp53.cz",
+    "phone": "+420 602 623 482",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Oldrich Vejpustek",
+    "email": "vejpustek@smpbuilding.cz",
+    "phone": "+420776079490",
+    "company": "SMP building a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Věra Plecitá",
+    "email": "vera.plecita@uklizime.com",
+    "phone": "+420 731 490 050",
+    "company": "Lamina Komárov s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Vera Svarcova",
+    "email": "vera.svarcova@strabag.com",
+    "phone": "250102088",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Pecnikova Veronika",
+    "email": "veronika.pecnikova@porr.cz",
+    "phone": "+420 720 885 676",
+    "company": "PORR a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Veronika Zeminova",
+    "email": "veronika.zeminova@linarit.cz",
+    "phone": "774 301 814",
+    "company": "Linarit s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Vikhrenko Vitalii",
+    "email": "vikhrenko@hinton.cz",
+    "phone": "+420 777 558 607",
+    "company": "Hinton, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "GEMO a.s.",
+    "email": "vilimec@gemo.cz",
+    "phone": "+420 739 386 217",
+    "company": "GEMO a.s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "V.D.O. Group s.r.o.",
+    "email": "vincik@vdogroup.cz",
+    "phone": "",
+    "company": "V.D.O. Group s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Vinšová Lucie",
+    "email": "vinsova@cteam.cz",
+    "phone": "+420 720 953 693",
+    "company": "CONSTRUCTION TEAM s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Vít Kavka",
+    "email": "vit.kavka@csmonolitia.cz",
+    "phone": "+420 602 766 249",
+    "company": "C&S MONOLITIA s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Vladimir Krch",
+    "email": "vladimir.krch@strabag.com",
+    "phone": "+420 737 256 577",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Vlk Jakub",
+    "email": "vlk@dereza.cz",
+    "phone": "+420 603 883 997",
+    "company": "DEREZA s.r.o.",
+    "role": "Stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Metrostav a.s.",
+    "email": "vojtech.cerv@metrostav.cz",
+    "phone": "+420 723757858",
+    "company": "Metrostav a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Vojtěch Marszalek",
+    "email": "vojtech.marszalek@hsfsystem.cz",
+    "phone": "+420 731 121 615",
+    "company": "HSF System a.s.",
+    "role": "Přípravář střediska 06",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Vojtěch Novotný",
+    "email": "vojtech.novotny@roadfin.cz",
+    "phone": "",
+    "company": "ROADFIN STAVBY s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Ladislav Vrána",
+    "email": "vrana@pp53.cz",
+    "phone": "+420 724 344 412",
+    "company": "PP 53, a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Vratislav Stibor",
+    "email": "vratislav.stibor@lachman-interier.cz",
+    "phone": "+420 770 169 004",
+    "company": "Lachman Styl s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Ing. Helena Vrbová",
+    "email": "vrbovahelena@feri-hk.cz",
+    "phone": "+420 730 142 802",
+    "company": "FERI, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Yarin",
+    "email": "yarin@ferax-vl.cz",
+    "phone": "",
+    "company": "FERAX VL s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Yuriy POPIV",
+    "email": "yuriy.popiv@vces.cz",
+    "phone": "+420 778 956 194",
+    "company": "VCES a.s.",
+    "role": "Stavbyvedoucí",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Zach Jakub",
+    "email": "zach.jakub@izomat.cz",
+    "phone": "+420724085016",
+    "company": "IZOMAT stavebniny s.r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "a.s. Hinton",
+    "email": "zach@hinton.cz",
+    "phone": "",
+    "company": "Hinton, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "ELRAIL s.r.o.",
+    "email": "zajic@elrail.cz",
+    "phone": "604 287 705",
+    "company": "ELRAIL s.r.o.",
+    "role": "Vedoucí přípravy a realizace staveb",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "spol. s r.o. AMO",
+    "email": "zakova@amopraha.cz",
+    "phone": "",
+    "company": "AMO, spol. s r.o.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Žažo Peter",
+    "email": "zazo@syner.cz",
+    "phone": "+420 731 547 994",
+    "company": "SYNER, s.r.o.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Zdenek Bruzek",
+    "email": "zdenek.bruzek@strabag.com",
+    "phone": "+420 739 550 401",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Zdeněk VICMANDI",
+    "email": "zdenek.vicmandi@vces.cz",
+    "phone": "+420 778 419 435",
+    "company": "VCES a.s.",
+    "role": "Technik",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Zhbura Rostyslav",
+    "email": "zhbura@hinton.cz",
+    "phone": "",
+    "company": "Hinton, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Žížala Milan",
+    "email": "zizala@sladekgroup.cz",
+    "phone": "+420 602 734 843",
+    "company": "SLÁDEK GROUP, a. s.",
+    "role": "",
+    "source": "dominant-domain-signature"
+  },
+  {
+    "name": "Fabianová Zuzana",
+    "email": "zuzana.fabianova@pro-doma.cz",
+    "phone": "+420 778 408 345",
+    "company": "PRO-DOMA, SE",
+    "role": "",
+    "source": "existing-domain"
+  },
+  {
+    "name": "Zuzana Severinova",
+    "email": "zuzana.severinova@strabag.com",
+    "phone": "+420 737 161 847",
+    "company": "STRABAG a.s.",
+    "role": "",
+    "source": "existing-domain"
+  }
+]
