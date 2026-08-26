@@ -36,28 +36,25 @@ jobs:
           rm -rf "$STAGE"
           cp -a "$APP_DIR" "$STAGE"
 
-          # Stable distributed names from v5.8.2 onward.
           cp v58_features.py "$STAGE/crm_features.py"
           cp crm_runtime.py "$STAGE/crm_runtime.py"
 
-          # Keep only current launchers / runtime files in the distributed folder.
           rm -f "$STAGE/v58_features.py" "$STAGE/v581_cleanup.py"
           rm -f "$STAGE/Spustit_Zakazky_v5.bat" "$STAGE/Spustit_Zakazky_v5.vbs"
           rm -f "$STAGE/Spustit_QT_PREVIEW.bat" "$STAGE/qt_preview_v5.py"
           rm -f "$STAGE/AUDIT_v2.22.txt" "$STAGE/DULEZITE_v2.8_JEDNORAZOVY_RESET.txt"
           rm -f "$STAGE/latest.example.json" "$STAGE/Vytvorit_EXE.bat" "$STAGE/Vytvorit_manifest_aktualizace.py"
 
-          # Stable launcher without version in the filename.
-          cat > "$STAGE/Spustit_Zakazky.vbs" <<'VBS'
-Set sh = CreateObject("WScript.Shell")
-sh.CurrentDirectory = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)
-sh.Run "pyw app.py", 0, False
-VBS
-          cat > "$STAGE/Spustit_Zakazky.bat" <<'BAT'
-@echo off
-cd /d "%~dp0"
-start "" pyw app.py
-BAT
+          printf '%s\n' \
+            'Set sh = CreateObject("WScript.Shell")' \
+            'sh.CurrentDirectory = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)' \
+            'sh.Run "pyw app.py", 0, False' \
+            > "$STAGE/Spustit_Zakazky.vbs"
+          printf '%s\n' \
+            '@echo off' \
+            'cd /d "%~dp0"' \
+            'start "" pyw app.py' \
+            > "$STAGE/Spustit_Zakazky.bat"
 
           python - "$STAGE/app.py" "$VERSION" <<'PY'
           import pathlib,re,sys
