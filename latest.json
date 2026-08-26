@@ -1,6 +1,6 @@
 {
-  "version": "6.0.4",
-  "file": "ZakazkyApp_v6.0.4.zip",
-  "sha256": "fbbeb216b081a0e3d387a96ad19dc83fb1676ae69b0c2dd94bd2b8283766526a",
-  "notes": "• Poslední běžný uživatel se pamatuje zvlášť pro každý PC; ADMIN se po startu nepřihlásí bez hesla.\n• Dialogová okna se otevírají v bezpečné velikosti podle obrazovky a zůstávají součástí jedné aplikace.\n• TURTO ikona je sjednocená pro hlavní okno i dialogy a zástupce pro hlavní panel.\n• Světlý a tmavý režim mají oddělené, kontrastnější stavové barvy.\n• Automatické aktualizace se kontrolují i během běhu aplikace přibližně každých 10 minut.\n• Nabídka aktualizace nově stručně ukazuje, co verze obsahuje.\n• Test síťové databáze jasně ukazuje testovanou cestu a nelze ho spustit bez vybrané DB."
+  "version": "6.0.5",
+  "file": "ZakazkyApp_v6.0.5.zip",
+  "sha256": "f01c81e1399c83eaef61356e563bc17345af03b10aec4dca8729886815c49a3a",
+  "notes": "• ADMIN HISTORIE začíná zaznamenávat změny stavu Příležitostí včetně uživatele a PC.\n• Připraven základ pro bezpečné vracení auditovaných změn.\n• Nabídka/Připraveno používá tyrkysovou místo fialové, aby se nepletla s modrou.\n• Ruční řazení tabulek se při přechodu mezi záložkami ruší a vrací se výchozí pořadí.\n• MIVO má benevolentnější čekací prahy: 0–7 bez varování, 8–14 mírné, 15–21 oranžové, 22+ červené.\n• Hořící termíny zůstávají výrazně označené vykřičníkem a tučným varovným stylem.\n• Databáze je připravená ukládat četnost použití příjemců poptávek pro jejich budoucí řazení."
 }
