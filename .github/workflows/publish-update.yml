@@ -45,58 +45,67 @@ jobs:
           rm -f "$STAGE/AUDIT_v2.22.txt" "$STAGE/DULEZITE_v2.8_JEDNORAZOVY_RESET.txt"
           rm -f "$STAGE/latest.example.json" "$STAGE/Vytvorit_EXE.bat" "$STAGE/Vytvorit_manifest_aktualizace.py"
 
+          sed -E -i "0,/APP_VERSION=\"[^\"]+\"/s//APP_VERSION=\"${VERSION}\"/" "$STAGE/app.py"
+          sed -i "s/VALUES('schema_version','5.7')/VALUES('schema_version','5.8')/" "$STAGE/app.py"
+
+          printf '%s\n' \
+            'import app' \
+            'import crm_features' \
+            'import crm_runtime' \
+            'crm_features.apply(app)' \
+            'crm_runtime.apply(app)' \
+            'app.cleanup_stale_test_session()' \
+            'app.ensure_schema()' \
+            'app.ensure_test_user()' \
+            'app.migrate_v41_visual_once()' \
+            'app.import_mail_contacts_v220_once()' \
+            'app.import_mail_contacts_v221_once()' \
+            'app.restore_people_from_v280_backup_once()' \
+            'app.post_import_cleanup_v222_once()' \
+            'app.App().mainloop()' \
+            > "$STAGE/ZakazkyCRM.pyw"
+
           printf '%s\n' \
             'Set sh = CreateObject("WScript.Shell")' \
             'sh.CurrentDirectory = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)' \
-            'sh.Run "pyw app.py", 0, False' \
+            'sh.Run "pyw ZakazkyCRM.pyw", 0, False' \
             > "$STAGE/Spustit_Zakazky.vbs"
           printf '%s\n' \
             '@echo off' \
             'cd /d "%~dp0"' \
-            'start "" pyw app.py' \
+            'start "" pyw ZakazkyCRM.pyw' \
             > "$STAGE/Spustit_Zakazky.bat"
 
-          python - "$STAGE/app.py" "$VERSION" <<'PY'
-          import pathlib,re,sys
-          p=pathlib.Path(sys.argv[1]);v=sys.argv[2];s=p.read_text(encoding='utf-8')
-          s,n=re.subn(r'APP_VERSION\s*=\s*["\'][^"\']+["\']',f'APP_VERSION="{v}"',s,count=1)
-          if n!=1:raise SystemExit('APP_VERSION replacement failed')
-          s=s.replace("VALUES('schema_version','5.7')","VALUES('schema_version','5.8')",1)
-          marker='\nif __name__=="__main__":\n'
-          hook='''\n# --- TURTO stable CRM layers ---\ntry:\n    import crm_features as _crm_features\n    _crm_features.apply(sys.modules[__name__])\nexcept Exception as _e:\n    try:(ROOT/"crm_features_error.log").write_text(str(_e),encoding="utf-8")\n    except Exception:pass\ntry:\n    import crm_runtime as _crm_runtime\n    _crm_runtime.apply(sys.modules[__name__])\nexcept Exception as _e:\n    try:(ROOT/"crm_runtime_error.log").write_text(str(_e),encoding="utf-8")\n    except Exception:pass\n\n'''
-          if 'crm_features as _crm_features' not in s:
-              if marker not in s:raise SystemExit('main marker not found')
-              s=s.replace(marker,hook+marker,1)
-          p.write_text(s,encoding='utf-8')
-          PY
           echo "dir=$STAGE" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Validate Python
         shell: bash
         run: |
+          set -euo pipefail
           DIR='${{ steps.app.outputs.dir }}'
-          python -m py_compile "$DIR/app.py" "$DIR/crm_features.py" "$DIR/crm_runtime.py"
+          python -m py_compile "$DIR/app.py" "$DIR/crm_features.py" "$DIR/crm_runtime.py" "$DIR/ZakazkyCRM.pyw"
 
       - name: Build ZIP and manifest
         shell: bash
         run: |
           set -euo pipefail
-          DIR='${{ steps.app.outputs.dir }}'; VER='${{ steps.app.outputs.version }}'; ZIP="ZakazkyApp_v${VER}.zip"
+          DIR='${{ steps.app.outputs.dir }}'
+          VER='${{ steps.app.outputs.version }}'
+          ZIP="ZakazkyApp_v${VER}.zip"
           rm -f "$ZIP"
           zip -qr "$ZIP" "$DIR" -x '*/__pycache__/*' '*.pyc' '*/v5_error.log' '*/crm_features_error.log' '*/crm_runtime_error.log'
           SHA=$(sha256sum "$ZIP" | awk '{print $1}')
-          python - <<PY
-          import json
-          open('latest.json','w',encoding='utf-8').write(json.dumps({'version':'${VER}','file':'${ZIP}','sha256':'${SHA}'},ensure_ascii=False,indent=2)+'\n')
-          PY
+          printf '{\n  "version": "%s",\n  "file": "%s",\n  "sha256": "%s"\n}\n' "$VER" "$ZIP" "$SHA" > latest.json
 
       - name: Publish generated package
         shell: bash
         run: |
           set -euo pipefail
-          VER='${{ steps.app.outputs.version }}'; ZIP="ZakazkyApp_v${VER}.zip"
-          git config user.name 'TURTO Update Bot'; git config user.email 'actions@users.noreply.github.com'
+          VER='${{ steps.app.outputs.version }}'
+          ZIP="ZakazkyApp_v${VER}.zip"
+          git config user.name 'TURTO Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
           git add -f "$ZIP" latest.json
           git diff --cached --quiet && exit 0
           git commit -m "Publish ZakazkyApp v${VER} update"
