@@ -1,5 +1,5 @@
 # TURTO Zakazky CRM - stable runtime integrations
-# Windows identity/icon, automatic update checks and Overview cleanup.
+# v5.8.3: Windows identity/icon, automatic update checks, legacy cleanup and Overview cleanup.
 import os
 import sys
 import subprocess
@@ -8,6 +8,36 @@ from pathlib import Path
 APP_USER_MODEL_ID = "TURTO.ZakazkyCRM"
 GITHUB_UPDATE = "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/main"
 M = None
+
+LEGACY_FILES = (
+    "v58_features.py", "v581_cleanup.py",
+    "Spustit_Zakazky_v5.bat", "Spustit_Zakazky_v5.vbs",
+    "Spustit_QT_PREVIEW.bat", "qt_preview_v5.py",
+    "AUDIT_v2.22.txt", "DULEZITE_v2.8_JEDNORAZOVY_RESET.txt",
+    "latest.example.json", "Vytvorit_EXE.bat", "Vytvorit_manifest_aktualizace.py",
+)
+
+
+def _cleanup_legacy_files():
+    """Delete only known obsolete program files. Never touches DB/user data/folders."""
+    try:
+        root = Path(M.ROOT)
+    except Exception:
+        return
+    for name in LEGACY_FILES:
+        try:
+            p = root / name
+            if p.is_file():
+                p.unlink()
+        except Exception:
+            pass
+    try:
+        cache = root / "__pycache__"
+        if cache.is_dir():
+            import shutil
+            shutil.rmtree(cache, ignore_errors=True)
+    except Exception:
+        pass
 
 
 def _set_windows_app_id():
@@ -39,6 +69,8 @@ def _set_window_icon(app):
 
 
 def _hide_widget(widget):
+    if widget is None:
+        return
     for method in ("pack_forget", "grid_remove", "place_forget"):
         try:
             getattr(widget, method)()
@@ -47,25 +79,48 @@ def _hide_widget(widget):
             pass
 
 
+def _widget_text(widget):
+    for key in ("text",):
+        try:
+            value = str(widget.cget(key) or "").strip().casefold()
+            if value:
+                return value
+        except Exception:
+            pass
+    return ""
+
+
 def _remove_crm_focus(root):
-    """Remove the obsolete CRM FOCUS banner from Overview; data stay untouched."""
+    """Remove the complete obsolete CRM FOCUS banner row from Overview.
+    Uses several visible markers and removes the enclosing row, not just the label.
+    """
+    targets = []
     try:
-        children = list(root.winfo_children())
+        stack = [root]
+        while stack:
+            w = stack.pop()
+            try:
+                stack.extend(list(w.winfo_children()))
+            except Exception:
+                pass
+            txt = _widget_text(w)
+            if txt in ("crm focus", "focus crm", "otevřít upozornění") or "poptávek bez odezvy" in txt:
+                targets.append(w)
     except Exception:
         return
-    for w in children:
-        _remove_crm_focus(w)
-        try:
-            txt = str(w.cget("text") or "").strip().casefold()
-        except Exception:
-            txt = ""
-        if txt in ("crm focus", "focus crm"):
-            parent = getattr(w, "master", None)
-            _hide_widget(parent if parent is not None else w)
+
+    for w in targets:
+        # In the current dashboard the marker is nested inside the banner row.
+        # Climb two levels at most; never climb into the tab/root itself.
+        candidate = getattr(w, "master", None)
+        parent2 = getattr(candidate, "master", None) if candidate is not None else None
+        if parent2 is not None and parent2 is not root:
+            candidate = parent2
+        _hide_widget(candidate if candidate is not None else w)
 
 
 def _schedule_focus_cleanup(app):
-    for delay in (30, 150, 500, 1200):
+    for delay in (20, 100, 300, 800, 1600):
         try:
             app.after(delay, lambda a=app: _remove_crm_focus(a))
         except Exception:
@@ -73,7 +128,7 @@ def _schedule_focus_cleanup(app):
 
 
 def _schedule_update_check(app):
-    """Check shortly after startup; no popup when current, offer update when newer."""
+    """Check shortly after startup; stay quiet when current, offer update when newer."""
     def run():
         try:
             M.set_setting("update_source", GITHUB_UPDATE)
@@ -81,10 +136,9 @@ def _schedule_update_check(app):
                 app.update_source.set(GITHUB_UPDATE)
             app.check_for_updates(silent=True)
         except Exception:
-            # Offline GitHub must never prevent CRM startup.
             pass
     try:
-        app.after(6500, run)
+        app.after(5000, run)
     except Exception:
         pass
 
@@ -94,9 +148,7 @@ def _ps_quote(value):
 
 
 def create_windows_shortcuts(app):
-    """Create stable Desktop + Start Menu shortcuts with TURTO icon.
-    The Start Menu shortcut can be pinned to the Windows taskbar normally.
-    """
+    """Create stable Desktop + Start Menu shortcuts with TURTO icon."""
     if not sys.platform.startswith("win"):
         try:M.messagebox.showinfo("Zástupce", "Tato funkce je určena pro Windows.", parent=app)
         except Exception:pass
@@ -126,7 +178,7 @@ foreach ($p in $targets) {{
     try:
         subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script], check=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         try:
-            M.messagebox.showinfo("Zástupce", "Vytvořen zástupce na ploše i v nabídce Start s ikonou TURTO.\n\nPro připnutí na hlavní panel vyhledejte ve Startu „TURTO Zakázky CRM“, klikněte pravým tlačítkem a zvolte Připnout na hlavní panel.", parent=app)
+            M.messagebox.showinfo("Zástupce", "Vytvořen zástupce na ploše i v nabídce Start s ikonou TURTO.\n\nV nabídce Start vyhledejte „TURTO Zakázky CRM“, klikněte pravým tlačítkem a zvolte Připnout na hlavní panel.", parent=app)
         except Exception:pass
     except Exception as e:
         try:M.messagebox.showerror("Zástupce", f"Zástupce se nepodařilo vytvořit:\n{e}", parent=app)
@@ -137,8 +189,8 @@ def apply(module):
     global M
     M = module
     _set_windows_app_id()
+    _cleanup_legacy_files()
 
-    # Existing Settings button now creates a stable pin-friendly shortcut as well.
     module.App.create_desktop_shortcut = create_windows_shortcuts
 
     original_init = module.App.__init__
@@ -154,7 +206,6 @@ def apply(module):
         return result
     module.App.__init__ = init
 
-    # Dashboard can rebuild during use; remove the obsolete banner afterwards too.
     for name in ("build_dashboard", "refresh_dashboard", "refresh_all"):
         original = getattr(module.App, name, None)
         if not callable(original):
