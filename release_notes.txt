@@ -1,7 +1,7 @@
-• Poslední běžný uživatel se pamatuje zvlášť pro každý PC; ADMIN se po startu nepřihlásí bez hesla.
-• Dialogová okna se otevírají v bezpečné velikosti podle obrazovky a zůstávají součástí jedné aplikace.
-• TURTO ikona je sjednocená pro hlavní okno i dialogy a zástupce pro hlavní panel.
-• Světlý a tmavý režim mají oddělené, kontrastnější stavové barvy.
-• Automatické aktualizace se kontrolují i během běhu aplikace přibližně každých 10 minut.
-• Nabídka aktualizace nově stručně ukazuje, co verze obsahuje.
-• Test síťové databáze jasně ukazuje testovanou cestu a nelze ho spustit bez vybrané DB.
+• ADMIN HISTORIE začíná zaznamenávat změny stavu Příležitostí včetně uživatele a PC.
+• Připraven základ pro bezpečné vracení auditovaných změn.
+• Nabídka/Připraveno používá tyrkysovou místo fialové, aby se nepletla s modrou.
+• Ruční řazení tabulek se při přechodu mezi záložkami ruší a vrací se výchozí pořadí.
+• MIVO má benevolentnější čekací prahy: 0–7 bez varování, 8–14 mírné, 15–21 oranžové, 22+ červené.
+• Hořící termíny zůstávají výrazně označené vykřičníkem a tučným varovným stylem.
+• Databáze je připravená ukládat četnost použití příjemců poptávek pro jejich budoucí řazení.
