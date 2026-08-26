@@ -1,7 +1,7 @@
-• Našeptávače mají nový focus/selection model: při psaní zůstává kurzor v textovém poli, ale první nabídka je zároveň aktivně zvýrazněná.
-• Šipky ↑/↓ mění aktivní položku bez nutnosti přesouvat fokus do seznamu a Enter potvrzuje právě zvýrazněnou položku včetně interní vazby/ID.
-• Po potvrzení položky lze dalším Enterem potvrdit celý dialog; Enter už nepropadá do Uložit dřív, než je našeptávač skutečně potvrzený.
-• ADMIN Undo se rozšiřuje i na vytvoření a smazání jednoduchých Úkolů a Poptávek. Návrat proběhne jen tehdy, pokud to databázové vazby bezpečně dovolí.
-• Aktivní HISTORIE zůstává 14 dní, starší audit je read-only archiv. Přehled používá stejnou stavovou paletu jako ostatní CRM.
-• Zachovány výkonové indexy, velké dialogy, maximalizovaný start, barevné Rychlé akce, nejpoužívanější e-maily nahoře, reset řazení a časová upozornění Poptávky ⚠ > 3 dny / MIVO ⚠ > 10 dní.
-• Procesní Nápověda byla doplněna o aktuální chování našeptávačů a rozšířené Undo.
+• Našeptávače mají opravené klávesové ovládání: fokus zůstává při psaní v textovém poli, seznam je ale aktivní; ↑/↓ mění zvýrazněnou položku a Enter ji potvrdí stejně jako kliknutí myší, včetně interní vazby/ID.
+• Po potvrzení našeptávače může další Enter potvrdit celý dialog; při samotném psaní Enter už nepropadne do předčasného Uložit.
+• Dialogová okna se nyní počítají podle skutečné pracovní plochy konkrétního monitoru, takže respektují hlavní panel Windows a nepřekrývají ho.
+• U Poptávek jsou osoby po výběru společnosti řazené: nejdřív podle četnosti použití v dané společnosti, při shodě podle posledního použití a poté abecedně podle jména/e-mailu. Nic se automaticky nezaškrtává.
+• Přidány další výkonové indexy pro řazení kontaktů a auditní archiv jako rezerva pro desítky tisíc záznamů a síťový provoz.
+• Zachovány 14denní aktivní HISTORIE + read-only archiv, Undo, sjednocené barvy Přehledu, barevné Rychlé akce, maximalizovaný start, reset řazení a upozornění Poptávky ⚠ > 3 dny / MIVO ⚠ > 10 dní.
+• Procesní Nápověda byla doplněna o nové ovládání našeptávačů, řazení příjemců a chování dialogů vůči Windows hlavnímu panelu.
