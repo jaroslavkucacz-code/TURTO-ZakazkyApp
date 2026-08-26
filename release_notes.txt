@@ -1,7 +1,7 @@
-• Našeptávače lze nově potvrdit ihned klávesou Enter. Pokud nic ručně nevyberete, Enter vezme první nabízenou položku; šipkami ↑/↓ lze před potvrzením změnit výběr.
-• Enter v našeptávači už nemá předčasně uložit celý dialog. Po potvrzení položky lze dalším Enterem potvrdit samotný dialog.
-• ADMIN → HISTORIE má nově přímo tlačítko ↶ Vrátit změnu. Záznamy, které lze bezpečně vrátit, jsou označené LZE VRÁTIT; po návratu se označí VRÁCENO.
-• Vrácení změny probíhá v databázové transakci a samotný ADMIN zásah se znovu zapisuje do auditu.
-• Zachováno upozornění klasických Poptávek pouze symbolem ⚠ po více než 3 dnech čekání; MIVO používá ⚠ až po více než 10 dnech.
-• Zachovány velké dialogy, maximalizovaný start, barevné Rychlé akce, kontrastní stavové barvy, nejpoužívanější e-maily nahoře a reset řazení.
-• Procesní Nápověda byla aktualizována o Undo, našeptávače a práci s okny.
+• Opraven Enter u skutečně používaných našeptávačů: potvrzení nyní provede stejný výběr jako kliknutí na položku, včetně interní vazby/ID, a Enter nepropadne do předčasného Uložit.
+• ADMIN HISTORIE má aktivní okno posledních 14 dní. Starší záznamy se nemažou, ale jsou dostupné přes „Zobrazit archiv (> 14 dní)“ pouze pro čtení a bez Undo.
+• HISTORIE zobrazuje jasné stavy LZE VRÁTIT / NELZE VRÁTIT / VRÁCENO / ARCHIV.
+• Přehled používá stejné stavové barvy jako ostatní části CRM, bez vlastní odlišné palety.
+• Přidány databázové indexy pro audit, Poptávky a Příležitosti jako výkonová rezerva pro desetitisíce záznamů a síťový provoz.
+• Zachovány velké dialogy, maximalizovaný start, barevné Rychlé akce, nejpoužívanější e-maily nahoře, reset řazení a časová upozornění Poptávky ⚠ > 3 dny / MIVO ⚠ > 10 dní.
+• Procesní Nápověda se dál udržuje spolu s verzemi CRM.
