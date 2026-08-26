@@ -1,5 +1,6 @@
 {
-  "version": "6.0.3",
-  "file": "ZakazkyApp_v6.0.3.zip",
-  "sha256": "4f6c5483bd2dd3cadb2058ab1f9c543109f1951c9e7ca943d6ac34164bb2c9e7"
+  "version": "6.0.4",
+  "file": "ZakazkyApp_v6.0.4.zip",
+  "sha256": "fbbeb216b081a0e3d387a96ad19dc83fb1676ae69b0c2dd94bd2b8283766526a",
+  "notes": "• Poslední běžný uživatel se pamatuje zvlášť pro každý PC; ADMIN se po startu nepřihlásí bez hesla.\n• Dialogová okna se otevírají v bezpečné velikosti podle obrazovky a zůstávají součástí jedné aplikace.\n• TURTO ikona je sjednocená pro hlavní okno i dialogy a zástupce pro hlavní panel.\n• Světlý a tmavý režim mají oddělené, kontrastnější stavové barvy.\n• Automatické aktualizace se kontrolují i během běhu aplikace přibližně každých 10 minut.\n• Nabídka aktualizace nově stručně ukazuje, co verze obsahuje.\n• Test síťové databáze jasně ukazuje testovanou cestu a nelze ho spustit bez vybrané DB."
 }
