@@ -1,6 +1,6 @@
 {
-  "version": "6.0.9",
-  "file": "ZakazkyApp_v6.0.9.zip",
-  "sha256": "dd9befae204a809ea634ea3d84c49a47920dbecf1943fafb247e3b154288517d",
-  "notes": "• Rychlé akce na Přehledu jsou znovu barevně odlišené: nová Příležitost, Poptávka, Úkol, Společnost a Osoba mají vlastní výraznou barvu ve světlém i tmavém režimu.\n• Dialogová okna se nově otevírají výrazně větší – přibližně na 84 % šířky a 88 % výšky obrazovky, ale stále nepřesáhnou dostupný monitor a zůstávají ihned zmenšitelná.\n• Hlavní CRM se nadále spouští maximalizované.\n• Zachována výrazná barevnost stavů, reset ručního řazení po překliku záložek a rozvětvená procesní Nápověda.\n• MIVO používá pouze jeden symbol ⚠ u data Poptáno při Čekám déle než 10 dní; délka čekání nebarví celý řádek.\n• Klasické Poptávky: 0–5 dní bez upozornění, 6–10 dní mírné, 11+ dní výrazné upozornění u data.\n• Příjemci Poptávek se řadí podle četnosti a posledního použití pro konkrétní společnost; nic se automaticky nezaškrtává."
+  "version": "6.0.10",
+  "file": "ZakazkyApp_v6.0.10.zip",
+  "sha256": "1d41d3603a4ece5e949013fa1b8e6735a3ef873bbf35671e17bd512835103438",
+  "notes": "• Klasické Poptávky mají nově jediný typ časového upozornění: pokud je stav Čekám déle než 3 dny, zobrazí se u data Poptáno pouze symbol ⚠.\n• U klasických Poptávek se kvůli stáří čekání už nepoužívají tečky, další vykřičníky ani barevné stupňování celého řádku.\n• MIVO zůstává benevolentnější: jediný symbol ⚠ se zobrazí až při Čekám déle než 10 dní.\n• Zachovány velké dialogy, maximalizovaný start CRM, barevné Rychlé akce a kontrastní stavové barvy.\n• Zachováno řazení příjemců Poptávek podle četnosti a posledního použití, bez automatického zaškrtávání.\n• Zachován reset ručního řazení při přechodu mezi záložkami a rozvětvená procesní Nápověda."
 }
