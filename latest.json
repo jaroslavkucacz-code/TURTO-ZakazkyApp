@@ -1,6 +1,6 @@
 {
-  "version": "6.0.10",
-  "file": "ZakazkyApp_v6.0.10.zip",
-  "sha256": "1d41d3603a4ece5e949013fa1b8e6735a3ef873bbf35671e17bd512835103438",
-  "notes": "• Klasické Poptávky mají nově jediný typ časového upozornění: pokud je stav Čekám déle než 3 dny, zobrazí se u data Poptáno pouze symbol ⚠.\n• U klasických Poptávek se kvůli stáří čekání už nepoužívají tečky, další vykřičníky ani barevné stupňování celého řádku.\n• MIVO zůstává benevolentnější: jediný symbol ⚠ se zobrazí až při Čekám déle než 10 dní.\n• Zachovány velké dialogy, maximalizovaný start CRM, barevné Rychlé akce a kontrastní stavové barvy.\n• Zachováno řazení příjemců Poptávek podle četnosti a posledního použití, bez automatického zaškrtávání.\n• Zachován reset ručního řazení při přechodu mezi záložkami a rozvětvená procesní Nápověda."
+  "version": "6.0.11",
+  "file": "ZakazkyApp_v6.0.11.zip",
+  "sha256": "be732695f040af10d39e831867e8c2788ee4912b12aa69e520924e217f4b2837",
+  "notes": "• ADMIN HISTORIE se rozšiřuje z pouhé změny stavu Příležitosti i na další úpravy Příležitostí: název, společnost, obchodník, deadline, Co se řeší a Poznámka.\n• Audit nově začíná sledovat také vytváření, úpravy a mazání Úkolů a Poptávek, včetně uživatele a počítače.\n• Audit je připravován tak, aby další krok mohl bezpečně rozšířit funkci Vrátit změnu pro ADMINa.\n• Zachováno upozornění klasických Poptávek pouze symbolem ⚠ po více než 3 dnech čekání; MIVO používá ⚠ až po více než 10 dnech.\n• Zachovány velké dialogy, maximalizovaný start CRM, barevné Rychlé akce, kontrastní stavové barvy a reset řazení po překliku záložek.\n• Zachováno řazení příjemců Poptávek podle četnosti a posledního použití bez automatického zaškrtávání.\n• Rozvětvená procesní Nápověda zůstává součástí každé další verze."
 }
