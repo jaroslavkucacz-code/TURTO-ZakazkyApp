@@ -1,7 +1,7 @@
-• ADMIN HISTORIE se rozšiřuje z pouhé změny stavu Příležitosti i na další úpravy Příležitostí: název, společnost, obchodník, deadline, Co se řeší a Poznámka.
-• Audit nově začíná sledovat také vytváření, úpravy a mazání Úkolů a Poptávek, včetně uživatele a počítače.
-• Audit je připravován tak, aby další krok mohl bezpečně rozšířit funkci Vrátit změnu pro ADMINa.
+• ADMIN Undo: auditované změny Příležitostí, Úkolů a Poptávek nově ukládají i bezpečný návrat k původní hodnotě tam, kde je to jednoznačné.
+• Vrácení změny probíhá v databázové transakci a samo vytvoří nový auditní záznam, takže ADMIN zásah nezmizí z historie.
+• Již jednou vrácenou změnu nelze omylem vrátit podruhé; nebezpečné nebo neúplné operace zůstávají pouze pro čtení.
+• Audit nadále eviduje uživatele a počítač a rozšiřuje se na Příležitosti, Poptávky a Úkoly.
 • Zachováno upozornění klasických Poptávek pouze symbolem ⚠ po více než 3 dnech čekání; MIVO používá ⚠ až po více než 10 dnech.
-• Zachovány velké dialogy, maximalizovaný start CRM, barevné Rychlé akce, kontrastní stavové barvy a reset řazení po překliku záložek.
-• Zachováno řazení příjemců Poptávek podle četnosti a posledního použití bez automatického zaškrtávání.
-• Rozvětvená procesní Nápověda zůstává součástí každé další verze.
+• Zachovány velké dialogy, maximalizovaný start, barevné Rychlé akce, kontrastní stavové barvy, nejpoužívanější e-maily nahoře a reset řazení.
+• Procesní Nápověda se dál aktualizuje s každou verzí.
