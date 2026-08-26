@@ -1,6 +1,6 @@
 {
-  "version": "6.0.11",
-  "file": "ZakazkyApp_v6.0.11.zip",
-  "sha256": "be732695f040af10d39e831867e8c2788ee4912b12aa69e520924e217f4b2837",
-  "notes": "• ADMIN HISTORIE se rozšiřuje z pouhé změny stavu Příležitosti i na další úpravy Příležitostí: název, společnost, obchodník, deadline, Co se řeší a Poznámka.\n• Audit nově začíná sledovat také vytváření, úpravy a mazání Úkolů a Poptávek, včetně uživatele a počítače.\n• Audit je připravován tak, aby další krok mohl bezpečně rozšířit funkci Vrátit změnu pro ADMINa.\n• Zachováno upozornění klasických Poptávek pouze symbolem ⚠ po více než 3 dnech čekání; MIVO používá ⚠ až po více než 10 dnech.\n• Zachovány velké dialogy, maximalizovaný start CRM, barevné Rychlé akce, kontrastní stavové barvy a reset řazení po překliku záložek.\n• Zachováno řazení příjemců Poptávek podle četnosti a posledního použití bez automatického zaškrtávání.\n• Rozvětvená procesní Nápověda zůstává součástí každé další verze."
+  "version": "6.0.12",
+  "file": "ZakazkyApp_v6.0.12.zip",
+  "sha256": "cbc7e3b29522b3057965c9dbcbb79000c25726b3c50317e75e60fecd9a83dbb3",
+  "notes": "• ADMIN Undo: auditované změny Příležitostí, Úkolů a Poptávek nově ukládají i bezpečný návrat k původní hodnotě tam, kde je to jednoznačné.\n• Vrácení změny probíhá v databázové transakci a samo vytvoří nový auditní záznam, takže ADMIN zásah nezmizí z historie.\n• Již jednou vrácenou změnu nelze omylem vrátit podruhé; nebezpečné nebo neúplné operace zůstávají pouze pro čtení.\n• Audit nadále eviduje uživatele a počítač a rozšiřuje se na Příležitosti, Poptávky a Úkoly.\n• Zachováno upozornění klasických Poptávek pouze symbolem ⚠ po více než 3 dnech čekání; MIVO používá ⚠ až po více než 10 dnech.\n• Zachovány velké dialogy, maximalizovaný start, barevné Rychlé akce, kontrastní stavové barvy, nejpoužívanější e-maily nahoře a reset řazení.\n• Procesní Nápověda se dál aktualizuje s každou verzí."
 }
