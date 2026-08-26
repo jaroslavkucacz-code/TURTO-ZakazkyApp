@@ -1,6 +1,6 @@
 {
-  "version": "6.0.13",
-  "file": "ZakazkyApp_v6.0.13.zip",
-  "sha256": "2cb3e5047243b2790887710365bcf4b6490c073153dd5f622a66ad94ee69400c",
-  "notes": "• Našeptávače lze nově potvrdit ihned klávesou Enter. Pokud nic ručně nevyberete, Enter vezme první nabízenou položku; šipkami ↑/↓ lze před potvrzením změnit výběr.\n• Enter v našeptávači už nemá předčasně uložit celý dialog. Po potvrzení položky lze dalším Enterem potvrdit samotný dialog.\n• ADMIN → HISTORIE má nově přímo tlačítko ↶ Vrátit změnu. Záznamy, které lze bezpečně vrátit, jsou označené LZE VRÁTIT; po návratu se označí VRÁCENO.\n• Vrácení změny probíhá v databázové transakci a samotný ADMIN zásah se znovu zapisuje do auditu.\n• Zachováno upozornění klasických Poptávek pouze symbolem ⚠ po více než 3 dnech čekání; MIVO používá ⚠ až po více než 10 dnech.\n• Zachovány velké dialogy, maximalizovaný start, barevné Rychlé akce, kontrastní stavové barvy, nejpoužívanější e-maily nahoře a reset řazení.\n• Procesní Nápověda byla aktualizována o Undo, našeptávače a práci s okny."
+  "version": "6.0.14",
+  "file": "ZakazkyApp_v6.0.14.zip",
+  "sha256": "e379444ff2bd8c71cb3c6b94180ddfb402f21ddacd4eca8d98809cb6963e5e69",
+  "notes": "• Opraven Enter u skutečně používaných našeptávačů: potvrzení nyní provede stejný výběr jako kliknutí na položku, včetně interní vazby/ID, a Enter nepropadne do předčasného Uložit.\n• ADMIN HISTORIE má aktivní okno posledních 14 dní. Starší záznamy se nemažou, ale jsou dostupné přes „Zobrazit archiv (> 14 dní)“ pouze pro čtení a bez Undo.\n• HISTORIE zobrazuje jasné stavy LZE VRÁTIT / NELZE VRÁTIT / VRÁCENO / ARCHIV.\n• Přehled používá stejné stavové barvy jako ostatní části CRM, bez vlastní odlišné palety.\n• Přidány databázové indexy pro audit, Poptávky a Příležitosti jako výkonová rezerva pro desetitisíce záznamů a síťový provoz.\n• Zachovány velké dialogy, maximalizovaný start, barevné Rychlé akce, nejpoužívanější e-maily nahoře, reset řazení a časová upozornění Poptávky ⚠ > 3 dny / MIVO ⚠ > 10 dní.\n• Procesní Nápověda se dál udržuje spolu s verzemi CRM."
 }
