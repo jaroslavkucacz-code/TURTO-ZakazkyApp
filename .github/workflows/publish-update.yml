@@ -3,9 +3,9 @@ name: Publish ZakazkyApp update
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'release_version.txt'
+      - release_version.txt
 
 permissions:
   contents: write
@@ -28,81 +28,79 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APP_DIR=$(find . -maxdepth 1 -type d -name 'ZakazkyApp_v*' -printf '%f\n' | sort -V | tail -n 1)
-          test -n "$APP_DIR"
-          VERSION=$(tr -d ' \r\n' < release_version.txt)
-          test -n "$VERSION"
+          APP_DIR="ZakazkyApp_v5.7.2"
+          VERSION="$(tr -d ' \r\n' < release_version.txt)"
           STAGE="ZakazkyApp_v${VERSION}"
+          test -d "$APP_DIR"
+          test -n "$VERSION"
           rm -rf "$STAGE"
           cp -a "$APP_DIR" "$STAGE"
-
           cp v58_features.py "$STAGE/crm_features.py"
           cp crm_runtime.py "$STAGE/crm_runtime.py"
-
           rm -f "$STAGE/v58_features.py" "$STAGE/v581_cleanup.py"
-          rm -f "$STAGE/Spustit_Zakazky_v5.bat" "$STAGE/Spustit_Zakazky_v5.vbs"
-          rm -f "$STAGE/Spustit_QT_PREVIEW.bat" "$STAGE/qt_preview_v5.py"
+          rm -f "$STAGE/Spustit_QT_PREVIEW.bat" "$STAGE/Spustit_Qt_PREVIEW.bat" "$STAGE/qt_preview_v5.py"
           rm -f "$STAGE/AUDIT_v2.22.txt" "$STAGE/DULEZITE_v2.8_JEDNORAZOVY_RESET.txt"
           rm -f "$STAGE/latest.example.json" "$STAGE/Vytvorit_EXE.bat" "$STAGE/Vytvorit_manifest_aktualizace.py"
 
           python - "$STAGE/app.py" "$VERSION" <<'PY'
-          import pathlib,re,sys
-          p=pathlib.Path(sys.argv[1]);v=sys.argv[2]
-          s=p.read_text(encoding='utf-8')
-          s,n=re.subn(r'APP_VERSION\s*=\s*["\'][^"\']+["\']',f'APP_VERSION="{v}"',s,count=1)
-          if n!=1: raise SystemExit('APP_VERSION replacement failed')
-          s=s.replace("VALUES('schema_version','5.7')","VALUES('schema_version','5.8')",1)
-
-          # Remove CRM FOCUS directly from the dashboard source, not by hiding widgets later.
-          focus='''        focus=ttk.Frame(p,style="Card.TFrame",padding=(14,10));focus.pack(fill="x",pady=(0,12))\n        ttk.Label(focus,text="CRM FOCUS",style="FocusBadge.TLabel").pack(side="left",padx=(0,12))\n        self.crm_focus=tk.StringVar(value="Načítám priority…")\n        ttk.Label(focus,textvariable=self.crm_focus,style="FocusText.TLabel").pack(side="left",fill="x",expand=True)\n        ttk.Button(focus,text="Otevřít upozornění",style="Toolbar.TButton",command=self.open_notifications).pack(side="right")\n\n'''
-          if focus not in s: raise SystemExit('CRM FOCUS block not found')
-          s=s.replace(focus,'',1)
-          p.write_text(s,encoding='utf-8')
+          import pathlib, re, sys
+          p = pathlib.Path(sys.argv[1])
+          version = sys.argv[2]
+          s = p.read_text(encoding="utf-8")
+          s, n = re.subn(r'APP_VERSION\s*=\s*["\'][^"\']+["\']', f'APP_VERSION="{version}"', s, count=1)
+          if n != 1:
+              raise SystemExit("APP_VERSION replacement failed")
+          s = s.replace("VALUES('schema_version','5.7')", "VALUES('schema_version','5.8')", 1)
+          start = '        focus=ttk.Frame(p,style="Card.TFrame",padding=(14,10));focus.pack(fill="x",pady=(0,12))\n'
+          end = '        ttk.Button(focus,text="Otevřít upozornění",style="Toolbar.TButton",command=self.open_notifications).pack(side="right")\n'
+          a = s.find(start)
+          if a < 0:
+              raise SystemExit("CRM FOCUS start not found")
+          b = s.find(end, a)
+          if b < 0:
+              raise SystemExit("CRM FOCUS end not found")
+          b += len(end)
+          while b < len(s) and s[b] == "\n":
+              b += 1
+          s = s[:a] + s[b:]
+          p.write_text(s, encoding="utf-8")
           PY
 
           cat > "$STAGE/ZakazkyCRM.pyw" <<'PYW'
-from pathlib import Path
-import os
-ROOT=Path(__file__).resolve().parent
-# Safe one-time cleanup of obsolete program-only files from previous versions.
-for name in (
-    'v58_features.py','v581_cleanup.py','Spustit_Zakazky_v5.bat','Spustit_Zakazky_v5.vbs',
-    'Spustit_QT_PREVIEW.bat','qt_preview_v5.py','AUDIT_v2.22.txt','DULEZITE_v2.8_JEDNORAZOVY_RESET.txt',
-    'latest.example.json','Vytvorit_EXE.bat','Vytvorit_manifest_aktualizace.py'
-):
-    try:(ROOT/name).unlink(missing_ok=True)
-    except Exception:pass
-try:
-    cache=ROOT/'__pycache__'
-    if cache.exists():
-        import shutil; shutil.rmtree(cache,ignore_errors=True)
-except Exception:pass
-import app
-import crm_features
-import crm_runtime
-crm_features.apply(app)
-crm_runtime.apply(app)
-app.cleanup_stale_test_session()
-app.ensure_schema()
-app.ensure_test_user()
-app.migrate_v41_visual_once()
-app.import_mail_contacts_v220_once()
-app.import_mail_contacts_v221_once()
-app.restore_people_from_v280_backup_once()
-app.post_import_cleanup_v222_once()
-app.App().mainloop()
-PYW
+          import app
+          import crm_features
+          import crm_runtime
+          crm_features.apply(app)
+          crm_runtime.apply(app)
+          app.cleanup_stale_test_session()
+          app.ensure_schema()
+          app.ensure_test_user()
+          app.migrate_v41_visual_once()
+          app.import_mail_contacts_v220_once()
+          app.import_mail_contacts_v221_once()
+          app.restore_people_from_v280_backup_once()
+          app.post_import_cleanup_v222_once()
+          app.App().mainloop()
+          PYW
 
-          printf '%s\n' \
-            'Set sh = CreateObject("WScript.Shell")' \
-            'sh.CurrentDirectory = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)' \
-            'sh.Run "pyw ZakazkyCRM.pyw", 0, False' \
-            > "$STAGE/Spustit_Zakazky.vbs"
-          printf '%s\n' \
-            '@echo off' \
-            'cd /d "%~dp0"' \
-            'start "" pyw ZakazkyCRM.pyw' \
-            > "$STAGE/Spustit_Zakazky.bat"
+          cat > "$STAGE/Spustit_Zakazky.vbs" <<'VBS'
+          Set sh = CreateObject("WScript.Shell")
+          sh.CurrentDirectory = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)
+          sh.Run "pyw ZakazkyCRM.pyw", 0, False
+          VBS
+
+          cat > "$STAGE/Spustit_Zakazky.bat" <<'BAT'
+          @echo off
+          cd /d "%~dp0"
+          start "" pyw ZakazkyCRM.pyw
+          BAT
+
+          # Compatibility launcher used by the existing 5.8.3 updater after installation.
+          cat > "$STAGE/Spustit_Zakazky_v5.vbs" <<'VBS5'
+          Set sh = CreateObject("WScript.Shell")
+          sh.CurrentDirectory = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)
+          sh.Run "pyw ZakazkyCRM.pyw", 0, False
+          VBS5
 
           echo "dir=$STAGE" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -111,34 +109,44 @@ PYW
         shell: bash
         run: |
           set -euo pipefail
-          DIR='${{ steps.app.outputs.dir }}'
+          DIR="${{ steps.app.outputs.dir }}"
           python -m py_compile "$DIR/app.py" "$DIR/crm_features.py" "$DIR/crm_runtime.py" "$DIR/ZakazkyCRM.pyw"
 
       - name: Build ZIP and manifest
         shell: bash
         run: |
           set -euo pipefail
-          DIR='${{ steps.app.outputs.dir }}'
-          VER='${{ steps.app.outputs.version }}'
+          DIR="${{ steps.app.outputs.dir }}"
+          VER="${{ steps.app.outputs.version }}"
           ZIP="ZakazkyApp_v${VER}.zip"
           rm -f "$ZIP"
-          zip -qr "$ZIP" "$DIR" -x '*/__pycache__/*' '*.pyc' '*/v5_error.log' '*/crm_features_error.log' '*/crm_runtime_error.log'
-          SHA=$(sha256sum "$ZIP" | awk '{print $1}')
-          printf '{\n  "version": "%s",\n  "file": "%s",\n  "sha256": "%s"\n}\n' "$VER" "$ZIP" "$SHA" > latest.json
+          zip -qr "$ZIP" "$DIR" -x '*/__pycache__/*' '*.pyc' '*/v5_error.log' '*/update_error.log' '*/crm_features_error.log' '*/crm_runtime_error.log'
+          SHA="$(sha256sum "$ZIP" | awk '{print $1}')"
+          python - "$VER" "$ZIP" "$SHA" <<'PY'
+          import json, sys
+          version, filename, sha = sys.argv[1:]
+          with open("latest.json", "w", encoding="utf-8") as f:
+              json.dump({"version": version, "file": filename, "sha256": sha}, f, ensure_ascii=False, indent=2)
+              f.write("\n")
+          PY
 
-      - name: Publish generated package
+      - name: Publish package
         shell: bash
         run: |
           set -euo pipefail
-          VER='${{ steps.app.outputs.version }}'
+          VER="${{ steps.app.outputs.version }}"
           ZIP="ZakazkyApp_v${VER}.zip"
-          git config user.name 'TURTO Update Bot'
-          git config user.email 'actions@users.noreply.github.com'
+          git config user.name "TURTO Update Bot"
+          git config user.email "actions@users.noreply.github.com"
           git add -f "$ZIP" latest.json
-          git diff --cached --quiet && exit 0
+          if git diff --cached --quiet; then
+            exit 0
+          fi
           git commit -m "Publish ZakazkyApp v${VER} update"
           for try in 1 2 3; do
-            git pull --rebase origin main && git push origin HEAD:main && exit 0
-            sleep $((try*2))
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              exit 0
+            fi
+            sleep $((try * 2))
           done
           exit 1
