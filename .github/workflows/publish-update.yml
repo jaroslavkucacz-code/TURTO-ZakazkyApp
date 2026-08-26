@@ -4,13 +4,15 @@ on:
   workflow_dispatch:
   push:
     branches: [ main ]
-    paths-ignore:
-      - 'latest.json'
-      - '*.zip'
-      - 'channel.json'
+    paths:
+      - 'release_version.txt'
 
 permissions:
   contents: write
+
+concurrency:
+  group: zakazkyapp-publish
+  cancel-in-progress: false
 
 jobs:
   build-update:
@@ -18,6 +20,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Prepare release
         id: app
@@ -29,18 +33,10 @@ jobs:
             echo 'No ZakazkyApp_v* directory found.' >&2
             exit 1
           fi
-          if [ -f release_version.txt ]; then
-            VERSION=$(tr -d ' \r\n' < release_version.txt)
-          else
-            VERSION=$(python - <<'PY'
-          import re, pathlib
-          dirs=sorted([p for p in pathlib.Path('.').glob('ZakazkyApp_v*') if p.is_dir()], key=lambda p:[int(x) for x in re.findall(r'\d+',p.name)])
-          text=(dirs[-1]/'app.py').read_text(encoding='utf-8')
-          m=re.search(r'APP_VERSION\s*=\s*["\']([^"\']+)["\']',text)
-          if not m: raise SystemExit('APP_VERSION not found')
-          print(m.group(1))
-          PY
-            )
+          VERSION=$(tr -d ' \r\n' < release_version.txt)
+          if [ -z "$VERSION" ]; then
+            echo 'release_version.txt is empty.' >&2
+            exit 1
           fi
           STAGE="ZakazkyApp_v${VERSION}"
           rm -rf "$STAGE"
@@ -104,5 +100,12 @@ jobs:
             exit 0
           fi
           git commit -m "Publish ZakazkyApp v${VER} update"
-          git pull --rebase origin main
-          git push origin HEAD:main
+          for try in 1 2 3; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Publish retry $try/3..."
+            sleep $((try*2))
+          done
+          echo 'Publishing failed after 3 attempts.' >&2
+          exit 1
