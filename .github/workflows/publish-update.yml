@@ -44,24 +44,19 @@ jobs:
 
           python - "$STAGE/app.py" "$VERSION" <<'PY'
           import pathlib, re, sys
-          p = pathlib.Path(sys.argv[1])
-          version = sys.argv[2]
+          p = pathlib.Path(sys.argv[1]); version = sys.argv[2]
           s = p.read_text(encoding="utf-8")
           s, n = re.subn(r'APP_VERSION\s*=\s*["\'][^"\']+["\']', f'APP_VERSION="{version}"', s, count=1)
-          if n != 1:
-              raise SystemExit("APP_VERSION replacement failed")
+          if n != 1: raise SystemExit("APP_VERSION replacement failed")
           s = s.replace("VALUES('schema_version','5.7')", "VALUES('schema_version','5.8')", 1)
           start = '        focus=ttk.Frame(p,style="Card.TFrame",padding=(14,10));focus.pack(fill="x",pady=(0,12))\n'
           end = '        ttk.Button(focus,text="Otevřít upozornění",style="Toolbar.TButton",command=self.open_notifications).pack(side="right")\n'
           a = s.find(start)
-          if a < 0:
-              raise SystemExit("CRM FOCUS start not found")
+          if a < 0: raise SystemExit("CRM FOCUS start not found")
           b = s.find(end, a)
-          if b < 0:
-              raise SystemExit("CRM FOCUS end not found")
+          if b < 0: raise SystemExit("CRM FOCUS end not found")
           b += len(end)
-          while b < len(s) and s[b] == "\n":
-              b += 1
+          while b < len(s) and s[b] == "\n": b += 1
           s = s[:a] + s[b:]
           p.write_text(s, encoding="utf-8")
           PY
@@ -95,7 +90,6 @@ jobs:
           start "" pyw ZakazkyCRM.pyw
           BAT
 
-          # Compatibility launcher used by the existing 5.8.3 updater after installation.
           cat > "$STAGE/Spustit_Zakazky_v5.vbs" <<'VBS5'
           Set sh = CreateObject("WScript.Shell")
           sh.CurrentDirectory = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)
@@ -123,10 +117,12 @@ jobs:
           zip -qr "$ZIP" "$DIR" -x '*/__pycache__/*' '*.pyc' '*/v5_error.log' '*/update_error.log' '*/crm_features_error.log' '*/crm_runtime_error.log'
           SHA="$(sha256sum "$ZIP" | awk '{print $1}')"
           python - "$VER" "$ZIP" "$SHA" <<'PY'
-          import json, sys
+          import json, sys, pathlib
           version, filename, sha = sys.argv[1:]
+          notes_path = pathlib.Path("release_notes.txt")
+          notes = notes_path.read_text(encoding="utf-8").strip() if notes_path.exists() else ""
           with open("latest.json", "w", encoding="utf-8") as f:
-              json.dump({"version": version, "file": filename, "sha256": sha}, f, ensure_ascii=False, indent=2)
+              json.dump({"version": version, "file": filename, "sha256": sha, "notes": notes}, f, ensure_ascii=False, indent=2)
               f.write("\n")
           PY
 
@@ -139,14 +135,10 @@ jobs:
           git config user.name "TURTO Update Bot"
           git config user.email "actions@users.noreply.github.com"
           git add -f "$ZIP" latest.json
-          if git diff --cached --quiet; then
-            exit 0
-          fi
+          if git diff --cached --quiet; then exit 0; fi
           git commit -m "Publish ZakazkyApp v${VER} update"
           for try in 1 2 3; do
-            if git pull --rebase origin main && git push origin HEAD:main; then
-              exit 0
-            fi
+            if git pull --rebase origin main && git push origin HEAD:main; then exit 0; fi
             sleep $((try * 2))
           done
           exit 1
