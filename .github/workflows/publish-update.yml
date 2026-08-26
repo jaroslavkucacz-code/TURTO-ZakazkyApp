@@ -19,7 +19,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Find newest application folder and version
+      - name: Prepare release
         id: app
         shell: bash
         run: |
@@ -29,17 +29,31 @@ jobs:
             echo 'No ZakazkyApp_v* directory found.' >&2
             exit 1
           fi
-          VERSION=$(python - <<'PY'
+          if [ -f release_version.txt ]; then
+            VERSION=$(tr -d ' \r\n' < release_version.txt)
+          else
+            VERSION=$(python - <<'PY'
           import re, pathlib
           dirs=sorted([p for p in pathlib.Path('.').glob('ZakazkyApp_v*') if p.is_dir()], key=lambda p:[int(x) for x in re.findall(r'\d+',p.name)])
-          app=dirs[-1]/'app.py'
-          text=app.read_text(encoding='utf-8')
+          text=(dirs[-1]/'app.py').read_text(encoding='utf-8')
           m=re.search(r'APP_VERSION\s*=\s*["\']([^"\']+)["\']',text)
           if not m: raise SystemExit('APP_VERSION not found')
           print(m.group(1))
           PY
-          )
-          echo "dir=$APP_DIR" >> "$GITHUB_OUTPUT"
+            )
+          fi
+          STAGE="ZakazkyApp_v${VERSION}"
+          rm -rf "$STAGE"
+          cp -a "$APP_DIR" "$STAGE"
+          python - "$STAGE/app.py" "$VERSION" <<'PY'
+          import pathlib,re,sys
+          p=pathlib.Path(sys.argv[1]); v=sys.argv[2]
+          s=p.read_text(encoding='utf-8')
+          s,n=re.subn(r'APP_VERSION\s*=\s*["\'][^"\']+["\']',f'APP_VERSION="{v}"',s,count=1)
+          if n!=1: raise SystemExit('APP_VERSION replacement failed')
+          p.write_text(s,encoding='utf-8')
+          PY
+          echo "dir=$STAGE" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Build ZIP and manifest
