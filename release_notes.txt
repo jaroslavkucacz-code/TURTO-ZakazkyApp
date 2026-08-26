@@ -1,7 +1,7 @@
-• ADMIN HISTORIE začíná zaznamenávat změny stavu Příležitostí včetně uživatele a PC.
-• Připraven základ pro bezpečné vracení auditovaných změn.
-• Nabídka/Připraveno používá tyrkysovou místo fialové, aby se nepletla s modrou.
-• Ruční řazení tabulek se při přechodu mezi záložkami ruší a vrací se výchozí pořadí.
-• MIVO má benevolentnější čekací prahy: 0–7 bez varování, 8–14 mírné, 15–21 oranžové, 22+ červené.
-• Hořící termíny zůstávají výrazně označené vykřičníkem a tučným varovným stylem.
-• Databáze je připravená ukládat četnost použití příjemců poptávek pro jejich budoucí řazení.
+• Nápověda byla výrazně rozšířena podle aktuálního stavu CRM a od této verze se bude aktualizovat s každou další verzí.
+• MIVO: stáří čekání už nemění barvu celého řádku; při stavu Čekám se po více než 10 dnech zvýrazní pouze datum Poptáno symbolem !.
+• Pokud je MIVO nabídka Obdrženo, stáří původní poptávky se jako problém nezvýrazňuje.
+• Stavové barvy ve světlém i tmavém režimu mají vyšší kontrast; Připraveno/Nabídka zůstává jasně tyrkysová oproti modrému Rozpracováno.
+• Dialogová okna jsou vyšší, ale stále omezená velikostí monitoru.
+• Hlavní CRM se po spuštění maximalizuje.
+• ADMIN HISTORIE a audit změn zůstávají součástí dalšího rozšiřování víceuživatelského provozu.
