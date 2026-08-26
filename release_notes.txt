@@ -1,7 +1,6 @@
-• Nápověda byla výrazně rozšířena podle aktuálního stavu CRM a od této verze se bude aktualizovat s každou další verzí.
-• MIVO: stáří čekání už nemění barvu celého řádku; při stavu Čekám se po více než 10 dnech zvýrazní pouze datum Poptáno symbolem !.
-• Pokud je MIVO nabídka Obdrženo, stáří původní poptávky se jako problém nezvýrazňuje.
-• Stavové barvy ve světlém i tmavém režimu mají vyšší kontrast; Připraveno/Nabídka zůstává jasně tyrkysová oproti modrému Rozpracováno.
-• Dialogová okna jsou vyšší, ale stále omezená velikostí monitoru.
-• Hlavní CRM se po spuštění maximalizuje.
-• ADMIN HISTORIE a audit změn zůstávají součástí dalšího rozšiřování víceuživatelského provozu.
+• Nápověda je nově rozvětvená podle jednotlivých procesů a modulů CRM: Přehled, Akce, Příležitosti, Poptávky, MIVO, Nabídky, Úkoly, Společnosti, Osoby, Uživatelé, ADMIN, síťová DB, HISTORIE, aktualizace, řazení a zálohy.
+• Každé téma nápovědy má vlastní stránku/sekci s popisem pracovního postupu a aktuálních pravidel.
+• MIVO: při Čekám déle než 10 dní zůstává pouze jeden varovný symbol ⚠ u data Poptáno; žádný druhý vykřičník.
+• MIVO už nebarví celý řádek podle délky čekání; Obdrženo se podle stáří Poptáno nevaruje.
+• Klasické Poptávky mají mírnější časové upozornění: 0–5 dní bez varování, 6–10 dní mírné upozornění, 11+ dní výrazné upozornění u data.
+• Nápověda se bude dále aktualizovat společně s každou verzí CRM.
