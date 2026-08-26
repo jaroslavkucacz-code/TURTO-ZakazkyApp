@@ -4,11 +4,11 @@ def apply(M):
     # Floating AutocompleteEntry: keep typing focus in the entry, but maintain a visible active row in the popup.
     try:
         A=M.AutocompleteEntry
+        previous_init=A.__init__
         def navigate(self,delta):
             try:
                 self._show()
                 if not self.listbox or not self.listbox.size():return 'break'
-                # Keep keyboard focus in the entry; only move the visual selection in the list.
                 sel=self.listbox.curselection();cur=sel[0] if sel else 0
                 nxt=max(0,min(self.listbox.size()-1,cur+delta))
                 self.listbox.selection_clear(0,'end');self.listbox.selection_set(nxt);self.listbox.activate(nxt);self.listbox.see(nxt)
@@ -17,20 +17,24 @@ def apply(M):
             except:return 'break'
         def accept(self,e=None):
             try:
-                # If popup is visible, Enter confirms the visually highlighted suggestion exactly like a mouse click.
                 if self.popup and self.popup.winfo_exists() and self.popup.winfo_viewable() and self.listbox and self.listbox.size():
                     sel=self.listbox.curselection();idx=sel[0] if sel else self.listbox.index('active')
                     if idx<0:idx=0
                     self._set(self.listbox.get(idx));return 'break'
-                # If the value has already been committed, let Enter bubble to dialog-level Uložit/OK.
                 if self.selected_value and (self.var.get() or '').strip()==str(self.selected_value).strip():return None
-                # Hidden popup + uncommitted text: show and confirm first matching suggestion.
                 self._show()
-                if self.listbox and self.listbox.size():
-                    self._set(self.listbox.get(0));return 'break'
+                if self.listbox and self.listbox.size():self._set(self.listbox.get(0));return 'break'
                 return None
             except:return 'break'
         A._navigate=navigate;A._accept_first=accept
+        def init(self,*a,**k):
+            previous_init(self,*a,**k)
+            # Rebind after older compatibility layers so Enter always uses the current focus/selection model.
+            self.bind('<Return>',self._accept_first)
+            self.bind('<KP_Enter>',self._accept_first)
+            self.bind('<Down>',lambda e:self._navigate(1))
+            self.bind('<Up>',lambda e:self._navigate(-1))
+        A.__init__=init
     except:pass
 
     # InlineChoice uses the same keyboard model.
