@@ -1,7 +1,7 @@
-• Opraven Enter u skutečně používaných našeptávačů: potvrzení nyní provede stejný výběr jako kliknutí na položku, včetně interní vazby/ID, a Enter nepropadne do předčasného Uložit.
-• ADMIN HISTORIE má aktivní okno posledních 14 dní. Starší záznamy se nemažou, ale jsou dostupné přes „Zobrazit archiv (> 14 dní)“ pouze pro čtení a bez Undo.
-• HISTORIE zobrazuje jasné stavy LZE VRÁTIT / NELZE VRÁTIT / VRÁCENO / ARCHIV.
-• Přehled používá stejné stavové barvy jako ostatní části CRM, bez vlastní odlišné palety.
-• Přidány databázové indexy pro audit, Poptávky a Příležitosti jako výkonová rezerva pro desetitisíce záznamů a síťový provoz.
-• Zachovány velké dialogy, maximalizovaný start, barevné Rychlé akce, nejpoužívanější e-maily nahoře, reset řazení a časová upozornění Poptávky ⚠ > 3 dny / MIVO ⚠ > 10 dní.
-• Procesní Nápověda se dál udržuje spolu s verzemi CRM.
+• Našeptávače mají nový focus/selection model: při psaní zůstává kurzor v textovém poli, ale první nabídka je zároveň aktivně zvýrazněná.
+• Šipky ↑/↓ mění aktivní položku bez nutnosti přesouvat fokus do seznamu a Enter potvrzuje právě zvýrazněnou položku včetně interní vazby/ID.
+• Po potvrzení položky lze dalším Enterem potvrdit celý dialog; Enter už nepropadá do Uložit dřív, než je našeptávač skutečně potvrzený.
+• ADMIN Undo se rozšiřuje i na vytvoření a smazání jednoduchých Úkolů a Poptávek. Návrat proběhne jen tehdy, pokud to databázové vazby bezpečně dovolí.
+• Aktivní HISTORIE zůstává 14 dní, starší audit je read-only archiv. Přehled používá stejnou stavovou paletu jako ostatní CRM.
+• Zachovány výkonové indexy, velké dialogy, maximalizovaný start, barevné Rychlé akce, nejpoužívanější e-maily nahoře, reset řazení a časová upozornění Poptávky ⚠ > 3 dny / MIVO ⚠ > 10 dní.
+• Procesní Nápověda byla doplněna o aktuální chování našeptávačů a rozšířené Undo.
