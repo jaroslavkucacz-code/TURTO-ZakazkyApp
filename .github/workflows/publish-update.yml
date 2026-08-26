@@ -45,16 +45,37 @@ jobs:
           STAGE="ZakazkyApp_v${VERSION}"
           rm -rf "$STAGE"
           cp -a "$APP_DIR" "$STAGE"
+
+          # v5.8+ feature layer. The source tree stays stable; release packaging
+          # injects the current CRM extension into the staged application.
+          if [ -f v58_features.py ]; then
+            cp v58_features.py "$STAGE/v58_features.py"
+          fi
+
           python - "$STAGE/app.py" "$VERSION" <<'PY'
           import pathlib,re,sys
           p=pathlib.Path(sys.argv[1]); v=sys.argv[2]
           s=p.read_text(encoding='utf-8')
           s,n=re.subn(r'APP_VERSION\s*=\s*["\'][^"\']+["\']',f'APP_VERSION="{v}"',s,count=1)
           if n!=1: raise SystemExit('APP_VERSION replacement failed')
+          # Schema label only; v5.8 does not destructively change user data.
+          s=s.replace("VALUES('schema_version','5.7')","VALUES('schema_version','5.8')",1)
+          hook='''\n# --- TURTO release feature layer ---\ntry:\n    import v58_features as _turto_features\n    _turto_features.apply(sys.modules[__name__])\nexcept Exception as _feature_error:\n    try:\n        (ROOT/"v58_feature_error.log").write_text(str(_feature_error),encoding="utf-8")\n    except Exception:\n        pass\n\n'''
+          marker='\nif __name__=="__main__":\n'
+          if 'v58_features as _turto_features' not in s:
+              if marker not in s: raise SystemExit('main marker not found')
+              s=s.replace(marker,hook+marker,1)
           p.write_text(s,encoding='utf-8')
           PY
           echo "dir=$STAGE" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Validate Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIR='${{ steps.app.outputs.dir }}'
+          python -m py_compile "$DIR/app.py" "$DIR/v58_features.py"
 
       - name: Build ZIP and manifest
         shell: bash
@@ -64,7 +85,7 @@ jobs:
           VER='${{ steps.app.outputs.version }}'
           ZIP="ZakazkyApp_v${VER}.zip"
           rm -f "$ZIP"
-          zip -qr "$ZIP" "$DIR" -x '*/__pycache__/*' '*.pyc' '*/v5_error.log'
+          zip -qr "$ZIP" "$DIR" -x '*/__pycache__/*' '*.pyc' '*/v5_error.log' '*/v58_feature_error.log'
           SHA=$(sha256sum "$ZIP" | awk '{print $1}')
           python - <<PY
           import json
