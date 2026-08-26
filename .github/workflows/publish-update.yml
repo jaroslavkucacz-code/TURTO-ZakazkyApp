@@ -1,0 +1,75 @@
+name: Publish ZakazkyApp update
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'latest.json'
+      - '*.zip'
+      - 'channel.json'
+
+permissions:
+  contents: write
+
+jobs:
+  build-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Find newest application folder and version
+        id: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_DIR=$(find . -maxdepth 1 -type d -name 'ZakazkyApp_v*' -printf '%f\n' | sort -V | tail -n 1)
+          if [ -z "$APP_DIR" ]; then
+            echo 'No ZakazkyApp_v* directory found.' >&2
+            exit 1
+          fi
+          VERSION=$(python - <<'PY'
+          import re, pathlib
+          dirs=sorted([p for p in pathlib.Path('.').glob('ZakazkyApp_v*') if p.is_dir()], key=lambda p:[int(x) for x in re.findall(r'\d+',p.name)])
+          app=dirs[-1]/'app.py'
+          text=app.read_text(encoding='utf-8')
+          m=re.search(r'APP_VERSION\s*=\s*["\']([^"\']+)["\']',text)
+          if not m: raise SystemExit('APP_VERSION not found')
+          print(m.group(1))
+          PY
+          )
+          echo "dir=$APP_DIR" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build ZIP and manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIR='${{ steps.app.outputs.dir }}'
+          VER='${{ steps.app.outputs.version }}'
+          ZIP="ZakazkyApp_v${VER}.zip"
+          rm -f "$ZIP"
+          zip -qr "$ZIP" "$DIR" -x '*/__pycache__/*' '*.pyc' '*/v5_error.log'
+          SHA=$(sha256sum "$ZIP" | awk '{print $1}')
+          python - <<PY
+          import json
+          data={"version":"${VER}","file":"${ZIP}","sha256":"${SHA}"}
+          open('latest.json','w',encoding='utf-8').write(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
+          PY
+
+      - name: Publish generated package
+        shell: bash
+        run: |
+          set -euo pipefail
+          VER='${{ steps.app.outputs.version }}'
+          ZIP="ZakazkyApp_v${VER}.zip"
+          git config user.name 'TURTO Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -f "$ZIP" latest.json
+          if git diff --cached --quiet; then
+            echo 'Nothing to publish.'
+            exit 0
+          fi
+          git commit -m "Publish ZakazkyApp v${VER} update"
+          git push
