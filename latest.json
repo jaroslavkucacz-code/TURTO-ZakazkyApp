@@ -1,6 +1,6 @@
 {
-  "version": "6.0.14",
-  "file": "ZakazkyApp_v6.0.14.zip",
-  "sha256": "e379444ff2bd8c71cb3c6b94180ddfb402f21ddacd4eca8d98809cb6963e5e69",
-  "notes": "• Opraven Enter u skutečně používaných našeptávačů: potvrzení nyní provede stejný výběr jako kliknutí na položku, včetně interní vazby/ID, a Enter nepropadne do předčasného Uložit.\n• ADMIN HISTORIE má aktivní okno posledních 14 dní. Starší záznamy se nemažou, ale jsou dostupné přes „Zobrazit archiv (> 14 dní)“ pouze pro čtení a bez Undo.\n• HISTORIE zobrazuje jasné stavy LZE VRÁTIT / NELZE VRÁTIT / VRÁCENO / ARCHIV.\n• Přehled používá stejné stavové barvy jako ostatní části CRM, bez vlastní odlišné palety.\n• Přidány databázové indexy pro audit, Poptávky a Příležitosti jako výkonová rezerva pro desetitisíce záznamů a síťový provoz.\n• Zachovány velké dialogy, maximalizovaný start, barevné Rychlé akce, nejpoužívanější e-maily nahoře, reset řazení a časová upozornění Poptávky ⚠ > 3 dny / MIVO ⚠ > 10 dní.\n• Procesní Nápověda se dál udržuje spolu s verzemi CRM."
+  "version": "6.0.15",
+  "file": "ZakazkyApp_v6.0.15.zip",
+  "sha256": "ed5baecf6eb69c16e9e7b57ccf3067dda5aa315a2af76ed1a79d528b61cb6fa3",
+  "notes": "• Našeptávače mají nový focus/selection model: při psaní zůstává kurzor v textovém poli, ale první nabídka je zároveň aktivně zvýrazněná.\n• Šipky ↑/↓ mění aktivní položku bez nutnosti přesouvat fokus do seznamu a Enter potvrzuje právě zvýrazněnou položku včetně interní vazby/ID.\n• Po potvrzení položky lze dalším Enterem potvrdit celý dialog; Enter už nepropadá do Uložit dřív, než je našeptávač skutečně potvrzený.\n• ADMIN Undo se rozšiřuje i na vytvoření a smazání jednoduchých Úkolů a Poptávek. Návrat proběhne jen tehdy, pokud to databázové vazby bezpečně dovolí.\n• Aktivní HISTORIE zůstává 14 dní, starší audit je read-only archiv. Přehled používá stejnou stavovou paletu jako ostatní CRM.\n• Zachovány výkonové indexy, velké dialogy, maximalizovaný start, barevné Rychlé akce, nejpoužívanější e-maily nahoře, reset řazení a časová upozornění Poptávky ⚠ > 3 dny / MIVO ⚠ > 10 dní.\n• Procesní Nápověda byla doplněna o aktuální chování našeptávačů a rozšířené Undo."
 }
