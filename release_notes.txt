@@ -1,7 +1,7 @@
-• ADMIN Undo: auditované změny Příležitostí, Úkolů a Poptávek nově ukládají i bezpečný návrat k původní hodnotě tam, kde je to jednoznačné.
-• Vrácení změny probíhá v databázové transakci a samo vytvoří nový auditní záznam, takže ADMIN zásah nezmizí z historie.
-• Již jednou vrácenou změnu nelze omylem vrátit podruhé; nebezpečné nebo neúplné operace zůstávají pouze pro čtení.
-• Audit nadále eviduje uživatele a počítač a rozšiřuje se na Příležitosti, Poptávky a Úkoly.
+• Našeptávače lze nově potvrdit ihned klávesou Enter. Pokud nic ručně nevyberete, Enter vezme první nabízenou položku; šipkami ↑/↓ lze před potvrzením změnit výběr.
+• Enter v našeptávači už nemá předčasně uložit celý dialog. Po potvrzení položky lze dalším Enterem potvrdit samotný dialog.
+• ADMIN → HISTORIE má nově přímo tlačítko ↶ Vrátit změnu. Záznamy, které lze bezpečně vrátit, jsou označené LZE VRÁTIT; po návratu se označí VRÁCENO.
+• Vrácení změny probíhá v databázové transakci a samotný ADMIN zásah se znovu zapisuje do auditu.
 • Zachováno upozornění klasických Poptávek pouze symbolem ⚠ po více než 3 dnech čekání; MIVO používá ⚠ až po více než 10 dnech.
 • Zachovány velké dialogy, maximalizovaný start, barevné Rychlé akce, kontrastní stavové barvy, nejpoužívanější e-maily nahoře a reset řazení.
-• Procesní Nápověda se dál aktualizuje s každou verzí.
+• Procesní Nápověda byla aktualizována o Undo, našeptávače a práci s okny.
