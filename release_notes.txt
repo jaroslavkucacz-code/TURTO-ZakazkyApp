@@ -1,7 +1,6 @@
-• Rychlé akce na Přehledu jsou znovu barevně odlišené: nová Příležitost, Poptávka, Úkol, Společnost a Osoba mají vlastní výraznou barvu ve světlém i tmavém režimu.
-• Dialogová okna se nově otevírají výrazně větší – přibližně na 84 % šířky a 88 % výšky obrazovky, ale stále nepřesáhnou dostupný monitor a zůstávají ihned zmenšitelná.
-• Hlavní CRM se nadále spouští maximalizované.
-• Zachována výrazná barevnost stavů, reset ručního řazení po překliku záložek a rozvětvená procesní Nápověda.
-• MIVO používá pouze jeden symbol ⚠ u data Poptáno při Čekám déle než 10 dní; délka čekání nebarví celý řádek.
-• Klasické Poptávky: 0–5 dní bez upozornění, 6–10 dní mírné, 11+ dní výrazné upozornění u data.
-• Příjemci Poptávek se řadí podle četnosti a posledního použití pro konkrétní společnost; nic se automaticky nezaškrtává.
+• Klasické Poptávky mají nově jediný typ časového upozornění: pokud je stav Čekám déle než 3 dny, zobrazí se u data Poptáno pouze symbol ⚠.
+• U klasických Poptávek se kvůli stáří čekání už nepoužívají tečky, další vykřičníky ani barevné stupňování celého řádku.
+• MIVO zůstává benevolentnější: jediný symbol ⚠ se zobrazí až při Čekám déle než 10 dní.
+• Zachovány velké dialogy, maximalizovaný start CRM, barevné Rychlé akce a kontrastní stavové barvy.
+• Zachováno řazení příjemců Poptávek podle četnosti a posledního použití, bez automatického zaškrtávání.
+• Zachován reset ručního řazení při přechodu mezi záložkami a rozvětvená procesní Nápověda.
