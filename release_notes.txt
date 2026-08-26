@@ -1,7 +1,10 @@
-• Našeptávače mají opravené klávesové ovládání: fokus zůstává při psaní v textovém poli, seznam je ale aktivní; ↑/↓ mění zvýrazněnou položku a Enter ji potvrdí stejně jako kliknutí myší, včetně interní vazby/ID.
-• Po potvrzení našeptávače může další Enter potvrdit celý dialog; při samotném psaní Enter už nepropadne do předčasného Uložit.
-• Dialogová okna se nyní počítají podle skutečné pracovní plochy konkrétního monitoru, takže respektují hlavní panel Windows a nepřekrývají ho.
-• U Poptávek jsou osoby po výběru společnosti řazené: nejdřív podle četnosti použití v dané společnosti, při shodě podle posledního použití a poté abecedně podle jména/e-mailu. Nic se automaticky nezaškrtává.
-• Přidány další výkonové indexy pro řazení kontaktů a auditní archiv jako rezerva pro desítky tisíc záznamů a síťový provoz.
-• Zachovány 14denní aktivní HISTORIE + read-only archiv, Undo, sjednocené barvy Přehledu, barevné Rychlé akce, maximalizovaný start, reset řazení a upozornění Poptávky ⚠ > 3 dny / MIVO ⚠ > 10 dní.
-• Procesní Nápověda byla doplněna o nové ovládání našeptávačů, řazení příjemců a chování dialogů vůči Windows hlavnímu panelu.
+• Nabídky dostaly nový jednotný vstup „Zpracovat PDF / MSG“. CRM umí načíst samostatné PDF i Outlook zprávu .MSG a zpracovat podporované PDF přílohy.
+• Integrované jsou původní parsery TURTO pro Leviat a GEROtop včetně položek, cen, slev, referencí a u GEROtop i dostupných obrázků výrobků.
+• Nabídky se ukládají do společné CRM databáze, vstupují do historie cen a používají stávající aliasy položek, kanonické obrázky, vyhledávání a vazbu na Akci.
+• .MSG se ukládá jako zdroj: předmět, odesílatel, datum, text a všechny přílohy jsou evidované v databázi. Přílohy jsou chráněné hashem a lze je později znovu zpracovat novějším parserem.
+• Import stejného PDF je chráněn proti duplicitě pomocí SHA-256.
+• Router parserů je nově modulární. Další dodavatel může být doplněn samostatným provider modulem bez přepisování databáze nebo hlavního modulu Nabídky.
+• Excelové a ostatní přílohy z .MSG se nyní bezpečně archivují; parser pro konkrétního dalšího dodavatele lze doplnit následně. PDF Leviat/GEROtop se zpracovává ihned.
+• Doplněna knihovna extract-msg pro čtení Outlook .MSG.
+• Našeptávač byl opraven přímo v základní třídě: popup už není globálně topmost, první/označený výsledek lze potvrdit rovnou Enterem bez šipky dolů; ↑/↓ mění výběr a druhý Enter může potvrdit dialog.
+• Zachovány velké dialogy respektující Windows lištu, řazení nejpoužívanějších e-mailů, 14denní aktivní HISTORIE + archiv, Undo, barvy, výkonové indexy a ostatní stabilizované funkce.
