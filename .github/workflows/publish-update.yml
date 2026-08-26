@@ -29,35 +29,29 @@ jobs:
         run: |
           set -euo pipefail
           APP_DIR=$(find . -maxdepth 1 -type d -name 'ZakazkyApp_v*' -printf '%f\n' | sort -V | tail -n 1)
-          if [ -z "$APP_DIR" ]; then
-            echo 'No ZakazkyApp_v* directory found.' >&2
-            exit 1
-          fi
+          test -n "$APP_DIR"
           VERSION=$(tr -d ' \r\n' < release_version.txt)
-          if [ -z "$VERSION" ]; then
-            echo 'release_version.txt is empty.' >&2
-            exit 1
-          fi
+          test -n "$VERSION"
           STAGE="ZakazkyApp_v${VERSION}"
           rm -rf "$STAGE"
           cp -a "$APP_DIR" "$STAGE"
-
-          if [ -f v58_features.py ]; then
-            cp v58_features.py "$STAGE/v58_features.py"
-          fi
-
+          [ ! -f v58_features.py ] || cp v58_features.py "$STAGE/v58_features.py"
+          [ ! -f v581_cleanup.py ] || cp v581_cleanup.py "$STAGE/v581_cleanup.py"
           python - "$STAGE/app.py" "$VERSION" <<'PY'
           import pathlib,re,sys
-          p=pathlib.Path(sys.argv[1]); v=sys.argv[2]
-          s=p.read_text(encoding='utf-8')
+          p=pathlib.Path(sys.argv[1]);v=sys.argv[2];s=p.read_text(encoding='utf-8')
           s,n=re.subn(r'APP_VERSION\s*=\s*["\'][^"\']+["\']',f'APP_VERSION="{v}"',s,count=1)
-          if n!=1: raise SystemExit('APP_VERSION replacement failed')
+          if n!=1:raise SystemExit('APP_VERSION replacement failed')
           s=s.replace("VALUES('schema_version','5.7')","VALUES('schema_version','5.8')",1)
-          hook='''\n# --- TURTO release feature layer ---\ntry:\n    import v58_features as _turto_features\n    _turto_features.apply(sys.modules[__name__])\nexcept Exception as _feature_error:\n    try:\n        (ROOT/"v58_feature_error.log").write_text(str(_feature_error),encoding="utf-8")\n    except Exception:\n        pass\n\n'''
           marker='\nif __name__=="__main__":\n'
+          hooks=[]
           if 'v58_features as _turto_features' not in s:
-              if marker not in s: raise SystemExit('main marker not found')
-              s=s.replace(marker,hook+marker,1)
+              hooks.append('try:\n    import v58_features as _turto_features\n    _turto_features.apply(sys.modules[__name__])\nexcept Exception:\n    pass\n')
+          if 'v581_cleanup as _turto_cleanup' not in s:
+              hooks.append('try:\n    import v581_cleanup as _turto_cleanup\n    _turto_cleanup.apply(sys.modules[__name__])\nexcept Exception:\n    pass\n')
+          if hooks:
+              if marker not in s:raise SystemExit('main marker not found')
+              s=s.replace(marker,'\n# --- TURTO release layers ---\n'+''.join(hooks)+marker,1)
           p.write_text(s,encoding='utf-8')
           PY
           echo "dir=$STAGE" >> "$GITHUB_OUTPUT"
@@ -66,46 +60,32 @@ jobs:
       - name: Validate Python
         shell: bash
         run: |
-          set -euo pipefail
           DIR='${{ steps.app.outputs.dir }}'
-          python -m py_compile "$DIR/app.py" "$DIR/v58_features.py"
+          python -m py_compile "$DIR/app.py" "$DIR/v58_features.py" "$DIR/v581_cleanup.py"
 
       - name: Build ZIP and manifest
         shell: bash
         run: |
           set -euo pipefail
-          DIR='${{ steps.app.outputs.dir }}'
-          VER='${{ steps.app.outputs.version }}'
-          ZIP="ZakazkyApp_v${VER}.zip"
-          rm -f "$ZIP"
-          zip -qr "$ZIP" "$DIR" -x '*/__pycache__/*' '*.pyc' '*/v5_error.log' '*/v58_feature_error.log'
+          DIR='${{ steps.app.outputs.dir }}'; VER='${{ steps.app.outputs.version }}'; ZIP="ZakazkyApp_v${VER}.zip"
+          rm -f "$ZIP"; zip -qr "$ZIP" "$DIR" -x '*/__pycache__/*' '*.pyc' '*/v5_error.log' '*/v58_feature_error.log'
           SHA=$(sha256sum "$ZIP" | awk '{print $1}')
           python - <<PY
           import json
-          data={"version":"${VER}","file":"${ZIP}","sha256":"${SHA}"}
-          open('latest.json','w',encoding='utf-8').write(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
+          open('latest.json','w',encoding='utf-8').write(json.dumps({'version':'${VER}','file':'${ZIP}','sha256':'${SHA}'},ensure_ascii=False,indent=2)+'\n')
           PY
 
       - name: Publish generated package
         shell: bash
         run: |
           set -euo pipefail
-          VER='${{ steps.app.outputs.version }}'
-          ZIP="ZakazkyApp_v${VER}.zip"
-          git config user.name 'TURTO Update Bot'
-          git config user.email 'actions@users.noreply.github.com'
+          VER='${{ steps.app.outputs.version }}'; ZIP="ZakazkyApp_v${VER}.zip"
+          git config user.name 'TURTO Update Bot'; git config user.email 'actions@users.noreply.github.com'
           git add -f "$ZIP" latest.json
-          if git diff --cached --quiet; then
-            echo 'Nothing to publish.'
-            exit 0
-          fi
+          git diff --cached --quiet && exit 0
           git commit -m "Publish ZakazkyApp v${VER} update"
           for try in 1 2 3; do
-            if git pull --rebase origin main && git push origin HEAD:main; then
-              exit 0
-            fi
-            echo "Publish retry $try/3..."
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
             sleep $((try*2))
           done
-          echo 'Publishing failed after 3 attempts.' >&2
           exit 1
