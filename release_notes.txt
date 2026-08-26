@@ -1,6 +1,8 @@
-• Nápověda je nově rozvětvená podle jednotlivých procesů a modulů CRM: Přehled, Akce, Příležitosti, Poptávky, MIVO, Nabídky, Úkoly, Společnosti, Osoby, Uživatelé, ADMIN, síťová DB, HISTORIE, aktualizace, řazení a zálohy.
-• Každé téma nápovědy má vlastní stránku/sekci s popisem pracovního postupu a aktuálních pravidel.
-• MIVO: při Čekám déle než 10 dní zůstává pouze jeden varovný symbol ⚠ u data Poptáno; žádný druhý vykřičník.
-• MIVO už nebarví celý řádek podle délky čekání; Obdrženo se podle stáří Poptáno nevaruje.
-• Klasické Poptávky mají mírnější časové upozornění: 0–5 dní bez varování, 6–10 dní mírné upozornění, 11+ dní výrazné upozornění u data.
-• Nápověda se bude dále aktualizovat společně s každou verzí CRM.
+• Stabilizační verze: novější funkce už nepřepisují dříve domluvené chování CRM.
+• Vrácena výraznější a odlišná barevnost stavů ve světlém i tmavém režimu.
+• Vráceny vyšší dialogy s omezením podle velikosti monitoru a maximalizovaný start hlavního CRM.
+• MIVO používá pouze jeden symbol ⚠ u data Poptáno při Čekám déle než 10 dní; délka čekání nebarví celý řádek.
+• Klasické Poptávky: 0–5 dní bez upozornění, 6–10 dní mírné, 11+ dní výrazné upozornění u data.
+• Příjemci Poptávek se nově skutečně řadí podle četnosti a posledního použití pro konkrétní společnost; nic se automaticky nezaškrtává.
+• Ruční řazení tabulek se po překliku záložky resetuje do výchozího chování.
+• Rozvětvená procesní Nápověda zůstává zachována a bude se aktualizovat s každou další verzí.
