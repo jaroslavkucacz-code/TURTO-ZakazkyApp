@@ -22,7 +22,7 @@ jobs:
           set -euo pipefail
           APP_DIR="ZakazkyApp_v5.7.2"; VERSION="$(tr -d ' \r\n' < release_version.txt)"; STAGE="ZakazkyApp_v${VERSION}"
           rm -rf "$STAGE"; cp -a "$APP_DIR" "$STAGE"
-          cp v58_features.py "$STAGE/crm_features.py"; cp crm_runtime.py "$STAGE/crm_runtime.py"; cp crm_v605.py "$STAGE/crm_v605.py"; cp v606_features.py "$STAGE/v606_features.py"; cp v608_stability.py "$STAGE/v608_stability.py"
+          cp v58_features.py "$STAGE/crm_features.py"; cp crm_runtime.py "$STAGE/crm_runtime.py"; cp crm_v605.py "$STAGE/crm_v605.py"; cp v606_features.py "$STAGE/v606_features.py"; cp v608_stability.py "$STAGE/v608_stability.py"; cp v611_audit.py "$STAGE/v611_audit.py"
           rm -f "$STAGE/v58_features.py" "$STAGE/v581_cleanup.py" "$STAGE/qt_preview_v5.py" "$STAGE/AUDIT_v2.22.txt" "$STAGE/DULEZITE_v2.8_JEDNORAZOVY_RESET.txt"
           python - "$STAGE/app.py" "$VERSION" <<'PY'
           import pathlib,re,sys
@@ -34,8 +34,8 @@ jobs:
           p.write_text(s,encoding='utf-8')
           PY
           cat > "$STAGE/ZakazkyCRM.pyw" <<'PYW'
-          import app,crm_features,crm_runtime,crm_v605,v606_features,v608_stability
-          crm_features.apply(app);crm_runtime.apply(app);crm_v605.apply(app);v606_features.apply(app);v608_stability.apply(app)
+          import app,crm_features,crm_runtime,crm_v605,v606_features,v608_stability,v611_audit
+          crm_features.apply(app);crm_runtime.apply(app);crm_v605.apply(app);v606_features.apply(app);v608_stability.apply(app);v611_audit.apply(app)
           app.cleanup_stale_test_session();app.ensure_schema();app.ensure_test_user();app.migrate_v41_visual_once();app.import_mail_contacts_v220_once();app.import_mail_contacts_v221_once();app.restore_people_from_v280_backup_once();app.post_import_cleanup_v222_once();app.App().mainloop()
           PYW
           cat > "$STAGE/Spustit_Zakazky.vbs" <<'VBS'
@@ -46,7 +46,7 @@ jobs:
           cp "$STAGE/Spustit_Zakazky.vbs" "$STAGE/Spustit_Zakazky_v5.vbs"
           echo "dir=$STAGE" >> "$GITHUB_OUTPUT"; echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Validate Python
-        run: python -m py_compile "${{ steps.app.outputs.dir }}/app.py" "${{ steps.app.outputs.dir }}/crm_features.py" "${{ steps.app.outputs.dir }}/crm_runtime.py" "${{ steps.app.outputs.dir }}/crm_v605.py" "${{ steps.app.outputs.dir }}/v606_features.py" "${{ steps.app.outputs.dir }}/v608_stability.py" "${{ steps.app.outputs.dir }}/ZakazkyCRM.pyw"
+        run: python -m py_compile "${{ steps.app.outputs.dir }}/app.py" "${{ steps.app.outputs.dir }}/crm_features.py" "${{ steps.app.outputs.dir }}/crm_runtime.py" "${{ steps.app.outputs.dir }}/crm_v605.py" "${{ steps.app.outputs.dir }}/v606_features.py" "${{ steps.app.outputs.dir }}/v608_stability.py" "${{ steps.app.outputs.dir }}/v611_audit.py" "${{ steps.app.outputs.dir }}/ZakazkyCRM.pyw"
       - name: Build ZIP and manifest
         shell: bash
         run: |
