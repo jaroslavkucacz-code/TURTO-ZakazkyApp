@@ -1,6 +1,6 @@
 {
-  "version": "6.1.8",
-  "file": "ZakazkyApp_v6.1.8.zip",
-  "sha256": "649a687fb55998b1a89d0562814e26f7309adc7db4676e10746ee1d9e92edf19",
-  "notes": "• Opraveno nechtěné otevírání „Souvisejících nabídek“ při kliknutí nebo dvojkliku na záhlaví tabulky.\n• Záhlaví a oddělovače sloupců jsou nyní oddělené od akcí nad datovým řádkem; řazení kliknutím na záhlaví zůstává zachováno.\n• Oprava platí jednotně pro Příležitosti, Poptávky a ostatní hlavní Treeview tabulky.\n• Zachován jednotný deterministický přepočet šířek z verze 6.1.7."
+  "version": "6.1.9",
+  "file": "ZakazkyApp_v6.1.9.zip",
+  "sha256": "55a3cab287ff31a681f73723740140af2128d5c84e40489666b38bf08db055c5",
+  "notes": "• Opraven pravý klik na záhlaví tabulek: kontextová akce „Související nabídky“ se smí spustit pouze nad skutečným datovým řádkem, nikoli nad záhlavím, oddělovačem nebo prázdnou částí tabulky.\n• Opraven první start aplikace, kdy se tabulky počítaly ještě před ustálením skutečné šířky maximalizovaného hlavního okna a bílý pravý pruh zmizel až po přepnutí záložky.\n• Před prvním zobrazením se nyní nechá Tk dokončit geometrii hlavního okna a následně se jednotný přepočet šířek provede nad skutečnými rozměry.\n• Zachován jednotný deterministický přepočet šířek pro všechny hlavní tabulky."
 }
