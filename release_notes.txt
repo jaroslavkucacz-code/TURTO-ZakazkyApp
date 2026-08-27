@@ -1,4 +1,4 @@
-• Definitivně odstraněna stará vrstva červených datumů z modulu 6.0.33. Už se vůbec nevytváří samostatný Label přes buňku Poptáno, takže mizí světlé obdélníky i problikávání při rolování.
-• Řádky Poptávek zůstávají vykreslené pouze nativním Treeview se svým původním stavovým pozadím; žádná jednotlivá buňka už nedostává vlastní bílé/světlé pozadí.
-• Zachovány opravy 6.0.38: záhlaví, klikací řazení, stabilní pořadí sloupců, Akce A–Z, správný model Akce → více Příležitostí a vazby Nabídek na Akci/Poptávku.
-• Ruční kontrola aktualizací nadále zobrazuje přehled novinek před instalací.
+• U Poptávek jsou odstraněny výstražné trojúhelníky/vykřičníky. Řádky, které byly dříve označené ikonou, zůstávají upozorněné pouze tučným textem při zachování původního stavového pozadí.
+• Stejná úprava platí i pro MIVO: bez výstražných ikon, pouze tučné zvýraznění příslušného řádku.
+• Čištění probíhá po běžném refreshi bez vazby na scrollování nebo změnu velikosti, takže se nevrací problikávání ani bílé overlaye.
+• Zachovány opravy 6.0.39 a 6.0.38: stabilní tabulky, záhlaví a řazení, Akce A–Z, vazby Nabídek na Akci/Poptávku a přehled novinek při ruční aktualizaci.
