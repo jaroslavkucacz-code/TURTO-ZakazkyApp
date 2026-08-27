@@ -1,6 +1,6 @@
 {
-  "version": "6.0.42",
-  "file": "ZakazkyApp_v6.0.42.zip",
-  "sha256": "146161801478cb3580c4acb02aeb14c96b7c51bdddcb8881fd0c8cb383588b8c",
-  "notes": "• Roztažení tabulek až k pravému okraji je nyní aplikováno na všechny hlavní záložky, nejen na vybrané přehledy.\n• Každá tabulka má vždy jeden vhodný textový sloupec, který pružně vyplní volnou šířku a odstraní prázdný bílý pruh napravo.\n• Úzké pomocné sloupce jako Nabídky, Počet, ID, Měna, Ks nebo MJ zůstávají kompaktní a neroztahují se zbytečně.\n• Pokryté jsou i tabulky vytvořené přímo jednotlivými moduly, ne jen základní tabulky vytvořené přes společnou funkci App.tree().\n• Roztažení se znovu nastaví po běžných refreshech záložek, ale není navázané na scrollování ani resize, takže nemá způsobovat problikávání nebo sekání.\n• Zachovány opravy 6.0.40 a 6.0.41: bez výstražných trojúhelníků u Poptávek a MIVA, stabilní záhlaví a řazení a původní stavová pozadí."
+  "version": "6.0.43",
+  "file": "ZakazkyApp_v6.0.43.zip",
+  "sha256": "1a845d77cab66c9e589e88259b2cad9a70afbdee1d7a1d4721ed7b35ff26aa7d",
+  "notes": "• Opraveno vyplnění pravého okraje tabulek i v Příležitostech a dalších záložkách, kde samotné stretch=True nestačilo.\n• Při každé změně skutečné šířky Treeview se nově dopočítá přesná volná šířka a poslední vhodný textový sloupec ji vyplní až k pravému okraji.\n• Výpočet je obecný pro všechny Treeview v aplikaci včetně tabulek vytvořených jednotlivými moduly a dialogy.\n• Kompaktní sloupce jako Stav, Deadline, Datum, Nabídky, Počet, ID, Měna, Ks a MJ se zbytečně neroztahují; volné místo dostane obsahový textový sloupec.\n• Při zmenšení okna se sloupce nekrátí pod jejich původní šířku, takže zůstává zachované čitelné rozložení a případně se použije horizontální posuvník.\n• Zachovány předchozí opravy: bez výstražných trojúhelníků u Poptávek a MIVA, stabilní záhlaví/řazení a správné vazby Nabídek na Akce/Poptávky."
 }
