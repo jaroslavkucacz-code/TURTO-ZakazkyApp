@@ -1,6 +1,4 @@
-• Konsolidační milník 6.1.0: současný funkční stav aplikace je uložen jako nový baseline pro další vývoj.
-• Další verze se už nebudou při každém buildu skládat od původního základu 5.7.2 přes dlouhý seznam historických patchů; build vychází přímo z konsolidovaného základu 6.1.
-• Pro nové změny je zavedena jediná aktivní vrstva post_baseline.py. Build workflow tak není nutné při každé malé opravě rozšiřovat o další historický modul.
-• Databáze a uživatelská data zůstávají beze změny v Documents/TURTO Zakazky/data/zakazky.db; konsolidace je pouze změna struktury programu a release procesu.
-• Funkčně 6.1.0 zachovává stav 6.0.45: Akce A–Z, Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno, vazby Nabídek na Akce/Poptávky, stabilní tabulky a aktualizační dialog s přehledem novinek.
-• Cílem je zjednodušit další úpravy, zkrátit build a snížit riziko, že se při vydání vynechá nebo špatně seřadí některá historická vrstva.
+• Opraven pravý bílý okraj v záložce Příležitosti. Sloupec Poznámka nově pružně vyplní zbývající šířku tabulky až k pravému okraji.
+• Kompaktní sloupce Stav, Přijato a Deadline zůstávají ve své běžné šířce; roztahuje se pouze vhodný textový sloupec.
+• Po refreshi i po změně velikosti okna se Příležitosti znovu zarovnají k levému okraji, takže nemá zůstávat prázdný bílý pruh ani stará horizontální pozice.
+• Zachován konsolidovaný baseline 6.1 a nový jednodušší release proces přes jedinou aktivní vrstvu post_baseline.py.
