@@ -1,6 +1,6 @@
-• Opraveno vyplnění pravého okraje tabulek i v Příležitostech a dalších záložkách, kde samotné stretch=True nestačilo.
-• Při každé změně skutečné šířky Treeview se nově dopočítá přesná volná šířka a poslední vhodný textový sloupec ji vyplní až k pravému okraji.
-• Výpočet je obecný pro všechny Treeview v aplikaci včetně tabulek vytvořených jednotlivými moduly a dialogy.
-• Kompaktní sloupce jako Stav, Deadline, Datum, Nabídky, Počet, ID, Měna, Ks a MJ se zbytečně neroztahují; volné místo dostane obsahový textový sloupec.
-• Při zmenšení okna se sloupce nekrátí pod jejich původní šířku, takže zůstává zachované čitelné rozložení a případně se použije horizontální posuvník.
-• Zachovány předchozí opravy: bez výstražných trojúhelníků u Poptávek a MIVA, stabilní záhlaví/řazení a správné vazby Nabídek na Akce/Poptávky.
+• Výchozí řazení Příležitostí je nově podle data Přijato, nejnovější záznamy jsou nahoře.
+• Výchozí řazení Poptávek je podle data Poptáno, nejnovější záznamy jsou nahoře.
+• Stejné výchozí řazení podle data Poptáno platí i pro MIVO.
+• Po přepnutí na jinou záložku a návratu se příslušná tabulka vrátí do svého výchozího datumového řazení; ruční klikací řazení v záhlaví zůstává zachované.
+• Akce zůstávají samostatně řazené A–Z podle názvu Akce.
+• Zachovány předchozí opravy: vyplnění tabulek až k pravému okraji, bez výstražných trojúhelníků u Poptávek a MIVA, stabilní záhlaví a správné vazby Nabídek na Akce/Poptávky.
