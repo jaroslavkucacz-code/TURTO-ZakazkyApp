@@ -1,6 +1,8 @@
-• V detailu Akce je nový přehled „Související nabídky“. Zahrnuje nabídky přiřazené přímo k Akci i nabídky navázané přes Poptávky dané Akce; dvojklik otevře detail nabídky.
-• Přehled zobrazuje dodavatele, číslo a datum nabídky, původní název vyčtený z nabídky, Poptávku, cenu a měnu.
-• Interní přiřazení nabídky k Poptávce/Akci nepřepisuje původní název projektu/zakázky vyčtený z cenové nabídky.
-• Vazby nabídek podporují tři stavy: přes Poptávku s automaticky odvozenou Akcí, pouze přímo k Akci, nebo zcela bez vazby.
-• Odstraněna nestabilní vrstva červených datumů nad Treeview, která způsobovala bílé obdélníky, problikávání při rolování a překrývání záhlaví. Tabulky se vracejí k čistému nativnímu vykreslení se zachováním stavových barev řádků a záhlaví.
-• Zachováno výchozí abecední řazení Akcí A–Z a jeho reset po přepnutí záložky, stejně jako vyhledávání a dvojklik v dialogu přiřazení nabídky.
+• Opravena logika vazeb nabídek: skutečná Akce je nyní správně tabulka Akcí/projektů, nikoli Příležitost. Nabídka může být navázána na Poptávku (Akce se odvodí automaticky), přímo na Akci, nebo zůstat bez vazby.
+• Starší přímé vazby nabídek na Příležitosti se při migraci převedou na jejich nadřazenou Akci.
+• V hlavní záložce Akce je nový sloupec „Nabídky“ s počtem všech souvisejících nabídek. Do počtu se zahrnou přímé vazby na Akci i nabídky navázané přes Poptávky/Příležitosti pod danou Akcí.
+• Sloupec „Nabídky“ je naopak odstraněn z Příležitostí, aby se informace neduplikovala.
+• Detail skutečné Akce obsahuje přehled souvisejících nabídek s dodavatelem, číslem, datem, původním názvem vyčteným z nabídky, Poptávkou, cenou a měnou; dvojklik otevře detail nabídky.
+• Původní název projektu/zakázky vyčtený z nabídky se při interním přiřazování nikdy nepřepisuje názvem Akce v CRM.
+• Definitivně potlačena plovoucí vrstva červených datumů, která vytvářela bílé obdélníky a blikala při rolování. Hořící čekající Poptávky jsou nově zvýrazněny nativně červeným tučným textem celého řádku při zachování původního stavového pozadí; bez overlaye a bez zásahu do záhlaví.
+• Zachováno vyhledávání a dvojklik v dialogu přiřazení nabídky a výchozí abecední řazení Akcí.
