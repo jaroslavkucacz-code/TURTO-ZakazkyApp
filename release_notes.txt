@@ -1,6 +1,5 @@
-• Zpracování nabídek bylo sjednoceno do jednoho DB-first workflow: nejdřív se data zapíšou do databáze, potom se archivují zdrojové soubory a nakonec se Excel vytvoří výhradně z již uložených dat v databázi.
-• Ruční export nabídky do Excelu i automatická Extrakce_nabidky.xlsx používají od této verze jednu a tutéž exportní funkci, takže mají shodný obsah, vzhled, formátování i obrázky.
-• Při přetažení samostatného PDF se po importu uloží původní PDF do archivní složky a následně se z databáze vytvoří Excel.
-• Při přetažení MSG se po importu uloží původní MSG a relevantní hlavní přílohy; obrázky z podpisů se nadále vynechávají. Excel se následně generuje z databáze.
-• V Nastavení přibyla volba výchozí složky pro ukládání zpracovaných nabídek. Nastavení je lokální pro konkrétní počítač a CRM uživatele, takže se cesta nepřenáší s databází na jiný počítač.
-• Dávkové zpracování a přetažení více PDF/MSG používají stejné průběhové okno se Stavem, Stornem a možností Pokračovat na pozadí.
+• Automatická Extrakce_nabidky.xlsx po přetažení PDF nebo MSG už nevytváří vlastní napodobeninu exportu.
+• Po importu a archivaci se nyní spustí přímo stejná existující exportní funkce, kterou používá ruční export nabídky z CRM; automatika jí pouze předá cílovou cestu bez dialogu Uložit jako.
+• Pro stejnou nabídku / offer_id tak musí být automatický Excel shodný s ručním exportem z CRM.
+• DB-first pořadí zůstává zachováno: databáze → archiv zdrojových souborů → Excel.
+• U MSG se nejdřív uloží celý mail a relevantní přílohy, u samostatného PDF původní PDF; výchozí archivní složka zůstává individuálně nastavitelná pro počítač a uživatele.
