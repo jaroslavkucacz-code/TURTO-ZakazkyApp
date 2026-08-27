@@ -1,6 +1,6 @@
 {
-  "version": "6.1.12",
-  "file": "ZakazkyApp_v6.1.12.zip",
-  "sha256": "12aa6d599f6104793999597b66f300f89dc0425f41fdcbead4b915657b8abb0b",
-  "notes": "• Zpracování nabídek bylo sjednoceno do jednoho DB-first workflow: nejdřív se data zapíšou do databáze, potom se archivují zdrojové soubory a nakonec se Excel vytvoří výhradně z již uložených dat v databázi.\n• Ruční export nabídky do Excelu i automatická Extrakce_nabidky.xlsx používají od této verze jednu a tutéž exportní funkci, takže mají shodný obsah, vzhled, formátování i obrázky.\n• Při přetažení samostatného PDF se po importu uloží původní PDF do archivní složky a následně se z databáze vytvoří Excel.\n• Při přetažení MSG se po importu uloží původní MSG a relevantní hlavní přílohy; obrázky z podpisů se nadále vynechávají. Excel se následně generuje z databáze.\n• V Nastavení přibyla volba výchozí složky pro ukládání zpracovaných nabídek. Nastavení je lokální pro konkrétní počítač a CRM uživatele, takže se cesta nepřenáší s databází na jiný počítač.\n• Dávkové zpracování a přetažení více PDF/MSG používají stejné průběhové okno se Stavem, Stornem a možností Pokračovat na pozadí."
+  "version": "6.1.13",
+  "file": "ZakazkyApp_v6.1.13.zip",
+  "sha256": "c85fef51e238b8518764480ce7db873cb6d1096eb16d9390872695c7cde510b9",
+  "notes": "• Automatická Extrakce_nabidky.xlsx po přetažení PDF nebo MSG už nevytváří vlastní napodobeninu exportu.\n• Po importu a archivaci se nyní spustí přímo stejná existující exportní funkce, kterou používá ruční export nabídky z CRM; automatika jí pouze předá cílovou cestu bez dialogu Uložit jako.\n• Pro stejnou nabídku / offer_id tak musí být automatický Excel shodný s ručním exportem z CRM.\n• DB-first pořadí zůstává zachováno: databáze → archiv zdrojových souborů → Excel.\n• U MSG se nejdřív uloží celý mail a relevantní přílohy, u samostatného PDF původní PDF; výchozí archivní složka zůstává individuálně nastavitelná pro počítač a uživatele."
 }
