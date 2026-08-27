@@ -1,16 +1,24 @@
-# TURTO CRM 6.1.13 - automatic extraction must use the exact same export code as manual CRM export.
+# TURTO CRM 6.1.14 - automatic extraction uses the REAL manual CRM exporter.
 from pathlib import Path
 
 
 def apply(M):
+    # post_baseline 6.1.12 replaced M.export_offer_excel with a simplified writer.
+    # Restore the supplier-specific CRM exporter from v624 first. This is the
+    # exporter that produces the proven Leviat/GEROtop workbook used by the
+    # manual "Extrakce dat" button in CRM.
+    try:
+        import v624_legacy_exports
+        v624_legacy_exports.apply(M)
+    except Exception:
+        pass
+
     manual_export = getattr(M, 'export_offer_excel', None)
     if not callable(manual_export):
         return
 
     def export_exactly_like_manual(app, offer_id, target_path):
-        """Run the existing manual CRM export function unchanged, only inject its save path.
-        This guarantees identical workbook structure/formatting to a manual export of the same offer_id.
-        """
+        """Execute the real manual CRM exporter unchanged and only inject its path."""
         from tkinter import filedialog, messagebox
         target_path = Path(target_path)
         target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -33,8 +41,18 @@ def apply(M):
             raise RuntimeError('CRM export nevytvořil očekávaný soubor: ' + str(target_path))
         return target_path
 
-    # Re-export PDF imports after the 6.1.12 archive workflow, overwriting the
-    # automatically generated workbook with the output of the exact manual path.
+    # Keep the manual buttons bound to the restored supplier-specific exporter.
+    M.export_offer_excel = manual_export
+
+    def selected(self):
+        oid = self._selected_offer_id() if hasattr(self, '_selected_offer_id') else None
+        if not oid:
+            return M.messagebox.showinfo('Extrakce dat', 'Vyberte nabídku.', parent=self)
+        return manual_export(self, oid, self)
+    M.App.export_selected_offer_excel = selected
+
+    # Re-export PDF imports after DB import + archiving. The simplified workbook
+    # created by post_baseline is intentionally overwritten by the exact CRM one.
     old_pdf = getattr(M, 'process_offer_pdf', None)
     if callable(old_pdf):
         def process_pdf(app, path, *a, **k):
@@ -50,8 +68,8 @@ def apply(M):
             return result
         M.process_offer_pdf = process_pdf
 
-    # Same for MSG. The database import and file archiving finish first; only then
-    # are the recognized offer IDs exported through the real manual CRM function.
+    # MSG: import/database/archive finishes first, then every recognized offer is
+    # exported through the very same manual CRM exporter.
     old_msg = getattr(M, 'process_offer_msg', None)
     if callable(old_msg):
         def process_msg(app, path, *a, **k):
