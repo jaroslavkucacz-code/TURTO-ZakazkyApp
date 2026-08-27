@@ -1,5 +1,6 @@
-• Plynulejší přepínání hlavních záložek ve Windows. Při změně záložky se vykreslování hlavního okna na okamžik pozastaví, přepnutí a změny stylů se dokončí skrytě a výsledný stav se překreslí najednou. Tím se omezuje viditelné postupné „skládání“ nové záložky.
-• Zrychleno dorovnávání tabulek při změně velikosti okna. Rychlé geometrické přepočty se nyní provádějí přibližně po 45 ms místo původních 180 ms.
-• Náročnější pomocné překreslení buněk je oddělené od geometrie a probíhá samostatně přibližně po 95 ms, aby resize nepůsobil jako opožděný skok.
-• Při samotném přepínání záložek se nepřidávají žádné nové databázové refresh operace; jde čistě o optimalizaci vykreslování UI.
-• Zachovány opravy z 6.0.25: neblokující kontrola aktualizací, ochrana proti osiřelému modálnímu grabu a spolehlivější import vybraného e-mailu z Outlooku přes Unicode MSG pipeline.
+• Přepínání hlavních záložek je znovu upraveno pro rychlost: odstraněno blokování WM_SETREDRAW i synchronní update_idletasks z 6.0.26. Navigační styl se připraví předem a hotová stránka se zvedne až jako poslední krok.
+• Při živém zvětšování a zmenšování okna tažením rámečku se už nespouštějí vlastní Treeview přepočty při každém Configure eventu. Dorovnání filtrů a pomocné překreslení se provede jednou až po krátkém ustálení velikosti a jen pro právě viditelnou záložku.
+• Opraveny barvy v Přehledu aktivních příležitostí. Řádek se nyní barví výhradně podle skutečného sloupce Stav; text v názvu nebo popisu už nemůže omylem změnit stavovou barvu. Přehled používá stejné tagy jako hlavní záložka Příležitosti/Akce.
+• Přidán nativní Windows OLE drop target pro přetažení e-mailu přímo z Outlooku. Outlook posílá MailItem jako virtuální Shell/OLE objekt FileGroupDescriptor/FileContents, který běžný tkinterdnd2 nepředává jako cestu k souboru. Nová vrstva tento typ dropu zachytí na úrovni Windows a následně převezme vybraný e-mail přes Outlook COM jako Unicode MSG do stejné zpracovací pipeline jako běžný MSG soubor.
+• Běžné přetažení PDF/MSG z Průzkumníka zůstává zachované přes tkinterdnd2. Pro Outlook zůstává zachováno i tlačítko „Načíst vybraný e-mail z Outlooku“ jako záložní cesta.
+• Zachovány opravy 6.0.25–6.0.26: neblokující kontrola aktualizací, ochrana proti osiřelému modálnímu grabu, Unicode MSG pipeline a ostatní funkce Nabídek/Produkty-ceny.
