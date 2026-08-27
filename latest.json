@@ -1,6 +1,6 @@
 {
-  "version": "6.0.18",
-  "file": "ZakazkyApp_v6.0.18.zip",
-  "sha256": "50fef03df16f4acf09978fb60cd2086f2d8281bc3589883a46a505afb473f89d",
-  "notes": "• Našeptávače: první Enter nyní vždy nejprve potvrdí odpovídající položku včetně interního ID; šipka dolů není nutná. Teprve další Enter může potvrdit celý dialog.\n• Oprava je jištěná i na úrovni dialogu, takže starší vrstvy bindingů už nemohou nechtěně přeskočit výběr a rovnou spustit Uložit.\n• Poptávka – pole Poptáváno má znovu aktivní našeptávač nad číselníkem Poptávané zboží. Seznam se obnovuje při návratu do pole, takže se projeví i nově přidané položky bez restartu aplikace.\n• Popup našeptávače zůstává podřízený CRM a není globálně topmost nad ostatními aplikacemi.\n• Zachován nový modul Nabídky: PDF/MSG, parsery Leviat a GEROtop, historie cen, obrázky GEROtop, archiv zdrojových e-mailů a příloh a modulární příprava pro další dodavatele.\n• Zachovány velké dialogy respektující Windows lištu, řazení nejpoužívanějších e-mailů, 14denní aktivní HISTORIE + archiv, Undo, sjednocené barvy a výkonové indexy."
+  "version": "6.0.19",
+  "file": "ZakazkyApp_v6.0.19.zip",
+  "sha256": "1cc2f73309b887e38d68667fa223dd4ab8b8ffe3e63f3716d54eb0a13ed935ab",
+  "notes": "• Opraven import Outlook .MSG: CRM používá odolnější otevření přes extract-msg, zvládá více variant API příloh a při potížích vypíše konkrétní přílohu místo obecného pádu importu.\n• .MSG nadále ukládá předmět, odesílatele, datum, text a všechny čitelné přílohy do databáze; podporované PDF přílohy se zpracují přes parsery Nabídek.\n• Obrázky položek GEROtop se nově zobrazují přímo v detailu nabídky spolu s názvem, kódem, množstvím, cenou a zdrojem obrázku. Neotevírá se samostatné okno.\n• Při změně vybrané položky v nabídce se náhled obrázku a produktová data automaticky aktualizují.\n• Zachovány parsery Leviat a GEROtop, historie cen, archiv zdrojových e-mailů/příloh a modulární příprava pro další dodavatele.\n• Zachovány opravy našeptávačů, našeptávač Poptáváno, velké dialogy respektující Windows lištu, řazení nejpoužívanějších e-mailů, 14denní aktivní HISTORIE + archiv, Undo, sjednocené barvy a výkonové indexy."
 }
