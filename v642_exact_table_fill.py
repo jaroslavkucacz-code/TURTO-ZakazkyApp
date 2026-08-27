@@ -1,4 +1,5 @@
-# TURTO CRM 6.0.42 - exact right-edge fill for every Treeview
+# TURTO CRM 6.0.44 - exact right-edge fill + per-tab default date sorting
+from datetime import datetime
 
 
 def apply(M):
@@ -13,8 +14,6 @@ def apply(M):
                 allcols=list(tree.cget('columns'))
                 cols=[allcols[int(x)] if str(x).isdigit() else x for x in cols]
             if not cols:return None,[]
-            # Prefer a real text/content column from the right. Compact counters,
-            # dates and status fields stay at their normal width.
             target=None
             for c in reversed(cols):
                 if str(c) not in COMPACT:
@@ -32,14 +31,12 @@ def apply(M):
             if not hasattr(tree,'_v642_base_widths'):
                 tree._v642_base_widths={c:int(tree.column(c,'width')) for c in cols}
             base=tree._v642_base_widths
-            # New columns can be appended by feature modules after installation.
             for c in cols:
                 if c not in base:base[c]=int(tree.column(c,'width'))
             usable=max(1,int(tree.winfo_width())-4)
             fixed=sum(int(base.get(c,tree.column(c,'width'))) for c in cols if c!=target)
             target_base=int(base.get(target,tree.column(target,'width')))
             wanted=max(target_base,usable-fixed)
-            # Only one column absorbs spare room; widths remain deterministic.
             for c in cols:
                 tree.column(c,width=(wanted if c==target else int(base.get(c,tree.column(c,'width')))),stretch=False)
         except Exception:
@@ -73,14 +70,37 @@ def apply(M):
                 _walk(c)
         except Exception:pass
 
+    def _parse_date(value):
+        s=str(value or '').strip()
+        for fmt in ('%d.%m.%Y','%Y-%m-%d','%d.%m.%y'):
+            try:return datetime.strptime(s,fmt)
+            except Exception:pass
+        return datetime.min
+
+    def _sort_tree(tree,candidates):
+        if tree is None:return
+        try:
+            cols=list(tree.cget('columns'))
+            col=next((c for c in candidates if c in cols),None)
+            if not col:return
+            rows=[(_parse_date(tree.set(iid,col)),iid) for iid in tree.get_children('')]
+            rows.sort(key=lambda x:x[0],reverse=True)
+            for pos,(_,iid) in enumerate(rows):tree.move(iid,'',pos)
+        except Exception:pass
+
+    def _apply_default_sort(app):
+        # Příležitosti: datum přijetí, nejnovější nahoře.
+        _sort_tree(getattr(app,'action_tree',None),('Přijato','Datum přijetí','Přijetí'))
+        # Poptávky a MIVO: datum poptávky, nejnovější nahoře.
+        _sort_tree(getattr(app,'request_tree',None),('Poptáno','Datum poptávky','Poptávka'))
+        _sort_tree(getattr(app,'mivo_tree',None),('Poptáno','Datum poptávky','Poptávka'))
+
     def normalize(app):
         _walk(app)
-        # second pass after geometry settles
+        _apply_default_sort(app)
         try:app.after_idle(lambda:_walk(app))
         except Exception:pass
 
-    # Every Treeview created through the common factory gets the behavior
-    # immediately; the recursive pass catches dialogs/older custom tabs too.
     old_tree=getattr(M.App,'tree',None)
     if callable(old_tree):
         def tree(self,*a,**k):
@@ -95,6 +115,19 @@ def apply(M):
             except Exception:pass
             return r
         M.App.show_page=show_page
+
+    # Re-apply the requested default after the relevant data refreshes too.
+    for name in ('refresh_actions','refresh_requests','refresh_mivo_requests','refresh_mivo','refresh_all'):
+        old=getattr(M.App,name,None)
+        if not callable(old):continue
+        def make(fn):
+            def wrapped(self,*a,**k):
+                r=fn(self,*a,**k)
+                try:self.after_idle(lambda:_apply_default_sort(self))
+                except Exception:_apply_default_sort(self)
+                return r
+            return wrapped
+        setattr(M.App,name,make(old))
 
     old_init=M.App.__init__
     def init(self,*a,**k):
