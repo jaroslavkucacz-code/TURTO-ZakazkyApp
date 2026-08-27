@@ -1,6 +1,6 @@
 {
-  "version": "6.0.43",
-  "file": "ZakazkyApp_v6.0.43.zip",
-  "sha256": "1a845d77cab66c9e589e88259b2cad9a70afbdee1d7a1d4721ed7b35ff26aa7d",
-  "notes": "• Opraveno vyplnění pravého okraje tabulek i v Příležitostech a dalších záložkách, kde samotné stretch=True nestačilo.\n• Při každé změně skutečné šířky Treeview se nově dopočítá přesná volná šířka a poslední vhodný textový sloupec ji vyplní až k pravému okraji.\n• Výpočet je obecný pro všechny Treeview v aplikaci včetně tabulek vytvořených jednotlivými moduly a dialogy.\n• Kompaktní sloupce jako Stav, Deadline, Datum, Nabídky, Počet, ID, Měna, Ks a MJ se zbytečně neroztahují; volné místo dostane obsahový textový sloupec.\n• Při zmenšení okna se sloupce nekrátí pod jejich původní šířku, takže zůstává zachované čitelné rozložení a případně se použije horizontální posuvník.\n• Zachovány předchozí opravy: bez výstražných trojúhelníků u Poptávek a MIVA, stabilní záhlaví/řazení a správné vazby Nabídek na Akce/Poptávky."
+  "version": "6.0.44",
+  "file": "ZakazkyApp_v6.0.44.zip",
+  "sha256": "b155bf8301cf43917872528da3f5d973af16e24f90ce960b69550d6c02ed71bc",
+  "notes": "• Výchozí řazení Příležitostí je nově podle data Přijato, nejnovější záznamy jsou nahoře.\n• Výchozí řazení Poptávek je podle data Poptáno, nejnovější záznamy jsou nahoře.\n• Stejné výchozí řazení podle data Poptáno platí i pro MIVO.\n• Po přepnutí na jinou záložku a návratu se příslušná tabulka vrátí do svého výchozího datumového řazení; ruční klikací řazení v záhlaví zůstává zachované.\n• Akce zůstávají samostatně řazené A–Z podle názvu Akce.\n• Zachovány předchozí opravy: vyplnění tabulek až k pravému okraji, bez výstražných trojúhelníků u Poptávek a MIVA, stabilní záhlaví a správné vazby Nabídek na Akce/Poptávky."
 }
