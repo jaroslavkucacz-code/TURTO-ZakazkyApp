@@ -1,4 +1,4 @@
-• Opraveno nechtěné otevírání „Souvisejících nabídek“ při kliknutí nebo dvojkliku na záhlaví tabulky.
-• Záhlaví a oddělovače sloupců jsou nyní oddělené od akcí nad datovým řádkem; řazení kliknutím na záhlaví zůstává zachováno.
-• Oprava platí jednotně pro Příležitosti, Poptávky a ostatní hlavní Treeview tabulky.
-• Zachován jednotný deterministický přepočet šířek z verze 6.1.7.
+• Opraven pravý klik na záhlaví tabulek: kontextová akce „Související nabídky“ se smí spustit pouze nad skutečným datovým řádkem, nikoli nad záhlavím, oddělovačem nebo prázdnou částí tabulky.
+• Opraven první start aplikace, kdy se tabulky počítaly ještě před ustálením skutečné šířky maximalizovaného hlavního okna a bílý pravý pruh zmizel až po přepnutí záložky.
+• Před prvním zobrazením se nyní nechá Tk dokončit geometrii hlavního okna a následně se jednotný přepočet šířek provede nad skutečnými rozměry.
+• Zachován jednotný deterministický přepočet šířek pro všechny hlavní tabulky.
