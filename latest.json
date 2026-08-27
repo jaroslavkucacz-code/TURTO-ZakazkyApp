@@ -1,6 +1,6 @@
 {
-  "version": "6.1.13",
-  "file": "ZakazkyApp_v6.1.13.zip",
-  "sha256": "c85fef51e238b8518764480ce7db873cb6d1096eb16d9390872695c7cde510b9",
-  "notes": "• Automatická Extrakce_nabidky.xlsx po přetažení PDF nebo MSG už nevytváří vlastní napodobeninu exportu.\n• Po importu a archivaci se nyní spustí přímo stejná existující exportní funkce, kterou používá ruční export nabídky z CRM; automatika jí pouze předá cílovou cestu bez dialogu Uložit jako.\n• Pro stejnou nabídku / offer_id tak musí být automatický Excel shodný s ručním exportem z CRM.\n• DB-first pořadí zůstává zachováno: databáze → archiv zdrojových souborů → Excel.\n• U MSG se nejdřív uloží celý mail a relevantní přílohy, u samostatného PDF původní PDF; výchozí archivní složka zůstává individuálně nastavitelná pro počítač a uživatele."
+  "version": "6.1.14",
+  "file": "ZakazkyApp_v6.1.14.zip",
+  "sha256": "4f5fe8b2789aa8fd80d81934f5f07ae79b3a7a12f58fdfda87be3be2cea21028",
+  "notes": "• Automatická extrakce po přetažení PDF nebo MSG nyní používá skutečný dodavatelský CRM export z v624_legacy_exports.py, tedy stejný kód jako ruční „Extrakce dat“ z Nabídek.\n• Opraven předchozí stav, kdy post_baseline přepsal správný CRM export zjednodušeným writerem a automatická extrakce proto vypadala jinak.\n• Pro Leviat se po importu vytvoří stejný Excel jako při ručním exportu z CRM: rekapitulace, sleva, DPH, celková částka, tmavě modrá položková tabulka a sloučený blok názvu položky.\n• Pro GEROtop se stejným způsobem používá jeho dodavatelská exportní šablona.\n• Pořadí zůstává DB-first: import do databáze → archiv zdrojových souborů → spuštění přesně stejného CRM exportu do archivní složky."
 }
