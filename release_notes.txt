@@ -1,6 +1,4 @@
-• Opraven rozdíl, kdy se šířky správně vyplňovaly u Poptávek a MIVO, ale ne u Příležitostí a Akcí.
-• Všechny hlavní Treeview tabulky nově používají jediný deterministický přepočet šířek podle skutečné šířky widgetu při Configure/Map.
-• Pokud je tabulka širší než součet návrhových šířek, přebytečný prostor se rozdělí mezi obsahové sloupce. Pokud je prostoru méně, návrhové šířky zůstanou zachovány a použije se horizontální posun.
-• Datumové, stavové, početní a další kompaktní sloupce zůstávají kompaktní; bílý pravý pruh nemá zůstávat ani u Akcí a Příležitostí.
-• Přepočet probíhá synchronně bez after_idle animace, takže při přepnutí záložky nemá nejdřív probliknout bílá plocha a až následně dojít k roztáhnutí.
-• Zachováno výchozí řazení: Akce A–Z, Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno.
+• Opraveno nechtěné otevírání „Souvisejících nabídek“ při kliknutí nebo dvojkliku na záhlaví tabulky.
+• Záhlaví a oddělovače sloupců jsou nyní oddělené od akcí nad datovým řádkem; řazení kliknutím na záhlaví zůstává zachováno.
+• Oprava platí jednotně pro Příležitosti, Poptávky a ostatní hlavní Treeview tabulky.
+• Zachován jednotný deterministický přepočet šířek z verze 6.1.7.
