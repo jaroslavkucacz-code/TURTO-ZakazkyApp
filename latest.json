@@ -1,6 +1,6 @@
 {
-  "version": "6.1.1",
-  "file": "ZakazkyApp_v6.1.1.zip",
-  "sha256": "33ac5b19b3c93619f323a21678849a592c9639059992e6eba09e8453c1e2948e",
-  "notes": "• Opraven pravý bílý okraj v záložce Příležitosti. Sloupec Poznámka nově pružně vyplní zbývající šířku tabulky až k pravému okraji.\n• Kompaktní sloupce Stav, Přijato a Deadline zůstávají ve své běžné šířce; roztahuje se pouze vhodný textový sloupec.\n• Po refreshi i po změně velikosti okna se Příležitosti znovu zarovnají k levému okraji, takže nemá zůstávat prázdný bílý pruh ani stará horizontální pozice.\n• Zachován konsolidovaný baseline 6.1 a nový jednodušší release proces přes jedinou aktivní vrstvu post_baseline.py."
+  "version": "6.1.2",
+  "file": "ZakazkyApp_v6.1.2.zip",
+  "sha256": "6033e8a9df5196d3cd55e298bfc5b2c42bdbd1230f2ba3d598caee4aba568a8b",
+  "notes": "• Pravý bílý okraj v Příležitostech je nyní opraven přímo podle skutečné šířky action_tree, ne jen obecným stretch nastavením.\n• Sloupec Poznámka vždy dopočítá zbývající volnou šířku; ostatní sloupce Příležitostí používají své pevné návrhové šířky.\n• Oprava synchronizuje i starší obecný mechanismus pro šířky sloupců, takže pozdější normalizační průchod už nemá roztažení znovu vracet zpět.\n• Přepnutí záložky, refresh i změna velikosti okna znovu aplikují správnou geometrii Příležitostí.\n• Zachován konsolidovaný baseline 6.1 a výchozí datumové řazení Příležitostí podle Přijato."
 }
