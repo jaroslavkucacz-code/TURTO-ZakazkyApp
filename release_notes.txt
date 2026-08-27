@@ -1,6 +1,6 @@
-• Sjednoceno řízení šířek všech hlavních tabulek v aplikaci. Akce, Příležitosti, Poptávky, MIVO, Nabídky, Úkoly, Společnosti, Osoby a další přehledy už nepoužívají odlišné principy pro pravý okraj.
-• Každá tabulka má jeden vhodný obsahový sloupec, který vyplní zbývající šířku; kompaktní datumové, stavové a početní sloupce zůstávají úzké.
-• Cílová záložka se nově připraví už při stisku myši na její kartu, tedy ještě před samotným zobrazením. Tím se odstraňuje krátké probliknutí bílého pravého pruhu při přepínání záložek.
-• Stejný centrální layout manager se použije po refreshi i při změně velikosti hlavního okna a připravuje i skryté záložky dopředu.
-• Starší mechanismus v642 je synchronizován s novou geometrií, aby pozdější Configure průchod už nerozhazoval šířky zpět.
-• Zachováno dosavadní výchozí řazení: Akce A–Z, Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno.
+• Opraven skutečný konflikt ve vykreslování šířek tabulek: staré vrstvy v641, v642 a v645 už neřídí geometrii Treeview a nemohou přepisovat nový layout manager.
+• Od verze 6.1.4 má geometrii všech hlavních tabulek na starosti výhradně jediný centrální mechanismus v post_baseline.py.
+• Akce, Příležitosti, Poptávky, MIVO, Nabídky, Úkoly, Společnosti, Osoby a další hlavní přehledy používají stejný princip: kompaktní sloupce zůstávají úzké a jeden vhodný textový sloupec vyplní zbývající šířku až k pravému okraji.
+• Cílová záložka se připravuje před zobrazením, takže při běžném přepínání nemá nejdřív probliknout bílý pruh a teprve potom dojít k roztažení.
+• v642 nadále zachovává pouze požadované výchozí datumové řazení: Příležitosti podle Přijato a Poptávky/MIVO podle Poptáno. Akce zůstávají A–Z.
+• Tato změna odstraňuje předchozí stav, kdy několik nezávislých Configure/after_idle callbacků soupeřilo o stejné šířky sloupců.
