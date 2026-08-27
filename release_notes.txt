@@ -1,6 +1,5 @@
-• Při importu .MSG se kromě uložení dat do databáze automaticky vytvoří archivní složka v Dokumenty\TURTO Zakazky\Nabidky.
-• Do složky se uloží původní celý .MSG a hlavní přílohy: PDF, Excel, Word, CSV, ZIP/RAR/7z, XML, IFC, DWG/DXF apod. Obrázkové přílohy typické pro podpisy (PNG/JPG/GIF/SVG atd.) se nearchivují.
-• Název složky je stabilní podle data, předmětu a krátkého hashe zprávy, takže opakovaný import stejného e-mailu nezakládá nahodilé duplicitní složky.
-• Po zpracování se do stejné složky automaticky vytvoří Extrakce_nabidky.xlsx s metadaty e-mailu, uloženými nabídkami, vyčtenými položkami a seznamem archivovaných souborů.
-• Import více .MSG najednou používá stejný workflow pro každý e-mail samostatně.
-• Zachováno dosavadní ukládání zdrojové zprávy a příloh do databáze i jednotné chování tabulek.
+• Při zpracování více nabídek se zobrazí průběhové okno s aktuálním souborem, pořadím a progress barem.
+• Přidáno Storno: dávka se bezpečně zastaví po dokončení právě zpracovávaného souboru.
+• Přidáno „Pokračovat na pozadí“: průběhové okno se skryje a dávka pokračuje bez dalšího vyrušování.
+• Automatická Extrakce_nabidky.xlsx nyní používá stejný formát, sloupce, číselné formáty, šířky, obrázky a vzhled jako ruční „Exportovat nabídku do Excelu“ přímo v programu.
+• Archivace původního .MSG a hlavních příloh v Dokumenty\TURTO Zakazky\Nabidky zůstává zachována.
