@@ -1,6 +1,6 @@
 {
-  "version": "6.1.2",
-  "file": "ZakazkyApp_v6.1.2.zip",
-  "sha256": "6033e8a9df5196d3cd55e298bfc5b2c42bdbd1230f2ba3d598caee4aba568a8b",
-  "notes": "• Pravý bílý okraj v Příležitostech je nyní opraven přímo podle skutečné šířky action_tree, ne jen obecným stretch nastavením.\n• Sloupec Poznámka vždy dopočítá zbývající volnou šířku; ostatní sloupce Příležitostí používají své pevné návrhové šířky.\n• Oprava synchronizuje i starší obecný mechanismus pro šířky sloupců, takže pozdější normalizační průchod už nemá roztažení znovu vracet zpět.\n• Přepnutí záložky, refresh i změna velikosti okna znovu aplikují správnou geometrii Příležitostí.\n• Zachován konsolidovaný baseline 6.1 a výchozí datumové řazení Příležitostí podle Přijato."
+  "version": "6.1.3",
+  "file": "ZakazkyApp_v6.1.3.zip",
+  "sha256": "9b9a062dafcffeea0e45c54a2343c0b79350642b06a96b571b01af631c5ad361",
+  "notes": "• Sjednoceno řízení šířek všech hlavních tabulek v aplikaci. Akce, Příležitosti, Poptávky, MIVO, Nabídky, Úkoly, Společnosti, Osoby a další přehledy už nepoužívají odlišné principy pro pravý okraj.\n• Každá tabulka má jeden vhodný obsahový sloupec, který vyplní zbývající šířku; kompaktní datumové, stavové a početní sloupce zůstávají úzké.\n• Cílová záložka se nově připraví už při stisku myši na její kartu, tedy ještě před samotným zobrazením. Tím se odstraňuje krátké probliknutí bílého pravého pruhu při přepínání záložek.\n• Stejný centrální layout manager se použije po refreshi i při změně velikosti hlavního okna a připravuje i skryté záložky dopředu.\n• Starší mechanismus v642 je synchronizován s novou geometrií, aby pozdější Configure průchod už nerozhazoval šířky zpět.\n• Zachováno dosavadní výchozí řazení: Akce A–Z, Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno."
 }
