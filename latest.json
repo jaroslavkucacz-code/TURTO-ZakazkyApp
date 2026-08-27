@@ -1,6 +1,6 @@
 {
-  "version": "6.0.45",
-  "file": "ZakazkyApp_v6.0.45.zip",
-  "sha256": "c1871e14c22b94c0555c3f6209c2614f2eb7a7fa3063c64249f150c3f8b703f6",
-  "notes": "• Opraveno vyplnění pravého okraje v záložce Akce. Tabulka se po refreshi i po změně velikosti okna vrací k levému okraji a volné místo nyní vyplní obsahový textový sloupec, zatímco Příležitostí a Nabídky zůstávají kompaktní.\n• Do buildu je současně správně zahrnuta oprava výchozího řazení z 6.0.44: Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno, vždy nejnovější nahoře.\n• Akce zůstávají výchozí A–Z podle názvu Akce.\n• Po přepnutí záložky se Příležitosti/Poptávky/MIVO vrací ke svému datumovému defaultu a Akce ke svému abecednímu defaultu.\n• Zachovány předchozí opravy: bez výstražných trojúhelníků u Poptávek a MIVA, stabilní záhlaví, vazby Nabídek na Akce/Poptávky a přehled novinek při ruční aktualizaci."
+  "version": "6.1.0",
+  "file": "ZakazkyApp_v6.1.0.zip",
+  "sha256": "011fee42d4772b5bc43b8e5108aaff7b11aeb95349618beda7c07c8105739467",
+  "notes": "• Konsolidační milník 6.1.0: současný funkční stav aplikace je uložen jako nový baseline pro další vývoj.\n• Další verze se už nebudou při každém buildu skládat od původního základu 5.7.2 přes dlouhý seznam historických patchů; build vychází přímo z konsolidovaného základu 6.1.\n• Pro nové změny je zavedena jediná aktivní vrstva post_baseline.py. Build workflow tak není nutné při každé malé opravě rozšiřovat o další historický modul.\n• Databáze a uživatelská data zůstávají beze změny v Documents/TURTO Zakazky/data/zakazky.db; konsolidace je pouze změna struktury programu a release procesu.\n• Funkčně 6.1.0 zachovává stav 6.0.45: Akce A–Z, Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno, vazby Nabídek na Akce/Poptávky, stabilní tabulky a aktualizační dialog s přehledem novinek.\n• Cílem je zjednodušit další úpravy, zkrátit build a snížit riziko, že se při vydání vynechá nebo špatně seřadí některá historická vrstva."
 }
