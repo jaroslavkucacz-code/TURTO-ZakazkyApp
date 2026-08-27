@@ -1,4 +1,6 @@
-• Opraven pravý klik na záhlaví tabulek: kontextová akce „Související nabídky“ se smí spustit pouze nad skutečným datovým řádkem, nikoli nad záhlavím, oddělovačem nebo prázdnou částí tabulky.
-• Opraven první start aplikace, kdy se tabulky počítaly ještě před ustálením skutečné šířky maximalizovaného hlavního okna a bílý pravý pruh zmizel až po přepnutí záložky.
-• Před prvním zobrazením se nyní nechá Tk dokončit geometrii hlavního okna a následně se jednotný přepočet šířek provede nad skutečnými rozměry.
-• Zachován jednotný deterministický přepočet šířek pro všechny hlavní tabulky.
+• Při importu .MSG se kromě uložení dat do databáze automaticky vytvoří archivní složka v Dokumenty\TURTO Zakazky\Nabidky.
+• Do složky se uloží původní celý .MSG a hlavní přílohy: PDF, Excel, Word, CSV, ZIP/RAR/7z, XML, IFC, DWG/DXF apod. Obrázkové přílohy typické pro podpisy (PNG/JPG/GIF/SVG atd.) se nearchivují.
+• Název složky je stabilní podle data, předmětu a krátkého hashe zprávy, takže opakovaný import stejného e-mailu nezakládá nahodilé duplicitní složky.
+• Po zpracování se do stejné složky automaticky vytvoří Extrakce_nabidky.xlsx s metadaty e-mailu, uloženými nabídkami, vyčtenými položkami a seznamem archivovaných souborů.
+• Import více .MSG najednou používá stejný workflow pro každý e-mail samostatně.
+• Zachováno dosavadní ukládání zdrojové zprávy a příloh do databáze i jednotné chování tabulek.
