@@ -1,5 +1,7 @@
-• Opraveno přetažení PDF/MSG souborů z Průzkumníka do Nabídek. Nativní Windows OLE vrstva nyní sama zpracuje CF_HDROP a vyčte skutečné cesty k souborům, takže se už nespoléhá na druhý TkDND handler na stejném okně.
-• PDF i MSG z disku se po dropu předají do stejného parseru jako ruční import; po dokončení se obnoví přehled Nabídek a zobrazí výsledek zpracování.
-• Outlook drag & drop zůstává zachovaný přes virtuální FileGroupDescriptor a bezpečný odklad z 6.0.30.
-• Nepodporované soubory jsou odmítnuty bez pádu aplikace; chyby se dále zapisují do Dokumenty/TURTO Zakazky/logs/offer_drop_crash.log.
-• Zachována barevnost 6.0.29, plynulý resize hlavního okna z 6.0.28 a rychlé přepínání záložek.
+• Hlavní vazba nabídky je nyní Poptávka → z ní se automaticky odvozuje Akce/Příležitost. Nabídka tedy nemusí být ručně přiřazována na dvou místech.
+• V přehledu Příležitostí/Akcí přibyl sloupec Nabídky s počtem souvisejících nabídek. Počítají se jak nabídky navázané přímo na Akci, tak nabídky navázané přes její Poptávky.
+• V přehledu Poptávek přibyl sloupec Nabídky s počtem nabídek přiřazených ke konkrétní poptávce.
+• Pravým tlačítkem na Příležitost nebo Poptávku lze otevřít přehled souvisejících nabídek; dvojklik v tomto přehledu otevře detail vybrané nabídky.
+• Detail nabídky zvýrazňuje vazbu Poptávka + Akce a staré samostatné tlačítko „Přiřadit k Akci“ je potlačeno ve prospěch přiřazení k Poptávce.
+• Při startu se action_id u nabídek s request_id synchronizuje z příslušné Poptávky, takže starší data se automaticky srovnají s novým modelem.
+• Zachován drag & drop z Outlooku i z disku, moderní barevnost, plynulý resize a rychlé přepínání záložek.
