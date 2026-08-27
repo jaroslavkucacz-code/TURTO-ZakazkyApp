@@ -1,6 +1,6 @@
 {
-  "version": "6.0.34",
-  "file": "ZakazkyApp_v6.0.34.zip",
-  "sha256": "6526c1e5da6ec97e652402115f67bed7ef036083da4d8a553aeaae79a2526427",
-  "notes": "• Dialog přiřazení nabídky má nově vyhledávání přes Poptávky i Akce.\n• Nabídka se váže pouze na Poptávku nebo na Akci; Příležitost už není v dialogu nabízena jako přímý cíl vazby.\n• Dvojklik na řádek okamžitě uloží zvolenou vazbu, takže byla odstraněna tlačítka „Přiřadit k Poptávce“ a „Přiřadit k Akci“.\n• Aktuálně přiřazená Poptávka/Akce je zvýrazněná a zobrazuje se vždy nahoře v příslušném seznamu.\n• Ve spodní liště zůstává pouze „Odebrat vazby“ a „Zrušit“.\n• U hořících termínů zůstává přesně zachováno původní stavové pozadí řádku; červené tučné datum nyní přebírá skutečné pozadí konkrétního řádku.\n• Zachován model Nabídka → Poptávka → Akce, drag & drop, související nabídky a optimalizace UI."
+  "version": "6.0.35",
+  "file": "ZakazkyApp_v6.0.35.zip",
+  "sha256": "c9ea9a20c91afd029836ab5f4b3f834151d0dacd4a8ae82777d0686a07c7c884",
+  "notes": "• Výchozí řazení v záložce Akce je nově abecedně podle názvu Akce (A–Z).\n• Pokud uživatel Akce dočasně seřadí podle jiného sloupce, po přepnutí na jinou záložku a návratu se řazení automaticky vrátí na výchozí abecední pořadí podle názvu Akce.\n• Stejné výchozí řazení se znovu aplikuje po obnovení seznamu Akcí a po spuštění aplikace.\n• Zachovány změny dialogu přiřazení nabídky z 6.0.34: vyhledávání, dvojklik pro přiřazení, aktuální vazba nahoře a možnost Odebrat vazby.\n• Zachovány všechny předchozí vazby Nabídka → Poptávka → Akce, drag & drop, související nabídky a optimalizace UI."
 }
