@@ -1,6 +1,6 @@
 {
-  "version": "6.1.0",
-  "file": "ZakazkyApp_v6.1.0.zip",
-  "sha256": "011fee42d4772b5bc43b8e5108aaff7b11aeb95349618beda7c07c8105739467",
-  "notes": "• Konsolidační milník 6.1.0: současný funkční stav aplikace je uložen jako nový baseline pro další vývoj.\n• Další verze se už nebudou při každém buildu skládat od původního základu 5.7.2 přes dlouhý seznam historických patchů; build vychází přímo z konsolidovaného základu 6.1.\n• Pro nové změny je zavedena jediná aktivní vrstva post_baseline.py. Build workflow tak není nutné při každé malé opravě rozšiřovat o další historický modul.\n• Databáze a uživatelská data zůstávají beze změny v Documents/TURTO Zakazky/data/zakazky.db; konsolidace je pouze změna struktury programu a release procesu.\n• Funkčně 6.1.0 zachovává stav 6.0.45: Akce A–Z, Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno, vazby Nabídek na Akce/Poptávky, stabilní tabulky a aktualizační dialog s přehledem novinek.\n• Cílem je zjednodušit další úpravy, zkrátit build a snížit riziko, že se při vydání vynechá nebo špatně seřadí některá historická vrstva."
+  "version": "6.1.1",
+  "file": "ZakazkyApp_v6.1.1.zip",
+  "sha256": "33ac5b19b3c93619f323a21678849a592c9639059992e6eba09e8453c1e2948e",
+  "notes": "• Opraven pravý bílý okraj v záložce Příležitosti. Sloupec Poznámka nově pružně vyplní zbývající šířku tabulky až k pravému okraji.\n• Kompaktní sloupce Stav, Přijato a Deadline zůstávají ve své běžné šířce; roztahuje se pouze vhodný textový sloupec.\n• Po refreshi i po změně velikosti okna se Příležitosti znovu zarovnají k levému okraji, takže nemá zůstávat prázdný bílý pruh ani stará horizontální pozice.\n• Zachován konsolidovaný baseline 6.1 a nový jednodušší release proces přes jedinou aktivní vrstvu post_baseline.py."
 }
