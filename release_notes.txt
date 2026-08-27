@@ -1,6 +1,6 @@
-• Přepínání hlavních záložek je znovu upraveno pro rychlost: odstraněno blokování WM_SETREDRAW i synchronní update_idletasks z 6.0.26. Navigační styl se připraví předem a hotová stránka se zvedne až jako poslední krok.
-• Při živém zvětšování a zmenšování okna tažením rámečku se už nespouštějí vlastní Treeview přepočty při každém Configure eventu. Dorovnání filtrů a pomocné překreslení se provede jednou až po krátkém ustálení velikosti a jen pro právě viditelnou záložku.
-• Opraveny barvy v Přehledu aktivních příležitostí. Řádek se nyní barví výhradně podle skutečného sloupce Stav; text v názvu nebo popisu už nemůže omylem změnit stavovou barvu. Přehled používá stejné tagy jako hlavní záložka Příležitosti/Akce.
-• Přidán nativní Windows OLE drop target pro přetažení e-mailu přímo z Outlooku. Outlook posílá MailItem jako virtuální Shell/OLE objekt FileGroupDescriptor/FileContents, který běžný tkinterdnd2 nepředává jako cestu k souboru. Nová vrstva tento typ dropu zachytí na úrovni Windows a následně převezme vybraný e-mail přes Outlook COM jako Unicode MSG do stejné zpracovací pipeline jako běžný MSG soubor.
-• Běžné přetažení PDF/MSG z Průzkumníka zůstává zachované přes tkinterdnd2. Pro Outlook zůstává zachováno i tlačítko „Načíst vybraný e-mail z Outlooku“ jako záložní cesta.
-• Zachovány opravy 6.0.25–6.0.26: neblokující kontrola aktualizací, ochrana proti osiřelému modálnímu grabu, Unicode MSG pipeline a ostatní funkce Nabídek/Produkty-ceny.
+• Hlavní okno používá nový režim aktivní stránky: skryté záložky už nejsou současně spravované v grid layoutu. Při přepnutí se předchozí stránka geometricky odpojí a nová se zobrazí, takže při ručním zvětšování/zmenšování hlavního okna Tk přepočítává pouze právě zobrazenou stránku místo všech záložek.
+• Zachováno rychlé přepínání záložek z 6.0.27; nová optimalizace nemění datovou logiku ani refresh databáze.
+• Stavové barvy dostaly modernější tlumenou paletu. Rozpracováno používá jemnou modrou, Připraveno/Nabídka tyrkysovou, Čeká jantarovou, Hotovo zelenou a Zrušeno jemnou vínovou. Barvy jsou méně syté a působí moderněji v tmavém i světlém režimu.
+• Výběr řádku má samostatnou neutrální modrou barvu, aby se nepletl se stavovou barvou.
+• Výška řádků tabulek je sjednocena na vzdušnější moderní rozměr pro lepší čitelnost.
+• Zachovány opravy 6.0.27: přesné barvy Přehledu podle skutečného sloupce Stav, Fast UI a nativní Outlook OLE drag & drop vedle běžného PDF/MSG dropu z Průzkumníka.
