@@ -1,5 +1,6 @@
-• Při zpracování více nabídek se zobrazí průběhové okno s aktuálním souborem, pořadím a progress barem.
-• Přidáno Storno: dávka se bezpečně zastaví po dokončení právě zpracovávaného souboru.
-• Přidáno „Pokračovat na pozadí“: průběhové okno se skryje a dávka pokračuje bez dalšího vyrušování.
-• Automatická Extrakce_nabidky.xlsx nyní používá stejný formát, sloupce, číselné formáty, šířky, obrázky a vzhled jako ruční „Exportovat nabídku do Excelu“ přímo v programu.
-• Archivace původního .MSG a hlavních příloh v Dokumenty\TURTO Zakazky\Nabidky zůstává zachována.
+• Zpracování nabídek bylo sjednoceno do jednoho DB-first workflow: nejdřív se data zapíšou do databáze, potom se archivují zdrojové soubory a nakonec se Excel vytvoří výhradně z již uložených dat v databázi.
+• Ruční export nabídky do Excelu i automatická Extrakce_nabidky.xlsx používají od této verze jednu a tutéž exportní funkci, takže mají shodný obsah, vzhled, formátování i obrázky.
+• Při přetažení samostatného PDF se po importu uloží původní PDF do archivní složky a následně se z databáze vytvoří Excel.
+• Při přetažení MSG se po importu uloží původní MSG a relevantní hlavní přílohy; obrázky z podpisů se nadále vynechávají. Excel se následně generuje z databáze.
+• V Nastavení přibyla volba výchozí složky pro ukládání zpracovaných nabídek. Nastavení je lokální pro konkrétní počítač a CRM uživatele, takže se cesta nepřenáší s databází na jiný počítač.
+• Dávkové zpracování a přetažení více PDF/MSG používají stejné průběhové okno se Stavem, Stornem a možností Pokračovat na pozadí.
