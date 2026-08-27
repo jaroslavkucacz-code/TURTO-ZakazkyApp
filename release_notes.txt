@@ -1,9 +1,9 @@
-• Přehled aktuálních Příležitostí nyní používá stejné stavové barvy jako seznam Příležitostí/Akcí a ostatní části CRM; barvy se znovu aplikují po každém obnovení přehledu.
-• Nabídky obsahují samostatný přehled „Produkty / ceny“: dodavatel, kód, produkt, poslední cena, sleva, datum, předchozí cena, změna %, Akce a Poptávka. Dvojklik otevře historii ceny produktu.
-• Zdrojové PDF/MSG a jejich přílohy se už neukládají jako velké BLOB objekty v CRM databázi. Při zpracování se kopírují do Dokumenty/TURTO Zakazky/Dokumenty/Nabidky a databáze si drží hlavně strukturovaná data a vazby. Obrázky produktů GEROtop zůstávají v databázi pro zobrazení produktu.
-• Z CRM bylo odstraněno otevírání původního PDF nabídky; zdrojový soubor zůstává jen v dokumentové složce.
-• Nabídku lze nepovinně přiřadit ke konkrétní Poptávce. Pokud má Poptávka vazbu na Akci, nabídka tuto vazbu automaticky převezme.
-• Bezpečnější mazání špatně založené Příležitosti: pokud má vazby na Poptávky, Úkoly nebo Nabídky, CRM se nezasekne, ale vypíše konkrétní vazby. Bez vazeb se smaže v jedné transakci.
-• Zachován robustní import .MSG, parsery Leviat a GEROtop, inline obrázky GEROtop, historie cen, Outlook tlačítko pro načtení vybraného e-mailu a modulární příprava pro další dodavatele.
-• Přímý drag & drop z Outlooku i běžný file-drop z disku ještě vyžaduje další opravu registrace drop-targetu; spolehlivá cesta je zatím tlačítko „Načíst vybraný e-mail z Outlooku“ nebo výběr souboru přes import.
-• Zachovány našeptávače, Poptáváno, velké dialogy respektující Windows lištu, řazení nejpoužívanějších e-mailů, 14denní aktivní HISTORIE + archiv, Undo a výkonové indexy.
+• Excel export je nově přímo v modulu Nabídky: vybranou nabídku lze exportovat do XLSX včetně hlavičky, všech položek, cen, slev a dostupných obrázků produktů.
+• Přehled „Produkty / ceny“ má vlastní tlačítko „Exportovat zobrazené do Excelu“. Export respektuje aktuální filtr a vytvoří také druhý list s kompletní historií cen zobrazených produktů.
+• V „Produkty / ceny“ se po výběru položky zobrazuje dostupný obrázek produktu přímo ve stejném okně; využívají se obrázky extrahované z nabídek GEROtop a připravené úložiště obrázků dalších dodavatelů.
+• Opraven předmět Poptávky: po změně Dodavatele/společnosti, Akce, položky „Poptáváno“ nebo data se předmět vždy znovu sestaví z aktuálních hodnot. Původně zvolená společnost už nezůstane skrytě v předmětu Outlook e-mailu.
+• Stavové barvy jsou sjednoceny přes jednu centrální paletu. Přehled aktuálních Příležitostí a seznam Příležitostí/Akcí používají přesně stejné odstíny pro Rozpracováno, Připraveno, Hotovo, Zrušeno a další stavy, ve světlém i tmavém režimu.
+• Hlavní okno se při startu nejdřív umístí na monitor, na kterém je kurzor, a teprve potom se maximalizuje. Tím se má spouštět maximalizované na aktuálním monitoru a respektovat jeho pracovní plochu.
+• Spouštěč nové verze před startem automaticky provede kontrolu/doinstalování knihoven z requirements.txt. Tím se doplní mimo jiné pywin32, tkinterdnd2 a XlsxWriter, pokud na daném PC chybí.
+• Tím se opravuje konkrétní hláška „Chybí pywin32 pro přímý přenos z Outlooku“ po aktualizaci. Běžný file-drop z disku se po dostupnosti tkinterdnd2 může správně zaregistrovat; přímý virtuální Outlook drag & drop budeme dál ověřovat samostatně, protože Outlook používá odlišný OLE formát.
+• Zachovány Produkty/ceny, historie cen, vazba nabídky na Poptávku/Akci, ukládání zdrojů mimo databázi, parsery Leviat/GEROtop, bezpečnější mazání Příležitostí, našeptávače, řazení nejpoužívanějších e-mailů a ADMIN HISTORIE.
