@@ -1,6 +1,5 @@
-• Výchozí řazení Příležitostí je nově podle data Přijato, nejnovější záznamy jsou nahoře.
-• Výchozí řazení Poptávek je podle data Poptáno, nejnovější záznamy jsou nahoře.
-• Stejné výchozí řazení podle data Poptáno platí i pro MIVO.
-• Po přepnutí na jinou záložku a návratu se příslušná tabulka vrátí do svého výchozího datumového řazení; ruční klikací řazení v záhlaví zůstává zachované.
-• Akce zůstávají samostatně řazené A–Z podle názvu Akce.
-• Zachovány předchozí opravy: vyplnění tabulek až k pravému okraji, bez výstražných trojúhelníků u Poptávek a MIVA, stabilní záhlaví a správné vazby Nabídek na Akce/Poptávky.
+• Opraveno vyplnění pravého okraje v záložce Akce. Tabulka se po refreshi i po změně velikosti okna vrací k levému okraji a volné místo nyní vyplní obsahový textový sloupec, zatímco Příležitostí a Nabídky zůstávají kompaktní.
+• Do buildu je současně správně zahrnuta oprava výchozího řazení z 6.0.44: Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno, vždy nejnovější nahoře.
+• Akce zůstávají výchozí A–Z podle názvu Akce.
+• Po přepnutí záložky se Příležitosti/Poptávky/MIVO vrací ke svému datumovému defaultu a Akce ke svému abecednímu defaultu.
+• Zachovány předchozí opravy: bez výstražných trojúhelníků u Poptávek a MIVA, stabilní záhlaví, vazby Nabídek na Akce/Poptávky a přehled novinek při ruční aktualizaci.
