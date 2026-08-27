@@ -1,6 +1,6 @@
-• Roztažení tabulek až k pravému okraji je nyní aplikováno na všechny hlavní záložky, nejen na vybrané přehledy.
-• Každá tabulka má vždy jeden vhodný textový sloupec, který pružně vyplní volnou šířku a odstraní prázdný bílý pruh napravo.
-• Úzké pomocné sloupce jako Nabídky, Počet, ID, Měna, Ks nebo MJ zůstávají kompaktní a neroztahují se zbytečně.
-• Pokryté jsou i tabulky vytvořené přímo jednotlivými moduly, ne jen základní tabulky vytvořené přes společnou funkci App.tree().
-• Roztažení se znovu nastaví po běžných refreshech záložek, ale není navázané na scrollování ani resize, takže nemá způsobovat problikávání nebo sekání.
-• Zachovány opravy 6.0.40 a 6.0.41: bez výstražných trojúhelníků u Poptávek a MIVA, stabilní záhlaví a řazení a původní stavová pozadí.
+• Opraveno vyplnění pravého okraje tabulek i v Příležitostech a dalších záložkách, kde samotné stretch=True nestačilo.
+• Při každé změně skutečné šířky Treeview se nově dopočítá přesná volná šířka a poslední vhodný textový sloupec ji vyplní až k pravému okraji.
+• Výpočet je obecný pro všechny Treeview v aplikaci včetně tabulek vytvořených jednotlivými moduly a dialogy.
+• Kompaktní sloupce jako Stav, Deadline, Datum, Nabídky, Počet, ID, Měna, Ks a MJ se zbytečně neroztahují; volné místo dostane obsahový textový sloupec.
+• Při zmenšení okna se sloupce nekrátí pod jejich původní šířku, takže zůstává zachované čitelné rozložení a případně se použije horizontální posuvník.
+• Zachovány předchozí opravy: bez výstražných trojúhelníků u Poptávek a MIVA, stabilní záhlaví/řazení a správné vazby Nabídek na Akce/Poptávky.
