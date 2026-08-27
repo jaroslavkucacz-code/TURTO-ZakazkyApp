@@ -1,6 +1,5 @@
-• Hlavní okno používá nový režim aktivní stránky: skryté záložky už nejsou současně spravované v grid layoutu. Při přepnutí se předchozí stránka geometricky odpojí a nová se zobrazí, takže při ručním zvětšování/zmenšování hlavního okna Tk přepočítává pouze právě zobrazenou stránku místo všech záložek.
-• Zachováno rychlé přepínání záložek z 6.0.27; nová optimalizace nemění datovou logiku ani refresh databáze.
-• Stavové barvy dostaly modernější tlumenou paletu. Rozpracováno používá jemnou modrou, Připraveno/Nabídka tyrkysovou, Čeká jantarovou, Hotovo zelenou a Zrušeno jemnou vínovou. Barvy jsou méně syté a působí moderněji v tmavém i světlém režimu.
-• Výběr řádku má samostatnou neutrální modrou barvu, aby se nepletl se stavovou barvou.
-• Výška řádků tabulek je sjednocena na vzdušnější moderní rozměr pro lepší čitelnost.
-• Zachovány opravy 6.0.27: přesné barvy Přehledu podle skutečného sloupce Stav, Fast UI a nativní Outlook OLE drag & drop vedle běžného PDF/MSG dropu z Průzkumníka.
+• Stavové barvy mají vyšší kontrast, aby jednotlivé stavy v tabulkách nesplývaly. Zachován moderní tmavý vzhled, ale modrá, tyrkysová, jantarová, zelená a vínová jsou nyní zřetelněji odlišitelné.
+• Opraveny Poptávky: používají vlastní interní tagy req_fresh a req_received, které verze 6.0.28 nebarvila novou paletou. Čekající poptávky jsou nyní jantarové, přijaté odpovědi tyrkysové a archiv/zrušeno používá stejnou vínovou jako ostatní části CRM.
+• Výběr řádku zůstává samostatně modrý, aby byl jasně odlišen od stavové barvy.
+• Zachována optimalizace resize hlavního okna z 6.0.28 a rychlé přepínání záložek z 6.0.27.
+• Zachován nativní Outlook OLE drag & drop a všechny předchozí opravy Nabídek, exportů a aktualizací.
