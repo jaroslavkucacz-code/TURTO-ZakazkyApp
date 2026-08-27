@@ -1,6 +1,6 @@
-• Upraveno chování tabulek i pro široké monitory, kde se dříve mohl projevit prázdný bílý prostor napravo.
-• Všechny obsahové/textové sloupce hlavních tabulek se nyní nativně pružně roztahují a společně vyplní veškerý volný prostor; datumové, stavové, početní a další kompaktní sloupce zůstávají pevné.
-• Na úzkém monitoru se zachovají minimální šířky a případně se použije horizontální posun. Na širokém monitoru se přebytečný prostor rozdělí mezi obsahové sloupce, takže nemá vzniknout bílý pravý pruh.
-• Pravidlo se aplikuje už při vytvoření Treeview, bez časovaných after_idle/Configure přepočtů a bez viditelného dodatečného roztahování po přepnutí záložky.
-• Stejný princip platí jednotně pro Akce, Příležitosti, Poptávky, MIVO, Nabídky, Úkoly, Společnosti, Osoby a další hlavní přehledy.
+• Opraven rozdíl, kdy se šířky správně vyplňovaly u Poptávek a MIVO, ale ne u Příležitostí a Akcí.
+• Všechny hlavní Treeview tabulky nově používají jediný deterministický přepočet šířek podle skutečné šířky widgetu při Configure/Map.
+• Pokud je tabulka širší než součet návrhových šířek, přebytečný prostor se rozdělí mezi obsahové sloupce. Pokud je prostoru méně, návrhové šířky zůstanou zachovány a použije se horizontální posun.
+• Datumové, stavové, početní a další kompaktní sloupce zůstávají kompaktní; bílý pravý pruh nemá zůstávat ani u Akcí a Příležitostí.
+• Přepočet probíhá synchronně bez after_idle animace, takže při přepnutí záložky nemá nejdřív probliknout bílá plocha a až následně dojít k roztáhnutí.
 • Zachováno výchozí řazení: Akce A–Z, Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno.
