@@ -1,6 +1,6 @@
 {
-  "version": "6.1.9",
-  "file": "ZakazkyApp_v6.1.9.zip",
-  "sha256": "55a3cab287ff31a681f73723740140af2128d5c84e40489666b38bf08db055c5",
-  "notes": "• Opraven pravý klik na záhlaví tabulek: kontextová akce „Související nabídky“ se smí spustit pouze nad skutečným datovým řádkem, nikoli nad záhlavím, oddělovačem nebo prázdnou částí tabulky.\n• Opraven první start aplikace, kdy se tabulky počítaly ještě před ustálením skutečné šířky maximalizovaného hlavního okna a bílý pravý pruh zmizel až po přepnutí záložky.\n• Před prvním zobrazením se nyní nechá Tk dokončit geometrii hlavního okna a následně se jednotný přepočet šířek provede nad skutečnými rozměry.\n• Zachován jednotný deterministický přepočet šířek pro všechny hlavní tabulky."
+  "version": "6.1.10",
+  "file": "ZakazkyApp_v6.1.10.zip",
+  "sha256": "a84317375605ea82b2309fbe702adc853c8a69274ea128a251cb889ca2631987",
+  "notes": "• Při importu .MSG se kromě uložení dat do databáze automaticky vytvoří archivní složka v Dokumenty\\TURTO Zakazky\\Nabidky.\n• Do složky se uloží původní celý .MSG a hlavní přílohy: PDF, Excel, Word, CSV, ZIP/RAR/7z, XML, IFC, DWG/DXF apod. Obrázkové přílohy typické pro podpisy (PNG/JPG/GIF/SVG atd.) se nearchivují.\n• Název složky je stabilní podle data, předmětu a krátkého hashe zprávy, takže opakovaný import stejného e-mailu nezakládá nahodilé duplicitní složky.\n• Po zpracování se do stejné složky automaticky vytvoří Extrakce_nabidky.xlsx s metadaty e-mailu, uloženými nabídkami, vyčtenými položkami a seznamem archivovaných souborů.\n• Import více .MSG najednou používá stejný workflow pro každý e-mail samostatně.\n• Zachováno dosavadní ukládání zdrojové zprávy a příloh do databáze i jednotné chování tabulek."
 }
