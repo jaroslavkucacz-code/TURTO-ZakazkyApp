@@ -1,6 +1,7 @@
-• Opraven import Outlook .MSG: CRM používá odolnější otevření přes extract-msg, zvládá více variant API příloh a při potížích vypíše konkrétní přílohu místo obecného pádu importu.
-• .MSG nadále ukládá předmět, odesílatele, datum, text a všechny čitelné přílohy do databáze; podporované PDF přílohy se zpracují přes parsery Nabídek.
-• Obrázky položek GEROtop se nově zobrazují přímo v detailu nabídky spolu s názvem, kódem, množstvím, cenou a zdrojem obrázku. Neotevírá se samostatné okno.
-• Při změně vybrané položky v nabídce se náhled obrázku a produktová data automaticky aktualizují.
-• Zachovány parsery Leviat a GEROtop, historie cen, archiv zdrojových e-mailů/příloh a modulární příprava pro další dodavatele.
+• Nabídky mají novou drag & drop zónu: lze do ní přetáhnout PDF/MSG z Průzkumníka a ve Windows také vybraný e-mail přímo z otevřeného Outlooku.
+• Pokud Outlook při přetažení neposkytne běžnou cestu k souboru, CRM převezme aktuálně vybranou zprávu přes Outlook COM, dočasně ji uloží jako .MSG a zpracuje stejným importním jádrem.
+• Přidáno záložní tlačítko „Načíst vybraný e-mail z Outlooku“ pro případy, kdy konkrétní verze Outlooku nepředá drag & drop událost standardním způsobem.
+• Celý zdrojový .MSG se nově ukládá jako BLOB do databáze, takže jej bude možné později znovu zpracovat novějším parserem bez hledání původního e-mailu.
+• Doplněny knihovny tkinterdnd2 a pywin32 potřebné pro drag & drop a přímou komunikaci s Outlookem.
+• Zachován robustní import .MSG, parsery Leviat a GEROtop, inline obrázky GEROtop v detailu nabídky, historie cen a modulární příprava pro další dodavatele.
 • Zachovány opravy našeptávačů, našeptávač Poptáváno, velké dialogy respektující Windows lištu, řazení nejpoužívanějších e-mailů, 14denní aktivní HISTORIE + archiv, Undo, sjednocené barvy a výkonové indexy.
