@@ -1,4 +1,6 @@
-• Hlavní tabulky se nově vždy roztáhnou až k pravému okraji dostupné plochy. Pokud je okno širší než součet běžných šířek sloupců, poslední vhodný textový sloupec automaticky vyplní zbytek šířky, takže napravo nezůstává prázdný bílý pruh.
-• Kompaktní pomocné sloupce jako „Nabídky“ zůstávají úzké; volné místo se přednostně přidává předchozímu textovému sloupci.
-• Chování se znovu aplikuje po refreshech Akcí, Příležitostí a Poptávek, aby starší vrstvy nemohly vrátit pevnou nevyplněnou šířku.
-• Zachovány opravy 6.0.40: bez výstražných trojúhelníků u Poptávek a MIVA, pouze tučné zvýraznění, stabilní tabulky a původní stavová pozadí.
+• Roztažení tabulek až k pravému okraji je nyní aplikováno na všechny hlavní záložky, nejen na vybrané přehledy.
+• Každá tabulka má vždy jeden vhodný textový sloupec, který pružně vyplní volnou šířku a odstraní prázdný bílý pruh napravo.
+• Úzké pomocné sloupce jako Nabídky, Počet, ID, Měna, Ks nebo MJ zůstávají kompaktní a neroztahují se zbytečně.
+• Pokryté jsou i tabulky vytvořené přímo jednotlivými moduly, ne jen základní tabulky vytvořené přes společnou funkci App.tree().
+• Roztažení se znovu nastaví po běžných refreshech záložek, ale není navázané na scrollování ani resize, takže nemá způsobovat problikávání nebo sekání.
+• Zachovány opravy 6.0.40 a 6.0.41: bez výstražných trojúhelníků u Poptávek a MIVA, stabilní záhlaví a řazení a původní stavová pozadí.
