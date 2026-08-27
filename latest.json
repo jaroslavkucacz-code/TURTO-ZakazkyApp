@@ -1,6 +1,6 @@
 {
-  "version": "6.0.33",
-  "file": "ZakazkyApp_v6.0.33.zip",
-  "sha256": "06d3b2dc1e17c05b75916e3edbc3aaa736dec22fb3f4492b098c2052d8ba3bd2",
-  "notes": "• V detailu nabídky je nové trvalé tlačítko „Změnit přiřazení…“. Nabídku lze kdykoliv přiřadit k Poptávce, přímo k Akci/Příležitosti, změnit existující vazbu nebo ji úplně odpojit.\n• Preferovaná vazba zůstává Nabídka → Poptávka → Akce. Při výběru Poptávky se Akce automaticky převezme z ní. Přímé přiřazení k Akci je dostupné jako fallback, pokud vhodná Poptávka neexistuje.\n• Po změně vazby se automaticky obnoví Nabídky, Poptávky, Příležitosti a jejich počty souvisejících nabídek.\n• U hořících termínů se odstraňuje výstražný trojúhelník/vykřičník. Upozornění je nově tvořeno samotným datem zobrazeným tučně červeně; řádek si zachovává svou běžnou stavovou barvu.\n• Stejný princip upozornění se aplikuje na Poptávky, MIVO a dostupné tabulky termínů/úkolů.\n• Zachován model souvisejících nabídek z 6.0.32, drag & drop z Outlooku i disku, moderní barevnost a optimalizace UI."
+  "version": "6.0.34",
+  "file": "ZakazkyApp_v6.0.34.zip",
+  "sha256": "6526c1e5da6ec97e652402115f67bed7ef036083da4d8a553aeaae79a2526427",
+  "notes": "• Dialog přiřazení nabídky má nově vyhledávání přes Poptávky i Akce.\n• Nabídka se váže pouze na Poptávku nebo na Akci; Příležitost už není v dialogu nabízena jako přímý cíl vazby.\n• Dvojklik na řádek okamžitě uloží zvolenou vazbu, takže byla odstraněna tlačítka „Přiřadit k Poptávce“ a „Přiřadit k Akci“.\n• Aktuálně přiřazená Poptávka/Akce je zvýrazněná a zobrazuje se vždy nahoře v příslušném seznamu.\n• Ve spodní liště zůstává pouze „Odebrat vazby“ a „Zrušit“.\n• U hořících termínů zůstává přesně zachováno původní stavové pozadí řádku; červené tučné datum nyní přebírá skutečné pozadí konkrétního řádku.\n• Zachován model Nabídka → Poptávka → Akce, drag & drop, související nabídky a optimalizace UI."
 }
