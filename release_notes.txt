@@ -1,7 +1,5 @@
-• Dialog přiřazení nabídky má nově vyhledávání přes Poptávky i Akce.
-• Nabídka se váže pouze na Poptávku nebo na Akci; Příležitost už není v dialogu nabízena jako přímý cíl vazby.
-• Dvojklik na řádek okamžitě uloží zvolenou vazbu, takže byla odstraněna tlačítka „Přiřadit k Poptávce“ a „Přiřadit k Akci“.
-• Aktuálně přiřazená Poptávka/Akce je zvýrazněná a zobrazuje se vždy nahoře v příslušném seznamu.
-• Ve spodní liště zůstává pouze „Odebrat vazby“ a „Zrušit“.
-• U hořících termínů zůstává přesně zachováno původní stavové pozadí řádku; červené tučné datum nyní přebírá skutečné pozadí konkrétního řádku.
-• Zachován model Nabídka → Poptávka → Akce, drag & drop, související nabídky a optimalizace UI.
+• Výchozí řazení v záložce Akce je nově abecedně podle názvu Akce (A–Z).
+• Pokud uživatel Akce dočasně seřadí podle jiného sloupce, po přepnutí na jinou záložku a návratu se řazení automaticky vrátí na výchozí abecední pořadí podle názvu Akce.
+• Stejné výchozí řazení se znovu aplikuje po obnovení seznamu Akcí a po spuštění aplikace.
+• Zachovány změny dialogu přiřazení nabídky z 6.0.34: vyhledávání, dvojklik pro přiřazení, aktuální vazba nahoře a možnost Odebrat vazby.
+• Zachovány všechny předchozí vazby Nabídka → Poptávka → Akce, drag & drop, související nabídky a optimalizace UI.
