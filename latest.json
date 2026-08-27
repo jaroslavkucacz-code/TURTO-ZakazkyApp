@@ -1,6 +1,6 @@
 {
-  "version": "6.1.14",
-  "file": "ZakazkyApp_v6.1.14.zip",
-  "sha256": "4f5fe8b2789aa8fd80d81934f5f07ae79b3a7a12f58fdfda87be3be2cea21028",
-  "notes": "• Automatická extrakce po přetažení PDF nebo MSG nyní používá skutečný dodavatelský CRM export z v624_legacy_exports.py, tedy stejný kód jako ruční „Extrakce dat“ z Nabídek.\n• Opraven předchozí stav, kdy post_baseline přepsal správný CRM export zjednodušeným writerem a automatická extrakce proto vypadala jinak.\n• Pro Leviat se po importu vytvoří stejný Excel jako při ručním exportu z CRM: rekapitulace, sleva, DPH, celková částka, tmavě modrá položková tabulka a sloučený blok názvu položky.\n• Pro GEROtop se stejným způsobem používá jeho dodavatelská exportní šablona.\n• Pořadí zůstává DB-first: import do databáze → archiv zdrojových souborů → spuštění přesně stejného CRM exportu do archivní složky."
+  "version": "6.1.15",
+  "file": "ZakazkyApp_v6.1.15.zip",
+  "sha256": "572654ec194c91e0fa083ae4aa98cd2d810203adb3b0aa0d3e3a46c412e17251",
+  "notes": "• Opraveno mazání importovaných nabídek, které končilo chybou FOREIGN KEY constraint failed.\n• Před smazáním nabídky se nyní pouze odpojí databázová vazba z offer_source_attachments; zdrojová zpráva a příloha zůstávají evidované pro případné pozdější zpracování.\n• Fyzické PDF, MSG, přílohy a automaticky vytvořené Excelové soubory na disku jsou zcela nezávislé na CRM a při smazání nabídky se nijak nemažou ani neupravují.\n• Zachován skutečný dodavatelský CRM export pro Leviat a GEROtop i automatická extrakce po importu."
 }
