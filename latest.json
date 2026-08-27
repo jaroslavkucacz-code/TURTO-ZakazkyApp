@@ -1,6 +1,6 @@
 {
-  "version": "6.0.40",
-  "file": "ZakazkyApp_v6.0.40.zip",
-  "sha256": "6bf9599494fdd0d6cadaf40a7b1e7ddd6f58b58a3d1c0db9c73c575767378e01",
-  "notes": "• U Poptávek jsou odstraněny výstražné trojúhelníky/vykřičníky. Řádky, které byly dříve označené ikonou, zůstávají upozorněné pouze tučným textem při zachování původního stavového pozadí.\n• Stejná úprava platí i pro MIVO: bez výstražných ikon, pouze tučné zvýraznění příslušného řádku.\n• Čištění probíhá po běžném refreshi bez vazby na scrollování nebo změnu velikosti, takže se nevrací problikávání ani bílé overlaye.\n• Zachovány opravy 6.0.39 a 6.0.38: stabilní tabulky, záhlaví a řazení, Akce A–Z, vazby Nabídek na Akci/Poptávku a přehled novinek při ruční aktualizaci."
+  "version": "6.0.41",
+  "file": "ZakazkyApp_v6.0.41.zip",
+  "sha256": "08c5abc58f6fd031a7cd77e34be50e5a1b3e320347e14d4a0280acce4c280e18",
+  "notes": "• Hlavní tabulky se nově vždy roztáhnou až k pravému okraji dostupné plochy. Pokud je okno širší než součet běžných šířek sloupců, poslední vhodný textový sloupec automaticky vyplní zbytek šířky, takže napravo nezůstává prázdný bílý pruh.\n• Kompaktní pomocné sloupce jako „Nabídky“ zůstávají úzké; volné místo se přednostně přidává předchozímu textovému sloupci.\n• Chování se znovu aplikuje po refreshech Akcí, Příležitostí a Poptávek, aby starší vrstvy nemohly vrátit pevnou nevyplněnou šířku.\n• Zachovány opravy 6.0.40: bez výstražných trojúhelníků u Poptávek a MIVA, pouze tučné zvýraznění, stabilní tabulky a původní stavová pozadí."
 }
