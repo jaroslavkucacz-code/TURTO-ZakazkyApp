@@ -1,5 +1,6 @@
-• Výchozí řazení v záložce Akce je nově abecedně podle názvu Akce (A–Z).
-• Pokud uživatel Akce dočasně seřadí podle jiného sloupce, po přepnutí na jinou záložku a návratu se řazení automaticky vrátí na výchozí abecední pořadí podle názvu Akce.
-• Stejné výchozí řazení se znovu aplikuje po obnovení seznamu Akcí a po spuštění aplikace.
-• Zachovány změny dialogu přiřazení nabídky z 6.0.34: vyhledávání, dvojklik pro přiřazení, aktuální vazba nahoře a možnost Odebrat vazby.
-• Zachovány všechny předchozí vazby Nabídka → Poptávka → Akce, drag & drop, související nabídky a optimalizace UI.
+• V detailu Akce je nový přehled „Související nabídky“. Zahrnuje nabídky přiřazené přímo k Akci i nabídky navázané přes Poptávky dané Akce; dvojklik otevře detail nabídky.
+• Přehled zobrazuje dodavatele, číslo a datum nabídky, původní název vyčtený z nabídky, Poptávku, cenu a měnu.
+• Interní přiřazení nabídky k Poptávce/Akci nepřepisuje původní název projektu/zakázky vyčtený z cenové nabídky.
+• Vazby nabídek podporují tři stavy: přes Poptávku s automaticky odvozenou Akcí, pouze přímo k Akci, nebo zcela bez vazby.
+• Odstraněna nestabilní vrstva červených datumů nad Treeview, která způsobovala bílé obdélníky, problikávání při rolování a překrývání záhlaví. Tabulky se vracejí k čistému nativnímu vykreslení se zachováním stavových barev řádků a záhlaví.
+• Zachováno výchozí abecední řazení Akcí A–Z a jeho reset po přepnutí záložky, stejně jako vyhledávání a dvojklik v dialogu přiřazení nabídky.
