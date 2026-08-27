@@ -1,5 +1,5 @@
-• Automatická Extrakce_nabidky.xlsx po přetažení PDF nebo MSG už nevytváří vlastní napodobeninu exportu.
-• Po importu a archivaci se nyní spustí přímo stejná existující exportní funkce, kterou používá ruční export nabídky z CRM; automatika jí pouze předá cílovou cestu bez dialogu Uložit jako.
-• Pro stejnou nabídku / offer_id tak musí být automatický Excel shodný s ručním exportem z CRM.
-• DB-first pořadí zůstává zachováno: databáze → archiv zdrojových souborů → Excel.
-• U MSG se nejdřív uloží celý mail a relevantní přílohy, u samostatného PDF původní PDF; výchozí archivní složka zůstává individuálně nastavitelná pro počítač a uživatele.
+• Automatická extrakce po přetažení PDF nebo MSG nyní používá skutečný dodavatelský CRM export z v624_legacy_exports.py, tedy stejný kód jako ruční „Extrakce dat“ z Nabídek.
+• Opraven předchozí stav, kdy post_baseline přepsal správný CRM export zjednodušeným writerem a automatická extrakce proto vypadala jinak.
+• Pro Leviat se po importu vytvoří stejný Excel jako při ručním exportu z CRM: rekapitulace, sleva, DPH, celková částka, tmavě modrá položková tabulka a sloučený blok názvu položky.
+• Pro GEROtop se stejným způsobem používá jeho dodavatelská exportní šablona.
+• Pořadí zůstává DB-first: import do databáze → archiv zdrojových souborů → spuštění přesně stejného CRM exportu do archivní složky.
