@@ -1,9 +1,9 @@
 # TURTO CRM 6.1+ active extension layer
 #
-# Since 6.1.6 all main Treeview tables use the same native ttk width policy:
-# compact/date/status/count columns stay fixed, all descriptive columns are
-# allowed to stretch natively. This works on both narrow and very wide screens
-# without delayed/manual resize passes or a white unused strip at the right.
+# Since 6.1.7 all main Treeview tables use one deterministic width allocator.
+# Compact columns keep their preferred widths; descriptive columns share any
+# surplus width. If the viewport is narrower than the preferred total, the
+# preferred widths are preserved and horizontal scrolling takes over.
 
 
 def apply(M):
@@ -31,44 +31,61 @@ def apply(M):
         except Exception:
             return []
 
-    def normalize_tree(tree):
+    def ensure_design(tree,cols):
+        if not hasattr(tree,'_v617_design_widths'):
+            d={}
+            for c in cols:
+                try:w=int(tree.column(c,'width'))
+                except Exception:w=100
+                d[c]=max(50,min(w,500))
+            tree._v617_design_widths=d
+        d=tree._v617_design_widths
+        for c in cols:
+            if c not in d:
+                try:d[c]=max(50,min(int(tree.column(c,'width')),500))
+                except Exception:d[c]=100
+        return d
+
+    def fit_tree(tree,available=None):
         try:
             if tree is None or not tree.winfo_exists():return
             cols=display_columns(tree)
             if not cols:return
+            d=ensure_design(tree,cols)
+            flex=[c for c in cols if str(c) not in COMPACT]
+            if not flex:flex=[cols[-1]]
 
-            # Capture construction widths once. They remain the preferred/minimum
-            # widths; ttk distributes any surplus width natively among descriptive
-            # columns before the widget is painted.
-            if not hasattr(tree,'_native_design_widths'):
-                d={}
-                for c in cols:
-                    try:w=int(tree.column(c,'width'))
-                    except Exception:w=100
-                    d[c]=max(50,min(w,500))
-                tree._native_design_widths=d
-            d=tree._native_design_widths
-
-            descriptive=[c for c in cols if str(c) not in COMPACT]
-            # Every real table should have a descriptive field; if not, let the
-            # final visible column absorb surplus rather than leave a white strip.
-            if not descriptive:
-                descriptive=[cols[-1]]
+            if available is None:
+                available=int(tree.winfo_width())
+            available=max(1,int(available)-4)
+            preferred=sum(int(d[c]) for c in cols)
+            extra=max(0,available-preferred)
+            q,r=divmod(extra,len(flex))
 
             for c in cols:
-                if c not in d:
-                    try:d[c]=max(50,min(int(tree.column(c,'width')),500))
-                    except Exception:d[c]=100
                 w=int(d[c])
-                is_flex=c in descriptive
-                # Keep meaningful minimum widths. On a narrow screen the sum can
-                # exceed the viewport and the existing horizontal scrollbar takes
-                # over; on a wide screen ttk expands all descriptive columns.
-                minw=max(55,min(w,120 if is_flex else w))
-                tree.column(c,width=w,minwidth=minw,stretch=is_flex)
-
+                if c in flex:
+                    i=flex.index(c)
+                    w+=q+(1 if i<r else 0)
+                tree.column(c,width=w,minwidth=max(50,min(int(d[c]),120)),stretch=False)
             try:tree.xview_moveto(0.0)
             except Exception:pass
+        except Exception:
+            pass
+
+    def install_tree(tree):
+        try:
+            if tree is None or not tree.winfo_exists():return
+            cols=display_columns(tree)
+            if not cols:return
+            ensure_design(tree,cols)
+            if not getattr(tree,'_v617_width_bound',False):
+                tree._v617_width_bound=True
+                def on_configure(e):
+                    fit_tree(tree,getattr(e,'width',None))
+                tree.bind('<Configure>',on_configure,add='+')
+                tree.bind('<Map>',lambda e:fit_tree(tree),add='+')
+            fit_tree(tree)
         except Exception:
             pass
 
@@ -76,7 +93,7 @@ def apply(M):
         try:
             for c in w.winfo_children():
                 try:
-                    if c.winfo_class()=='Treeview':normalize_tree(c)
+                    if c.winfo_class()=='Treeview':install_tree(c)
                 except Exception:pass
                 walk(c)
         except Exception:pass
@@ -84,18 +101,14 @@ def apply(M):
     def normalize_all(app):
         walk(app)
 
-    # Apply at Treeview construction time so the first rendered frame already
-    # has the final width policy; there is no after_idle resize animation.
     old_tree=getattr(M.App,'tree',None)
     if callable(old_tree):
         def tree(self,*a,**k):
             t=old_tree(self,*a,**k)
-            normalize_tree(t)
+            install_tree(t)
             return t
         M.App.tree=tree
 
-    # Feature modules may create or alter columns during a refresh. Re-apply the
-    # same synchronous native rule, without manually calculating pixel widths.
     for name in (
         'refresh_actions','refresh_requests','refresh_mivo_requests','refresh_mivo',
         'refresh_projects','refresh_offers','refresh_tasks','refresh_companies',
