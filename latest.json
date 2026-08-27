@@ -1,6 +1,6 @@
 {
-  "version": "6.0.39",
-  "file": "ZakazkyApp_v6.0.39.zip",
-  "sha256": "3713886632e3d13a50fad62b2b663cd3fe8e34c5694577e95faf09f8a8bc0c30",
-  "notes": "• Definitivně odstraněna stará vrstva červených datumů z modulu 6.0.33. Už se vůbec nevytváří samostatný Label přes buňku Poptáno, takže mizí světlé obdélníky i problikávání při rolování.\n• Řádky Poptávek zůstávají vykreslené pouze nativním Treeview se svým původním stavovým pozadím; žádná jednotlivá buňka už nedostává vlastní bílé/světlé pozadí.\n• Zachovány opravy 6.0.38: záhlaví, klikací řazení, stabilní pořadí sloupců, Akce A–Z, správný model Akce → více Příležitostí a vazby Nabídek na Akci/Poptávku.\n• Ruční kontrola aktualizací nadále zobrazuje přehled novinek před instalací."
+  "version": "6.0.40",
+  "file": "ZakazkyApp_v6.0.40.zip",
+  "sha256": "6bf9599494fdd0d6cadaf40a7b1e7ddd6f58b58a3d1c0db9c73c575767378e01",
+  "notes": "• U Poptávek jsou odstraněny výstražné trojúhelníky/vykřičníky. Řádky, které byly dříve označené ikonou, zůstávají upozorněné pouze tučným textem při zachování původního stavového pozadí.\n• Stejná úprava platí i pro MIVO: bez výstražných ikon, pouze tučné zvýraznění příslušného řádku.\n• Čištění probíhá po běžném refreshi bez vazby na scrollování nebo změnu velikosti, takže se nevrací problikávání ani bílé overlaye.\n• Zachovány opravy 6.0.39 a 6.0.38: stabilní tabulky, záhlaví a řazení, Akce A–Z, vazby Nabídek na Akci/Poptávku a přehled novinek při ruční aktualizaci."
 }
