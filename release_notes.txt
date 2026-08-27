@@ -1,7 +1,8 @@
-• Nabídky mají novou drag & drop zónu: lze do ní přetáhnout PDF/MSG z Průzkumníka a ve Windows také vybraný e-mail přímo z otevřeného Outlooku.
-• Pokud Outlook při přetažení neposkytne běžnou cestu k souboru, CRM převezme aktuálně vybranou zprávu přes Outlook COM, dočasně ji uloží jako .MSG a zpracuje stejným importním jádrem.
-• Přidáno záložní tlačítko „Načíst vybraný e-mail z Outlooku“ pro případy, kdy konkrétní verze Outlooku nepředá drag & drop událost standardním způsobem.
-• Celý zdrojový .MSG se nově ukládá jako BLOB do databáze, takže jej bude možné později znovu zpracovat novějším parserem bez hledání původního e-mailu.
-• Doplněny knihovny tkinterdnd2 a pywin32 potřebné pro drag & drop a přímou komunikaci s Outlookem.
-• Zachován robustní import .MSG, parsery Leviat a GEROtop, inline obrázky GEROtop v detailu nabídky, historie cen a modulární příprava pro další dodavatele.
-• Zachovány opravy našeptávačů, našeptávač Poptáváno, velké dialogy respektující Windows lištu, řazení nejpoužívanějších e-mailů, 14denní aktivní HISTORIE + archiv, Undo, sjednocené barvy a výkonové indexy.
+• Nabídky nově obsahují samostatný přehled „Produkty / ceny“: dodavatel, kód, produkt, poslední cena, sleva, datum, předchozí cena, změna %, Akce a Poptávka. Dvojklik otevře historii ceny produktu.
+• Zdrojové PDF/MSG a jejich přílohy se už neukládají jako velké BLOB objekty v CRM databázi. Při zpracování se kopírují do Dokumenty/TURTO Zakazky/Dokumenty/Nabidky a databáze si drží hlavně strukturovaná data a vazby. Obrázky produktů GEROtop zůstávají v databázi pro zobrazení produktu.
+• Z CRM bylo odstraněno otevírání původního PDF nabídky; zdrojový soubor zůstává jen v dokumentové složce.
+• Nabídku lze nově nepovinně přiřadit ke konkrétní Poptávce. Pokud má Poptávka vazbu na Akci, nabídka tuto vazbu automaticky převezme.
+• Doplněna bezpečnější logika mazání špatně založené Příležitosti: pokud má vazby na Poptávky, Úkoly nebo Nabídky, CRM se nezasekne, ale vypíše konkrétní vazby. Bez vazeb se smaže v jedné transakci.
+• Zachován robustní import .MSG, parsery Leviat a GEROtop, inline obrázky GEROtop, historie cen, Outlook tlačítko pro načtení vybraného e-mailu a modulární příprava pro další dodavatele.
+• Přímý drag & drop virtuální Outlook položky zůstává závislý na podpoře OLE konkrétní verze Outlooku; spolehlivá cesta je nadále „Načíst vybraný e-mail z Outlooku“.
+• Zachovány našeptávače, Poptáváno, velké dialogy respektující Windows lištu, řazení nejpoužívanějších e-mailů, 14denní aktivní HISTORIE + archiv, Undo, sjednocené barvy a výkonové indexy.
