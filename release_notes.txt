@@ -1,5 +1,5 @@
-• Stavové barvy mají vyšší kontrast, aby jednotlivé stavy v tabulkách nesplývaly. Zachován moderní tmavý vzhled, ale modrá, tyrkysová, jantarová, zelená a vínová jsou nyní zřetelněji odlišitelné.
-• Opraveny Poptávky: používají vlastní interní tagy req_fresh a req_received, které verze 6.0.28 nebarvila novou paletou. Čekající poptávky jsou nyní jantarové, přijaté odpovědi tyrkysové a archiv/zrušeno používá stejnou vínovou jako ostatní části CRM.
-• Výběr řádku zůstává samostatně modrý, aby byl jasně odlišen od stavové barvy.
-• Zachována optimalizace resize hlavního okna z 6.0.28 a rychlé přepínání záložek z 6.0.27.
-• Zachován nativní Outlook OLE drag & drop a všechny předchozí opravy Nabídek, exportů a aktualizací.
+• Zpevněno zpracování nabídek přes drag & drop z Outlooku. Nativní OLE drop už nespouští Outlook COM okamžitě při ukončování drag operace, ale až s bezpečným odkladem po návratu do běžné Tk smyčky.
+• Outlook import má explicitní COM inicializaci a ochranu výjimek, aby chyba při převzetí MSG neukončila celé CRM.
+• Přidán diagnostický log offer_drop_crash.log do složky Dokumenty/TURTO Zakazky/logs. Zachytává chyby drop handleru, Tk callbacků a pokud je to možné i fatální Python chyby.
+• Reálné PDF/MSG soubory z Průzkumníka jsou odlišeny od virtuálního Outlook MailItem dropu, aby se nativní OLE vrstva a běžný TkDND handler nepřetahovaly o stejný vstup.
+• Zachována barevnost 6.0.29, plynulý resize hlavního okna z 6.0.28, rychlé přepínání záložek a všechny předchozí opravy Nabídek a exportů.
