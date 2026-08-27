@@ -1,8 +1,4 @@
-• Opravena stabilita hlavních tabulek: vrací se záhlaví sloupců, klikací řazení a pevné pořadí sloupců bez jejich přeskakování při refreshi.
-• Odstraněn konflikt starších vrstev, které v Příležitostech opakovaně přidávaly a odebíraly sloupec „Nabídky“ a tím rozbíjely strukturu Treeview.
-• Akce jsou znovu výchozím způsobem řazeny abecedně A–Z podle „Název Akce“ a po přepnutí záložky se vracejí do tohoto výchozího pořadí.
-• Upřesněn datový model: jedna Akce může mít více Příležitostí; Příležitosti jsou podřízené Akci a používají stejný název. Nabídky se evidují na Akci nebo na Poptávce, nikoli přímo na Příležitosti.
-• V Akcích zůstává sloupec „Nabídky“ s počtem souvisejících nabídek; v Příležitostech se tento sloupec nezobrazuje. Poptávky mohou vlastní počet souvisejících nabídek zobrazovat dál.
-• Z Poptávek odstraněny nestabilní překreslovací hooky po scrollování a změně velikosti, které způsobovaly problikávání, bílé bloky a zásahy do záhlaví. Hořící čekající Poptávky používají pouze nativní styl řádku bez overlaye a se zachováním stavového pozadí.
-• Ruční „Zkontrolovat aktualizace“ nyní před instalací zobrazí přehled novinek z pole notes v latest.json a nabídne volby „Později“ / „Aktualizovat“.
-• Zachována logika Nabídka → Poptávka → Akce, přímé přiřazení Nabídky k Akci i možnost nabídky zcela bez vazby. Původní název vyčtený z cenové nabídky se interním přiřazením nepřepisuje.
+• Definitivně odstraněna stará vrstva červených datumů z modulu 6.0.33. Už se vůbec nevytváří samostatný Label přes buňku Poptáno, takže mizí světlé obdélníky i problikávání při rolování.
+• Řádky Poptávek zůstávají vykreslené pouze nativním Treeview se svým původním stavovým pozadím; žádná jednotlivá buňka už nedostává vlastní bílé/světlé pozadí.
+• Zachovány opravy 6.0.38: záhlaví, klikací řazení, stabilní pořadí sloupců, Akce A–Z, správný model Akce → více Příležitostí a vazby Nabídek na Akci/Poptávku.
+• Ruční kontrola aktualizací nadále zobrazuje přehled novinek před instalací.
