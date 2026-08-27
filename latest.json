@@ -1,6 +1,6 @@
 {
-  "version": "6.1.4",
-  "file": "ZakazkyApp_v6.1.4.zip",
-  "sha256": "ba8848da126cb8caf69da76db72026bafadde3c23ae1e4c70f397bf42db249b8",
-  "notes": "• Opraven skutečný konflikt ve vykreslování šířek tabulek: staré vrstvy v641, v642 a v645 už neřídí geometrii Treeview a nemohou přepisovat nový layout manager.\n• Od verze 6.1.4 má geometrii všech hlavních tabulek na starosti výhradně jediný centrální mechanismus v post_baseline.py.\n• Akce, Příležitosti, Poptávky, MIVO, Nabídky, Úkoly, Společnosti, Osoby a další hlavní přehledy používají stejný princip: kompaktní sloupce zůstávají úzké a jeden vhodný textový sloupec vyplní zbývající šířku až k pravému okraji.\n• Cílová záložka se připravuje před zobrazením, takže při běžném přepínání nemá nejdřív probliknout bílý pruh a teprve potom dojít k roztažení.\n• v642 nadále zachovává pouze požadované výchozí datumové řazení: Příležitosti podle Přijato a Poptávky/MIVO podle Poptáno. Akce zůstávají A–Z.\n• Tato změna odstraňuje předchozí stav, kdy několik nezávislých Configure/after_idle callbacků soupeřilo o stejné šířky sloupců."
+  "version": "6.1.5",
+  "file": "ZakazkyApp_v6.1.5.zip",
+  "sha256": "8accd6bab76f2df4626ac5c46fe84bc73613024839cb6794f19950f0dda56d7e",
+  "notes": "• Sjednoceno chování všech hlavních tabulek podle funkčního vzoru záložky Poptávky.\n• Místo ručního dopočítávání šířek přes after_idle/Configure používá každá hlavní tabulka nativní ttk.Treeview stretch: jeden vhodný textový sloupec pružně vyplní volný prostor, ostatní sloupce drží svou návrhovou šířku.\n• Tím se odstraňuje opožděné roztahování po přepnutí záložky a krátké probliknutí bílého pravého pruhu způsobené časovanými přepočty.\n• Stejný princip platí pro Akce, Příležitosti, Poptávky, MIVO, Nabídky, Úkoly, Společnosti, Osoby a další hlavní přehledy.\n• Zachováno výchozí řazení: Akce A–Z, Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno."
 }
