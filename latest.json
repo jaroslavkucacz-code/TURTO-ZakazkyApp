@@ -1,6 +1,6 @@
 {
-  "version": "6.1.3",
-  "file": "ZakazkyApp_v6.1.3.zip",
-  "sha256": "9b9a062dafcffeea0e45c54a2343c0b79350642b06a96b571b01af631c5ad361",
-  "notes": "• Sjednoceno řízení šířek všech hlavních tabulek v aplikaci. Akce, Příležitosti, Poptávky, MIVO, Nabídky, Úkoly, Společnosti, Osoby a další přehledy už nepoužívají odlišné principy pro pravý okraj.\n• Každá tabulka má jeden vhodný obsahový sloupec, který vyplní zbývající šířku; kompaktní datumové, stavové a početní sloupce zůstávají úzké.\n• Cílová záložka se nově připraví už při stisku myši na její kartu, tedy ještě před samotným zobrazením. Tím se odstraňuje krátké probliknutí bílého pravého pruhu při přepínání záložek.\n• Stejný centrální layout manager se použije po refreshi i při změně velikosti hlavního okna a připravuje i skryté záložky dopředu.\n• Starší mechanismus v642 je synchronizován s novou geometrií, aby pozdější Configure průchod už nerozhazoval šířky zpět.\n• Zachováno dosavadní výchozí řazení: Akce A–Z, Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno."
+  "version": "6.1.4",
+  "file": "ZakazkyApp_v6.1.4.zip",
+  "sha256": "ba8848da126cb8caf69da76db72026bafadde3c23ae1e4c70f397bf42db249b8",
+  "notes": "• Opraven skutečný konflikt ve vykreslování šířek tabulek: staré vrstvy v641, v642 a v645 už neřídí geometrii Treeview a nemohou přepisovat nový layout manager.\n• Od verze 6.1.4 má geometrii všech hlavních tabulek na starosti výhradně jediný centrální mechanismus v post_baseline.py.\n• Akce, Příležitosti, Poptávky, MIVO, Nabídky, Úkoly, Společnosti, Osoby a další hlavní přehledy používají stejný princip: kompaktní sloupce zůstávají úzké a jeden vhodný textový sloupec vyplní zbývající šířku až k pravému okraji.\n• Cílová záložka se připravuje před zobrazením, takže při běžném přepínání nemá nejdřív probliknout bílý pruh a teprve potom dojít k roztažení.\n• v642 nadále zachovává pouze požadované výchozí datumové řazení: Příležitosti podle Přijato a Poptávky/MIVO podle Poptáno. Akce zůstávají A–Z.\n• Tato změna odstraňuje předchozí stav, kdy několik nezávislých Configure/after_idle callbacků soupeřilo o stejné šířky sloupců."
 }
