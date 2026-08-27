@@ -1,6 +1,6 @@
 {
-  "version": "6.0.32",
-  "file": "ZakazkyApp_v6.0.32.zip",
-  "sha256": "20faa70d1c54bff01bc36a4c4f2dc657d89984a69e29a97376e10c83c196bd15",
-  "notes": "• Hlavní vazba nabídky je nyní Poptávka → z ní se automaticky odvozuje Akce/Příležitost. Nabídka tedy nemusí být ručně přiřazována na dvou místech.\n• V přehledu Příležitostí/Akcí přibyl sloupec Nabídky s počtem souvisejících nabídek. Počítají se jak nabídky navázané přímo na Akci, tak nabídky navázané přes její Poptávky.\n• V přehledu Poptávek přibyl sloupec Nabídky s počtem nabídek přiřazených ke konkrétní poptávce.\n• Pravým tlačítkem na Příležitost nebo Poptávku lze otevřít přehled souvisejících nabídek; dvojklik v tomto přehledu otevře detail vybrané nabídky.\n• Detail nabídky zvýrazňuje vazbu Poptávka + Akce a staré samostatné tlačítko „Přiřadit k Akci“ je potlačeno ve prospěch přiřazení k Poptávce.\n• Při startu se action_id u nabídek s request_id synchronizuje z příslušné Poptávky, takže starší data se automaticky srovnají s novým modelem.\n• Zachován drag & drop z Outlooku i z disku, moderní barevnost, plynulý resize a rychlé přepínání záložek."
+  "version": "6.0.33",
+  "file": "ZakazkyApp_v6.0.33.zip",
+  "sha256": "06d3b2dc1e17c05b75916e3edbc3aaa736dec22fb3f4492b098c2052d8ba3bd2",
+  "notes": "• V detailu nabídky je nové trvalé tlačítko „Změnit přiřazení…“. Nabídku lze kdykoliv přiřadit k Poptávce, přímo k Akci/Příležitosti, změnit existující vazbu nebo ji úplně odpojit.\n• Preferovaná vazba zůstává Nabídka → Poptávka → Akce. Při výběru Poptávky se Akce automaticky převezme z ní. Přímé přiřazení k Akci je dostupné jako fallback, pokud vhodná Poptávka neexistuje.\n• Po změně vazby se automaticky obnoví Nabídky, Poptávky, Příležitosti a jejich počty souvisejících nabídek.\n• U hořících termínů se odstraňuje výstražný trojúhelník/vykřičník. Upozornění je nově tvořeno samotným datem zobrazeným tučně červeně; řádek si zachovává svou běžnou stavovou barvu.\n• Stejný princip upozornění se aplikuje na Poptávky, MIVO a dostupné tabulky termínů/úkolů.\n• Zachován model souvisejících nabídek z 6.0.32, drag & drop z Outlooku i disku, moderní barevnost a optimalizace UI."
 }
