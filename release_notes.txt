@@ -1,8 +1,8 @@
-• Opravena logika vazeb nabídek: skutečná Akce je nyní správně tabulka Akcí/projektů, nikoli Příležitost. Nabídka může být navázána na Poptávku (Akce se odvodí automaticky), přímo na Akci, nebo zůstat bez vazby.
-• Starší přímé vazby nabídek na Příležitosti se při migraci převedou na jejich nadřazenou Akci.
-• V hlavní záložce Akce je nový sloupec „Nabídky“ s počtem všech souvisejících nabídek. Do počtu se zahrnou přímé vazby na Akci i nabídky navázané přes Poptávky/Příležitosti pod danou Akcí.
-• Sloupec „Nabídky“ je naopak odstraněn z Příležitostí, aby se informace neduplikovala.
-• Detail skutečné Akce obsahuje přehled souvisejících nabídek s dodavatelem, číslem, datem, původním názvem vyčteným z nabídky, Poptávkou, cenou a měnou; dvojklik otevře detail nabídky.
-• Původní název projektu/zakázky vyčtený z nabídky se při interním přiřazování nikdy nepřepisuje názvem Akce v CRM.
-• Definitivně potlačena plovoucí vrstva červených datumů, která vytvářela bílé obdélníky a blikala při rolování. Hořící čekající Poptávky jsou nově zvýrazněny nativně červeným tučným textem celého řádku při zachování původního stavového pozadí; bez overlaye a bez zásahu do záhlaví.
-• Zachováno vyhledávání a dvojklik v dialogu přiřazení nabídky a výchozí abecední řazení Akcí.
+• Opravena stabilita hlavních tabulek: vrací se záhlaví sloupců, klikací řazení a pevné pořadí sloupců bez jejich přeskakování při refreshi.
+• Odstraněn konflikt starších vrstev, které v Příležitostech opakovaně přidávaly a odebíraly sloupec „Nabídky“ a tím rozbíjely strukturu Treeview.
+• Akce jsou znovu výchozím způsobem řazeny abecedně A–Z podle „Název Akce“ a po přepnutí záložky se vracejí do tohoto výchozího pořadí.
+• Upřesněn datový model: jedna Akce může mít více Příležitostí; Příležitosti jsou podřízené Akci a používají stejný název. Nabídky se evidují na Akci nebo na Poptávce, nikoli přímo na Příležitosti.
+• V Akcích zůstává sloupec „Nabídky“ s počtem souvisejících nabídek; v Příležitostech se tento sloupec nezobrazuje. Poptávky mohou vlastní počet souvisejících nabídek zobrazovat dál.
+• Z Poptávek odstraněny nestabilní překreslovací hooky po scrollování a změně velikosti, které způsobovaly problikávání, bílé bloky a zásahy do záhlaví. Hořící čekající Poptávky používají pouze nativní styl řádku bez overlaye a se zachováním stavového pozadí.
+• Ruční „Zkontrolovat aktualizace“ nyní před instalací zobrazí přehled novinek z pole notes v latest.json a nabídne volby „Později“ / „Aktualizovat“.
+• Zachována logika Nabídka → Poptávka → Akce, přímé přiřazení Nabídky k Akci i možnost nabídky zcela bez vazby. Původní název vyčtený z cenové nabídky se interním přiřazením nepřepisuje.
