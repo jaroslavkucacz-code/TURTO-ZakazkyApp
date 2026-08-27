@@ -1,7 +1,5 @@
-• Automatická kontrola aktualizací už nezobrazuje modální blokující dialog. Kontrola běží na pozadí a oznámení nové verze je neblokující; CRM má zůstat normálně ovladatelné a maximalizovatelné.
-• Přidána pojistka proti skrytému/osiřelému modálnímu grabu. Pokud neviditelné okno drží aplikaci, grab se automaticky uvolní.
-• Výrazně omezeny operace při změně velikosti hlavního okna. Treeview už při každém pixelu resize nespouští refresh databázových dat; zarovnání filtrů a pomocné překreslení se provede až po krátkém uklidnění změny velikosti.
-• Tlačítko „Načíst vybraný e-mail z Outlooku“ je přepojeno na jednotnou MSG pipeline. Outlook zprávu nejprve uloží jako Unicode .MSG (olMSGUnicode) a pak ji předá stejnému process_offer_msg() jako běžný .MSG z disku. Tím se odstraňuje chybná práce s binární zprávou jako UTF-8 textem.
-• Pokud Outlook import selže, hláška už netvrdí „Zpracováno, Nabídky: 0“, ale zobrazí „Import se nezdařil“ nebo „Import dokončen s chybami“ a konkrétní chybu.
-• Zachovány dodavatelské Excel extrakce 1:1 podle TURTO_Nabidky_V4_7_24 pro GEROtop a Leviat, Produkty/ceny, historie cen, obrázky, vazba nabídky na Poptávku/Akci, centrální barevnost a monitor-aware start.
-• Přímý virtuální Outlook drag & drop zůstává samostatná funkce k dalšímu ověření; opraveno je nyní spolehlivé tlačítko pro převzetí aktuálně vybraného e-mailu z Outlooku.
+• Plynulejší přepínání hlavních záložek ve Windows. Při změně záložky se vykreslování hlavního okna na okamžik pozastaví, přepnutí a změny stylů se dokončí skrytě a výsledný stav se překreslí najednou. Tím se omezuje viditelné postupné „skládání“ nové záložky.
+• Zrychleno dorovnávání tabulek při změně velikosti okna. Rychlé geometrické přepočty se nyní provádějí přibližně po 45 ms místo původních 180 ms.
+• Náročnější pomocné překreslení buněk je oddělené od geometrie a probíhá samostatně přibližně po 95 ms, aby resize nepůsobil jako opožděný skok.
+• Při samotném přepínání záložek se nepřidávají žádné nové databázové refresh operace; jde čistě o optimalizaci vykreslování UI.
+• Zachovány opravy z 6.0.25: neblokující kontrola aktualizací, ochrana proti osiřelému modálnímu grabu a spolehlivější import vybraného e-mailu z Outlooku přes Unicode MSG pipeline.
