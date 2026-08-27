@@ -1,4 +1,4 @@
-• U Poptávek jsou odstraněny výstražné trojúhelníky/vykřičníky. Řádky, které byly dříve označené ikonou, zůstávají upozorněné pouze tučným textem při zachování původního stavového pozadí.
-• Stejná úprava platí i pro MIVO: bez výstražných ikon, pouze tučné zvýraznění příslušného řádku.
-• Čištění probíhá po běžném refreshi bez vazby na scrollování nebo změnu velikosti, takže se nevrací problikávání ani bílé overlaye.
-• Zachovány opravy 6.0.39 a 6.0.38: stabilní tabulky, záhlaví a řazení, Akce A–Z, vazby Nabídek na Akci/Poptávku a přehled novinek při ruční aktualizaci.
+• Hlavní tabulky se nově vždy roztáhnou až k pravému okraji dostupné plochy. Pokud je okno širší než součet běžných šířek sloupců, poslední vhodný textový sloupec automaticky vyplní zbytek šířky, takže napravo nezůstává prázdný bílý pruh.
+• Kompaktní pomocné sloupce jako „Nabídky“ zůstávají úzké; volné místo se přednostně přidává předchozímu textovému sloupci.
+• Chování se znovu aplikuje po refreshech Akcí, Příležitostí a Poptávek, aby starší vrstvy nemohly vrátit pevnou nevyplněnou šířku.
+• Zachovány opravy 6.0.40: bez výstražných trojúhelníků u Poptávek a MIVA, pouze tučné zvýraznění, stabilní tabulky a původní stavová pozadí.
