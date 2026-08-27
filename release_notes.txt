@@ -1,5 +1,6 @@
-• Opraveno vyplnění pravého okraje v záložce Akce. Tabulka se po refreshi i po změně velikosti okna vrací k levému okraji a volné místo nyní vyplní obsahový textový sloupec, zatímco Příležitostí a Nabídky zůstávají kompaktní.
-• Do buildu je současně správně zahrnuta oprava výchozího řazení z 6.0.44: Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno, vždy nejnovější nahoře.
-• Akce zůstávají výchozí A–Z podle názvu Akce.
-• Po přepnutí záložky se Příležitosti/Poptávky/MIVO vrací ke svému datumovému defaultu a Akce ke svému abecednímu defaultu.
-• Zachovány předchozí opravy: bez výstražných trojúhelníků u Poptávek a MIVA, stabilní záhlaví, vazby Nabídek na Akce/Poptávky a přehled novinek při ruční aktualizaci.
+• Konsolidační milník 6.1.0: současný funkční stav aplikace je uložen jako nový baseline pro další vývoj.
+• Další verze se už nebudou při každém buildu skládat od původního základu 5.7.2 přes dlouhý seznam historických patchů; build vychází přímo z konsolidovaného základu 6.1.
+• Pro nové změny je zavedena jediná aktivní vrstva post_baseline.py. Build workflow tak není nutné při každé malé opravě rozšiřovat o další historický modul.
+• Databáze a uživatelská data zůstávají beze změny v Documents/TURTO Zakazky/data/zakazky.db; konsolidace je pouze změna struktury programu a release procesu.
+• Funkčně 6.1.0 zachovává stav 6.0.45: Akce A–Z, Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno, vazby Nabídek na Akce/Poptávky, stabilní tabulky a aktualizační dialog s přehledem novinek.
+• Cílem je zjednodušit další úpravy, zkrátit build a snížit riziko, že se při vydání vynechá nebo špatně seřadí některá historická vrstva.
