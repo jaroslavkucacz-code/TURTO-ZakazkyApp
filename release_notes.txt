@@ -1,9 +1,7 @@
-• Export jednotlivé nabídky je přepracován podle původního programu TURTO_Nabidky_V4_7_24, nikoli jako obecná tabulka.
-• Název souboru je nyní přesně ve formátu „Extrakce dat CN <číslo nabídky>.xlsx“.
-• GEROtop používá vlastní šablonu ve stylu V4.7.24: rekapitulace nabídky, tmavě modrá hlavička, technický popis přes sloučené buňky, obrázek produktu přímo v řádku, množství, cena po slevě, sleva, původní cena a cena celkem. Souhrn „Celkem bez DPH – pouze výrobky“ odděluje dopravu/balné.
-• Leviat používá vlastní šablonu podle dodaného referenčního souboru „Extrakce dat CN 10382318.xlsx“: rekapitulace čísla nabídky, data, reference, součtu před slevou, slevy, částky bez DPH, DPH a částky s DPH; položková tabulka Pol. / Číslo výrobku / Název položky / Množství / Cena za kus / Cena položky.
-• U obou šablon je zachováno Calibri, zmrazení hlavičky, landscape tisk a přizpůsobení na šířku stránky. GEROtop zachovává dostupné obrázky z databáze.
-• Tlačítka v Nabídkách a detailu nabídky nově používají terminologii „Extrakce dat“ a jsou přepojena na dodavatelský exportér.
-• Přehled „Produkty / ceny“ si ponechává vlastní hromadný export a historii cen; ten není zaměňován s dodavatelskou extrakcí konkrétní cenové nabídky.
-• Zachovány opravy 6.0.23: obrázky v Produkty/ceny, synchronizace předmětu Poptávky, centrální barevnost, monitor-aware start a automatická kontrola/doinstalování knihoven.
-• Přímý virtuální Outlook drag & drop zůstává samostatně rozpracovaná funkce; tlačítko pro načtení vybraného e-mailu z Outlooku zůstává záložní cestou.
+• Automatická kontrola aktualizací už nezobrazuje modální blokující dialog. Kontrola běží na pozadí a oznámení nové verze je neblokující; CRM má zůstat normálně ovladatelné a maximalizovatelné.
+• Přidána pojistka proti skrytému/osiřelému modálnímu grabu. Pokud neviditelné okno drží aplikaci, grab se automaticky uvolní.
+• Výrazně omezeny operace při změně velikosti hlavního okna. Treeview už při každém pixelu resize nespouští refresh databázových dat; zarovnání filtrů a pomocné překreslení se provede až po krátkém uklidnění změny velikosti.
+• Tlačítko „Načíst vybraný e-mail z Outlooku“ je přepojeno na jednotnou MSG pipeline. Outlook zprávu nejprve uloží jako Unicode .MSG (olMSGUnicode) a pak ji předá stejnému process_offer_msg() jako běžný .MSG z disku. Tím se odstraňuje chybná práce s binární zprávou jako UTF-8 textem.
+• Pokud Outlook import selže, hláška už netvrdí „Zpracováno, Nabídky: 0“, ale zobrazí „Import se nezdařil“ nebo „Import dokončen s chybami“ a konkrétní chybu.
+• Zachovány dodavatelské Excel extrakce 1:1 podle TURTO_Nabidky_V4_7_24 pro GEROtop a Leviat, Produkty/ceny, historie cen, obrázky, vazba nabídky na Poptávku/Akci, centrální barevnost a monitor-aware start.
+• Přímý virtuální Outlook drag & drop zůstává samostatná funkce k dalšímu ověření; opraveno je nyní spolehlivé tlačítko pro převzetí aktuálně vybraného e-mailu z Outlooku.
