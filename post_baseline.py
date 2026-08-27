@@ -1,21 +1,13 @@
 # TURTO CRM 6.1+ active extension layer
-#
-# 6.1.8 keeps the deterministic table width allocator from 6.1.7 and prevents
-# row/detail actions from firing when the user clicks a Treeview heading.
+# 6.1.9: deterministic widths, correct initial layout and safe context clicks.
 
 
 def apply(M):
-    """Apply changes introduced after the consolidated 6.1 baseline."""
-
-    COMPACT={
-        'Stav','Přijato','Deadline','Poptáno','Obdrženo','Datum','Zahájení','Dokončení',
-        'ID','Počet','Nabídky','Měna','Ks','MJ','Příležitostí','Cena','Celkem'
-    }
+    COMPACT={'Stav','Přijato','Deadline','Poptáno','Obdrženo','Datum','Zahájení','Dokončení','ID','Počet','Nabídky','Měna','Ks','MJ','Příležitostí','Cena','Celkem'}
 
     def display_columns(tree):
         try:
-            allcols=list(tree.cget('columns'))
-            raw=list(tree.cget('displaycolumns'))
+            allcols=list(tree.cget('columns'));raw=list(tree.cget('displaycolumns'))
             if not raw or raw==['#all']:return allcols
             out=[]
             for c in raw:
@@ -34,25 +26,23 @@ def apply(M):
                 except Exception:w=100
                 d[c]=max(50,min(w,500))
             tree._v617_design_widths=d
-        d=tree._v617_design_widths
-        for c in cols:
-            if c not in d:
-                try:d[c]=max(50,min(int(tree.column(c,'width')),500))
-                except Exception:d[c]=100
-        return d
+        return tree._v617_design_widths
 
     def fit_tree(tree,available=None):
         try:
-            if tree is None or not tree.winfo_exists():return
             cols=display_columns(tree)
             if not cols:return
             d=ensure_design(tree,cols)
+            for c in cols:
+                if c not in d:
+                    try:d[c]=max(50,min(int(tree.column(c,'width')),500))
+                    except Exception:d[c]=100
             flex=[c for c in cols if str(c) not in COMPACT] or [cols[-1]]
             if available is None:available=int(tree.winfo_width())
-            available=max(1,int(available)-4)
-            preferred=sum(int(d[c]) for c in cols)
-            extra=max(0,available-preferred)
-            q,r=divmod(extra,len(flex))
+            # Width 1 is the Tk pre-layout placeholder. Do not use it to size columns.
+            if int(available)<=10:return
+            available=max(1,int(available)-4);preferred=sum(int(d[c]) for c in cols)
+            q,r=divmod(max(0,available-preferred),len(flex))
             for c in cols:
                 w=int(d[c])
                 if c in flex:
@@ -72,16 +62,17 @@ def apply(M):
                 tree._v617_width_bound=True
                 tree.bind('<Configure>',lambda e:fit_tree(tree,getattr(e,'width',None)),add='+')
                 tree.bind('<Map>',lambda e:fit_tree(tree),add='+')
-            # Guard heading/separator clicks before generic row/detail bindings.
-            if not getattr(tree,'_v618_heading_guard',False):
-                tree._v618_heading_guard=True
-                def heading_guard(e):
+            # Right-click/context actions are valid only over a real data row.
+            if not getattr(tree,'_v619_context_guard',False):
+                tree._v619_context_guard=True
+                def context_guard(e):
                     try:
                         region=tree.identify_region(e.x,e.y)
-                        if region in ('heading','separator'):
-                            return 'break'
-                    except Exception:pass
-                tree.bind('<Double-1>',heading_guard,add=False)
+                        row=tree.identify_row(e.y)
+                        if region not in ('tree','cell') or not row:return 'break'
+                    except Exception:return 'break'
+                # Run before widget-specific right-click handlers.
+                tree.bind('<Button-3>',context_guard,add=False)
             fit_tree(tree)
         except Exception:pass
 
@@ -120,7 +111,13 @@ def apply(M):
     old_init=M.App.__init__
     def init(self,*a,**k):
         r=old_init(self,*a,**k)
-        try:normalize_all(self)
+        try:
+            # Force Tk to resolve the maximized/main-window geometry before the
+            # first visible table receives its final widths.
+            self.update_idletasks()
+            normalize_all(self)
+            self.update_idletasks()
+            normalize_all(self)
         except Exception:pass
         return r
     M.App.__init__=init
