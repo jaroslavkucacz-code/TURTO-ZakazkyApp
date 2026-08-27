@@ -1,6 +1,6 @@
 {
-  "version": "6.1.11",
-  "file": "ZakazkyApp_v6.1.11.zip",
-  "sha256": "3151ceab271ff31ca9b6bb0d04e5f75c16556ddd180eecdba6213013beeee979",
-  "notes": "• Při zpracování více nabídek se zobrazí průběhové okno s aktuálním souborem, pořadím a progress barem.\n• Přidáno Storno: dávka se bezpečně zastaví po dokončení právě zpracovávaného souboru.\n• Přidáno „Pokračovat na pozadí“: průběhové okno se skryje a dávka pokračuje bez dalšího vyrušování.\n• Automatická Extrakce_nabidky.xlsx nyní používá stejný formát, sloupce, číselné formáty, šířky, obrázky a vzhled jako ruční „Exportovat nabídku do Excelu“ přímo v programu.\n• Archivace původního .MSG a hlavních příloh v Dokumenty\\TURTO Zakazky\\Nabidky zůstává zachována."
+  "version": "6.1.12",
+  "file": "ZakazkyApp_v6.1.12.zip",
+  "sha256": "12aa6d599f6104793999597b66f300f89dc0425f41fdcbead4b915657b8abb0b",
+  "notes": "• Zpracování nabídek bylo sjednoceno do jednoho DB-first workflow: nejdřív se data zapíšou do databáze, potom se archivují zdrojové soubory a nakonec se Excel vytvoří výhradně z již uložených dat v databázi.\n• Ruční export nabídky do Excelu i automatická Extrakce_nabidky.xlsx používají od této verze jednu a tutéž exportní funkci, takže mají shodný obsah, vzhled, formátování i obrázky.\n• Při přetažení samostatného PDF se po importu uloží původní PDF do archivní složky a následně se z databáze vytvoří Excel.\n• Při přetažení MSG se po importu uloží původní MSG a relevantní hlavní přílohy; obrázky z podpisů se nadále vynechávají. Excel se následně generuje z databáze.\n• V Nastavení přibyla volba výchozí složky pro ukládání zpracovaných nabídek. Nastavení je lokální pro konkrétní počítač a CRM uživatele, takže se cesta nepřenáší s databází na jiný počítač.\n• Dávkové zpracování a přetažení více PDF/MSG používají stejné průběhové okno se Stavem, Stornem a možností Pokračovat na pozadí."
 }
