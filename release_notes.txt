@@ -1,6 +1,7 @@
-• V detailu nabídky je nové trvalé tlačítko „Změnit přiřazení…“. Nabídku lze kdykoliv přiřadit k Poptávce, přímo k Akci/Příležitosti, změnit existující vazbu nebo ji úplně odpojit.
-• Preferovaná vazba zůstává Nabídka → Poptávka → Akce. Při výběru Poptávky se Akce automaticky převezme z ní. Přímé přiřazení k Akci je dostupné jako fallback, pokud vhodná Poptávka neexistuje.
-• Po změně vazby se automaticky obnoví Nabídky, Poptávky, Příležitosti a jejich počty souvisejících nabídek.
-• U hořících termínů se odstraňuje výstražný trojúhelník/vykřičník. Upozornění je nově tvořeno samotným datem zobrazeným tučně červeně; řádek si zachovává svou běžnou stavovou barvu.
-• Stejný princip upozornění se aplikuje na Poptávky, MIVO a dostupné tabulky termínů/úkolů.
-• Zachován model souvisejících nabídek z 6.0.32, drag & drop z Outlooku i disku, moderní barevnost a optimalizace UI.
+• Dialog přiřazení nabídky má nově vyhledávání přes Poptávky i Akce.
+• Nabídka se váže pouze na Poptávku nebo na Akci; Příležitost už není v dialogu nabízena jako přímý cíl vazby.
+• Dvojklik na řádek okamžitě uloží zvolenou vazbu, takže byla odstraněna tlačítka „Přiřadit k Poptávce“ a „Přiřadit k Akci“.
+• Aktuálně přiřazená Poptávka/Akce je zvýrazněná a zobrazuje se vždy nahoře v příslušném seznamu.
+• Ve spodní liště zůstává pouze „Odebrat vazby“ a „Zrušit“.
+• U hořících termínů zůstává přesně zachováno původní stavové pozadí řádku; červené tučné datum nyní přebírá skutečné pozadí konkrétního řádku.
+• Zachován model Nabídka → Poptávka → Akce, drag & drop, související nabídky a optimalizace UI.
