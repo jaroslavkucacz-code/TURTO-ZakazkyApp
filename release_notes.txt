@@ -1,6 +1,5 @@
-• Opraven skutečný konflikt ve vykreslování šířek tabulek: staré vrstvy v641, v642 a v645 už neřídí geometrii Treeview a nemohou přepisovat nový layout manager.
-• Od verze 6.1.4 má geometrii všech hlavních tabulek na starosti výhradně jediný centrální mechanismus v post_baseline.py.
-• Akce, Příležitosti, Poptávky, MIVO, Nabídky, Úkoly, Společnosti, Osoby a další hlavní přehledy používají stejný princip: kompaktní sloupce zůstávají úzké a jeden vhodný textový sloupec vyplní zbývající šířku až k pravému okraji.
-• Cílová záložka se připravuje před zobrazením, takže při běžném přepínání nemá nejdřív probliknout bílý pruh a teprve potom dojít k roztažení.
-• v642 nadále zachovává pouze požadované výchozí datumové řazení: Příležitosti podle Přijato a Poptávky/MIVO podle Poptáno. Akce zůstávají A–Z.
-• Tato změna odstraňuje předchozí stav, kdy několik nezávislých Configure/after_idle callbacků soupeřilo o stejné šířky sloupců.
+• Sjednoceno chování všech hlavních tabulek podle funkčního vzoru záložky Poptávky.
+• Místo ručního dopočítávání šířek přes after_idle/Configure používá každá hlavní tabulka nativní ttk.Treeview stretch: jeden vhodný textový sloupec pružně vyplní volný prostor, ostatní sloupce drží svou návrhovou šířku.
+• Tím se odstraňuje opožděné roztahování po přepnutí záložky a krátké probliknutí bílého pravého pruhu způsobené časovanými přepočty.
+• Stejný princip platí pro Akce, Příležitosti, Poptávky, MIVO, Nabídky, Úkoly, Společnosti, Osoby a další hlavní přehledy.
+• Zachováno výchozí řazení: Akce A–Z, Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno.
