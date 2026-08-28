@@ -369,6 +369,120 @@ def apply(M):
         M.App.build_settings = build_settings
 
     # ------------------------------------------------------------------
+    # Rich GEROtop description persistence. The parser already knows which PDF
+    # spans are bold; this stores that metadata without altering existing text.
+    # ------------------------------------------------------------------
+    try:
+        with M.db() as con:
+            cols = {
+                row[1]
+                for row in con.execute('PRAGMA table_info(supplier_offer_items)')
+            }
+            if 'details_rich_json' not in cols:
+                con.execute(
+                    "ALTER TABLE supplier_offer_items "
+                    "ADD COLUMN details_rich_json TEXT DEFAULT ''"
+                )
+    except Exception:
+        pass
+
+    def store_rich_from_parsed(offer_id, parsed):
+        if 'gerotop' not in str((parsed or {}).get('supplier') or '').casefold():
+            return False
+        parsed_items = list((parsed or {}).get('items') or [])
+        if not parsed_items:
+            return False
+        changed = False
+        with M.db() as con:
+            rows = con.execute(
+                'SELECT id,position FROM supplier_offer_items '
+                'WHERE offer_id=? ORDER BY position,id',
+                (offer_id,),
+            ).fetchall()
+            by_position = {int(row['position'] or 0): row['id'] for row in rows}
+            for item in parsed_items:
+                segments = item.get('rich_segments') or []
+                if not segments:
+                    continue
+                item_id = by_position.get(int(item.get('position') or 0))
+                if not item_id:
+                    continue
+                con.execute(
+                    'UPDATE supplier_offer_items SET details_rich_json=? WHERE id=?',
+                    (
+                        json.dumps(
+                            segments,
+                            ensure_ascii=False,
+                            separators=(',', ':'),
+                        ),
+                        item_id,
+                    ),
+                )
+                changed = True
+        return changed
+
+    def parse_rich_source(path):
+        fn = getattr(M, 'extract_offer_pdf', None)
+        if not callable(fn):
+            return None
+        parsed, _raw = fn(path)
+        return parsed
+
+    def ensure_offer_rich_details(offer_id):
+        try:
+            with M.db() as con:
+                offer = con.execute(
+                    "SELECT coalesce(supplier_name,'') supplier,source_pdf "
+                    'FROM supplier_offers WHERE id=?',
+                    (offer_id,),
+                ).fetchone()
+                if not offer or 'gerotop' not in str(offer['supplier']).casefold():
+                    return False
+                existing = con.execute(
+                    "SELECT 1 FROM supplier_offer_items WHERE offer_id=? "
+                    "AND coalesce(details_rich_json,'')<>'' LIMIT 1",
+                    (offer_id,),
+                ).fetchone()
+                if existing:
+                    return True
+                source_pdf = str(offer['source_pdf'] or '').strip()
+
+            if source_pdf and Path(source_pdf).is_file():
+                parsed = parse_rich_source(source_pdf)
+                if parsed and store_rich_from_parsed(offer_id, parsed):
+                    return True
+
+            try:
+                with M.db() as con:
+                    attachment = con.execute(
+                        "SELECT filename,content_blob FROM offer_source_attachments "
+                        "WHERE offer_id=? AND lower(extension)='.pdf' "
+                        'AND content_blob IS NOT NULL ORDER BY id LIMIT 1',
+                        (offer_id,),
+                    ).fetchone()
+            except Exception:
+                attachment = None
+
+            if attachment and attachment['content_blob']:
+                with tempfile.TemporaryDirectory(prefix='turto_rich_offer_') as td:
+                    name = Path(
+                        str(attachment['filename'] or 'nabidka.pdf')
+                    ).name
+                    if not name.lower().endswith('.pdf'):
+                        name += '.pdf'
+                    source = Path(td) / name
+                    source.write_bytes(bytes(attachment['content_blob']))
+                    parsed = parse_rich_source(source)
+                    return bool(
+                        parsed and store_rich_from_parsed(offer_id, parsed)
+                    )
+        except Exception:
+            return False
+        return False
+
+    M.ensure_offer_rich_details = ensure_offer_rich_details
+
+    # ------------------------------------------------------------------
     # Exact proven supplier exporter. v624 remains canonical.
     # ------------------------------------------------------------------
     try:
@@ -443,31 +557,38 @@ def apply(M):
         ).strip(' ._')
         return (text or 'Bez_nazvu')[:maxlen]
 
+    def archive_date_token(value):
+        text = str(value or '').strip()
+        m = re.match(r'^(\d{4})-(\d{2})-(\d{2})', text)
+        if m:
+            return f'{m.group(1)[2:]}-{m.group(2)}-{m.group(3)}'
+        m = re.match(r'^(\d{1,2})\.(\d{1,2})\.(\d{4})', text)
+        if m:
+            return f'{m.group(3)[2:]}-{int(m.group(2)):02d}-{int(m.group(1)):02d}'
+        return 'bez-data'
+
     def folder_for(app, offer_id, path=None, subject=''):
         with M.db() as con:
             offer = con.execute(
-                "SELECT offer_date,offer_number,coalesce(supplier_name,'') supplier "
-                'FROM supplier_offers WHERE id=?',
+                '''SELECT o.offer_date,o.offer_number,
+                          coalesce(o.supplier_name,'') supplier,
+                          coalesce(a.name,'') action_name
+                   FROM supplier_offers o
+                   LEFT JOIN actions a ON a.id=o.action_id
+                   WHERE o.id=?''',
                 (offer_id,),
             ).fetchone()
-        digest = ''
-        try:
-            digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()[:8]
-        except Exception:
-            pass
         source_name = Path(path).stem if path else 'nabidka'
-        parts = (
-            ((offer['offer_date'] or '')[:10] if offer else '') or 'bez-data',
-            safe(offer['supplier'] if offer else '', 35),
-            safe(
-                (offer['offer_number'] if offer else '')
-                or subject
-                or source_name,
-                55,
-            ),
-            digest,
+        supplier = safe(offer['supplier'] if offer else 'dodavatel', 40)
+        date_token = archive_date_token(offer['offer_date'] if offer else '')
+        action_name = str(offer['action_name'] or '').strip() if offer else ''
+        offer_no = str(offer['offer_number'] or '').strip() if offer else ''
+        label = action_name or offer_no or subject or source_name
+        folder_name = safe(
+            f'nabídka {supplier}_{date_token}_{label}',
+            180,
         )
-        folder = archive_root(app) / '_'.join(part for part in parts if part)
+        folder = archive_root(app) / folder_name
         folder.mkdir(parents=True, exist_ok=True)
         return folder
 
@@ -561,6 +682,11 @@ def apply(M):
     if callable(base_pdf):
         def process_pdf(app, path, *args, **kwargs):
             result = base_pdf(app, path, *args, **kwargs)
+            if isinstance(result, dict) and result.get('offer_id'):
+                try:
+                    ensure_offer_rich_details(result['offer_id'])
+                except Exception:
+                    pass
             if getattr(app, '_turto_inside_msg', False):
                 return result
             if not isinstance(result, dict):
@@ -608,6 +734,12 @@ def apply(M):
             ]
             if not offers:
                 return result
+
+            for offer in offers:
+                try:
+                    ensure_offer_rich_details(offer['offer_id'])
+                except Exception:
+                    pass
 
             source = Path(path)
             message = None
