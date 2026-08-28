@@ -1,5 +1,5 @@
-• Přidán nový dodavatel PohlCon Česká republika s.r.o. do společného systému Nabídek. PDF přílohy z Outlook/MSG se rozpoznají automaticky přes nový provider, bez samostatné větve importu.
-• Parser PohlCon načítá číslo nabídky, datum, referenci/název z nabídky, pozice, množství, měrné jednotky, názvy výrobků, jednotkové ceny a celkové ceny. Ověřeno na reálných nabídkách 0774/2026, 1048/2026 a 1092/2026.
-• Produkty JDA mají pro přehlednější práci normalizovaný technický kód (např. JDA-3/14/235-510); ostatní krátká technická označení, např. H-BAU, se zachovávají přímo z nabídky.
-• Text „Cenová nabídka pro akci …“ se ukládá jako Reference dodavatele a nevytváří automaticky vazbu na interní Akci. Přiřazení zůstává výhradně přes současný dialog Poptávka/Akce.
-• Databázové schéma se nemění. PohlCon používá stejný fyzický archiv, historii cen, Produkty/ceny, DB-only mazání, Outlook dávkový import a kanonický Excel export jako ostatní dodavatelé.
+• Opraven filtr Dodavatelů v záložce Nabídky: seznam hodnot se nyní obnovuje při každém refreshi Nabídek, takže nový dodavatel se objeví ihned po prvním importu bez restartu nebo znovuotevření záložky.
+• Stejným způsobem se živě aktualizuje i filtr Akce podle skutečně přiřazených nabídek.
+• Název dodavatele se při zobrazení a filtrování bere v pořadí oficiální název → krátký název → název z parseru. Záznam s prázdným oficiálním názvem tak už z filtru nezmizí.
+• Oprava je přímo v kanonickém vlastníkovi seznamu Nabídek `crm_features.py`; nevzniká nový patch ani wrapper.
+• Databázové schéma, PohlCon/GEROtop/Leviat parsery, Outlook import, archiv, historie cen, Excel exporty a DB-only mazání se nemění.
