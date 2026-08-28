@@ -1,14 +1,17 @@
 # TURTO CRM - consolidated safe Explorer/Outlook drop runtime
 #
-# One module owns native drag-and-drop. PDF attachments dragged from Outlook
-# are materialized from FileContents. Whole Outlook messages deliberately do
-# NOT read the virtual .msg FileContents stream inside the native Drop callback;
-# they are saved through Outlook Selection.SaveAs after the callback returns.
+# One module owns native drag-and-drop. Whole Outlook messages are deliberately
+# kept out of FileGroupDescriptor/GetData handling: the OLE Drop callback only
+# queues a lightweight request and returns. The actual messages are then saved
+# from Outlook Selection through the normal Tk event loop. PDF attachments still
+# use FileContents because their bytes exist only during the native Drop callback.
+import gc
 import os
 import re
 import struct
 import tempfile
 import traceback
+from collections import deque
 from pathlib import Path
 
 
@@ -25,7 +28,6 @@ def apply(M):
     def _log(stage, exc=None):
         try:
             from datetime import datetime
-
             with _log_path().open('a', encoding='utf-8') as handle:
                 handle.write(
                     '\n[' + datetime.now().isoformat(timespec='seconds') + '] '
@@ -48,7 +50,6 @@ def apply(M):
     def _enable_faulthandler(app):
         try:
             import faulthandler
-
             handle = _log_path().open('a', encoding='utf-8')
             faulthandler.enable(file=handle, all_threads=True)
             app._offer_fault_log_handle = handle
@@ -65,10 +66,7 @@ def apply(M):
                     with _log_path().open('a', encoding='utf-8') as handle:
                         handle.write('\nTk callback exception:\n')
                         traceback.print_exception(
-                            exc_type,
-                            exc_value,
-                            exc_tb,
-                            file=handle,
+                            exc_type, exc_value, exc_tb, file=handle
                         )
                 except Exception:
                     pass
@@ -91,45 +89,32 @@ def apply(M):
             _log('Tk exception guard failed', exc)
 
     def _process_direct_files(app, paths, source_label='Přetažení'):
+        """Fallback only; normal releases use post_baseline._start_offer_batch."""
         from tkinter import messagebox
 
         good = []
         errors = []
         messages = 0
         attachments = 0
-        excel_files = 0
-        archive_folders = []
-
         for raw in paths:
             path = Path(str(raw))
             try:
                 if not path.exists():
                     errors.append(f'{path}: soubor nebyl nalezen')
                     continue
-
                 ext = path.suffix.lower()
                 if ext == '.msg':
                     _log(f'{source_label} MSG processing begin: {path.name}')
                     result = M.process_offer_msg(app, path)
                     _log(f'{source_label} MSG processing end: {path.name}')
-                    if isinstance(result, dict) and result.get('archive_folder'):
-                        archive_folders.append(result['archive_folder'])
                     messages += 1
                     attachments += int((result or {}).get('attachments') or 0)
-                    excel_files += len((result or {}).get('excel_files') or [])
                     good.extend((result or {}).get('offers') or [])
                     errors.extend((result or {}).get('errors') or [])
-                    for item in (result or {}).get('results') or []:
-                        if isinstance(item, dict) and item.get('error'):
-                            errors.append(str(item['error']))
                 elif ext == '.pdf':
                     _log(f'{source_label} PDF processing begin: {path.name}')
                     result = M.process_offer_pdf(app, path)
                     _log(f'{source_label} PDF processing end: {path.name}')
-                    if isinstance(result, dict):
-                        excel_files += len(result.get('excel_files') or [])
-                        if result.get('archive_folder'):
-                            archive_folders.append(result['archive_folder'])
                     good.append(result)
                 else:
                     errors.append(f'{path.name}: nepodporovaný formát')
@@ -145,36 +130,18 @@ def apply(M):
         text = f'Zpracováno. Nabídky: {len(good)}'
         if messages:
             text += f'   •   MSG: {messages}   •   přílohy: {attachments}'
-        if excel_files:
-            text += f'   •   Excel: {excel_files}'
         if errors:
             text += '\n\nChyby / upozornění:\n' + '\n'.join(errors[:12])
         try:
             messagebox.showinfo(
-                'Nabídky – ' + source_label.lower(),
-                text,
-                parent=app,
+                'Nabídky – ' + source_label.lower(), text, parent=app
             )
-        except Exception:
-            pass
-        if archive_folders:
-            try:
-                opener = getattr(M, 'show_offer_archive_folder', None)
-                if callable(opener):
-                    opener(app, archive_folders)
-            except Exception:
-                pass
-        try:
-            cleanup = getattr(M, 'cleanup_legacy_offer_staging', None)
-            if callable(cleanup):
-                cleanup(app)
         except Exception:
             pass
         return good
 
     def _find_batch_dialog(app, before=None):
         before = set(before or ())
-        candidates = []
         try:
             candidates = list(app.winfo_children())
         except Exception:
@@ -203,8 +170,7 @@ def apply(M):
             dialog.after(
                 650,
                 lambda d=dialog: d.attributes('-topmost', False)
-                if d.winfo_exists()
-                else None,
+                if d.winfo_exists() else None,
             )
         except Exception:
             pass
@@ -248,8 +214,7 @@ def apply(M):
             app.bind(
                 '<Destroy>',
                 lambda e: release()
-                if getattr(e, 'widget', None) is app
-                else None,
+                if getattr(e, 'widget', None) is app else None,
                 add='+',
             )
         except Exception:
@@ -258,11 +223,10 @@ def apply(M):
     def _start_visible_batch(app, paths, temp_dir=None, source_label='Přetažení'):
         batch = getattr(app, '_start_offer_batch', None)
         if callable(batch):
-            before = set()
             try:
                 before = {str(widget) for widget in app.winfo_children()}
             except Exception:
-                pass
+                before = set()
             try:
                 batch(tuple(paths))
             except Exception as exc:
@@ -282,19 +246,8 @@ def apply(M):
                 except Exception:
                     pass
 
-    def _process_real_files(app, paths):
-        return _start_visible_batch(app, paths, source_label='Přetažení')
-
-    def _process_virtual_pdfs(app, temp_dir, paths):
-        return _start_visible_batch(
-            app,
-            paths,
-            temp_dir=temp_dir,
-            source_label='Outlook',
-        )
-
     def import_selected_outlook_offer(self):
-        """Incrementally materialize selected Outlook messages, then run the shared batch."""
+        """Save the current Outlook selection incrementally, with progress and cancel."""
         from tkinter import messagebox, ttk
 
         if os.name != 'nt':
@@ -306,6 +259,7 @@ def apply(M):
 
         pythoncom = None
         com_initialized = False
+        refs = {'outlook': None, 'explorer': None, 'selection': None}
         try:
             import pythoncom
             import win32com.client
@@ -314,17 +268,24 @@ def apply(M):
             com_initialized = True
             _log('Outlook selected-message preparation start')
             try:
-                outlook = win32com.client.GetActiveObject('Outlook.Application')
+                refs['outlook'] = win32com.client.GetActiveObject(
+                    'Outlook.Application'
+                )
             except Exception:
-                outlook = win32com.client.Dispatch('Outlook.Application')
+                refs['outlook'] = win32com.client.Dispatch('Outlook.Application')
 
-            explorer = outlook.ActiveExplorer()
-            selection = explorer.Selection if explorer is not None else None
-            count = int(selection.Count) if selection is not None else 0
+            refs['explorer'] = refs['outlook'].ActiveExplorer()
+            refs['selection'] = (
+                refs['explorer'].Selection
+                if refs['explorer'] is not None else None
+            )
+            count = int(refs['selection'].Count) if refs['selection'] is not None else 0
             if count < 1:
                 raise RuntimeError('V Outlooku není vybraný žádný e-mail.')
         except Exception as exc:
             _log('Outlook selected-message preparation init failed', exc)
+            refs.update(outlook=None, explorer=None, selection=None)
+            gc.collect()
             if com_initialized:
                 try:
                     pythoncom.CoUninitialize()
@@ -370,7 +331,7 @@ def apply(M):
         info = ttk.Label(
             box,
             text=(
-                'Nejprve se zprávy bezpečně převedou do dočasných .MSG souborů. '
+                'Zprávy se nejprve bezpečně ukládají do dočasných .MSG souborů. '
                 'Potom automaticky začne vlastní zpracování nabídek.'
             ),
             style='PageSubtitle.TLabel',
@@ -386,6 +347,14 @@ def apply(M):
             if state['closed']:
                 return
             state['closed'] = True
+            refs['selection'] = None
+            refs['explorer'] = None
+            refs['outlook'] = None
+            gc.collect()
+            try:
+                pythoncom.PumpWaitingMessages()
+            except Exception:
+                pass
             if com_initialized:
                 try:
                     pythoncom.CoUninitialize()
@@ -410,9 +379,12 @@ def apply(M):
             if state['cancel']:
                 return
             state['cancel'] = True
-            current.configure(
-                text='Storno požadováno – dokončím právě převáděný e-mail a zastavím.'
-            )
+            try:
+                current.configure(
+                    text='Storno požadováno – dokončím právě převáděný e-mail a zastavím.'
+                )
+            except Exception:
+                pass
 
         ttk.Button(buttons, text='Storno', command=cancel).pack(side='right')
         dialog.protocol('WM_DELETE_WINDOW', cancel)
@@ -421,10 +393,10 @@ def apply(M):
         def abort_preparation(message=None):
             saved_count = len(state['saved'])
             close_dialog()
-            cleanup_temp()
             release_com()
+            cleanup_temp()
             text = (
-                f'Přebírání e-mailů bylo zastaveno.\n\n'
+                'Přebírání e-mailů bylo zastaveno.\n\n'
                 f'Převzato dočasně: {saved_count} z {count}.\n'
                 'Žádná z této nedokončené dávky nebyla předána ke zpracování.'
             )
@@ -468,8 +440,11 @@ def apply(M):
 
             title.configure(text=f'Přebírám e-maily z Outlooku {index} z {count}')
             bar['value'] = index - 1
-
+            item = None
             try:
+                selection = refs.get('selection')
+                if selection is None:
+                    raise RuntimeError('Outlook Selection již není dostupný.')
                 item = selection.Item(index)
                 try:
                     is_mail = int(getattr(item, 'Class', 0)) == 43
@@ -477,7 +452,9 @@ def apply(M):
                     is_mail = True
 
                 if not is_mail:
-                    current.configure(text=f'{index}/{count}: přeskočena nepodporovaná položka')
+                    current.configure(
+                        text=f'{index}/{count}: přeskočena nepodporovaná položka'
+                    )
                 else:
                     subject = str(
                         getattr(item, 'Subject', '') or f'outlook_{index}'
@@ -487,7 +464,6 @@ def apply(M):
                         self.update_idletasks()
                     except Exception:
                         pass
-
                     path = Path(temp_dir.name) / (
                         _safe_filename(subject, f'outlook_{index}')
                         + f'_{index}.msg'
@@ -495,7 +471,14 @@ def apply(M):
                     _log(f'Outlook SaveAs begin: {path.name}')
                     try:
                         item.SaveAs(str(path), 9)
-                    except Exception:
+                    except Exception as first_exc:
+                        low = str(first_exc).casefold()
+                        if (
+                            'omezil počet položek' in low
+                            or 'server administrator' in low
+                            or '-2147220731' in repr(first_exc)
+                        ):
+                            raise
                         item.SaveAs(str(path), 3)
                     if path.exists() and path.stat().st_size > 0:
                         state['saved'].append(path)
@@ -510,13 +493,21 @@ def apply(M):
             except Exception as exc:
                 _log(f'Outlook SaveAs failed for selection index {index}', exc)
                 state['errors'].append(f'{index}/{count}: {exc}')
+            finally:
+                item = None
+                if index % 20 == 0:
+                    gc.collect()
+                    try:
+                        pythoncom.PumpWaitingMessages()
+                    except Exception:
+                        pass
 
             state['index'] += 1
             bar['value'] = min(index, count)
             if state['cancel']:
                 self.after(10, abort_preparation)
             else:
-                self.after(15, save_next)
+                self.after(20, save_next)
 
         self.after(10, save_next)
         return []
@@ -617,6 +608,7 @@ def apply(M):
                 return None, False
 
             def virtual_descriptors(data_object):
+                """Read descriptors only for attachment drops, never normal MSG drops."""
                 fmt, wide = descriptor_format(data_object)
                 if fmt is None:
                     return []
@@ -638,9 +630,13 @@ def apply(M):
                         chunk = blob[start:start + descriptor_size]
                         raw_name = chunk[-name_size:]
                         if wide:
-                            name = raw_name.decode('utf-16le', errors='ignore').split('\x00', 1)[0]
+                            name = raw_name.decode(
+                                'utf-16le', errors='ignore'
+                            ).split('\x00', 1)[0]
                         else:
-                            name = raw_name.split(b'\x00', 1)[0].decode('mbcs', errors='replace')
+                            name = raw_name.split(b'\x00', 1)[0].decode(
+                                'mbcs', errors='replace'
+                            )
                         result.append((index, name or f'outlook_{index + 1}'))
                     return result
                 except Exception as exc:
@@ -651,6 +647,12 @@ def apply(M):
                 if qget(data_object, win32con.CF_HDROP, pythoncom.TYMED_HGLOBAL):
                     return False
                 return descriptor_format(data_object)[0] is not None
+
+            def virtual_has_filecontents(data_object, index=0):
+                return (
+                    qget(data_object, fmt_contents, pythoncom.TYMED_ISTREAM, index)
+                    or qget(data_object, fmt_contents, pythoncom.TYMED_HGLOBAL, index)
+                )
 
             def stream_bytes(stream):
                 chunks = []
@@ -734,16 +736,48 @@ def apply(M):
                         errors.append(f'{name}: {exc}')
                 return temp_dir, paths, errors
 
+            pending = deque()
+            drain_state = {'closed': False}
+
             def show_virtual_error(errors):
                 try:
                     M.messagebox.showerror(
                         'Přenos z Outlooku',
-                        'Přetaženou PDF přílohu se nepodařilo převzít. '
-                        'CRM z bezpečnostních důvodů nezpracovalo jiný vybraný e-mail.\n\n'
+                        'Přetaženou PDF přílohu se nepodařilo převzít.\n\n'
                         + '\n'.join(errors[:8])
                         + '\n\nPodrobnosti jsou v offer_drop_crash.log.',
                         parent=app,
                     )
+                except Exception:
+                    pass
+
+            def drain_pending():
+                if drain_state['closed']:
+                    return
+                try:
+                    while pending:
+                        kind, payload = pending.popleft()
+                        if kind == 'real_files':
+                            _start_visible_batch(
+                                app, payload, source_label='Přetažení'
+                            )
+                        elif kind == 'outlook_messages':
+                            app.import_selected_outlook_offer()
+                        elif kind == 'virtual_pdfs':
+                            temp_dir, paths = payload
+                            _start_visible_batch(
+                                app,
+                                paths,
+                                temp_dir=temp_dir,
+                                source_label='Outlook',
+                            )
+                        elif kind == 'virtual_error':
+                            show_virtual_error(payload)
+                except Exception as exc:
+                    _log('Deferred drop queue failed', exc)
+                try:
+                    if app.winfo_exists() and not drain_state['closed']:
+                        app.after(120, drain_pending)
                 except Exception:
                     pass
 
@@ -770,8 +804,7 @@ def apply(M):
                             self.kind = None
                         return (
                             shellcon.DROPEFFECT_COPY
-                            if self.kind
-                            else shellcon.DROPEFFECT_NONE
+                            if self.kind else shellcon.DROPEFFECT_NONE
                         )
                     except Exception as exc:
                         _log('Unified DragEnter failed', exc)
@@ -781,14 +814,14 @@ def apply(M):
                 def DragOver(self, key_state, point, effect):
                     return (
                         shellcon.DROPEFFECT_COPY
-                        if self.kind
-                        else shellcon.DROPEFFECT_NONE
+                        if self.kind else shellcon.DROPEFFECT_NONE
                     )
 
                 def DragLeave(self):
                     self.kind = None
 
                 def Drop(self, data_object, key_state, point, effect):
+                    """Keep whole-message Drop callback minimal and COM-object free."""
                     try:
                         kind = self.kind
                         self.kind = None
@@ -799,71 +832,49 @@ def apply(M):
                             pythoncom.TYMED_HGLOBAL,
                         ):
                             paths = real_paths(data_object)
-                            supported = [
-                                path
-                                for path in paths
+                            supported = tuple(
+                                path for path in paths
                                 if Path(path).suffix.lower() in ('.pdf', '.msg')
-                            ]
+                            )
                             if not supported:
                                 return shellcon.DROPEFFECT_NONE
-                            _log('Explorer drop accepted: ' + ', '.join(supported))
-                            self.owner.after(
-                                120,
-                                lambda ps=tuple(supported): _process_real_files(
-                                    self.owner, ps
-                                ),
+                            _log(
+                                f'Explorer drop accepted: {len(supported)} souborů'
                             )
+                            pending.append(('real_files', supported))
                             return shellcon.DROPEFFECT_COPY
 
                         if kind == 'outlook' or virtual_outlook(data_object):
-                            descriptors = virtual_descriptors(data_object)
-                            names = [name for _index, name in descriptors]
-                            extensions = {Path(name).suffix.lower() for name in names}
-                            _log(
-                                'Outlook virtual drop descriptors: '
-                                + ', '.join(names or ['bez názvu'])
-                            )
-
-                            if '.msg' in extensions and '.pdf' not in extensions:
+                            if not virtual_has_filecontents(data_object, 0):
                                 _log(
                                     'Outlook whole-message drop accepted; '
-                                    'FileContents bypassed; scheduling SaveAs(.msg)'
+                                    'FileContents bypassed; scheduling SaveAs(.msg); '
+                                    'descriptor GetData bypassed'
                                 )
-                                self.owner.after(
-                                    650,
-                                    self.owner.import_selected_outlook_offer,
-                                )
+                                pending.append(('outlook_messages', None))
                                 return shellcon.DROPEFFECT_COPY
 
-                            if '.pdf' in extensions:
-                                temp_dir, paths, errors = materialize_pdf_attachments(
-                                    data_object,
-                                    descriptors,
+                            descriptors = virtual_descriptors(data_object)
+                            names = [name for _index, name in descriptors]
+                            _log(
+                                f'Outlook attachment drop descriptors: {len(names)} položek'
+                            )
+                            temp_dir, paths, errors = materialize_pdf_attachments(
+                                data_object, descriptors
+                            )
+                            if paths:
+                                pending.append(
+                                    ('virtual_pdfs', (temp_dir, tuple(paths)))
                                 )
-                                if paths:
-                                    self.owner.after(
-                                        120,
-                                        lambda td=temp_dir, ps=tuple(paths): _process_virtual_pdfs(
-                                            self.owner,
-                                            td,
-                                            ps,
-                                        ),
-                                    )
-                                    return shellcon.DROPEFFECT_COPY
-
-                                if temp_dir is not None:
-                                    try:
-                                        temp_dir.cleanup()
-                                    except Exception:
-                                        pass
-
-                                if errors:
-                                    self.owner.after(
-                                        0,
-                                        lambda es=tuple(errors): show_virtual_error(es),
-                                    )
-                                    return shellcon.DROPEFFECT_COPY
-
+                                return shellcon.DROPEFFECT_COPY
+                            if temp_dir is not None:
+                                try:
+                                    temp_dir.cleanup()
+                                except Exception:
+                                    pass
+                            if errors:
+                                pending.append(('virtual_error', tuple(errors)))
+                                return shellcon.DROPEFFECT_COPY
                             return shellcon.DROPEFFECT_NONE
 
                         return shellcon.DROPEFFECT_NONE
@@ -882,6 +893,39 @@ def apply(M):
             app._offer_drop_target = target
             app._offer_drop_target_wrapped = wrapped
             app._offer_drop_hwnd = hwnd
+            app._offer_drop_pending = pending
+
+            app.after(120, drain_pending)
+
+            cleanup_state = {'done': False}
+
+            def cleanup_drop(event=None):
+                if event is not None and getattr(event, 'widget', None) is not app:
+                    return
+                if cleanup_state['done']:
+                    return
+                cleanup_state['done'] = True
+                drain_state['closed'] = True
+                try:
+                    pythoncom.RevokeDragDrop(hwnd)
+                except Exception:
+                    pass
+                try:
+                    app._offer_drop_target_wrapped = None
+                    app._offer_drop_target = None
+                except Exception:
+                    pass
+                gc.collect()
+                try:
+                    pythoncom.OleUninitialize()
+                except Exception:
+                    pass
+
+            try:
+                app.bind('<Destroy>', cleanup_drop, add='+')
+            except Exception:
+                pass
+
             _log('Unified file/outlook drop target registered')
             return True
         except Exception as exc:
