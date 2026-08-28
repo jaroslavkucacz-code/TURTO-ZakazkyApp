@@ -1,5 +1,5 @@
-• Přehled Produkty / ceny nyní zobrazuje obrázek vybraného produktu v pevném poli 230 × 150 px. Různé poměry stran už nemění výšku spodního panelu; obrázek se proporčně zmenší a vycentruje.
-• V hlavním seznamu Nabídek přibyl sloupec Přiřazení: „✓ Poptávka“, „✓ Akce“ nebo „—“. Je tak na první pohled vidět, zda je nabídka skutečně propojena s interními daty.
-• Sloupec Akce v Nabídkách nyní zobrazuje pouze skutečnou kanonickou interní vazbu přes Poptávku → Akci nebo přímou Akci. Historické automatické shody reference přes compatibility action_id se už za přiřazení nevydávají.
-• Historické action_id vytvořené starým automatickým párováním se kvůli zachování kompatibility fyzicky nemaže, ale samo o sobě už nevytváří ani nezobrazuje přiřazení nabídky. Počty Nabídek u Akcí používají stejnou kanonickou logiku.
-• Databázové schéma se nemění. Historie, Nabídky, fyzický archiv, GEROtop/Leviat exporty, hromadné DB-only mazání a Outlook import zůstávají zachované.
+• Přidán nový dodavatel PohlCon Česká republika s.r.o. do společného systému Nabídek. PDF přílohy z Outlook/MSG se rozpoznají automaticky přes nový provider, bez samostatné větve importu.
+• Parser PohlCon načítá číslo nabídky, datum, referenci/název z nabídky, pozice, množství, měrné jednotky, názvy výrobků, jednotkové ceny a celkové ceny. Ověřeno na reálných nabídkách 0774/2026, 1048/2026 a 1092/2026.
+• Produkty JDA mají pro přehlednější práci normalizovaný technický kód (např. JDA-3/14/235-510); ostatní krátká technická označení, např. H-BAU, se zachovávají přímo z nabídky.
+• Text „Cenová nabídka pro akci …“ se ukládá jako Reference dodavatele a nevytváří automaticky vazbu na interní Akci. Přiřazení zůstává výhradně přes současný dialog Poptávka/Akce.
+• Databázové schéma se nemění. PohlCon používá stejný fyzický archiv, historii cen, Produkty/ceny, DB-only mazání, Outlook dávkový import a kanonický Excel export jako ostatní dodavatelé.
