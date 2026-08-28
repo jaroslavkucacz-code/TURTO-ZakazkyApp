@@ -68,3 +68,4 @@ jobs:
           git add ZakazkyApp_base_6.1/v624_legacy_exports.py post_baseline.py .github/workflows/publish-update.yml release_version.txt release_notes.txt
           git commit -m "TURTO CRM 6.3.10 — descriptive Excel filenames"
           git push origin HEAD:feat/export-filename-6310
+# trigger existing workflow
