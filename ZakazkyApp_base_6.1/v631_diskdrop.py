@@ -172,27 +172,122 @@ def apply(M):
             pass
         return good
 
-    def _process_real_files(app, paths):
-        batch = getattr(app, '_start_offer_batch', None)
-        if callable(batch):
-            try:
-                batch(tuple(paths))
-                return []
-            except Exception as exc:
-                _log('Batch runner failed; using direct fallback', exc)
-        return _process_direct_files(app, paths, 'přetažení')
-
-    def _process_virtual_pdfs(app, temp_dir, paths):
+    def _find_batch_dialog(app, before=None):
+        before = set(before or ())
+        candidates = []
         try:
-            return _process_direct_files(app, paths, 'Outlook')
-        finally:
+            candidates = list(app.winfo_children())
+        except Exception:
+            return None
+        for only_new in (True, False):
+            for widget in reversed(candidates):
+                try:
+                    if only_new and str(widget) in before:
+                        continue
+                    if widget.winfo_class() != 'Toplevel':
+                        continue
+                    if widget.title() == 'Zpracování cenových nabídek':
+                        return widget
+                except Exception:
+                    pass
+        return None
+
+    def _foreground_batch_dialog(app, dialog):
+        if dialog is None:
+            return
+        try:
+            dialog.deiconify()
+            dialog.lift()
+            dialog.attributes('-topmost', True)
+            dialog.focus_force()
+            dialog.after(650, lambda d=dialog: d.attributes('-topmost', False) if d.winfo_exists() else None)
+        except Exception:
+            pass
+
+    def _retain_temp_for_batch(app, temp_dir, dialog):
+        if temp_dir is None:
+            return
+        holders = getattr(app, '_offer_batch_temp_dirs', None)
+        if not isinstance(holders, list):
+            holders = []
+            app._offer_batch_temp_dirs = holders
+        holders.append(temp_dir)
+        released = {'done': False}
+
+        def release(event=None):
+            if event is not None and dialog is not None:
+                try:
+                    if event.widget is not dialog:
+                        return
+                except Exception:
+                    return
+            if released['done']:
+                return
+            released['done'] = True
             try:
                 temp_dir.cleanup()
             except Exception:
                 pass
+            try:
+                if temp_dir in holders:
+                    holders.remove(temp_dir)
+            except Exception:
+                pass
+
+        if dialog is not None:
+            try:
+                dialog.bind('<Destroy>', release, add='+')
+            except Exception:
+                pass
+        try:
+            app.bind(
+                '<Destroy>',
+                lambda e: release() if getattr(e, 'widget', None) is app else None,
+                add='+',
+            )
+        except Exception:
+            pass
+
+    def _start_visible_batch(app, paths, temp_dir=None, source_label='Přetažení'):
+        batch = getattr(app, '_start_offer_batch', None)
+        if callable(batch):
+            before = set()
+            try:
+                before = {str(widget) for widget in app.winfo_children()}
+            except Exception:
+                pass
+            try:
+                batch(tuple(paths))
+            except Exception as exc:
+                _log('Batch runner failed; using direct fallback', exc)
+            else:
+                dialog = _find_batch_dialog(app, before)
+                _foreground_batch_dialog(app, dialog)
+                _retain_temp_for_batch(app, temp_dir, dialog)
+                return []
+
+        try:
+            return _process_direct_files(app, paths, source_label)
+        finally:
+            if temp_dir is not None:
+                try:
+                    temp_dir.cleanup()
+                except Exception:
+                    pass
+
+    def _process_real_files(app, paths):
+        return _start_visible_batch(app, paths, source_label='Přetažení')
+
+    def _process_virtual_pdfs(app, temp_dir, paths):
+        return _start_visible_batch(
+            app,
+            paths,
+            temp_dir=temp_dir,
+            source_label='Outlook',
+        )
 
     def import_selected_outlook_offer(self):
-        """Whole-message Outlook import through one canonical SaveAs(.msg) path."""
+        """Whole-message Outlook import through SaveAs(.msg) + shared batch runner."""
         from tkinter import messagebox
 
         if os.name != 'nt':
@@ -255,7 +350,16 @@ def apply(M):
                     'Výběr Outlooku neobsahuje zpracovatelný e-mail.'
                 )
 
-            return _process_direct_files(self, paths, 'Outlook')
+            result = _start_visible_batch(
+                self,
+                paths,
+                temp_dir=temp_dir,
+                source_label='Outlook',
+            )
+            # The shared batch now owns these temporary MSG files until its
+            # progress window closes (completion or Storno).
+            temp_dir = None
+            return result
         except Exception as exc:
             _log('Outlook selected-message import failed', exc)
             messagebox.showerror(
