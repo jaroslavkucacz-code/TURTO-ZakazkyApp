@@ -14,7 +14,8 @@ class OfferPriceHistoryDialog(tk.Toplevel):
         super().__init__(parent);M.enable_dialog_maximize(self,1050,650);self.title("Historie ceny položky");self.transient(parent);self.grab_set()
         f=M.scrollable_dialog_frame(self,18)
         with M.db() as con:
-            rows=con.execute("""SELECT o.offer_date,o.offer_number,o.supplier_name,s.official_name supplier,
+            rows=con.execute("""SELECT o.offer_date,o.offer_number,o.supplier_name,
+                       coalesce(nullif(trim(s.official_name),''),nullif(trim(s.short_name),''),nullif(trim(o.supplier_name),''),'') supplier,
                        CASE
                          WHEN o.request_id IS NOT NULL THEN coalesce(pr.name,pd.name,'')
                          WHEN o.project_id IS NOT NULL AND o.action_id IS NULL THEN coalesce(pd.name,'')
@@ -29,8 +30,12 @@ class OfferPriceHistoryDialog(tk.Toplevel):
                 LEFT JOIN requests rq ON rq.id=o.request_id
                 LEFT JOIN actions ra ON ra.id=rq.action_id
                 LEFT JOIN projects pr ON pr.id=ra.project_id
-                WHERE i.item_key=? AND (coalesce(o.supplier_name,'')=? OR coalesce(s.official_name,'')=?)
-                ORDER BY o.offer_date DESC,o.id DESC,i.id DESC""",(item_key,supplier,supplier)).fetchall()
+                WHERE i.item_key=? AND (
+                    coalesce(o.supplier_name,'')=?
+                    OR coalesce(s.official_name,'')=?
+                    OR coalesce(s.short_name,'')=?
+                )
+                ORDER BY o.offer_date DESC,o.id DESC,i.id DESC""",(item_key,supplier,supplier,supplier)).fetchall()
         ttk.Label(f,text=title_text or item_key,style="Section.TLabel").pack(anchor="w")
         ttk.Label(f,text=f"Dodavatel: {supplier or '—'}   •   item_key: {item_key}",style="PageSubtitle.TLabel").pack(anchor="w",pady=(2,10))
         prices=[float(r["unit_price"] or 0) for r in rows if float(r["unit_price"] or 0)>0]
@@ -77,7 +82,8 @@ class OfferDetailDialog(tk.Toplevel):
         self.f=M.scrollable_dialog_frame(self,18);self._build()
     def _load(self):
         with M.db() as con:
-            r=con.execute("""SELECT o.*,coalesce(s.official_name,o.supplier_name) supplier,
+            r=con.execute("""SELECT o.*,
+                       coalesce(nullif(trim(s.official_name),''),nullif(trim(s.short_name),''),nullif(trim(o.supplier_name),''),'') supplier,
                        c.official_name customer,
                        CASE
                          WHEN o.request_id IS NOT NULL THEN coalesce(pr.name,pd.name,'')
@@ -161,10 +167,11 @@ def _offer_filter_values():
         with M.db() as con:
             suppliers=[
                 r["supplier"] for r in con.execute(
-                    """SELECT DISTINCT coalesce(s.official_name,o.supplier_name,'') supplier
+                    """SELECT DISTINCT
+                           coalesce(nullif(trim(s.official_name),''),nullif(trim(s.short_name),''),nullif(trim(o.supplier_name),''),'') supplier
                        FROM supplier_offers o
                        LEFT JOIN companies s ON s.id=o.supplier_company_id
-                       WHERE trim(coalesce(s.official_name,o.supplier_name,''))<>''
+                       WHERE trim(coalesce(nullif(trim(s.official_name),''),nullif(trim(s.short_name),''),nullif(trim(o.supplier_name),''),''))<>''
                        ORDER BY supplier COLLATE CZECH"""
                 ).fetchall()
             ]
@@ -251,8 +258,10 @@ def build_offers(self):
     ttk.Label(filters,text="Dodavatel",style="FilterLabel.TLabel").grid(row=0,column=1,sticky="w")
     ttk.Label(filters,text="Akce",style="FilterLabel.TLabel").grid(row=0,column=2,sticky="w")
     ttk.Entry(filters,textvariable=self.offer_q).grid(row=1,column=0,sticky="ew",padx=(0,6))
-    M.AutocompleteEntry(filters,textvariable=self.offer_supplier_filter,values=suppliers).grid(row=1,column=1,sticky="ew",padx=(0,6))
-    M.AutocompleteEntry(filters,textvariable=self.offer_action_filter,values=actions).grid(row=1,column=2,sticky="ew",padx=(0,6))
+    self.offer_supplier_box=M.AutocompleteEntry(filters,textvariable=self.offer_supplier_filter,values=suppliers)
+    self.offer_supplier_box.grid(row=1,column=1,sticky="ew",padx=(0,6))
+    self.offer_action_box=M.AutocompleteEntry(filters,textvariable=self.offer_action_filter,values=actions)
+    self.offer_action_box.grid(row=1,column=2,sticky="ew",padx=(0,6))
     ttk.Button(
         filters,text="Vymazat filtry",style="Toolbar.TButton",
         command=lambda:clear_offer_filters(self),
@@ -306,7 +315,7 @@ def refresh_offers(self):
         # Only current canonical links count as assignments. Historical action_id
         # values created by the old reference auto-match are deliberately ignored.
         rs=con.execute("""SELECT o.*,
-                coalesce(s.official_name,o.supplier_name,'') supplier,
+                coalesce(nullif(trim(s.official_name),''),nullif(trim(s.short_name),''),nullif(trim(o.supplier_name),''),'') supplier,
                 CASE
                   WHEN o.request_id IS NOT NULL THEN coalesce(pr.name,pd.name,'')
                   WHEN o.project_id IS NOT NULL AND o.action_id IS NULL THEN coalesce(pd.name,'')
@@ -330,6 +339,26 @@ def refresh_offers(self):
             LEFT JOIN projects pr ON pr.id=ra.project_id
             ORDER BY CASE WHEN trim(coalesce(o.offer_date,''))='' THEN 1 ELSE 0 END,
                      o.offer_date DESC,o.id DESC""").fetchall()
+
+    # Filters are live: after the first offer from a new supplier/action arrives,
+    # the already-open Offers page immediately learns the new values.
+    try:
+        supplier_values=sorted(
+            {str(r["supplier"] or "").strip() for r in rs if str(r["supplier"] or "").strip()},
+            key=M.czech_sort_key,
+        )
+        action_values=sorted(
+            {str(r["action_name"] or "").strip() for r in rs if str(r["action_name"] or "").strip()},
+            key=M.czech_sort_key,
+        )
+        supplier_box=getattr(self,"offer_supplier_box",None)
+        action_box=getattr(self,"offer_action_box",None)
+        if supplier_box is not None and callable(getattr(supplier_box,"set_values",None)):
+            supplier_box.set_values(supplier_values)
+        if action_box is not None and callable(getattr(action_box,"set_values",None)):
+            action_box.set_values(action_values)
+    except Exception:
+        pass
 
     for r in rs:
         supplier=r["supplier"] or ""
