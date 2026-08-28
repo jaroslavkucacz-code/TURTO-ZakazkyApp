@@ -31,13 +31,11 @@ jobs:
           cp /tmp/price_lists_6329/crm_price_lists.py ZakazkyApp_base_6.1/crm_price_lists.py
           rm -rf ZakazkyApp_base_6.1/price_lists_domain
           cp -a /tmp/price_lists_6329/price_lists_domain ZakazkyApp_base_6.1/price_lists_domain
-          cp /tmp/price_lists_6329/publish-update.yml .github/workflows/publish-update.yml
           cp /tmp/price_lists_6329/requirements_6329.txt ZakazkyApp_base_6.1/requirements.txt
           cp /tmp/price_lists_6329/release_version_6329.txt release_version.txt
           cp /tmp/price_lists_6329/release_notes_6329.txt release_notes.txt
 
           rm -rf .bootstrap_6329
-          rm -f .github/workflows/bootstrap-price-lists-6329.yml
 
           python -m compileall -q ZakazkyApp_base_6.1/crm_price_lists.py ZakazkyApp_base_6.1/price_lists_domain
           python - <<'PY'
@@ -49,6 +47,8 @@ jobs:
           value = _base_item(source_price=368.37, price_basis_qty=100)['normalized_unit_price']
           assert abs(value - 3.6837) < 1e-9
           PY
+          find ZakazkyApp_base_6.1 -type d -name __pycache__ -prune -exec rm -rf {} +
+          find ZakazkyApp_base_6.1 -type f -name '*.pyc' -delete
 
           git config user.name "TURTO Source Bot"
           git config user.email "actions@users.noreply.github.com"
