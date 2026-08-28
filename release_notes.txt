@@ -1,7 +1,6 @@
-• Větší technický úklid CRM bez změny uživatelských dat: aktivní změny od 6.1 jsou sloučeny do jediné vrstvy post_baseline.py.
-• Odstraněna dodatečná vrstva post_fix_613; export Excelu, DB-only mazání nabídek, archivace PDF/MSG a jednotný layout tabulek mají nyní jednoho vlastníka.
-• Automatická extrakce nadále používá přímo ověřený dodavatelský CRM export v624 pro Leviat/GEROtop; vlastní duplicitní formát Excelu se už nepoužívá.
-• Import zůstává DB-first: databáze → nezávislý archiv fyzických souborů → Excel z uložené nabídky.
-• Fyzické PDF/MSG/přílohy/Excel zůstávají zcela nezávislé na mazání v CRM.
-• Zjednodušen release workflow: používá pouze konsolidovaný baseline + jednu aktivní vrstvu; odstraněna historická fallback větev skládající desítky patchů.
-• Zachováno jednotné roztažení tabulek a výchozí řazení z posledních ověřených verzí.
+• Čistý distribuční balíček: historické runtime moduly v606–v645, crm_features/crm_runtime a post_baseline jsou přesunuty do interní složky _runtime místo kořene programu.
+• Uživatelský kořen programu je výrazně přehlednější; z distribuce jsou odstraněny post_fix_613, staré BAT/VBS spouštěče, diagnostika, Qt preview, build utility, original_source a další vývojové soubory.
+• Funkční logika se nemění: aplikace stále načítá stejné ověřené runtime moduly, pouze z interní cesty.
+• Zachován DB-first import PDF/MSG, nezávislý fyzický archiv souborů, ověřený dodavatelský Excel export, mazání nabídek pouze v databázi a jednotný layout tabulek.
+• Build nově kontroluje nejen syntaxi Pythonu, ale i čisté rozložení runtime balíčku před publikací.
+• Cílem 6.3.0 je zpřehlednit instalaci bez rizikového přepisování ověřené logiky do jednoho monolitického souboru.
