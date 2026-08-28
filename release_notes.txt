@@ -1,5 +1,5 @@
-• Nouzově opravena spouštěcí cesta aplikace. Starý `Spustit_Zakazky.bat` už nikdy nespouští samotný `app.py`; vždy přesměruje na kanonický `ZakazkyCRM.pyw` přes `Spustit_Zakazky.vbs`.
-• Opravena situace, kdy mohl starší zástupce na ploše po pádu/spuštění otevřít pouze základní aplikaci bez `_runtime` vrstev. V takovém stavu sice aplikace hlásila aktuální číslo verze, ale chyběl drag&drop a novější funkce.
-• Kompatibilní `Spustit_Zakazky.bat` je od této verze znovu součástí release balíčku právě jako bezpečný přesměrovávač. Tím se při aktualizaci automaticky opraví i existující staré zástupce, které na tento BAT míří.
-• Publish validace nově vyžaduje přítomnost bezpečného BAT launcheru a kontroluje, že směřuje na `ZakazkyCRM.pyw`, nikoli na `app.py`.
-• Databáze ani uživatelská data se nemění. Log případného pádu Outlook drag&drop zůstává v `Dokumenty\TURTO Zakazky\logs\offer_drop_crash.log` pro přesnou diagnostiku samotného pádu.
+• Opraven nativní pád Outlook drag&drop při přetažení více celých `.msg`. Log potvrdil `Fatal Python error: Aborted` bezprostředně po návratu z OLE Drop callbacku, ještě před zahájením `SaveAs`.
+• `v631_diskdrop.py` zůstává jediným vlastníkem drag&drop, ale celá `.msg` dávka už v OLE callbacku nečte `FileGroupDescriptor` přes `GetData` a neplánuje Tk callback přímo z COM. Drop pouze vloží lehký požadavek do interní fronty a okamžitě vrátí řízení Outlooku; vlastní `Selection.SaveAs` se spustí až z běžného Tk event loopu.
+• PDF přílohy přetažené z Outlooku nadále používají `FileContents`, protože jejich data jsou dostupná pouze během nativního Drop callbacku. Explorer PDF/MSG drag&drop zůstává zachovaný.
+• U velkých Outlook dávek se po jednotlivých zprávách explicitně uvolňují COM `Item` objekty a před `CoUninitialize` se zahodí `Selection/Explorer/Outlook` wrappery. To snižuje tlak na Outlook/MAPI zdroje; serverový limit otevřených položek se zachytí jako chyba konkrétní zprávy místo opakovaného formátového retry.
+• Databáze, fyzický archiv, parsery GEROtop/Leviat/PohlCon, historie cen a DB-only mazání se nemění. Bez změny databázového schématu.
