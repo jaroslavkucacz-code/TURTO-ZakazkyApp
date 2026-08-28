@@ -1,11 +1,13 @@
 # TURTO CRM - consolidated safe Explorer/Outlook drop runtime
 #
-# One module owns native drag-and-drop. Whole Outlook messages are deliberately
-# kept out of FileGroupDescriptor/GetData handling: the OLE Drop callback only
-# queues a lightweight request and returns. The actual messages are then saved
-# from Outlook Selection through the normal Tk event loop. PDF attachments still
-# use FileContents because their bytes exist only during the native Drop callback.
-import gc
+# One module owns native drag-and-drop. Whole Outlook messages are detected by
+# Outlook's private clipboard formats using QueryGetData only. The native OLE
+# Drop callback never reads their FileGroupDescriptor/FileContents and never
+# calls Tk directly; it only queues a lightweight request. Actual messages are
+# saved afterwards from Outlook Selection in the normal Tk event loop.
+#
+# PDF attachments dragged from Outlook still use FileGroupDescriptor/FileContents
+# because their bytes are available only during the native Drop callback.
 import os
 import re
 import struct
@@ -28,6 +30,7 @@ def apply(M):
     def _log(stage, exc=None):
         try:
             from datetime import datetime
+
             with _log_path().open('a', encoding='utf-8') as handle:
                 handle.write(
                     '\n[' + datetime.now().isoformat(timespec='seconds') + '] '
@@ -50,6 +53,7 @@ def apply(M):
     def _enable_faulthandler(app):
         try:
             import faulthandler
+
             handle = _log_path().open('a', encoding='utf-8')
             faulthandler.enable(file=handle, all_threads=True)
             app._offer_fault_log_handle = handle
@@ -66,7 +70,10 @@ def apply(M):
                     with _log_path().open('a', encoding='utf-8') as handle:
                         handle.write('\nTk callback exception:\n')
                         traceback.print_exception(
-                            exc_type, exc_value, exc_tb, file=handle
+                            exc_type,
+                            exc_value,
+                            exc_tb,
+                            file=handle,
                         )
                 except Exception:
                     pass
@@ -134,7 +141,9 @@ def apply(M):
             text += '\n\nChyby / upozornění:\n' + '\n'.join(errors[:12])
         try:
             messagebox.showinfo(
-                'Nabídky – ' + source_label.lower(), text, parent=app
+                'Nabídky – ' + source_label.lower(),
+                text,
+                parent=app,
             )
         except Exception:
             pass
@@ -170,7 +179,8 @@ def apply(M):
             dialog.after(
                 650,
                 lambda d=dialog: d.attributes('-topmost', False)
-                if d.winfo_exists() else None,
+                if d.winfo_exists()
+                else None,
             )
         except Exception:
             pass
@@ -214,7 +224,8 @@ def apply(M):
             app.bind(
                 '<Destroy>',
                 lambda e: release()
-                if getattr(e, 'widget', None) is app else None,
+                if getattr(e, 'widget', None) is app
+                else None,
                 add='+',
             )
         except Exception:
@@ -247,7 +258,7 @@ def apply(M):
                     pass
 
     def import_selected_outlook_offer(self):
-        """Save the current Outlook selection incrementally, with progress and cancel."""
+        """Save current Outlook selection incrementally, with progress and cancel."""
         from tkinter import messagebox, ttk
 
         if os.name != 'nt':
@@ -277,15 +288,19 @@ def apply(M):
             refs['explorer'] = refs['outlook'].ActiveExplorer()
             refs['selection'] = (
                 refs['explorer'].Selection
-                if refs['explorer'] is not None else None
+                if refs['explorer'] is not None
+                else None
             )
-            count = int(refs['selection'].Count) if refs['selection'] is not None else 0
+            count = (
+                int(refs['selection'].Count)
+                if refs['selection'] is not None
+                else 0
+            )
             if count < 1:
                 raise RuntimeError('V Outlooku není vybraný žádný e-mail.')
         except Exception as exc:
             _log('Outlook selected-message preparation init failed', exc)
             refs.update(outlook=None, explorer=None, selection=None)
-            gc.collect()
             if com_initialized:
                 try:
                     pythoncom.CoUninitialize()
@@ -347,14 +362,10 @@ def apply(M):
             if state['closed']:
                 return
             state['closed'] = True
+            # 6.3.26 crash log proved PumpWaitingMessages can abort the process.
             refs['selection'] = None
             refs['explorer'] = None
             refs['outlook'] = None
-            gc.collect()
-            try:
-                pythoncom.PumpWaitingMessages()
-            except Exception:
-                pass
             if com_initialized:
                 try:
                     pythoncom.CoUninitialize()
@@ -488,19 +499,16 @@ def apply(M):
                         )
                     else:
                         state['errors'].append(
-                            f'{index}/{count} {subject}: Outlook nevytvořil platný .MSG soubor.'
+                            f'{index}/{count} {subject}: '
+                            'Outlook nevytvořil platný .MSG soubor.'
                         )
             except Exception as exc:
                 _log(f'Outlook SaveAs failed for selection index {index}', exc)
                 state['errors'].append(f'{index}/{count}: {exc}')
             finally:
+                # Drop only the local Python reference. Do not force GC or pump
+                # COM messages while the live Outlook Selection is being read.
                 item = None
-                if index % 20 == 0:
-                    gc.collect()
-                    try:
-                        pythoncom.PumpWaitingMessages()
-                    except Exception:
-                        pass
 
             state['index'] += 1
             bar['value'] = min(index, count)
@@ -539,6 +547,12 @@ def apply(M):
             fmt_w = win32clipboard.RegisterClipboardFormat('FileGroupDescriptorW')
             fmt_a = win32clipboard.RegisterClipboardFormat('FileGroupDescriptor')
             fmt_contents = win32clipboard.RegisterClipboardFormat('FileContents')
+            fmt_private_messages = win32clipboard.RegisterClipboardFormat(
+                'RenPrivateMessages'
+            )
+            fmt_private_latest = win32clipboard.RegisterClipboardFormat(
+                'RenPrivateLatestMessages'
+            )
 
             def qget(data_object, fmt, tymed, index=-1):
                 try:
@@ -548,6 +562,17 @@ def apply(M):
                     return True
                 except Exception:
                     return False
+
+            def is_outlook_message_drop(data_object):
+                """Detect whole Outlook messages without GetData/descriptor reads."""
+                for fmt in (fmt_private_messages, fmt_private_latest):
+                    if qget(
+                        data_object,
+                        fmt,
+                        pythoncom.TYMED_HGLOBAL,
+                    ):
+                        return True
+                return False
 
             def medium_bytes(medium):
                 data = getattr(medium, 'data', None)
@@ -614,7 +639,13 @@ def apply(M):
                     return []
                 try:
                     medium = data_object.GetData(
-                        (fmt, None, pythoncom.DVASPECT_CONTENT, -1, pythoncom.TYMED_HGLOBAL)
+                        (
+                            fmt,
+                            None,
+                            pythoncom.DVASPECT_CONTENT,
+                            -1,
+                            pythoncom.TYMED_HGLOBAL,
+                        )
                     )
                     blob = medium_bytes(medium)
                     if len(blob) < 4:
@@ -643,16 +674,14 @@ def apply(M):
                     _log('Outlook descriptor extraction failed', exc)
                     return []
 
-            def virtual_outlook(data_object):
-                if qget(data_object, win32con.CF_HDROP, pythoncom.TYMED_HGLOBAL):
+            def virtual_outlook_attachment(data_object):
+                if qget(
+                    data_object,
+                    win32con.CF_HDROP,
+                    pythoncom.TYMED_HGLOBAL,
+                ):
                     return False
                 return descriptor_format(data_object)[0] is not None
-
-            def virtual_has_filecontents(data_object, index=0):
-                return (
-                    qget(data_object, fmt_contents, pythoncom.TYMED_ISTREAM, index)
-                    or qget(data_object, fmt_contents, pythoncom.TYMED_HGLOBAL, index)
-                )
 
             def stream_bytes(stream):
                 chunks = []
@@ -676,7 +705,13 @@ def apply(M):
                         continue
                     try:
                         medium = data_object.GetData(
-                            (fmt_contents, None, pythoncom.DVASPECT_CONTENT, index, tymed)
+                            (
+                                fmt_contents,
+                                None,
+                                pythoncom.DVASPECT_CONTENT,
+                                index,
+                                tymed,
+                            )
                         )
                         if tymed == pythoncom.TYMED_ISTREAM:
                             stream = getattr(medium, 'data', None)
@@ -728,7 +763,7 @@ def apply(M):
                         target.write_bytes(data)
                         paths.append(target)
                         _log(
-                            f'Outlook PDF FileContents complete: '
+                            'Outlook PDF FileContents complete: '
                             f'{target.name} ({len(data)} bytes)'
                         )
                     except Exception as exc:
@@ -759,7 +794,9 @@ def apply(M):
                         kind, payload = pending.popleft()
                         if kind == 'real_files':
                             _start_visible_batch(
-                                app, payload, source_label='Přetažení'
+                                app,
+                                payload,
+                                source_label='Přetažení',
                             )
                         elif kind == 'outlook_messages':
                             app.import_selected_outlook_offer()
@@ -798,13 +835,16 @@ def apply(M):
                             pythoncom.TYMED_HGLOBAL,
                         ):
                             self.kind = 'files'
-                        elif virtual_outlook(data_object):
-                            self.kind = 'outlook'
+                        elif is_outlook_message_drop(data_object):
+                            self.kind = 'outlook_messages'
+                        elif virtual_outlook_attachment(data_object):
+                            self.kind = 'outlook_attachment'
                         else:
                             self.kind = None
                         return (
                             shellcon.DROPEFFECT_COPY
-                            if self.kind else shellcon.DROPEFFECT_NONE
+                            if self.kind
+                            else shellcon.DROPEFFECT_NONE
                         )
                     except Exception as exc:
                         _log('Unified DragEnter failed', exc)
@@ -814,14 +854,15 @@ def apply(M):
                 def DragOver(self, key_state, point, effect):
                     return (
                         shellcon.DROPEFFECT_COPY
-                        if self.kind else shellcon.DROPEFFECT_NONE
+                        if self.kind
+                        else shellcon.DROPEFFECT_NONE
                     )
 
                 def DragLeave(self):
                     self.kind = None
 
                 def Drop(self, data_object, key_state, point, effect):
-                    """Keep whole-message Drop callback minimal and COM-object free."""
+                    """Keep whole-message Drop minimal and descriptor-GetData-free."""
                     try:
                         kind = self.kind
                         self.kind = None
@@ -833,7 +874,8 @@ def apply(M):
                         ):
                             paths = real_paths(data_object)
                             supported = tuple(
-                                path for path in paths
+                                path
+                                for path in paths
                                 if Path(path).suffix.lower() in ('.pdf', '.msg')
                             )
                             if not supported:
@@ -844,23 +886,28 @@ def apply(M):
                             pending.append(('real_files', supported))
                             return shellcon.DROPEFFECT_COPY
 
-                        if kind == 'outlook' or virtual_outlook(data_object):
-                            if not virtual_has_filecontents(data_object, 0):
-                                _log(
-                                    'Outlook whole-message drop accepted; '
-                                    'FileContents bypassed; scheduling SaveAs(.msg); '
-                                    'descriptor GetData bypassed'
-                                )
-                                pending.append(('outlook_messages', None))
-                                return shellcon.DROPEFFECT_COPY
-
-                            descriptors = virtual_descriptors(data_object)
-                            names = [name for _index, name in descriptors]
+                        if kind == 'outlook_messages' or is_outlook_message_drop(
+                            data_object
+                        ):
                             _log(
-                                f'Outlook attachment drop descriptors: {len(names)} položek'
+                                'Outlook whole-message drop accepted via '
+                                'RenPrivateMessages; descriptor GetData bypassed; '
+                                'scheduling Selection.SaveAs(.msg)'
+                            )
+                            pending.append(('outlook_messages', None))
+                            return shellcon.DROPEFFECT_COPY
+
+                        if kind == 'outlook_attachment' or virtual_outlook_attachment(
+                            data_object
+                        ):
+                            descriptors = virtual_descriptors(data_object)
+                            _log(
+                                'Outlook attachment drop descriptors: '
+                                f'{len(descriptors)} položek'
                             )
                             temp_dir, paths, errors = materialize_pdf_attachments(
-                                data_object, descriptors
+                                data_object,
+                                descriptors,
                             )
                             if paths:
                                 pending.append(
@@ -915,7 +962,6 @@ def apply(M):
                     app._offer_drop_target = None
                 except Exception:
                     pass
-                gc.collect()
                 try:
                     pythoncom.OleUninitialize()
                 except Exception:
