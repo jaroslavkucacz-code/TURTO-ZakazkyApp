@@ -1,14 +1,8 @@
-• Větší technický úklid bez změny databáze, uživatelských dat nebo již uložených fyzických dokumentů.
-• Odstraněna překryvná vrstva v630_safeofferdrop. Její platné bezpečnostní funkce jsou sloučeny přímo do v631_diskdrop.
-• Přetažení z Průzkumníka a Outlooku má jediný nativní OLE cíl. Starý widgetový TkDND cíl ve v620 byl odstraněn, aby se jeden e-mail nezpracoval dvěma souběžnými cestami.
-• Zachováno bezpečné COM CoInitialize/CoUninitialize při importu z Outlooku, faulthandler, záznam Tk callback chyb a offer_drop_crash.log.
-• Odstraněna také již plně překrytá vrstva v634_assignment_search. Vyhledávané přiřazení nabídky dnes zajišťuje novější projektový model v637.
-• Opraven archiv MSG: do fyzické složky se ukládá původní MSG a pouze hlavní dokumentové přílohy (PDF, Excel, Word, archivy, CAD apod.). Obrázky, loga a inline soubory z podpisu se přeskočí ještě před načtením jejich dat.
-• Automatická Excelová extrakce se po importu MSG vždy spouští z již zapsaných databázových dat. Chyba jedné přílohy už nemůže přeskočit nebo zastavit vytvoření Excelu.
-• Automatický Excel nadále používá přesně stejný dodavatelský export jako ruční extrakce z CRM; soubor se nejdřív vytvoří bezpečně dočasně a až potom nahradí výslednou extrakci.
-• Import z Outlooku nově zobrazuje počet vytvořených Excelových extrakcí a neskrývá chyby archivace/exportu.
-• Obnoven společný dávkový dialog pro více PDF/MSG se stavem zpracování, Stornem a možností pokračovat na pozadí.
-• v625_stability už neobsahuje další kopii Outlook importu ani resize logiky; zůstává pouze neblokující kontrola aktualizací a ochrana proti osiřelému modálnímu grabu.
-• post_baseline je finálním vlastníkem jednotného Treeview layoutu, stavového tagování Přehledu, DB-first archivace, přesného Excel exportu, dávkového zpracování a DB-only mazání nabídek.
-• Výchozí řazení, barevnost, importní databázový model a nezávislost fyzických dokumentů zůstávají beze změny.
-• Build ověřuje nepřítomnost odstraněných vrstev, jediného vlastníka drag & drop, filtrování příloh, pořadí post_baseline → v631 → výchozí řazení a zapojení dávkového runneru.
+• Přetažení samotné PDF přílohy přímo z Outlooku se nově zpracuje pouze jako toto PDF. CRM už v této situaci nesáhne na aktuálně vybraný e-mail ani na jeho ostatní přílohy.
+• Outlook virtual drag používá FileGroupDescriptor + FileContents: název přetaženého objektu se rozliší ještě během OLE operace a podporovaný PDF/MSG obsah se bezpečně uloží do dočasného souboru pro stávající parser.
+• Celý e-mail z Outlooku zůstává MSG cestou. Pokud Outlook u skutečného .msg neposkytne FileContents, zůstává zachovaný osvědčený fallback přes Selection.SaveAs(.msg).
+• Pokud se naopak nepodaří převzít přetaženou PDF přílohu, CRM z bezpečnostních důvodů NEZPRACUJE jiný aktuálně označený e-mail; zobrazí chybu a zapíše diagnostiku do offer_drop_crash.log.
+• v631_diskdrop je finální aktivní vlastník nativního drag & dropu, Outlook výběru, COM životního cyklu a diagnostiky vstupu. Staré kořenové kopie/patch vrstvy v622, v626, v627, v630, v631, v634, v635, v641, v642 a v645 byly odstraněny z vývojového kořene repozitáře.
+• Dodavatelský Excel exporter v624 se nyní aplikuje pouze jednou. Dřívější dvojí apply z launcheru a post_baseline zbytečně znovu obalovalo stejné UI metody.
+• Release validace kontroluje FileContents cestu, pořadí post_baseline → v631 → výchozí řazení, nepřítomnost starých patchů a právě jedno zapojení v624.
+• Databázové schéma, uživatelská databáze, existující archiv nabídek ani fyzické dokumenty se touto verzí nemění.
