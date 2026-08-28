@@ -1,6 +1,6 @@
 {
-  "version": "6.3.13",
-  "file": "ZakazkyApp_v6.3.13.zip",
-  "sha256": "cf823da914a565292532f25ebc8c5602231d4fda5c0d2f872504893a35893f88",
-  "notes": "• Po dokončení importu cenových nabídek CRM automaticky zobrazí složku s exportem v Průzkumníkovi. Při jednom importu se otevře konkrétní složka nabídky; při dávce s více cílovými složkami se otevře společný kořen archivu.\n• Pokud je cílová složka už v Průzkumníkovi otevřená, CRM neotevírá další duplicitní okno: najde existující Explorer okno podle skutečné cesty, obnoví ho z minimalizace a vytáhne ho dopředu.\n• Stejný mechanismus se používá pro běžný PDF/MSG batch i pro PDF přílohu nebo celý e-mail přetažený přímo z Outlooku.\n• Při vytvoření e-mailu s Poptávkou se po naplnění příjemců, předmětu, textu a podpisu znovu aktivuje přímo Outlook Inspector daného konceptu, takže koncept zůstane navrchu a je hned vidět.\n• Databáze, parsery, Excel exporty, názvy archivů a logika samotného zpracování nabídek se nemění."
+  "version": "6.3.14",
+  "file": "ZakazkyApp_v6.3.14.zip",
+  "sha256": "2bb5a83818298c59dd9e24e9a2411db5853f421598d1ce1d113ae1763ed33d67",
+  "notes": "• Outlook koncept Poptávky nyní vrací CRM přesné HWND svého Inspector okna. Do popředí jej následně přepíná přímo proces CRM pomocí Win32; při omezení foreground aktivace se použije krátký Z-order/topmost pulse a SwitchToThisWindow fallback.\n• Současný import MSG/PDF nadále používá systémové TemporaryDirectory a pracovní soubory po dokončení automaticky maže. Trvalá složka TURTO Zakazky\\Dokumenty/Documents není pro aktuální import potřeba.\n• Přidán bezpečný úklid legacy mail stagingu: smaže pouze soubory v Dokumenty/Documents, jejichž SHA-256 odpovídá původnímu MSG nebo příloze, která už má kompletní BLOB uložený v databázi. Neznámé soubory se nikdy nemažou.\n• Bezpečný úklid proběhne po zpracování nabídky a jednou po startu, takže lze odstranit i ověřené pozůstatky starších verzí. Konfigurovaný archiv Nabídky je výslovně chráněn a nikdy se tímto úklidem nemaže.\n• Databázové schéma, parsery, Excel exporty, názvy archivních složek a DB-only mazání Nabídek se nemění."
 }
