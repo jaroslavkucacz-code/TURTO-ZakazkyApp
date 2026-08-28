@@ -143,17 +143,18 @@ jobs:
           grep -q "def virtual_pdf_content" "$DIR/_runtime/v631_diskdrop.py"
           grep -q "def materialize_pdf_attachments" "$DIR/_runtime/v631_diskdrop.py"
           grep -q "RegisterClipboardFormat('FileContents')" "$DIR/_runtime/v631_diskdrop.py"
-          grep -q "RegisterClipboardFormat('RenPrivateMessages')" "$DIR/_runtime/v631_diskdrop.py"
-          grep -q "RegisterClipboardFormat('RenPrivateLatestMessages')" "$DIR/_runtime/v631_diskdrop.py"
+          grep -q "RenPrivateMessages" "$DIR/_runtime/v631_diskdrop.py"
+          grep -q "RenPrivateLatestMessages" "$DIR/_runtime/v631_diskdrop.py"
           grep -q "if Path(name).suffix.lower() == '.pdf'" "$DIR/_runtime/v631_diskdrop.py"
           grep -q "M.App.import_selected_outlook_offer = import_selected_outlook_offer" "$DIR/_runtime/v631_diskdrop.py"
-          ! grep -q "PumpWaitingMessages" "$DIR/_runtime/v631_diskdrop.py"
+          ! grep -Fq "pythoncom.PumpWaitingMessages(" "$DIR/_runtime/v631_diskdrop.py"
           python - "$DIR/_runtime/v631_diskdrop.py" <<'PY'
           import pathlib,sys
           text=pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
           assert "def is_outlook_message_drop" in text
           assert "RenPrivateMessages" in text
-          assert "PumpWaitingMessages" not in text
+          assert "RenPrivateLatestMessages" in text
+          assert "pythoncom.PumpWaitingMessages(" not in text
           whole=text.index("if kind == 'outlook_messages'")
           descriptor=text.index("descriptors = virtual_descriptors", whole)
           assert whole < descriptor
