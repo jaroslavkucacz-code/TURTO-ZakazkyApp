@@ -17,12 +17,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python .tmp_fix_patch_6312.py
           python .tmp_tableownership_6312.py
           python -m compileall -q ZakazkyApp_base_6.1 post_baseline.py
           git config user.name "TURTO Refactor Bot"
           git config user.email "actions@users.noreply.github.com"
-          git rm .tmp_tableownership_6312.py
+          git rm .tmp_fix_patch_6312.py .tmp_tableownership_6312.py
           git add post_baseline.py ZakazkyApp_base_6.1/v632_offerlinks.py ZakazkyApp_base_6.1/v637_project_offer_model.py ZakazkyApp_base_6.1/v638_table_updatefix.py ZakazkyApp_base_6.1/v644_default_date_sort.py release_version.txt release_notes.txt
           git commit -m "TURTO CRM 6.3.12 — single table finalizer"
           git push origin HEAD:refactor/table-finalization-6312
-# trigger 2
+# trigger 3
