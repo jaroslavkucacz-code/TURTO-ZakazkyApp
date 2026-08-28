@@ -344,6 +344,125 @@ def apply(M):
         data.setdefault('offer_archive_dir_by_user', {})[active_user(app)] = str(Path(path))
         save_cfg(data)
 
+    def show_offer_archive_folder(app, folders):
+        """Open the resulting offer folder, or foreground its existing Explorer window."""
+        try:
+            import os
+            import subprocess
+            import sys
+
+            if not sys.platform.startswith('win'):
+                return False
+
+            if isinstance(folders, (str, Path)):
+                folders = [folders]
+            unique = []
+            seen = set()
+            for raw in folders or []:
+                try:
+                    path = Path(str(raw))
+                    if not path.is_dir():
+                        continue
+                    key = os.path.normcase(os.path.normpath(os.path.abspath(str(path))))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    unique.append(path)
+                except Exception:
+                    pass
+            if not unique:
+                return False
+
+            # One imported offer -> show its exact folder. A multi-offer batch can
+            # create several sibling folders, so show their configured archive root.
+            target = unique[0] if len(unique) == 1 else archive_root(app)
+            target = Path(target)
+            if not target.is_dir():
+                return False
+            target_key = os.path.normcase(
+                os.path.normpath(os.path.abspath(str(target)))
+            )
+
+            def foreground_existing():
+                pythoncom = None
+                try:
+                    import pythoncom
+                    import win32com.client
+                    import win32con
+                    import win32gui
+
+                    pythoncom.CoInitialize()
+                    shell = win32com.client.Dispatch('Shell.Application')
+                    for window in shell.Windows():
+                        try:
+                            current = str(window.Document.Folder.Self.Path or '')
+                            current_key = os.path.normcase(
+                                os.path.normpath(os.path.abspath(current))
+                            )
+                            if current_key != target_key:
+                                continue
+                            hwnd = int(getattr(window, 'HWND', 0) or 0)
+                            if not hwnd:
+                                continue
+                            try:
+                                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                            except Exception:
+                                pass
+                            try:
+                                win32gui.SetWindowPos(
+                                    hwnd,
+                                    win32con.HWND_TOP,
+                                    0, 0, 0, 0,
+                                    win32con.SWP_NOMOVE
+                                    | win32con.SWP_NOSIZE
+                                    | win32con.SWP_SHOWWINDOW,
+                                )
+                            except Exception:
+                                pass
+                            try:
+                                win32gui.SetForegroundWindow(hwnd)
+                            except Exception:
+                                try:
+                                    win32gui.BringWindowToTop(hwnd)
+                                except Exception:
+                                    pass
+                            return True
+                        except Exception:
+                            continue
+                except Exception:
+                    return False
+                finally:
+                    try:
+                        if pythoncom is not None:
+                            pythoncom.CoUninitialize()
+                    except Exception:
+                        pass
+                return False
+
+            if foreground_existing():
+                return True
+
+            try:
+                os.startfile(str(target))
+            except Exception:
+                try:
+                    subprocess.Popen(['explorer.exe', str(target)])
+                except Exception:
+                    return False
+
+            # Explorer may need a moment to materialize the new window. Refocus it
+            # after launch so CRM never leaves the newly opened folder behind itself.
+            try:
+                app.after(350, foreground_existing)
+                app.after(900, foreground_existing)
+            except Exception:
+                pass
+            return True
+        except Exception:
+            return False
+
+    M.show_offer_archive_folder = show_offer_archive_folder
+
     old_settings = getattr(M.App, 'build_settings', None)
     if callable(old_settings):
         def build_settings(self):
@@ -964,6 +1083,8 @@ def apply(M):
                 text,
                 parent=self,
             )
+            if state['archives'] and not state['cancel']:
+                show_offer_archive_folder(self, state['archives'])
 
         def step():
             if state['cancel'] or state['index'] >= total:

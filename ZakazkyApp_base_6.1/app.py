@@ -1764,6 +1764,11 @@ try {
   $safe=[System.Net.WebUtility]::HtmlEncode($env:ZAK_BODY).Replace("`r`n","<br>")
   $mail.HTMLBody="<div>"+$safe+"</div>"+$existing
 }
+# The Inspector may lose foreground while CRM finishes its synchronous call.
+# Activate the completed draft once more so it is immediately visible to user.
+try {
+  $mail.GetInspector.Activate()
+} catch {}
 """
         try:
             r=subprocess.run(["powershell.exe","-NoProfile","-STA","-Command",ps],

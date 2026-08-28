@@ -1,4 +1,5 @@
-• Opraveno poslední rozhození šířek tabulky po změně stavu: opožděná stabilizace ve v638 už znovu nekonfiguruje identický seznam sloupců, takže po refreshi neshodí Treeview zpět na návrhové šířky.
-• Pokud v638 skutečně provede pozdější strukturální stabilizaci, vždy následně předá geometrii jedinému finálnímu fitteru `post_baseline.schedule_final_tree_layout`, takže napravo nezůstane bílý pruh.
-• U Poptávek už v638 neodpojuje `<Configure>` handler, který patří centrálnímu Treeview layoutu v post_baseline; zachováno je pouze odstranění starých problémových scroll/redraw bindingů.
-• Oprava je cílená pouze na pozdní refresh tabulek po změně stavu. Hromadné mazání Nabídek, kontextové menu, Excel exporty, databázové schéma, parsery a Outlook drag & drop zůstávají beze změny.
+• Po dokončení importu cenových nabídek CRM automaticky zobrazí složku s exportem v Průzkumníkovi. Při jednom importu se otevře konkrétní složka nabídky; při dávce s více cílovými složkami se otevře společný kořen archivu.
+• Pokud je cílová složka už v Průzkumníkovi otevřená, CRM neotevírá další duplicitní okno: najde existující Explorer okno podle skutečné cesty, obnoví ho z minimalizace a vytáhne ho dopředu.
+• Stejný mechanismus se používá pro běžný PDF/MSG batch i pro PDF přílohu nebo celý e-mail přetažený přímo z Outlooku.
+• Při vytvoření e-mailu s Poptávkou se po naplnění příjemců, předmětu, textu a podpisu znovu aktivuje přímo Outlook Inspector daného konceptu, takže koncept zůstane navrchu a je hned vidět.
+• Databáze, parsery, Excel exporty, názvy archivů a logika samotného zpracování nabídek se nemění.
