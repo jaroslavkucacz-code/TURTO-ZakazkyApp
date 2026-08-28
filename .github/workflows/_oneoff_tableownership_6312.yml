@@ -25,3 +25,4 @@ jobs:
           git add post_baseline.py ZakazkyApp_base_6.1/v632_offerlinks.py ZakazkyApp_base_6.1/v637_project_offer_model.py ZakazkyApp_base_6.1/v638_table_updatefix.py ZakazkyApp_base_6.1/v644_default_date_sort.py release_version.txt release_notes.txt
           git commit -m "TURTO CRM 6.3.12 — single table finalizer"
           git push origin HEAD:refactor/table-finalization-6312
+# trigger 2
