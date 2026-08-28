@@ -4,7 +4,7 @@ import importlib.util
 
 BASE = Path(__file__).resolve().parent
 leviat = SourceFileLoader('Leviat_Nabidky_router', str(BASE/'Leviat_Nabidky.pyw')).load_module()
-import Gerotop_Nabidky as gerotop
+import Gerotop_Parser as gerotop
 
 # Built-in parsers migrated from the original TURTO offer-processing program.
 # Future suppliers can be added as small provider modules in offers_engine/providers
@@ -54,17 +54,25 @@ def detect_supplier(pdf_path):
     return None
 
 def parse_offer(pdf_path):
+    matched_errors=[]
     for p in parsers():
         try:
-            if p['detect'](pdf_path):
-                data=p['parse'](pdf_path)
-                if data:
-                    data.setdefault('supplier',p['supplier']);data.setdefault('source_type','PDF')
-                    for item in data.get('items',[]):
-                        item.setdefault('item_key',item.get('description',''));item.setdefault('details','');item.setdefault('image_bytes',None);item.setdefault('image_ext',None)
-                    return data
+            detected=bool(p['detect'](pdf_path))
         except Exception:
+            detected=False
+        if not detected:
             continue
+        try:
+            data=p['parse'](pdf_path)
+            if data:
+                data.setdefault('supplier',p['supplier']);data.setdefault('source_type','PDF')
+                for item in data.get('items',[]):
+                    item.setdefault('item_key',item.get('description',''));item.setdefault('details','');item.setdefault('image_bytes',None);item.setdefault('image_ext',None)
+                return data
+        except Exception as exc:
+            matched_errors.append(f"{p['supplier']}: {exc}")
+    if matched_errors:
+        raise ValueError('PDF bylo rozpoznáno jako cenová nabídka, ale parser ji nedokázal načíst. ' + ' | '.join(matched_errors))
     raise ValueError('PDF není rozpoznáno jako podporovaná cenová nabídka.')
 
 def export_excel(data, output_path, price_alerts=None):
