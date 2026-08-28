@@ -54,9 +54,8 @@ jobs:
                 "$STAGE/v642_exact_table_fill.py" "$STAGE/v642_fullwidth_all.py" \
                 "$STAGE/v645_project_table_fill.py" \
                 "$STAGE/Spustit_DIAGNOSTIKA.bat" "$STAGE/Spustit_Qt_PREVIEW.bat" \
-                "$STAGE/Spustit_Zakazky.bat" "$STAGE/Spustit_Zakazky_v5.bat" \
-                "$STAGE/Spustit_Zakazky_v5.vbs" "$STAGE/Vytvorit_EXE.bat" \
-                "$STAGE/Vytvorit_manifest_aktualizace.py" "$STAGE/latest.example.json"
+                "$STAGE/Spustit_Zakazky_v5.bat" "$STAGE/Spustit_Zakazky_v5.vbs" \
+                "$STAGE/Vytvorit_EXE.bat" "$STAGE/Vytvorit_manifest_aktualizace.py" "$STAGE/latest.example.json"
 
           python - "$STAGE/app.py" "$VERSION" <<'PY'
           import pathlib,re,sys
@@ -117,6 +116,10 @@ jobs:
           done
           test -e "$DIR/ZakazkyCRM.pyw"
           test -e "$DIR/Spustit_Zakazky.vbs"
+          test -e "$DIR/Spustit_Zakazky.bat"
+          grep -q "ZakazkyCRM.pyw" "$DIR/Spustit_Zakazky.bat"
+          ! grep -q "pyw app.py" "$DIR/Spustit_Zakazky.bat"
+          ! grep -q "pythonw app.py" "$DIR/Spustit_Zakazky.bat"
           grep -q "post_baseline.apply(app);v631_diskdrop.apply(app);v644_default_date_sort.apply(app)" "$DIR/ZakazkyCRM.pyw"
           grep -q "crm_features.install_offer_ui(app)" "$DIR/ZakazkyCRM.pyw"
           grep -q "def install_offer_ui" "$DIR/_runtime/crm_features.py"
