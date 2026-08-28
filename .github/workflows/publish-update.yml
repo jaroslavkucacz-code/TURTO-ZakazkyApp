@@ -142,6 +142,26 @@ jobs:
           grep -q "M.App.delete_offer = delete_offer" "$DIR/_runtime/post_baseline.py"
           grep -q "import v624_legacy_exports" "$DIR/_runtime/post_baseline.py"
           test "$(grep -o "v624_legacy_exports.apply" "$DIR/_runtime/post_baseline.py" | wc -l)" -eq 1
+
+          # Rich GEROtop text, supplier-owned Leviat reference and archive naming.
+          grep -q "details_rich_json" "$DIR/_runtime/post_baseline.py"
+          grep -q "def ensure_offer_rich_details" "$DIR/_runtime/post_baseline.py"
+          grep -q "details_rich_json" "$DIR/_runtime/v624_legacy_exports.py"
+          grep -q "Reference zákazníka (Leviat)" "$DIR/_runtime/v624_legacy_exports.py"
+          grep -q "f'nabídka {supplier}_{date_token}_{label}'" "$DIR/_runtime/post_baseline.py"
+          python - "$DIR/_runtime/v624_legacy_exports.py" "$DIR/_runtime/post_baseline.py" <<'PY'
+          import pathlib,sys
+          export=pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
+          baseline=pathlib.Path(sys.argv[2]).read_text(encoding='utf-8')
+          lev=export.split('def _export_leviat',1)[1].split('def _estimate_height',1)[0]
+          assert "_v(offer, 'reference')" in lev
+          assert "_v(offer, 'action_name'" not in lev
+          folder=baseline.split('def folder_for',1)[1].split('def attachment_name',1)[0]
+          assert "action_name or offer_no" in folder
+          assert "nabídka {supplier}_{date_token}_{label}" in folder
+          assert 'sha256' not in folder
+          PY
+
           grep -q "rmtree(target/'_runtime'" "$DIR/crm_updater.pyw"
 
       - name: Build ZIP and manifest
