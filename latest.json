@@ -1,6 +1,6 @@
 {
-  "version": "6.3.0",
-  "file": "ZakazkyApp_v6.3.0.zip",
-  "sha256": "036e69247af385712c1c518a9176f8a66f6c6410f1f458a3059392130053c4e2",
-  "notes": "• Čistý distribuční balíček: historické runtime moduly v606–v645, crm_features/crm_runtime a post_baseline jsou přesunuty do interní složky _runtime místo kořene programu.\n• Uživatelský kořen programu je výrazně přehlednější; z distribuce jsou odstraněny post_fix_613, staré BAT/VBS spouštěče, diagnostika, Qt preview, build utility, original_source a další vývojové soubory.\n• Funkční logika se nemění: aplikace stále načítá stejné ověřené runtime moduly, pouze z interní cesty.\n• Zachován DB-first import PDF/MSG, nezávislý fyzický archiv souborů, ověřený dodavatelský Excel export, mazání nabídek pouze v databázi a jednotný layout tabulek.\n• Build nově kontroluje nejen syntaxi Pythonu, ale i čisté rozložení runtime balíčku před publikací.\n• Cílem 6.3.0 je zpřehlednit instalaci bez rizikového přepisování ověřené logiky do jednoho monolitického souboru."
+  "version": "6.3.1",
+  "file": "ZakazkyApp_v6.3.1.zip",
+  "sha256": "4eb0e879e707fed0ecc88a269d3ba6b4654c21e2d189ad9c725ec0615e7cd2e1",
+  "notes": "• Opraveno výchozí řazení po čistém runtime přesunu v 6.3.0.\n• Výchozí řazení má nyní jediného vlastníka: Příležitosti podle Přijato sestupně, Poptávky a MIVO podle Poptáno sestupně, Akce abecedně podle názvu.\n• Historický v635_actions_sort se už neaplikuje, protože se přetahoval s novějším výchozím řazením a mohl později přepsat správné pořadí.\n• v644_default_date_sort se aplikuje až jako poslední vrstva po post_baseline, takže refresh ani změna záložky nemají výchozí pořadí přepsat.\n• Opraven updater pro čistou 6.3: při aktualizaci odstraní staré historické runtime soubory z kořene existující instalace, ale uživatelská data v Dokumenty/TURTO Zakazky ponechá nedotčená.\n• Updater po aktualizaci používá aktuální Spustit_Zakazky.vbs místo starého Spustit_Zakazky_v5.vbs.\n• Build nově kontroluje i správné pořadí runtime vrstev a aktuální restartovací spouštěč."
 }
