@@ -17,41 +17,21 @@ jobs:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0}
 
-      - name: Materialize reviewed sources
+      - name: Materialize publish script
         shell: bash
         run: |
           set -euo pipefail
-          cat .bootstrap_6329/part_* | base64 -d > /tmp/price_lists_6329_payload.tar.gz
-          echo "e1dec8ca7230755bb0df6ed3bf4119b374f08b969f5ba8d195315c4da7cada41  /tmp/price_lists_6329_payload.tar.gz" | sha256sum -c -
+          cat .bootstrap_publish_6329/part_* | base64 -d | gzip -d > /tmp/publish-update.sh
+          echo "e112f082b1600bc1346c7899e809cf3fcbef92dd9ab306715d370ab1447d1f73  /tmp/publish-update.sh" | sha256sum -c -
+          bash -n /tmp/publish-update.sh
 
-          rm -rf /tmp/price_lists_6329
-          mkdir -p /tmp/price_lists_6329
-          tar -xzf /tmp/price_lists_6329_payload.tar.gz -C /tmp/price_lists_6329
-
-          cp /tmp/price_lists_6329/crm_price_lists.py ZakazkyApp_base_6.1/crm_price_lists.py
-          rm -rf ZakazkyApp_base_6.1/price_lists_domain
-          cp -a /tmp/price_lists_6329/price_lists_domain ZakazkyApp_base_6.1/price_lists_domain
-          cp /tmp/price_lists_6329/requirements_6329.txt ZakazkyApp_base_6.1/requirements.txt
-          cp /tmp/price_lists_6329/release_version_6329.txt release_version.txt
-          cp /tmp/price_lists_6329/release_notes_6329.txt release_notes.txt
-
-          rm -rf .bootstrap_6329
-
-          python -m compileall -q ZakazkyApp_base_6.1/crm_price_lists.py ZakazkyApp_base_6.1/price_lists_domain
-          python - <<'PY'
-          import sys
-          sys.path.insert(0, 'ZakazkyApp_base_6.1')
-          from price_lists_domain.common import _number
-          from price_lists_domain.model import _base_item
-          assert _number('368,37') == 368.37
-          value = _base_item(source_price=368.37, price_basis_qty=100)['normalized_unit_price']
-          assert abs(value - 3.6837) < 1e-9
-          PY
-          find ZakazkyApp_base_6.1 -type d -name __pycache__ -prune -exec rm -rf {} +
-          find ZakazkyApp_base_6.1 -type f -name '*.pyc' -delete
+          mkdir -p scripts
+          cp /tmp/publish-update.sh scripts/publish-update.sh
+          chmod +x scripts/publish-update.sh
+          rm -rf .bootstrap_publish_6329
 
           git config user.name "TURTO Source Bot"
           git config user.email "actions@users.noreply.github.com"
           git add -A
-          git commit -m "TURTO CRM 6.3.29 — Ceníky"
+          git commit -m "TURTO CRM 6.3.29 — publish script"
           git push origin HEAD:feature/6.3.29-price-lists
