@@ -546,6 +546,17 @@ def apply(M):
 
     M.export_offer_exactly_like_manual = export_to_path
 
+    def excel_name_for_offer(offer_id):
+        generator = getattr(M, 'offer_export_filename', None)
+        if callable(generator):
+            try:
+                name = str(generator(offer_id) or '').strip()
+                if name.lower().endswith('.xlsx'):
+                    return name
+            except Exception:
+                pass
+        return 'Extrakce dat CN nabidka.xlsx'
+
     # ------------------------------------------------------------------
     # DB-first archive pipeline.
     # ------------------------------------------------------------------
@@ -700,7 +711,7 @@ def apply(M):
                 archived = folder / safe(source.name, 130)
                 if not archived.exists() or archived.stat().st_size != source.stat().st_size:
                     shutil.copy2(source, archived)
-                output = folder / 'Extrakce_nabidky.xlsx'
+                output = folder / excel_name_for_offer(offer_id)
                 export_to_path(app, offer_id, output)
                 result.update(
                     archive_folder=str(folder),
@@ -811,12 +822,16 @@ def apply(M):
 
             # 4) Always generate the Excel from committed DB data, regardless of
             # any attachment-specific problem above.
+            used_output_names = set()
             for index, offer in enumerate(offers, 1):
-                output = folder / (
-                    'Extrakce_nabidky.xlsx'
-                    if len(offers) == 1
-                    else f'Extrakce_nabidky_{index}.xlsx'
-                )
+                filename = excel_name_for_offer(offer['offer_id'])
+                key = filename.casefold()
+                if key in used_output_names:
+                    candidate = Path(filename)
+                    filename = f'{candidate.stem}_{index}{candidate.suffix}'
+                    key = filename.casefold()
+                used_output_names.add(key)
+                output = folder / filename
                 try:
                     export_to_path(app, offer['offer_id'], output)
                     outputs.append(str(output))

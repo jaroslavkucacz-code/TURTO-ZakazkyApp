@@ -2,6 +2,7 @@
 import io
 import json
 import math
+import re
 
 
 def apply(M):
@@ -20,22 +21,52 @@ def apply(M):
         except Exception:
             return 0.0
 
-    def _safe_no(value):
-        text = str(value or 'nabidka').strip()
-        return (
-            ''.join(ch if ch.isalnum() or ch in '-_.' else '_' for ch in text)
-            .strip('._')
-            or 'nabidka'
+    def _safe_filename_part(value, fallback='nabidka', maxlen=90):
+        text = re.sub(
+            r'[<>:"/\\|?*\x00-\x1f]+',
+            '_',
+            str(value or ''),
         )
+        text = ' '.join(text.split()).strip(' ._')
+        return (text or fallback)[:maxlen].rstrip(' .')
 
-    def _save_path(parent, offer_no):
+    def _export_filename_from_offer(offer):
+        offer_no = _safe_filename_part(
+            _v(offer, 'offer_number'),
+            fallback='nabidka',
+            maxlen=55,
+        )
+        supplier_reference = _safe_filename_part(
+            _v(offer, 'reference'),
+            fallback='',
+            maxlen=95,
+        )
+        suffix = f'_{supplier_reference}' if supplier_reference else ''
+        return f'Extrakce dat CN {offer_no}{suffix}.xlsx'
+
+    def export_filename(offer_id):
+        try:
+            with M.db() as con:
+                offer = con.execute(
+                    'SELECT offer_number,reference FROM supplier_offers WHERE id=?',
+                    (offer_id,),
+                ).fetchone()
+            if offer:
+                return _export_filename_from_offer(offer)
+        except Exception:
+            pass
+        return 'Extrakce dat CN nabidka.xlsx'
+
+    M.offer_export_filename = export_filename
+
+    def _save_path(parent, offer):
         from tkinter import filedialog
         return filedialog.asksaveasfilename(
             parent=parent,
             title='Extrakce dat nabídky',
             defaultextension='.xlsx',
             filetypes=[('Excel', '*.xlsx')],
-            initialfile=f'Extrakce dat CN {_safe_no(offer_no)}.xlsx',
+            initialfile=_export_filename_from_offer(offer),
         ) or ''
 
     def _load(offer_id):
@@ -369,7 +400,7 @@ def apply(M):
         offer, items = _load(offer_id)
         if not offer:
             return
-        path = _save_path(parent or app, _v(offer, 'offer_number'))
+        path = _save_path(parent or app, offer)
         if not path:
             return
 
