@@ -220,6 +220,31 @@ def apply(M):
 
         M.App.tree = tree
 
+    def schedule_final_layout(app):
+        """Run geometry after older refresh layers finish their idle callbacks."""
+        try:
+            previous = getattr(app, '_turto_final_layout_after', None)
+            if previous is not None:
+                try:
+                    app.after_cancel(previous)
+                except Exception:
+                    pass
+
+            def finish():
+                try:
+                    app._turto_final_layout_after = None
+                except Exception:
+                    pass
+                normalize(app)
+                recolor_dashboard(app)
+
+            app._turto_final_layout_after = app.after_idle(finish)
+        except Exception:
+            normalize(app)
+            recolor_dashboard(app)
+
+    M.schedule_final_tree_layout = schedule_final_layout
+
     for name in (
         'refresh_dash', 'refresh_dashboard', 'refresh_actions', 'refresh_requests',
         'refresh_mivo_requests', 'refresh_mivo', 'refresh_projects',
@@ -233,11 +258,7 @@ def apply(M):
         def make(fn):
             def wrapped(self, *args, **kwargs):
                 result = fn(self, *args, **kwargs)
-                normalize(self)
-                try:
-                    self.after_idle(lambda: recolor_dashboard(self))
-                except Exception:
-                    recolor_dashboard(self)
+                schedule_final_layout(self)
                 return result
 
             return wrapped
@@ -248,8 +269,7 @@ def apply(M):
     if callable(old_show):
         def show_page(self, *args, **kwargs):
             result = old_show(self, *args, **kwargs)
-            normalize(self)
-            recolor_dashboard(self)
+            schedule_final_layout(self)
             return result
 
         M.App.show_page = show_page
@@ -1127,42 +1147,65 @@ def apply(M):
     # ------------------------------------------------------------------
     # DB-only deletion; the physical archive remains independent.
     # ------------------------------------------------------------------
+    def selected_offer_ids(self):
+        tree = getattr(self, 'offer_tree', None)
+        if tree is None:
+            return []
+        result = []
+        try:
+            for iid in tree.selection():
+                text = str(iid)
+                if not text.startswith('o'):
+                    continue
+                try:
+                    offer_id = int(text[1:])
+                except Exception:
+                    continue
+                if offer_id not in result:
+                    result.append(offer_id)
+        except Exception:
+            pass
+        return result
+
+    M.App._selected_offer_ids = selected_offer_ids
+
     def delete_offer(self):
-        offer_id = (
-            self._selected_offer_id()
-            if hasattr(self, '_selected_offer_id')
-            else None
-        )
-        if not offer_id:
+        offer_ids = self._selected_offer_ids()
+        if not offer_ids:
+            return M.messagebox.showinfo(
+                'Nabídky',
+                'Vyberte jednu nebo více nabídek.',
+                parent=self,
+            )
+
+        count = len(offer_ids)
+        if count == 1:
+            question = 'Opravdu odstranit vybranou nabídku z databáze CRM?'
+        else:
+            question = f'Opravdu odstranit {count} vybraných nabídek z databáze CRM?'
+        question += '\n\nSoubory na disku zůstanou beze změny.'
+        if not M.messagebox.askyesno('Odstranit nabídky', question, parent=self):
             return
-        if not M.messagebox.askyesno(
-            'Nabídky',
-            'Opravdu odstranit tento import nabídky z CRM?\n\n'
-            'Soubory na disku zůstanou beze změny.',
-            parent=self,
-        ):
-            return
+
+        placeholders = ','.join('?' for _ in offer_ids)
+        params = tuple(offer_ids)
         try:
             with M.db() as con:
                 try:
                     con.execute(
-                        'UPDATE offer_source_attachments '
-                        'SET offer_id=NULL WHERE offer_id=?',
-                        (offer_id,),
+                        f'UPDATE offer_source_attachments SET offer_id=NULL '
+                        f'WHERE offer_id IN ({placeholders})',
+                        params,
                     )
                 except Exception:
                     pass
                 con.execute(
-                    'DELETE FROM supplier_offers WHERE id=?',
-                    (offer_id,),
+                    f'DELETE FROM supplier_offers WHERE id IN ({placeholders})',
+                    params,
                 )
             self.refresh_offers()
         except Exception as exc:
-            M.messagebox.showerror(
-                'Nabídky',
-                str(exc),
-                parent=self,
-            )
+            M.messagebox.showerror('Nabídky', str(exc), parent=self)
 
     M.App.delete_offer = delete_offer
 
@@ -1170,6 +1213,12 @@ def apply(M):
 
     def init(self, *args, **kwargs):
         result = old_init(self, *args, **kwargs)
+        try:
+            tree = getattr(self, 'offer_tree', None)
+            if tree is not None:
+                tree.configure(selectmode='extended')
+        except Exception:
+            pass
         try:
             self.update_idletasks()
             normalize(self)

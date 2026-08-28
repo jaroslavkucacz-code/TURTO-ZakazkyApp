@@ -114,28 +114,21 @@ def apply(M):
             pass
 
     def _refresh_counts(app):
+        # Opportunity offer-count columns were superseded by the real
+        # Action/project model in v637. Keep only the Request-side count here.
         try:
-            at=getattr(app,'action_tree',None)
-            if at is not None:
-                _add_offer_column(at)
-                with M.db() as c:
-                    rows=c.execute('''SELECT a.id,count(DISTINCT o.id) n FROM actions a LEFT JOIN supplier_offers o
-                                      ON o.action_id=a.id OR o.request_id IN (SELECT id FROM requests r WHERE r.action_id=a.id)
-                                      GROUP BY a.id''').fetchall()
-                counts={int(r['id']):int(r['n']) for r in rows}
-                for iid in at.get_children():
-                    aid=_selected_id_from_iid(iid,'a');at.set(iid,'Nabídky',str(counts.get(aid,0)) if aid else '')
-        except Exception:
-            pass
-        try:
-            rt=getattr(app,'request_tree',None)
+            rt = getattr(app, 'request_tree', None)
             if rt is not None:
                 _add_offer_column(rt)
                 with M.db() as c:
-                    rows=c.execute('SELECT request_id,count(*) n FROM supplier_offers WHERE request_id IS NOT NULL GROUP BY request_id').fetchall()
-                counts={int(r['request_id']):int(r['n']) for r in rows}
+                    rows = c.execute(
+                        'SELECT request_id,count(*) n FROM supplier_offers '
+                        'WHERE request_id IS NOT NULL GROUP BY request_id'
+                    ).fetchall()
+                counts = {int(r['request_id']): int(r['n']) for r in rows}
                 for iid in rt.get_children():
-                    rid=_selected_id_from_iid(iid,'r');rt.set(iid,'Nabídky',str(counts.get(rid,0)) if rid else '')
+                    rid = _selected_id_from_iid(iid, 'r')
+                    rt.set(iid, 'Nabídky', str(counts.get(rid, 0)) if rid else '')
         except Exception:
             pass
 
@@ -165,9 +158,14 @@ def apply(M):
         menu=M.tk.Menu(tree,tearoff=0)
         def popup(e):
             try:
-                row=tree.identify_row(e.y)
-                if row:
-                    tree.selection_set(row);tree.focus(row)
+                # Never show the related-offers row menu on headings, separators
+                # or empty table space. Other header bindings remain untouched.
+                if tree.identify_region(e.x, e.y) != 'cell':
+                    return
+                row = tree.identify_row(e.y)
+                if not row:
+                    return
+                tree.selection_set(row);tree.focus(row)
                 menu.delete(0,'end')
                 if kind=='action':
                     aid=_selected_id(tree,'a');n=_offer_count_for_action(aid) if aid else 0

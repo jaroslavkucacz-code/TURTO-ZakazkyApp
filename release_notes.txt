@@ -1,7 +1,6 @@
-• Název Excel extrakce nově obsahuje také dodavatelský název/reference nabídky přímo z PDF. Příklad: „Extrakce dat CN P12166-2026_TĚSNÍCÍ VLOŽKY.xlsx“.
-• U Leviatu se do názvu Excelu používá výhradně „Reference zákazníka“ z nabídky Leviatu, nikoli interní název Akce v CRM.
-• U GEROtopu se používá pracovní název akce/reference načtený z dodavatelského PDF. Interní Akce CRM zůstává oddělená.
-• Pokud dodavatelská reference v PDF chybí, název Excelu bezpečně zůstane ve formátu „Extrakce dat CN <číslo nabídky>.xlsx“.
-• Ruční export i automatická extrakce do archivní složky používají stejný kanonický generátor názvu souboru; při více nabídkách v jednom MSG se případná shoda názvů bezpečně očísluje.
-• Znaky nepovolené ve Windows názvech souborů se nahrazují podtržítkem; mezery a česká diakritika se zachovávají.
-• Databázové schéma, uživatelská data, parsery, formátování GEROtop i bezpečná MSG/PDF drag & drop cesta se touto verzí nemění.
+• Opraveno rozhození šířek tabulek po změně stavu. Finální Treeview layout se nyní přepočítá až po dokončení všech starších `after_idle` refresh callbacků, takže není nutné přepínat na jinou záložku a zpět. Oprava je společná pro Příležitosti, Poptávky a ostatní hlavní tabulky.
+• Odstraněna zbytečná mezifáze, kdy v632 po každém refreshi znovu přidával sloupec Nabídky do Příležitostí a v637 jej následně odebíral. Související nabídky Příležitosti zůstávají dostupné z datového řádku; počty nabídek hlavní Akce/projektu nadále vlastní v637.
+• Pravé tlačítko na záhlaví Příležitostí nebo Poptávek již neotevře menu „Související nabídky (0)“. Toto menu se zobrazí pouze po kliknutí na skutečný datový řádek.
+• V seznamu Nabídek je explicitně povolen vícenásobný výběr. Pomocí Ctrl/Shift lze označit více nabídek a tlačítkem Smazat je odstranit z databáze jednou transakcí.
+• Hromadné mazání nabídek zachovává dosavadní bezpečné chování: odpojí databázové vazby příloh a odstraní pouze záznamy CRM; fyzické soubory a archiv na disku zůstávají beze změny.
+• Databázové schéma, parsery nabídek, Excel exporty ani Outlook drag & drop se touto verzí nemění.
