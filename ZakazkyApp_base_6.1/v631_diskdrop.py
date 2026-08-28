@@ -164,6 +164,12 @@ def apply(M):
                     opener(app, archive_folders)
             except Exception:
                 pass
+        try:
+            cleanup = getattr(M, 'cleanup_legacy_offer_staging', None)
+            if callable(cleanup):
+                cleanup(app)
+        except Exception:
+            pass
         return good
 
     def _process_real_files(app, paths):

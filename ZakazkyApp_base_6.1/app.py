@@ -1764,17 +1764,59 @@ try {
   $safe=[System.Net.WebUtility]::HtmlEncode($env:ZAK_BODY).Replace("`r`n","<br>")
   $mail.HTMLBody="<div>"+$safe+"</div>"+$existing
 }
-# The Inspector may lose foreground while CRM finishes its synchronous call.
-# Activate the completed draft once more so it is immediately visible to user.
+# Return the exact Inspector HWND to the CRM process. Calling Activate() only
+# inside this PowerShell child is not sufficient on Windows because foreground
+# activation may be refused for a non-foreground child process.
 try {
-  $mail.GetInspector.Activate()
+  $insp=$mail.GetInspector
+  $insp.Activate()
+  Write-Output ("TURTO_OUTLOOK_HWND=" + [string]$insp.HWND)
 } catch {}
 """
         try:
             r=subprocess.run(["powershell.exe","-NoProfile","-STA","-Command",ps],
                              env=env,capture_output=True,text=True,timeout=20,
                              creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
-            if r.returncode==0:return True
+            if r.returncode==0:
+                # CRM itself is the foreground process that initiated the user action,
+                # so let CRM bring the exact Outlook Inspector to the foreground.
+                try:
+                    m=re.search(r'TURTO_OUTLOOK_HWND=(\d+)',r.stdout or '')
+                    if m:
+                        hwnd=int(m.group(1))
+                        try:
+                            import win32con,win32gui
+                            if win32gui.IsWindow(hwnd):
+                                win32gui.ShowWindow(hwnd,win32con.SW_RESTORE)
+                                win32gui.SetWindowPos(
+                                    hwnd,win32con.HWND_TOP,0,0,0,0,
+                                    win32con.SWP_NOMOVE|win32con.SWP_NOSIZE|win32con.SWP_SHOWWINDOW)
+                                try:win32gui.BringWindowToTop(hwnd)
+                                except Exception:pass
+                                try:win32gui.SetForegroundWindow(hwnd)
+                                except Exception:pass
+                                # If Windows focus-lock still refuses the foreground call,
+                                # pulse topmost and use SwitchToThisWindow as a final fallback.
+                                if win32gui.GetForegroundWindow()!=hwnd:
+                                    try:
+                                        win32gui.SetWindowPos(hwnd,win32con.HWND_TOPMOST,0,0,0,0,win32con.SWP_NOMOVE|win32con.SWP_NOSIZE)
+                                        win32gui.SetWindowPos(hwnd,win32con.HWND_NOTOPMOST,0,0,0,0,win32con.SWP_NOMOVE|win32con.SWP_NOSIZE|win32con.SWP_SHOWWINDOW)
+                                    except Exception:pass
+                                    try:
+                                        import ctypes
+                                        ctypes.windll.user32.SwitchToThisWindow(hwnd,True)
+                                    except Exception:pass
+                        except Exception:
+                            try:
+                                import ctypes
+                                user32=ctypes.windll.user32
+                                user32.ShowWindow(hwnd,9)
+                                user32.BringWindowToTop(hwnd)
+                                if not user32.SetForegroundWindow(hwnd):
+                                    user32.SwitchToThisWindow(hwnd,True)
+                            except Exception:pass
+                except Exception:pass
+                return True
             detail=(r.stderr or r.stdout or "").strip()
             messagebox.showerror("Outlook",
                 "Nepodařilo se vytvořit koncept v klasickém Outlooku.\n\n"

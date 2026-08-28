@@ -344,6 +344,134 @@ def apply(M):
         data.setdefault('offer_archive_dir_by_user', {})[active_user(app)] = str(Path(path))
         save_cfg(data)
 
+    def cleanup_legacy_offer_staging(app=None):
+        """Delete only legacy staging files whose full bytes are already stored in DB.
+
+        Current MSG/PDF import uses TemporaryDirectory and cleans itself. Older
+        versions could leave mail material under DATA_ROOT\Dokumenty/Documents.
+        Never remove an unknown file and never touch the configured offer archive.
+        """
+        try:
+            import os
+
+            data_root = Path(getattr(M, 'DATA_ROOT', ''))
+            if not data_root.is_dir():
+                return 0
+
+            roots = []
+            try:
+                for child in data_root.iterdir():
+                    if child.is_dir() and child.name.casefold() in {'dokumenty', 'documents'}:
+                        roots.append(child)
+            except Exception:
+                return 0
+            if not roots:
+                return 0
+
+            # A file is disposable only when the database already contains its
+            # complete original bytes, not merely metadata or a path.
+            known_hashes = set()
+            try:
+                with M.db() as con:
+                    tables = {
+                        str(row[0])
+                        for row in con.execute(
+                            "SELECT name FROM sqlite_master WHERE type='table'"
+                        ).fetchall()
+                    }
+                    if 'offer_source_messages' in tables:
+                        cols = {
+                            str(row[1])
+                            for row in con.execute(
+                                'PRAGMA table_info(offer_source_messages)'
+                            ).fetchall()
+                        }
+                        if 'source_blob' in cols:
+                            known_hashes.update(
+                                str(row[0])
+                                for row in con.execute(
+                                    "SELECT source_hash FROM offer_source_messages "
+                                    "WHERE source_blob IS NOT NULL AND length(source_blob)>0 "
+                                    "AND trim(coalesce(source_hash,''))<>''"
+                                ).fetchall()
+                            )
+                    if 'offer_source_attachments' in tables:
+                        known_hashes.update(
+                            str(row[0])
+                            for row in con.execute(
+                                "SELECT content_hash FROM offer_source_attachments "
+                                "WHERE content_blob IS NOT NULL AND length(content_blob)>0 "
+                                "AND trim(coalesce(content_hash,''))<>''"
+                            ).fetchall()
+                        )
+            except Exception:
+                return 0
+            if not known_hashes:
+                return 0
+
+            try:
+                archive = archive_root(app).resolve()
+            except Exception:
+                archive = None
+
+            def digest(path):
+                h = hashlib.sha256()
+                with path.open('rb') as handle:
+                    while True:
+                        chunk = handle.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        h.update(chunk)
+                return h.hexdigest()
+
+            deleted = 0
+            for root in roots:
+                try:
+                    resolved_root = root.resolve()
+                    if archive is not None and (
+                        resolved_root == archive
+                        or resolved_root in archive.parents
+                        or archive in resolved_root.parents
+                    ):
+                        # Never clean a path that is or contains the real archive.
+                        continue
+                except Exception:
+                    continue
+
+                files = []
+                try:
+                    files = [p for p in root.rglob('*') if p.is_file() and not p.is_symlink()]
+                except Exception:
+                    pass
+                for file_path in files:
+                    try:
+                        if digest(file_path) in known_hashes:
+                            file_path.unlink()
+                            deleted += 1
+                    except Exception:
+                        pass
+
+                # Remove only directories that became genuinely empty. Unknown
+                # content keeps both its file and its parent folder untouched.
+                try:
+                    dirs = [p for p in root.rglob('*') if p.is_dir()]
+                    dirs.sort(key=lambda p: len(p.parts), reverse=True)
+                    for directory in dirs:
+                        try:
+                            if not any(directory.iterdir()):
+                                directory.rmdir()
+                        except Exception:
+                            pass
+                    if root.exists() and not any(root.iterdir()):
+                        root.rmdir()
+                except Exception:
+                    pass
+            return deleted
+        except Exception:
+            return 0
+
+    M.cleanup_legacy_offer_staging = cleanup_legacy_offer_staging
+
     def show_offer_archive_folder(app, folders):
         """Open the resulting offer folder, or foreground its existing Explorer window."""
         try:
@@ -1083,6 +1211,10 @@ def apply(M):
                 text,
                 parent=self,
             )
+            try:
+                cleanup_legacy_offer_staging(self)
+            except Exception:
+                pass
             if state['archives'] and not state['cancel']:
                 show_offer_archive_folder(self, state['archives'])
 
@@ -1348,6 +1480,11 @@ def apply(M):
             pass
         try:
             self.after(1200, lambda: reclaim_tree_layout(self))
+        except Exception:
+            pass
+        try:
+            # One safe pass also removes verified leftovers from older releases.
+            self.after(1800, lambda: cleanup_legacy_offer_staging(self))
         except Exception:
             pass
         return result
