@@ -181,7 +181,11 @@ def apply(M):
             left=M.ttk.Frame(box);left.pack(side='left',fill='x',expand=True)
             self._price_img_title=M.ttk.Label(left,text='Vyberte produkt',style='Section.TLabel');self._price_img_title.pack(anchor='w')
             self._price_img_meta=M.ttk.Label(left,text='',style='PageSubtitle.TLabel');self._price_img_meta.pack(anchor='w')
-            self._price_img=M.ttk.Label(box,text='');self._price_img.pack(side='right')
+            image_box=M.ttk.Frame(box,width=230,height=150)
+            image_box.pack(side='right',padx=(12,0))
+            image_box.pack_propagate(False)
+            self._price_img=M.ttk.Label(image_box,text='',anchor='center')
+            self._price_img.pack(fill='both',expand=True)
             M.ttk.Button(left,text='Exportovat zobrazené do Excelu',style='Accent.TButton',command=self.export_excel).pack(anchor='w',pady=(8,0))
             self.t.bind('<<TreeviewSelect>>',lambda e:self.show_image(),add='+')
         def show_image(self):
@@ -199,7 +203,11 @@ def apply(M):
                 if not im or not im['image_blob']:
                     self._price_img.configure(image='',text='Bez obrázku');self._price_img.image=None;return
                 from PIL import Image,ImageTk
-                img=Image.open(io.BytesIO(bytes(im['image_blob'])));img.thumbnail((230,150));ph=ImageTk.PhotoImage(img);self._price_img.configure(image=ph,text='');self._price_img.image=ph
+                source=Image.open(io.BytesIO(bytes(im['image_blob']))).convert('RGBA')
+                source.thumbnail((214,134),Image.Resampling.LANCZOS)
+                canvas=Image.new('RGBA',(230,150),(0,0,0,0))
+                canvas.alpha_composite(source,((230-source.width)//2,(150-source.height)//2))
+                ph=ImageTk.PhotoImage(canvas);self._price_img.configure(image=ph,text='');self._price_img.image=ph
             except Exception:
                 try:self._price_img.configure(image='',text='Obrázek nelze zobrazit')
                 except Exception:pass
@@ -286,7 +294,7 @@ def apply(M):
                 p=self.tabs['help']
                 def walk(w):
                     if isinstance(w,tk.Text):
-                        w.configure(state='normal');w.insert('end','\n\nNABÍDKY / EXCEL 6.0.23\nVybranou nabídku lze exportovat do XLSX včetně položek a dostupných obrázků. Přehled Produkty / ceny má vlastní export aktuálního filtru a druhý list s historií cen. Vybraný produkt zároveň zobrazuje dostupný obrázek přímo v okně. Předmět Poptávky se po změně dodavatele, Akce, položky nebo data vždy znovu sestaví z aktuálních hodnot. Stavové barvy jsou centrálně sjednocené pro Přehled i Příležitosti. Hlavní okno se při startu umístí na monitor pod kurzorem a až potom maximalizuje.')
+                        w.configure(state='normal');w.insert('end','\n\nNABÍDKY / EXCEL 6.0.23\nVybranou nabídku lze exportovat do XLSX včetně položek a dostupných obrázků. Přehled Produkty / ceny má vlastní export aktuálního filtru a druhý list s historií cen. Vybraný produkt zároveň zobrazuje dostupný obrázek v pevném náhledovém poli, takže různé poměry stran nemění výšku panelu. Předmět Poptávky se po změně dodavatele, Akce, položky nebo data vždy znovu sestaví z aktuálních hodnot. Stavové barvy jsou centrálně sjednocené pro Přehled i Příležitosti. Hlavní okno se při startu umístí na monitor pod kurzorem a až potom maximalizuje.')
                         w.configure(state='disabled')
                     for c in w.winfo_children():walk(c)
                 walk(p)
