@@ -8,6 +8,7 @@ from tkinter import ttk, messagebox
 M=None
 GITHUB_UPDATE="https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/main"
 
+
 class OfferPriceHistoryDialog(tk.Toplevel):
     def __init__(self,parent,supplier,item_key,title_text=""):
         super().__init__(parent);M.enable_dialog_maximize(self,1050,650);self.title("Historie ceny položky");self.transient(parent);self.grab_set()
@@ -40,6 +41,7 @@ class OfferPriceHistoryDialog(tk.Toplevel):
             tree.insert("","end",values=(M.fmt_date(r["offer_date"]),r["offer_number"] or "",r["action_name"] or "",r["original_name"] or "",r["product_code"] or "",r["quantity"],r["unit"] or "",f"{float(r['original_unit_price'] or 0):,.2f}",f"{float(r['discount_pct'] or 0):.2f} %",f"{float(r['unit_price'] or 0):,.2f}",f"{float(r['total_price'] or 0):,.2f}"))
         ttk.Button(f,text="Zavřít",style="Accent.TButton",command=self.destroy).pack(anchor="e",pady=(10,0))
 
+
 class OfferActionLinkDialog(tk.Toplevel):
     def __init__(self,parent,current=""):
         super().__init__(parent);M.enable_dialog_maximize(self,760,300);self.title("Přiřadit nabídku k Akci");self.transient(parent);self.grab_set();self.result=None
@@ -59,6 +61,7 @@ class OfferActionLinkDialog(tk.Toplevel):
         with M.db() as con:r=con.execute("SELECT name FROM actions WHERE lower(trim(name))=lower(trim(?)) ORDER BY id DESC LIMIT 1",(v,)).fetchone()
         if not r:return messagebox.showwarning("Nabídky","Vyberte existující Akci ze seznamu.",parent=self)
         self.finish(r["name"])
+
 
 class OfferDetailDialog(tk.Toplevel):
     def __init__(self,parent,oid):
@@ -127,32 +130,214 @@ class OfferDetailDialog(tk.Toplevel):
         except Exception:pass
         self._build()
 
+
+def _offer_filter_values():
+    """Read only values that are relevant to the offer view."""
+    suppliers=[]
+    actions=[]
+    try:
+        with M.db() as con:
+            suppliers=[
+                r["supplier"] for r in con.execute(
+                    """SELECT DISTINCT coalesce(s.official_name,o.supplier_name,'') supplier
+                       FROM supplier_offers o
+                       LEFT JOIN companies s ON s.id=o.supplier_company_id
+                       WHERE trim(coalesce(s.official_name,o.supplier_name,''))<>''
+                       ORDER BY supplier COLLATE CZECH"""
+                ).fetchall()
+            ]
+            try:
+                actions=[
+                    r["name"] for r in con.execute(
+                        """SELECT name FROM projects
+                           WHERE coalesce(active,1)=1
+                             AND trim(coalesce(name,''))<>''
+                           ORDER BY name COLLATE CZECH,id"""
+                    ).fetchall()
+                ]
+            except Exception:
+                actions=[
+                    r["name"] for r in con.execute(
+                        """SELECT DISTINCT trim(name) name FROM actions
+                           WHERE trim(coalesce(name,''))<>''
+                           ORDER BY trim(name) COLLATE CZECH"""
+                    ).fetchall()
+                ]
+    except Exception:
+        pass
+    return suppliers,actions
+
+
+def clear_offer_filters(self):
+    for name in ("offer_q","offer_supplier_filter","offer_action_filter"):
+        try:getattr(self,name).set("")
+        except Exception:pass
+    try:self.refresh_offers()
+    except Exception:pass
+
+
+def update_offer_selection(self,*_):
+    tree=getattr(self,"offer_tree",None)
+    label=getattr(self,"offer_selection_label",None)
+    if tree is None or label is None:return
+    try:
+        count=len(tree.selection())
+        label.configure(text=f"Vybráno: {count}" if count else "Nevybrána žádná nabídka")
+    except Exception:
+        pass
+
+
 def build_offers(self):
-    p=self.tabs["offers"];self.title_label(p,"Nabídky","+ Importovat PDF",self.import_offer_pdf)
-    bar=ttk.Frame(p,style="Panel.TFrame",padding=10);bar.pack(fill="x",pady=(0,6))
-    ttk.Button(bar,text="Otevřít detail",style="Toolbar.TButton",command=self.open_offer_detail).pack(side="right",padx=4);ttk.Button(bar,text="Otevřít PDF",style="Toolbar.TButton",command=self.open_offer_pdf).pack(side="right",padx=4);ttk.Button(bar,text="Smazat import",style="Toolbar.TButton",command=self.delete_offer).pack(side="right",padx=4)
-    ttk.Label(bar,text="Hledání prochází i názvy, kódy a item_key položek.",style="PageSubtitle.TLabel").pack(side="left")
-    with M.db() as con:
-        suppliers=[r["official_name"] for r in con.execute("SELECT official_name FROM companies WHERE active=1 ORDER BY official_name COLLATE CZECH")];actions=[r["name"] for r in con.execute("SELECT DISTINCT trim(name) name FROM actions WHERE trim(coalesce(name,''))<>'' ORDER BY trim(name) COLLATE CZECH")]
-    self.offer_supplier_filter=tk.StringVar();self.offer_action_filter=tk.StringVar();self.offer_q=tk.StringVar();filters=ttk.Frame(p,style="Panel.TFrame",padding=6);filters.pack(fill="x",pady=(0,5))
-    for i,lab in enumerate(("Dodavatel","Akce","Položka / text")):ttk.Label(filters,text=lab,style="FilterLabel.TLabel").grid(row=0,column=i,sticky="w")
-    M.AutocompleteEntry(filters,textvariable=self.offer_supplier_filter,values=suppliers).grid(row=1,column=0,sticky="ew",padx=(0,6));M.AutocompleteEntry(filters,textvariable=self.offer_action_filter,values=actions).grid(row=1,column=1,sticky="ew",padx=(0,6));ttk.Entry(filters,textvariable=self.offer_q).grid(row=1,column=2,sticky="ew")
-    for i in range(3):filters.columnconfigure(i,weight=1)
-    for v in (self.offer_supplier_filter,self.offer_action_filter,self.offer_q):v.trace_add("write",lambda *a:self.refresh_offers())
-    self.offer_tree=self.tree(p,("Datum","Dodavatel","Odběratel","Akce","Číslo nabídky","Položek","Hodnota","Měna","Stav"),[100,220,220,260,150,80,120,65,110]);M.bind_row_double_click(self.offer_tree,lambda e:self.open_offer_detail())
+    p=self.tabs["offers"]
+    # This is the canonical composition of the Offers page. Older feature
+    # modules still provide commands, but they no longer own page layout.
+    self._offer_drop_area_ready=True
+    self.title_label(p,"Nabídky")
+
+    primary=ttk.Frame(p,style="Panel.TFrame",padding=(10,8))
+    primary.pack(fill="x",pady=(0,6))
+    if callable(getattr(self,"import_offer_sources",None)):
+        ttk.Button(
+            primary,text="📥 Zpracovat nabídku",style="Accent.TButton",
+            command=self.import_offer_sources,
+        ).pack(side="left")
+    if callable(getattr(self,"import_selected_outlook_offer",None)):
+        ttk.Button(
+            primary,text="✉ Načíst z Outlooku",style="Toolbar.TButton",
+            command=self.import_selected_outlook_offer,
+        ).pack(side="left",padx=(6,0))
+    if callable(getattr(self,"open_product_prices",None)):
+        ttk.Button(
+            primary,text="💰 Produkty / ceny",style="Toolbar.TButton",
+            command=self.open_product_prices,
+        ).pack(side="left",padx=(6,0))
+    ttk.Label(
+        primary,
+        text="PDF / MSG lze také přetáhnout do okna programu; dodavatel se rozpozná automaticky.",
+        style="PageSubtitle.TLabel",
+    ).pack(side="left",padx=(12,0))
+
+    suppliers,actions=_offer_filter_values()
+    self.offer_q=tk.StringVar()
+    self.offer_supplier_filter=tk.StringVar()
+    self.offer_action_filter=tk.StringVar()
+
+    filters=ttk.Frame(p,style="Panel.TFrame",padding=(10,7))
+    filters.pack(fill="x",pady=(0,6))
+    ttk.Label(filters,text="Hledat",style="FilterLabel.TLabel").grid(row=0,column=0,sticky="w")
+    ttk.Label(filters,text="Dodavatel",style="FilterLabel.TLabel").grid(row=0,column=1,sticky="w")
+    ttk.Label(filters,text="Akce",style="FilterLabel.TLabel").grid(row=0,column=2,sticky="w")
+    ttk.Entry(filters,textvariable=self.offer_q).grid(row=1,column=0,sticky="ew",padx=(0,6))
+    M.AutocompleteEntry(filters,textvariable=self.offer_supplier_filter,values=suppliers).grid(row=1,column=1,sticky="ew",padx=(0,6))
+    M.AutocompleteEntry(filters,textvariable=self.offer_action_filter,values=actions).grid(row=1,column=2,sticky="ew",padx=(0,6))
+    ttk.Button(
+        filters,text="Vymazat filtry",style="Toolbar.TButton",
+        command=lambda:clear_offer_filters(self),
+    ).grid(row=1,column=3,sticky="e")
+    filters.columnconfigure(0,weight=2)
+    filters.columnconfigure(1,weight=1)
+    filters.columnconfigure(2,weight=2)
+    for variable in (self.offer_q,self.offer_supplier_filter,self.offer_action_filter):
+        variable.trace_add("write",lambda *_:self.refresh_offers())
+
+    columns=("Datum","Dodavatel","Číslo nabídky","Akce","Reference","Položek","Hodnota","Měna","Stav")
+    widths=[100,190,145,260,230,75,120,65,100]
+    self.offer_tree=self.tree(p,columns,widths)
+    try:self.offer_tree.configure(selectmode="extended")
+    except Exception:pass
+    M.bind_row_double_click(self.offer_tree,lambda e:self.open_offer_detail())
+    self.offer_tree.bind("<<TreeviewSelect>>",lambda e:update_offer_selection(self),add="+")
+
+    actions_bar=ttk.Frame(p,style="Panel.TFrame",padding=(10,7))
+    actions_bar.pack(fill="x",pady=(6,0))
+    self.offer_selection_label=ttk.Label(
+        actions_bar,text="Nevybrána žádná nabídka",style="PageSubtitle.TLabel",
+    )
+    self.offer_selection_label.pack(side="left")
+    ttk.Button(
+        actions_bar,text="Smazat z databáze",style="Toolbar.TButton",
+        command=self.delete_offer,
+    ).pack(side="right")
+    if callable(getattr(self,"export_selected_offer_excel",None)):
+        ttk.Button(
+            actions_bar,text="Extrakce dat",style="Toolbar.TButton",
+            command=self.export_selected_offer_excel,
+        ).pack(side="right",padx=6)
+    ttk.Button(
+        actions_bar,text="Otevřít detail",style="Accent.TButton",
+        command=self.open_offer_detail,
+    ).pack(side="right")
+
+    self.refresh_offers()
+    update_offer_selection(self)
+
 
 def refresh_offers(self):
     if not hasattr(self,"offer_tree"):return
-    sf=self.offer_supplier_filter.get().casefold().strip() if hasattr(self,"offer_supplier_filter") else "";af=self.offer_action_filter.get().casefold().strip() if hasattr(self,"offer_action_filter") else "";q=self.offer_q.get().casefold().strip() if hasattr(self,"offer_q") else ""
+    sf=self.offer_supplier_filter.get().casefold().strip() if hasattr(self,"offer_supplier_filter") else ""
+    af=self.offer_action_filter.get().casefold().strip() if hasattr(self,"offer_action_filter") else ""
+    q=self.offer_q.get().casefold().strip() if hasattr(self,"offer_q") else ""
     for x in self.offer_tree.get_children():self.offer_tree.delete(x)
+
     with M.db() as con:
-        rs=con.execute("""SELECT o.*,coalesce(s.official_name,o.supplier_name) supplier,c.official_name customer,a.name action_name,(SELECT COUNT(*) FROM supplier_offer_items i WHERE i.offer_id=o.id) item_count,(SELECT group_concat(coalesce(i.original_name,'') || ' ' || coalesce(i.item_key,'') || ' ' || coalesce(i.product_code,''),' | ') FROM supplier_offer_items i WHERE i.offer_id=o.id) item_search FROM supplier_offers o LEFT JOIN companies s ON s.id=o.supplier_company_id LEFT JOIN companies c ON c.id=o.customer_company_id LEFT JOIN actions a ON a.id=o.action_id ORDER BY CASE WHEN trim(coalesce(o.offer_date,''))='' THEN 1 ELSE 0 END,o.offer_date DESC,o.id DESC""").fetchall()
+        # project_id is additive since v6.0.37. Requests remain authoritative:
+        # direct project -> request project -> migrated opportunity project/name.
+        rs=con.execute("""SELECT o.*,
+                coalesce(s.official_name,o.supplier_name,'') supplier,
+                coalesce(pd.name,pr.name,po.name,oa.name,'') action_name,
+                (SELECT COUNT(*) FROM supplier_offer_items i WHERE i.offer_id=o.id) item_count,
+                (SELECT group_concat(coalesce(i.original_name,'') || ' ' ||
+                                     coalesce(i.item_key,'') || ' ' ||
+                                     coalesce(i.product_code,''),' | ')
+                   FROM supplier_offer_items i WHERE i.offer_id=o.id) item_search
+            FROM supplier_offers o
+            LEFT JOIN companies s ON s.id=o.supplier_company_id
+            LEFT JOIN projects pd ON pd.id=o.project_id
+            LEFT JOIN requests rq ON rq.id=o.request_id
+            LEFT JOIN actions ra ON ra.id=rq.action_id
+            LEFT JOIN projects pr ON pr.id=ra.project_id
+            LEFT JOIN actions oa ON oa.id=o.action_id
+            LEFT JOIN projects po ON po.id=oa.project_id
+            ORDER BY CASE WHEN trim(coalesce(o.offer_date,''))='' THEN 1 ELSE 0 END,
+                     o.offer_date DESC,o.id DESC""").fetchall()
+
     for r in rs:
-        hay=f"{r['supplier']} {r['customer']} {r['action_name']} {r['offer_number']} {r['note']} {r['reference']} {r['item_search']}".casefold()
-        if sf and sf not in (r["supplier"] or "").casefold():continue
-        if af and af not in (r["action_name"] or "").casefold():continue
+        supplier=r["supplier"] or ""
+        action=r["action_name"] or ""
+        reference=r["reference"] or ""
+        hay=f"{supplier} {action} {r['offer_number']} {r['note']} {reference} {r['item_search']}".casefold()
+        if sf and sf not in supplier.casefold():continue
+        if af and af not in action.casefold():continue
         if q and q not in hay:continue
-        self.offer_tree.insert("","end",iid=f"o{r['id']}",values=(M.fmt_date(r["offer_date"]),r["supplier"] or "",r["customer"] or "",r["action_name"] or "",r["offer_number"] or "",r["item_count"],f"{float(r['total_value'] or 0):,.2f}",r["currency"] or "CZK",r["status"] or ""))
+        self.offer_tree.insert(
+            "","end",iid=f"o{r['id']}",
+            values=(
+                M.fmt_date(r["offer_date"]),
+                supplier,
+                r["offer_number"] or "",
+                action,
+                reference,
+                r["item_count"],
+                f"{float(r['total_value'] or 0):,.2f}",
+                r["currency"] or "CZK",
+                r["status"] or "",
+            ),
+        )
+    update_offer_selection(self)
+    try:
+        layout=getattr(M,"schedule_final_tree_layout",None)
+        if callable(layout):layout(self)
+    except Exception:
+        pass
+
+
+def install_offer_ui(module):
+    """Reassert one canonical Offers UI after legacy feature modules register commands."""
+    module.App.build_offers=build_offers
+    module.App.refresh_offers=refresh_offers
+    module.App.clear_offer_filters=clear_offer_filters
+    module.App._update_offer_selection=update_offer_selection
+
 
 def build_settings(self):
     p=self.tabs["settings"];hdr=ttk.Frame(p,style="App.TFrame");hdr.pack(fill="x",pady=(0,10));ttk.Label(hdr,text="Nastavení",style="Title.TLabel").pack(side="left");ttk.Button(hdr,text="← Zpět na Přehled",command=lambda:self.show_page("dash")).pack(side="right")
@@ -165,13 +350,13 @@ def build_settings(self):
     ttk.Label(f,text="Aktualizace aplikace",style="Panel.TLabel",font=("Calibri",12,"bold")).grid(row=11,column=0,sticky="w",pady=(20,0));M.set_setting("update_source",GITHUB_UPDATE);self.update_source=tk.StringVar(value=GITHUB_UPDATE)
     ttk.Label(f,text="GitHub • TURTO-ZakazkyApp • stabilní kanál",style="Panel.TLabel").grid(row=12,column=0,columnspan=2,sticky="w",pady=6);ttk.Button(f,text="Zkontrolovat aktualizace",style="Accent.TButton",command=self.check_for_updates).grid(row=13,column=0,sticky="w",pady=6);ttk.Label(f,text="Aktualizace se stahují automaticky z GitHubu. Databáze ani firemní data se na GitHub neodesílají.",style="Panel.TLabel").grid(row=13,column=1,columnspan=2,sticky="w",padx=8)
 
+
 def apply(module):
     global M;M=module
     module.OfferDetailDialog=OfferDetailDialog
     module.OfferPriceHistoryDialog=OfferPriceHistoryDialog
     module.OfferActionLinkDialog=OfferActionLinkDialog
-    module.App.build_offers=build_offers
-    module.App.refresh_offers=refresh_offers
+    install_offer_ui(module)
     module.App.build_settings=build_settings
     orig_init=module.App.__init__
     def init(self,*a,**kw):
