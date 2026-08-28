@@ -1,0 +1,39 @@
+name: One-off foreground UX 6.3.13
+on:
+  push:
+    branches: [feat/foreground-folders-drafts-6313]
+    paths: [.github/workflows/_oneoff_foreground_6313.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/foreground-folders-drafts-6313
+          fetch-depth: 0
+      - name: Patch and validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .tmp_patch_foreground_6313.py
+          python -m compileall -q ZakazkyApp_base_6.1 post_baseline.py
+          python - <<'PY'
+          from pathlib import Path
+          b=Path('post_baseline.py').read_text(encoding='utf-8')
+          v=Path('ZakazkyApp_base_6.1/v631_diskdrop.py').read_text(encoding='utf-8')
+          a=Path('ZakazkyApp_base_6.1/app.py').read_text(encoding='utf-8')
+          assert 'M.show_offer_archive_folder = show_offer_archive_folder' in b
+          assert "show_offer_archive_folder(self, state['archives'])" in b
+          assert 'SetForegroundWindow' in b
+          assert "getattr(M, 'show_offer_archive_folder', None)" in v
+          assert '$mail.GetInspector.Activate()' in a
+          print('foreground UX contract OK')
+          PY
+          git config user.name "TURTO Refactor Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .tmp_patch_foreground_6313.py
+          git add post_baseline.py ZakazkyApp_base_6.1/v631_diskdrop.py ZakazkyApp_base_6.1/app.py release_version.txt release_notes.txt
+          git commit -m "TURTO CRM 6.3.13 — foreground Explorer and Outlook draft"
+          git push origin HEAD:feat/foreground-folders-drafts-6313
