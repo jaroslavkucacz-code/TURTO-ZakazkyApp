@@ -1,6 +1,6 @@
 {
-  "version": "6.3.15",
-  "file": "ZakazkyApp_v6.3.15.zip",
-  "sha256": "1d64611237dd0df1ad9c75551c596cae252ed59db90d976c900defbd6967c6da",
-  "notes": "• Vedle aktivního uživatele je nová ikona Poznámky. Každý uživatel má vlastní jednoduchý zápisník bez vazeb na Akce, Příležitosti, Poptávky nebo Úkoly.\n• Nová poznámka automaticky dostane aktuální datum a čas. Ukládá se přímo do databáze; Ctrl+Enter ji rychle uloží a v seznamu lze poznámky vyhledávat.\n• Přeškrtnutí poznámky je současně její archivace. Z běžného seznamu zmizí; po zapnutí „Zobrazit archivované“ je vidět přeškrtnutá a lze ji obnovit. Samostatný stav „přeškrtnuto“ neexistuje.\n• Poznámku lze dodatečně upravit. Přejmenování uživatele převede i jeho poznámky na nové jméno; odstranění uživatele poznámky fyzicky nemaže.\n• Databáze se pouze aditivně rozšiřuje o tabulku user_notes. Stávající zakázková data, Nabídky, parsery, Excel exporty i historie se nemění."
+  "version": "6.3.16",
+  "file": "ZakazkyApp_v6.3.16.zip",
+  "sha256": "17d26b1179858d8d530ac8d85013c8aa797b9464ecb2c15f35c29a004d9ca116",
+  "notes": "• Tlačítko osobních Poznámek v horní liště je nově výraznější a obsahuje text „Poznámky“.\n• Pokud má aktivní uživatel nearchivované poznámky, tlačítko ukazuje jejich počet ve formátu „Poznámky (N)“.\n• Umístění zůstává přímo vedle aktivního uživatele; funkce Poznámek, archivace, vyhledávání i oddělení podle uživatele se nemění."
 }
