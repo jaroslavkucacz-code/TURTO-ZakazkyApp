@@ -4209,7 +4209,7 @@ class App(tk.Tk):
         self.user_button=ttk.Button(top,text="",style="TopAction.TButton",command=self.open_user_menu)
         self.user_button.grid(row=0,column=2,padx=(8,0))
         self.refresh_user_button()
-        self.notes_button=ttk.Button(top,text="📝",style="TopAction.TButton",width=6,command=self.open_user_notes)
+        self.notes_button=ttk.Button(top,text="📝 Poznámky",style="TopAction.TButton",width=15,command=self.open_user_notes)
         self.notes_button.grid(row=0,column=3,padx=(6,0))
         self.refresh_notes_button()
         self.bell_button=ttk.Button(top,text="🔔",style="TopAction.TButton",width=5,command=self.open_notifications)
@@ -4405,7 +4405,7 @@ class App(tk.Tk):
                 ).fetchone()[0]
         except Exception:
             count=0
-        self.notes_button.configure(text=f'📝 {count}' if count else '📝')
+        self.notes_button.configure(text=f'📝 Poznámky ({count})' if count else '📝 Poznámky')
 
     def open_user_notes(self):
         current=getattr(self,'_notes_dialog',None)
