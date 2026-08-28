@@ -1,7 +1,7 @@
-• PDF přílohy uvnitř e-mailu, které nejsou cenovou nabídkou (např. technické listy, výkresy nebo certifikáty), se nově evidují jako běžné ostatní přílohy a nezobrazují se jako chyba importu. Skutečná chyba u PDF, které parser jako nabídku rozpoznal, se nadále zobrazí.
-• Odstraněno dvojí upozornění na aktualizaci. v625 už nestahuje latest.json ani nevytváří vlastní aktualizační okno; používá se jediný kanonický App.check_for_updates. Základní startovní kontrola zůstává jedna a další automatická kontrola se plánuje po 10 minutách.
-• Tiché automatické kontroly aktualizací mají společný debounce, takže dvě téměř současná volání nemohou otevřít dvě stejná okna. Nastavení ADMIN „Automaticky kontrolovat aktualizace“ se u tichých kontrol respektuje.
-• Opraven kanonický GEROtop Excel export v624: z databáze se nyní načítá nejen název položky, ale také uložené pole details. V buňce „Název / technický popis“ je název tučně a pod ním víceřádkový technický popis včetně odrážek.
-• Oprava Excelu platí i pro již naimportované GEROtop nabídky, protože technický popis byl v databázi uložen správně už dříve; není nutná migrace databáze ani nový import pro ruční opětovný export.
-• Na vzorku GEROtop P12166 / 2026 bylo ověřeno, že technický list je možné klasifikovat jako ostatní přílohu a že exportní XLSX obsahuje název i technický popis položky.
-• Databázové schéma, uživatelská databáze, existující fyzický archiv a parsování cenových položek GEROtop/Leviat se touto verzí nemění.
+• Opraven pád při přetažení celého e-mailu z Outlooku. Virtuální .msg se už nečte přes OLE FileContents uvnitř nativního Drop callbacku; po dokončení dropu se uloží přes Outlook Selection.SaveAs(.msg) a teprve potom se zpracuje standardní MSG cestou.
+• FileContents zůstává používán pouze pro skutečně přetažené PDF přílohy z Outlooku, protože ty nemají běžnou cestu na disku. Zachováno je chování „PDF příloha = pouze toto PDF“.
+• .msg přetažený z Průzkumníka zůstává obyčejným souborem přes CF_HDROP a používá stejný dávkový MSG parser jako dříve.
+• v631 nyní zapisuje přesnější diagnostické body pro přijetí dropu, Outlook SaveAs, MSG/PDF zpracování a PDF FileContents.
+• Release validace kontroluje, že materializace virtuálních příloh přijímá pouze .pdf a že větev celého .msg používá FileContents bypass a SaveAs.
+• Zachovány opravy 6.3.7: technické listy nejsou hlášeny jako chyba, aktualizační okno má jediný mechanismus a GEROtop Excel obsahuje název i technický popis.
+• Databázové schéma, uživatelská databáze, archiv nabídek a parsery cenových položek se touto verzí nemění.
