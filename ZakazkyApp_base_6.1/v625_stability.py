@@ -1,138 +1,65 @@
-# TURTO CRM - nonmodal update checks and modal-grab safety.
-# Outlook import and Treeview resize are owned by post_baseline/v631.
-import datetime
-import json
-import urllib.request
+# TURTO CRM - one canonical updater schedule + modal-grab safety.
+# Update detection/dialog/install is owned by App.check_for_updates.
+# This layer only applies the ADMIN auto-update setting, debounces silent calls
+# and schedules the next automatic check during long-running sessions.
+import time
 
 
 def apply(M):
     # ------------------------------------------------------------------
-    # Nonmodal live-update notice.
+    # One update mechanism.
+    #
+    # The base App already schedules one startup call to check_for_updates().
+    # Do not perform another HTTP check or create another update window here.
     # ------------------------------------------------------------------
+    old_check = getattr(M.App, 'check_for_updates', None)
+    if callable(old_check):
+        def check_for_updates(self, *args, **kwargs):
+            silent = bool(kwargs.get('silent', False))
+            if not kwargs and args:
+                # check_for_updates(silent) remains compatible with positional use.
+                silent = bool(args[0])
+
+            if silent and str(M.get_setting('company_auto_updates', '1')) == '0':
+                return None
+
+            if silent:
+                now = time.monotonic()
+                last = float(
+                    getattr(self, '_turto_last_auto_update_check', 0.0)
+                    or 0.0
+                )
+                # Protect against two runtime layers/timers calling the canonical
+                # checker nearly simultaneously.
+                if now - last < 30.0:
+                    return None
+                self._turto_last_auto_update_check = now
+
+            return old_check(self, *args, **kwargs)
+
+        M.App.check_for_updates = check_for_updates
+
     try:
         import crm_runtime as runtime
 
-        def version_tuple(value):
-            try:
-                return tuple(int(part) for part in str(value).split('.'))
-            except Exception:
-                return (0,)
-
         def live_update_checks(app):
-            state = {'version': '', 'checking': False}
-
-            def show_notice(version, notes):
+            # Startup is already handled by App.__init__. Schedule only the
+            # subsequent long-running checks.
+            def periodic():
                 try:
-                    old = getattr(app, '_update_notice_window', None)
-                    if old is not None and old.winfo_exists():
-                        old.destroy()
-                except Exception:
-                    pass
-                try:
-                    dialog = M.tk.Toplevel(app)
-                    app._update_notice_window = dialog
-                    dialog.title(f'Aktualizace {version}')
-                    dialog.transient(app)
-                    try:
-                        M.enable_dialog_maximize(dialog, 680, 420)
-                    except Exception:
-                        pass
-                    frame = M.ttk.Frame(dialog, padding=18)
-                    frame.pack(fill='both', expand=True)
-                    M.ttk.Label(
-                        frame,
-                        text=f'Je dostupná nová verze {version}',
-                        style='Section.TLabel',
-                    ).pack(anchor='w')
-                    M.ttk.Label(
-                        frame,
-                        text='Co aktualizace obsahuje:',
-                        style='PageSubtitle.TLabel',
-                    ).pack(anchor='w', pady=(12, 4))
-                    text = M.tk.Text(
-                        frame,
-                        height=9,
-                        wrap='word',
-                        font=('Calibri', 11),
-                    )
-                    text.pack(fill='both', expand=True)
-                    text.insert('1.0', notes)
-                    text.configure(state='disabled')
-                    bar = M.ttk.Frame(frame)
-                    bar.pack(fill='x', pady=(12, 0))
-                    M.ttk.Button(
-                        bar,
-                        text='Později',
-                        command=dialog.destroy,
-                    ).pack(side='right')
-                    M.ttk.Button(
-                        bar,
-                        text='Aktualizovat',
-                        style='Accent.TButton',
-                        command=lambda: (
-                            dialog.destroy(),
-                            app.check_for_updates(silent=False),
-                        ),
-                    ).pack(side='right', padx=6)
-                    try:
-                        dialog.lift()
-                    except Exception:
-                        pass
-                except Exception:
-                    pass
-
-            def check_worker():
-                if state['checking']:
-                    return
-                state['checking'] = True
-                try:
-                    if str(M.get_setting('company_auto_updates', '1')) == '0':
-                        return
-                    request = urllib.request.Request(
-                        runtime.GITHUB_UPDATE
-                        + '/latest.json?ts='
-                        + str(int(datetime.datetime.now().timestamp())),
-                        headers={'User-Agent': 'TURTO-CRM'},
-                    )
-                    with urllib.request.urlopen(request, timeout=8) as response:
-                        data = json.load(response)
-                    new_version = str(data.get('version', '')).strip()
-                    current = str(M.APP_VERSION)
-                    if (
-                        new_version
-                        and version_tuple(new_version) > version_tuple(current)
-                        and state['version'] != new_version
-                    ):
-                        state['version'] = new_version
-                        notes = (
-                            str(data.get('notes', '')).strip()
-                            or 'Drobné opravy a vylepšení.'
-                        )
-                        app.after(
-                            0,
-                            lambda v=new_version, n=notes: show_notice(v, n),
-                        )
+                    app.check_for_updates(silent=True)
                 except Exception:
                     pass
                 finally:
-                    state['checking'] = False
+                    try:
+                        app.after(10 * 60 * 1000, periodic)
+                    except Exception:
+                        pass
 
-            def schedule():
-                try:
-                    import threading
-
-                    threading.Thread(
-                        target=check_worker,
-                        daemon=True,
-                    ).start()
-                except Exception:
-                    check_worker()
-                try:
-                    app.after(10 * 60 * 1000, schedule)
-                except Exception:
-                    pass
-
-            app.after(1200, schedule)
+            try:
+                app.after(10 * 60 * 1000, periodic)
+            except Exception:
+                pass
 
         runtime._live_update_checks = live_update_checks
     except Exception:
