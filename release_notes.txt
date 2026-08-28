@@ -1,3 +1,5 @@
-• Tlačítko osobních Poznámek v horní liště je nově výraznější a obsahuje text „Poznámky“.
-• Pokud má aktivní uživatel nearchivované poznámky, tlačítko ukazuje jejich počet ve formátu „Poznámky (N)“.
-• Umístění zůstává přímo vedle aktivního uživatele; funkce Poznámek, archivace, vyhledávání i oddělení podle uživatele se nemění.
+• Záložka Nabídky má nově jedno přehledné pracovní rozložení místo několika postupně přidávaných ovládacích pruhů.
+• Hlavní akce jsou soustředěné nahoře: zpracování PDF/MSG, načtení vybraného e-mailu z Outlooku a přehled Produkty / ceny. Operace nad vybranou nabídkou jsou oddělené dole.
+• Tabulka nově zvýrazňuje Číslo nabídky, skutečnou Akci a Reference z dodavatelského dokumentu; sloupec Odběratel byl z hlavního přehledu odstraněn. Filtr Dodavatel nabízí jen dodavatele, kteří už mají uložené nabídky.
+• Vícenásobný výběr a hromadné DB-only mazání zůstávají zachované. Fyzický archiv Nabídek, GEROtop rich/bold export, Leviat Reference zákazníka i současné názvy Excel extrakcí se nemění.
+• Rozložení Nabídek má nyní jednoho kanonického vlastníka v crm_features.py; dodavatelské parsery a jejich rozšiřování zůstávají oddělené v offers_engine.
