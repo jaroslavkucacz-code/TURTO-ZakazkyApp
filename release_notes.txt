@@ -1,5 +1,7 @@
-• Nabídky nyní průběžně ukazují aktuální počet zpráv vybraných v Outlooku a tlačítko je přejmenováno na „Načíst vybrané z Outlooku“. Je tak vždy zřejmé, kolik zpráv se po stisku opravdu načte. Samostatná přetažení se nesčítají do skryté fronty; pro více zpráv je vyberte společně v Outlooku.
-• U Poptávek i MIVO jsou čekající záznamy starší alespoň 7 dní spolehlivě zvýrazněny tučným písmem. Zvýraznění se počítá přímo ze stavu a data Poptáno a už nezávisí na dočasném varovném symbolu.
-• Přehled byl přeskupen: Aktivní příležitosti zobrazují pouze Stav, Deadline, Příležitost a Společnost. Vedle nich jsou Moje nejbližší úkoly a pod nimi Čekající poptávky; Rychlé akce zůstávají samostatně vpravo s prostorem pro další tlačítka.
-• V hlavní navigaci je Akce přesunuta mezi Společnosti a Úkoly.
-• Databáze, historie, Nabídky/archiv, parsery dodavatelů a stabilizovaná Outlook drag&drop vrstva se nemění.
+• Přidána samostatná záložka Ceníky se dvěma přehledy: Aktuální ceny k vybranému datu a Evidence ceníků. Vyhledávání pracuje s dodavatelem, větví, skupinou, kódem, názvem, podmínkou, cenovým základem, minimálním odběrem a technickými údaji.
+• Původní PDF, XLSX, XLSM a CSV ceníky se trvale kopírují do nastavitelného archivu TURTO Zakazky\Ceniky ve složkách podle dodavatelů. Archivovaný soubor lze otevřít z CRM a DB-only odstranění jej nikdy nesmaže.
+• Import podporuje dodané formáty PohlCon, MIVO a NEVOGA včetně ceníku BETONY jako dílčího dodatku pro polský ucelený kamion. Uchovávají se zdrojové i přepočtené ceny, příplatky/slevy, cenový základ, minimální odběr, balení, palety, hmotnosti, rozměry, GTIN, celní kódy a další atributy.
+• Naskenované PDF bez textové vrstvy se automaticky zpracuje lokálním Windows OCR. Uchovává se původní soubor, OCR text i rozložení; před uložením je vždy zobrazen náhled. Import má průběh a Storno a nerozpoznaný dokument lze bezpečně evidovat bez položek.
+• V Nabídkách lze jednu nabídku označit jako Ceník, doplnit platnost, produktovou skupinu, dodavatelskou větev, předchozí ceník a režim úplného nahrazení nebo dílčí aktualizace. Nabídky dostaly také sloupec a filtr Typ.
+• V dialogu Příležitost je u pole Akce nové tlačítko „+ Nová Akce“, které otevře stávající plný dialog Akce a nově založenou Akci rovnou vybere.
+• Databázová změna je pouze aditivní. Historie, Nabídky, fyzický archiv Nabídek, Outlook drag&drop, dodavatelské parsery a uživatelská data se nepřepisují ani nemažou.
