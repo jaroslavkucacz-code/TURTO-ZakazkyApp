@@ -1,8 +1,14 @@
-• Větší technický úklid bez změny databáze, uživatelských dat nebo fyzických dokumentů.
-• Odstraněna překryvná vrstva v630_safeofferdrop. Její platné bezpečnostní funkce jsou sloučeny přímo do v631_diskdrop, který je jediným nativním vlastníkem přetažení PDF/MSG z Průzkumníka i virtuálních e-mailů z Outlooku.
+• Větší technický úklid bez změny databáze, uživatelských dat nebo již uložených fyzických dokumentů.
+• Odstraněna překryvná vrstva v630_safeofferdrop. Její platné bezpečnostní funkce jsou sloučeny přímo do v631_diskdrop.
+• Přetažení z Průzkumníka a Outlooku má jediný nativní OLE cíl. Starý widgetový TkDND cíl ve v620 byl odstraněn, aby se jeden e-mail nezpracoval dvěma souběžnými cestami.
 • Zachováno bezpečné COM CoInitialize/CoUninitialize při importu z Outlooku, faulthandler, záznam Tk callback chyb a offer_drop_crash.log.
-• Odstraněna také již plně překrytá vrstva v634_assignment_search. Vyhledávané přiřazení nabídky k Poptávce/Akci dnes zajišťuje novější projektový model v637; v634 navíc opravovala deadline overlay, který už v aktuálním v633 vůbec neexistuje.
-• post_baseline zůstává finálním vlastníkem jednotného Treeview layoutu, přesného stavového tagování Přehledu, DB-only mazání nabídek, archivace a automatického volání ověřeného dodavatelského Excel exportu.
-• Dodavatelský Excel export zůstává kanonicky v v624_legacy_exports; automatická extrakce v post_baseline volá stejnou funkci, takže ruční a automatický export mají stejný formát.
-• Aktualizační workflow nově kontroluje nepřítomnost odstraněných vrstev, jediný bezpečný drop runtime v631, vlastnictví DB-only mazání v post_baseline, vazbu na v624 exporter a čisté přepsání složky _runtime při aktualizaci.
-• Výchozí řazení, barevnost, importní databázový model, archiv nabídek a uživatelská databáze zůstávají beze změny.
+• Odstraněna také již plně překrytá vrstva v634_assignment_search. Vyhledávané přiřazení nabídky dnes zajišťuje novější projektový model v637.
+• Opraven archiv MSG: do fyzické složky se ukládá původní MSG a pouze hlavní dokumentové přílohy (PDF, Excel, Word, archivy, CAD apod.). Obrázky, loga a inline soubory z podpisu se přeskočí ještě před načtením jejich dat.
+• Automatická Excelová extrakce se po importu MSG vždy spouští z již zapsaných databázových dat. Chyba jedné přílohy už nemůže přeskočit nebo zastavit vytvoření Excelu.
+• Automatický Excel nadále používá přesně stejný dodavatelský export jako ruční extrakce z CRM; soubor se nejdřív vytvoří bezpečně dočasně a až potom nahradí výslednou extrakci.
+• Import z Outlooku nově zobrazuje počet vytvořených Excelových extrakcí a neskrývá chyby archivace/exportu.
+• Obnoven společný dávkový dialog pro více PDF/MSG se stavem zpracování, Stornem a možností pokračovat na pozadí.
+• v625_stability už neobsahuje další kopii Outlook importu ani resize logiky; zůstává pouze neblokující kontrola aktualizací a ochrana proti osiřelému modálnímu grabu.
+• post_baseline je finálním vlastníkem jednotného Treeview layoutu, stavového tagování Přehledu, DB-first archivace, přesného Excel exportu, dávkového zpracování a DB-only mazání nabídek.
+• Výchozí řazení, barevnost, importní databázový model a nezávislost fyzických dokumentů zůstávají beze změny.
+• Build ověřuje nepřítomnost odstraněných vrstev, jediného vlastníka drag & drop, filtrování příloh, pořadí post_baseline → v631 → výchozí řazení a zapojení dávkového runneru.
