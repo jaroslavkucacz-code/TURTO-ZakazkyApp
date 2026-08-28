@@ -1,6 +1,6 @@
 {
-  "version": "6.3.19",
-  "file": "ZakazkyApp_v6.3.19.zip",
-  "sha256": "69f5f10a3d8eab9873e3ad7d3279a872ee6fac723a291513d9ad9af17c7b720a",
-  "notes": "• Náhled obrázku položky v detailu Nabídky má nyní pevnou výšku. Obrázky s různým poměrem stran se proporčně zmenší a vycentrují, takže panel při přepínání položek neposkakuje.\n• Starý modul Produkty / ceny už nevytváří pomocný archiv TURTO Zakazky\\Dokumenty\\Nabidky a nekopíruje do něj MSG/PDF ani části e-mailů. Fyzický archiv Nabídek nadále vlastní pouze současná bezpečná archivní pipeline. Existující historické soubory se automaticky nemažou.\n• Našeptávače Dodavatele, Odběratele, Akce a dalších polí mají opravené ovládání ↑/↓. Otevřený seznam se při každém stisku znovu nesestavuje, takže lze šipkami plynule procházet všechny položky.\n• Pole Obchodník v Příležitosti používá stejný AutocompleteEntry jako Dodavatel/Odběratel místo odlišného readonly Comboboxu. Šipky, Enter i správa číselníku se tak chovají jednotně.\n• Databázové schéma se nemění; Nabídky, fyzický archiv, historie, GEROtop/Leviat exporty, Outlook import i hromadné DB-only mazání zůstávají zachované."
+  "version": "6.3.20",
+  "file": "ZakazkyApp_v6.3.20.zip",
+  "sha256": "08925992fc190f9d60c0dfabd76dadae0888623a69fc20db3acd3742301b01f5",
+  "notes": "• Hromadné přetažení celých Outlook .MSG zpráv už nejprve synchronně neukládá celý výběr bez odezvy. E-maily se převádějí do dočasných .MSG postupně po jednom přes událostní smyčku aplikace.\n• Ihned se zobrazí samostatný průběh „Přebírám e-maily z Outlooku X z N“ s názvem právě převáděné zprávy. I u stovek e-mailů je tak vidět, že aplikace pracuje.\n• Přípravná fáze má vlastní Storno. Zastaví dávku po právě převáděném e-mailu, smaže dočasně převzaté soubory a žádnou nedokončenou část dávky nepředá ke zpracování.\n• Po úspěšném převzetí se automaticky spustí stávající společný batch runner Nabídek s druhým průběhem, Stornem a zachovanou archivací/exporty. Pevný uživatelský limit počtu .MSG se nezavádí.\n• Databázové schéma, fyzický archiv Nabídek, GEROtop/Leviat exporty, Outlook SaveAs cesta, historie ani hromadné DB-only mazání se nemění."
 }
