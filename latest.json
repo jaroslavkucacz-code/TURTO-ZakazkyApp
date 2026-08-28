@@ -1,6 +1,6 @@
 {
-  "version": "6.3.17",
-  "file": "ZakazkyApp_v6.3.17.zip",
-  "sha256": "622e9749ffdb985bef3f866fc965aca266bc77ff21951aa63391bb30abbf0afa",
-  "notes": "• Záložka Nabídky má nově jedno přehledné pracovní rozložení místo několika postupně přidávaných ovládacích pruhů.\n• Hlavní akce jsou soustředěné nahoře: zpracování PDF/MSG, načtení vybraného e-mailu z Outlooku a přehled Produkty / ceny. Operace nad vybranou nabídkou jsou oddělené dole.\n• Tabulka nově zvýrazňuje Číslo nabídky, skutečnou Akci a Reference z dodavatelského dokumentu; sloupec Odběratel byl z hlavního přehledu odstraněn. Filtr Dodavatel nabízí jen dodavatele, kteří už mají uložené nabídky.\n• Vícenásobný výběr a hromadné DB-only mazání zůstávají zachované. Fyzický archiv Nabídek, GEROtop rich/bold export, Leviat Reference zákazníka i současné názvy Excel extrakcí se nemění.\n• Rozložení Nabídek má nyní jednoho kanonického vlastníka v crm_features.py; dodavatelské parsery a jejich rozšiřování zůstávají oddělené v offers_engine."
+  "version": "6.3.18",
+  "file": "ZakazkyApp_v6.3.18.zip",
+  "sha256": "c50d99a3da9921659d19f13785fdd9a95d4aa51a1d0aa32a8cff0ec5262b9568",
+  "notes": "• Při dávkovém zpracování více nabídek je nově průběh vždy viditelně zobrazen v samostatném okně s počtem souborů a aktuálně zpracovávaným souborem.\n• Přetažení více celých .MSG zpráv z Outlooku nově používá stejný společný batch runner jako soubory z Průzkumníku; už se nezpracovává synchronně bez viditelné zpětné vazby.\n• Dialog obsahuje Storno. Zastavení je bezpečné po dokončení právě zpracovávaného souboru: již dokončené nabídky a archiv zůstávají zachované, další soubory se nezpracují.\n• Po drag&drop se progress dialog krátce vytáhne do popředí, aby bylo jasné, že aplikace pracuje; následně nepoužívá trvalý topmost režim.\n• Dočasné MSG/PDF soubory z Outlooku zůstávají dostupné pouze po dobu dávky a po dokončení nebo Stornu se uklidí. Databázové schéma, fyzický archiv Nabídek, exporty ani historie cen se nemění."
 }
