@@ -34,8 +34,8 @@ def apply(M):
                 rows=c.execute('''SELECT p.id,count(DISTINCT o.id) n
                     FROM projects p
                     LEFT JOIN supplier_offers o ON
-                        o.project_id=p.id OR
-                        o.request_id IN (SELECT r.id FROM requests r JOIN actions a ON a.id=r.action_id WHERE a.project_id=p.id)
+                        (o.request_id IS NULL AND o.action_id IS NULL AND o.project_id=p.id)
+                        OR o.request_id IN (SELECT r.id FROM requests r JOIN actions a ON a.id=r.action_id WHERE a.project_id=p.id)
                     GROUP BY p.id''').fetchall()
             return {int(r['id']):int(r['n']) for r in rows}
         except Exception:return {}
