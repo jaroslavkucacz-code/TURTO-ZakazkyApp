@@ -1,6 +1,6 @@
 {
-  "version": "6.3.14",
-  "file": "ZakazkyApp_v6.3.14.zip",
-  "sha256": "2bb5a83818298c59dd9e24e9a2411db5853f421598d1ce1d113ae1763ed33d67",
-  "notes": "• Outlook koncept Poptávky nyní vrací CRM přesné HWND svého Inspector okna. Do popředí jej následně přepíná přímo proces CRM pomocí Win32; při omezení foreground aktivace se použije krátký Z-order/topmost pulse a SwitchToThisWindow fallback.\n• Současný import MSG/PDF nadále používá systémové TemporaryDirectory a pracovní soubory po dokončení automaticky maže. Trvalá složka TURTO Zakazky\\Dokumenty/Documents není pro aktuální import potřeba.\n• Přidán bezpečný úklid legacy mail stagingu: smaže pouze soubory v Dokumenty/Documents, jejichž SHA-256 odpovídá původnímu MSG nebo příloze, která už má kompletní BLOB uložený v databázi. Neznámé soubory se nikdy nemažou.\n• Bezpečný úklid proběhne po zpracování nabídky a jednou po startu, takže lze odstranit i ověřené pozůstatky starších verzí. Konfigurovaný archiv Nabídky je výslovně chráněn a nikdy se tímto úklidem nemaže.\n• Databázové schéma, parsery, Excel exporty, názvy archivních složek a DB-only mazání Nabídek se nemění."
+  "version": "6.3.15",
+  "file": "ZakazkyApp_v6.3.15.zip",
+  "sha256": "1d64611237dd0df1ad9c75551c596cae252ed59db90d976c900defbd6967c6da",
+  "notes": "• Vedle aktivního uživatele je nová ikona Poznámky. Každý uživatel má vlastní jednoduchý zápisník bez vazeb na Akce, Příležitosti, Poptávky nebo Úkoly.\n• Nová poznámka automaticky dostane aktuální datum a čas. Ukládá se přímo do databáze; Ctrl+Enter ji rychle uloží a v seznamu lze poznámky vyhledávat.\n• Přeškrtnutí poznámky je současně její archivace. Z běžného seznamu zmizí; po zapnutí „Zobrazit archivované“ je vidět přeškrtnutá a lze ji obnovit. Samostatný stav „přeškrtnuto“ neexistuje.\n• Poznámku lze dodatečně upravit. Přejmenování uživatele převede i jeho poznámky na nové jméno; odstranění uživatele poznámky fyzicky nemaže.\n• Databáze se pouze aditivně rozšiřuje o tabulku user_notes. Stávající zakázková data, Nabídky, parsery, Excel exporty i historie se nemění."
 }
