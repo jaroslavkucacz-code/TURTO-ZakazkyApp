@@ -1,7 +1,8 @@
-• Pokračování technického úklidu bez změny databáze, uživatelských dat nebo fyzických dokumentů.
-• Odstraněna překryvná vrstva v630_safeofferdrop. Její platné bezpečnostní funkce byly sloučeny přímo do v631_diskdrop.
-• Přetažení PDF/MSG z Průzkumníka a virtuálních e-mailů z Outlooku má nyní jediného nativního vlastníka místo dvou po sobě registrovaných OLE cílů.
+• Větší technický úklid bez změny databáze, uživatelských dat nebo fyzických dokumentů.
+• Odstraněna překryvná vrstva v630_safeofferdrop. Její platné bezpečnostní funkce jsou sloučeny přímo do v631_diskdrop, který je jediným nativním vlastníkem přetažení PDF/MSG z Průzkumníka i virtuálních e-mailů z Outlooku.
 • Zachováno bezpečné COM CoInitialize/CoUninitialize při importu z Outlooku, faulthandler, záznam Tk callback chyb a offer_drop_crash.log.
-• Při zpracování více souborů používá sjednocený drop mechanismus společný dávkový runner, pokud je v aplikaci dostupný; jinak zůstává bezpečný přímý fallback.
-• Výchozí řazení, jednotné šířky tabulek, stavové barvy, DB-first archivace a ověřený dodavatelský Excel export zůstávají beze změny.
-• Build bude ověřovat, že v630 už není v runtime ani ve spouštěcím souboru a že bezpečnostní funkce jsou obsažené v jediném modulu v631.
+• Odstraněna také již plně překrytá vrstva v634_assignment_search. Vyhledávané přiřazení nabídky k Poptávce/Akci dnes zajišťuje novější projektový model v637; v634 navíc opravovala deadline overlay, který už v aktuálním v633 vůbec neexistuje.
+• post_baseline zůstává finálním vlastníkem jednotného Treeview layoutu, přesného stavového tagování Přehledu, DB-only mazání nabídek, archivace a automatického volání ověřeného dodavatelského Excel exportu.
+• Dodavatelský Excel export zůstává kanonicky v v624_legacy_exports; automatická extrakce v post_baseline volá stejnou funkci, takže ruční a automatický export mají stejný formát.
+• Aktualizační workflow nově kontroluje nepřítomnost odstraněných vrstev, jediný bezpečný drop runtime v631, vlastnictví DB-only mazání v post_baseline, vazbu na v624 exporter a čisté přepsání složky _runtime při aktualizaci.
+• Výchozí řazení, barevnost, importní databázový model, archiv nabídek a uživatelská databáze zůstávají beze změny.
