@@ -1,6 +1,6 @@
 {
-  "version": "6.3.23",
-  "file": "ZakazkyApp_v6.3.23.zip",
-  "sha256": "3c752f04a06216921e6d941d2ba411d370d936b6c3d95614a05347b1f1b46381",
-  "notes": "• Přidán nový dodavatel PohlCon Česká republika s.r.o. do společného systému Nabídek. PDF přílohy z Outlook/MSG se rozpoznají automaticky přes nový provider, bez samostatné větve importu.\n• Parser PohlCon načítá číslo nabídky, datum, referenci/název z nabídky, pozice, množství, měrné jednotky, názvy výrobků, jednotkové ceny a celkové ceny. Ověřeno na reálných nabídkách 0774/2026, 1048/2026 a 1092/2026.\n• Produkty JDA mají pro přehlednější práci normalizovaný technický kód (např. JDA-3/14/235-510); ostatní krátká technická označení, např. H-BAU, se zachovávají přímo z nabídky.\n• Text „Cenová nabídka pro akci …“ se ukládá jako Reference dodavatele a nevytváří automaticky vazbu na interní Akci. Přiřazení zůstává výhradně přes současný dialog Poptávka/Akce.\n• Databázové schéma se nemění. PohlCon používá stejný fyzický archiv, historii cen, Produkty/ceny, DB-only mazání, Outlook dávkový import a kanonický Excel export jako ostatní dodavatelé."
+  "version": "6.3.24",
+  "file": "ZakazkyApp_v6.3.24.zip",
+  "sha256": "d4b7697113fd563f7dea04f920a5c6d3b1115406f7e462e6adea53bee58467a1",
+  "notes": "• Opraven filtr Dodavatelů v záložce Nabídky: seznam hodnot se nyní obnovuje při každém refreshi Nabídek, takže nový dodavatel se objeví ihned po prvním importu bez restartu nebo znovuotevření záložky.\n• Stejným způsobem se živě aktualizuje i filtr Akce podle skutečně přiřazených nabídek.\n• Název dodavatele se při zobrazení a filtrování bere v pořadí oficiální název → krátký název → název z parseru. Záznam s prázdným oficiálním názvem tak už z filtru nezmizí.\n• Oprava je přímo v kanonickém vlastníkovi seznamu Nabídek `crm_features.py`; nevzniká nový patch ani wrapper.\n• Databázové schéma, PohlCon/GEROtop/Leviat parsery, Outlook import, archiv, historie cen, Excel exporty a DB-only mazání se nemění."
 }
