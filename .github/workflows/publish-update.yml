@@ -36,7 +36,7 @@ jobs:
             v615_input.py v616_stability.py v617_offerhub.py v618_inputfix.py v619_fixes.py \
             v620_outlookdrop.py v621_prices.py v623_exports.py v624_legacy_exports.py \
             v625_stability.py v628_modernui_resize.py v631_diskdrop.py \
-            v632_offerlinks.py v633_offerassign_deadlines.py v634_assignment_search.py \
+            v632_offerlinks.py v633_offerassign_deadlines.py \
             v636_action_offers_stabletable.py v637_project_offer_model.py \
             v638_table_updatefix.py v640_warning_cleanup.py \
             v644_default_date_sort.py post_baseline.py
@@ -47,13 +47,13 @@ jobs:
           rm -rf "$STAGE/__pycache__" "$STAGE/ZakazkyApp_v5.7" "$STAGE/original_source"
           rm -f "$STAGE/post_fix_613.py" "$STAGE/v622_palette.py" \
                 "$STAGE/v626_smoothui.py" "$STAGE/v627_fastui_dropfix.py" \
-                "$STAGE/v630_safeofferdrop.py" "$STAGE/v635_actions_sort.py" \
-                "$STAGE/v641_fill_tables.py" "$STAGE/v642_exact_table_fill.py" \
-                "$STAGE/v645_project_table_fill.py" "$STAGE/Spustit_DIAGNOSTIKA.bat" \
-                "$STAGE/Spustit_Qt_PREVIEW.bat" "$STAGE/Spustit_Zakazky.bat" \
-                "$STAGE/Spustit_Zakazky_v5.bat" "$STAGE/Spustit_Zakazky_v5.vbs" \
-                "$STAGE/Vytvorit_EXE.bat" "$STAGE/Vytvorit_manifest_aktualizace.py" \
-                "$STAGE/latest.example.json"
+                "$STAGE/v630_safeofferdrop.py" "$STAGE/v634_assignment_search.py" \
+                "$STAGE/v635_actions_sort.py" "$STAGE/v641_fill_tables.py" \
+                "$STAGE/v642_exact_table_fill.py" "$STAGE/v645_project_table_fill.py" \
+                "$STAGE/Spustit_DIAGNOSTIKA.bat" "$STAGE/Spustit_Qt_PREVIEW.bat" \
+                "$STAGE/Spustit_Zakazky.bat" "$STAGE/Spustit_Zakazky_v5.bat" \
+                "$STAGE/Spustit_Zakazky_v5.vbs" "$STAGE/Vytvorit_EXE.bat" \
+                "$STAGE/Vytvorit_manifest_aktualizace.py" "$STAGE/latest.example.json"
 
           python - "$STAGE/app.py" "$VERSION" <<'PY'
           import pathlib,re,sys
@@ -74,8 +74,8 @@ jobs:
           ROOT=Path(__file__).resolve().parent
           RUNTIME=ROOT/'_runtime'
           if str(RUNTIME) not in sys.path:sys.path.insert(0,str(RUNTIME))
-          import app,crm_features,crm_runtime,crm_v605,v606_features,v608_stability,v611_audit,v613_ui,v614_next,v615_input,v616_stability,v617_offerhub,v618_inputfix,v619_fixes,v620_outlookdrop,v621_prices,v623_exports,v624_legacy_exports,v625_stability,v628_modernui_resize,v631_diskdrop,v632_offerlinks,v633_offerassign_deadlines,v634_assignment_search,v636_action_offers_stabletable,v637_project_offer_model,v638_table_updatefix,v640_warning_cleanup,v644_default_date_sort,post_baseline
-          crm_features.apply(app);crm_runtime.apply(app);crm_v605.apply(app);v606_features.apply(app);v608_stability.apply(app);v611_audit.apply(app);v613_ui.apply(app);v614_next.apply(app);v615_input.apply(app);v616_stability.apply(app);v617_offerhub.apply(app);v618_inputfix.apply(app);v619_fixes.apply(app);v620_outlookdrop.apply(app);v621_prices.apply(app);v623_exports.apply(app);v624_legacy_exports.apply(app);v625_stability.apply(app);v628_modernui_resize.apply(app);v631_diskdrop.apply(app);v632_offerlinks.apply(app);v633_offerassign_deadlines.apply(app);v634_assignment_search.apply(app);v636_action_offers_stabletable.apply(app);v637_project_offer_model.apply(app);v638_table_updatefix.apply(app);v640_warning_cleanup.apply(app);post_baseline.apply(app);v644_default_date_sort.apply(app)
+          import app,crm_features,crm_runtime,crm_v605,v606_features,v608_stability,v611_audit,v613_ui,v614_next,v615_input,v616_stability,v617_offerhub,v618_inputfix,v619_fixes,v620_outlookdrop,v621_prices,v623_exports,v624_legacy_exports,v625_stability,v628_modernui_resize,v631_diskdrop,v632_offerlinks,v633_offerassign_deadlines,v636_action_offers_stabletable,v637_project_offer_model,v638_table_updatefix,v640_warning_cleanup,v644_default_date_sort,post_baseline
+          crm_features.apply(app);crm_runtime.apply(app);crm_v605.apply(app);v606_features.apply(app);v608_stability.apply(app);v611_audit.apply(app);v613_ui.apply(app);v614_next.apply(app);v615_input.apply(app);v616_stability.apply(app);v617_offerhub.apply(app);v618_inputfix.apply(app);v619_fixes.apply(app);v620_outlookdrop.apply(app);v621_prices.apply(app);v623_exports.apply(app);v624_legacy_exports.apply(app);v625_stability.apply(app);v628_modernui_resize.apply(app);v631_diskdrop.apply(app);v632_offerlinks.apply(app);v633_offerassign_deadlines.apply(app);v636_action_offers_stabletable.apply(app);v637_project_offer_model.apply(app);v638_table_updatefix.apply(app);v640_warning_cleanup.apply(app);post_baseline.apply(app);v644_default_date_sort.apply(app)
           app.cleanup_stale_test_session();app.ensure_schema();app.ensure_test_user();app.migrate_v41_visual_once();app.import_mail_contacts_v220_once();app.import_mail_contacts_v221_once();app.restore_people_from_v280_backup_once();app.post_import_cleanup_v222_once();app.App().mainloop()
           PYW
 
@@ -103,8 +103,9 @@ jobs:
           test -e "$DIR/_runtime/v631_diskdrop.py"
           for obsolete in \
             v622_palette.py v626_smoothui.py v627_fastui_dropfix.py \
-            v630_safeofferdrop.py v635_actions_sort.py v641_fill_tables.py \
-            v642_exact_table_fill.py v645_project_table_fill.py post_fix_613.py
+            v630_safeofferdrop.py v634_assignment_search.py v635_actions_sort.py \
+            v641_fill_tables.py v642_exact_table_fill.py v645_project_table_fill.py \
+            post_fix_613.py
           do
             test ! -e "$DIR/_runtime/$obsolete"
             test ! -e "$DIR/$obsolete"
@@ -112,9 +113,11 @@ jobs:
           test -e "$DIR/ZakazkyCRM.pyw"
           test -e "$DIR/Spustit_Zakazky.vbs"
           grep -q "post_baseline.apply(app);v644_default_date_sort.apply(app)" "$DIR/ZakazkyCRM.pyw"
-          ! grep -Eq "v622_palette|v626_smoothui|v627_fastui_dropfix|v630_safeofferdrop|v635_actions_sort" "$DIR/ZakazkyCRM.pyw"
+          ! grep -Eq "v622_palette|v626_smoothui|v627_fastui_dropfix|v630_safeofferdrop|v634_assignment_search|v635_actions_sort" "$DIR/ZakazkyCRM.pyw"
           grep -q "def reclaim_tree_layout" "$DIR/_runtime/post_baseline.py"
           grep -q "def recolor_dashboard" "$DIR/_runtime/post_baseline.py"
+          grep -q "M.App.delete_offer=delete_offer" "$DIR/_runtime/post_baseline.py"
+          grep -q "import v624_legacy_exports" "$DIR/_runtime/post_baseline.py"
           grep -q "def _enable_faulthandler" "$DIR/_runtime/v631_diskdrop.py"
           grep -q "def _install_tk_exception_guard" "$DIR/_runtime/v631_diskdrop.py"
           grep -q "class UnifiedDropTarget" "$DIR/_runtime/v631_diskdrop.py"
