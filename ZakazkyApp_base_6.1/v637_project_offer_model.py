@@ -6,6 +6,8 @@ def apply(M):
     # ------------------------------------------------------------------
     # DATA MODEL: Offer -> Request -> Opportunity -> Action(project)
     # or Offer -> Action(project) directly, or no link.
+    # Historical action_id values are legacy Opportunity links and are NOT a
+    # canonical assignment on their own.
     # ------------------------------------------------------------------
     try:
         with M.db() as c:
@@ -19,12 +21,9 @@ def apply(M):
                          WHERE request_id IS NOT NULL
                            AND EXISTS(SELECT 1 FROM requests r JOIN actions a ON a.id=r.action_id
                                       WHERE r.id=supplier_offers.request_id AND a.project_id IS NOT NULL)''')
-            # Migrate old direct "action_id" links (which actually pointed at an Opportunity)
-            # to the real parent Action/project.
-            c.execute('''UPDATE supplier_offers
-                         SET project_id=(SELECT a.project_id FROM actions a WHERE a.id=supplier_offers.action_id)
-                         WHERE request_id IS NULL AND project_id IS NULL AND action_id IS NOT NULL
-                           AND EXISTS(SELECT 1 FROM actions a WHERE a.id=supplier_offers.action_id AND a.project_id IS NOT NULL)''')
+            # Do not migrate a bare historical action_id to project_id anymore.
+            # Older imports used to auto-match the supplier reference to an
+            # Opportunity name; that was not an explicit user assignment.
             c.execute('CREATE INDEX IF NOT EXISTS idx_supplier_offers_project_v637 ON supplier_offers(project_id)')
     except Exception:
         pass
@@ -35,13 +34,39 @@ def apply(M):
                        LEFT JOIN actions a ON a.id=r.action_id WHERE r.id=?''',(rid,)).fetchone()
         return r['project_id'] if r and r['project_id'] else None
 
+    # The base importer historically auto-filled action_id when the parsed
+    # supplier reference happened to equal an Opportunity name. Keep explicit
+    # action_name calls backwards-compatible, but never create that automatic
+    # relationship for ordinary parser/MSG/PDF imports.
+    old_save_offer_import=getattr(M,'save_offer_import',None)
+    if callable(old_save_offer_import):
+        def save_offer_import(*args,**kwargs):
+            explicit_action=''
+            try:
+                explicit_action=str(args[3] if len(args)>3 else kwargs.get('action_name','') or '').strip()
+            except Exception:
+                explicit_action=''
+            result=old_save_offer_import(*args,**kwargs)
+            try:
+                oid=result[0] if result else None
+                created=bool(result[1]) if result and len(result)>1 else False
+                if oid and created and not explicit_action:
+                    with M.db() as c:
+                        c.execute('''UPDATE supplier_offers
+                                     SET action_id=NULL
+                                     WHERE id=? AND request_id IS NULL''',(oid,))
+            except Exception:
+                pass
+            return result
+        M.save_offer_import=save_offer_import
+
     # ------------------------------------------------------------------
     # SEARCHABLE ASSIGNMENT: Request or real Action(project), never Opportunity.
     # ------------------------------------------------------------------
     def edit_offer_links(app,offer_id,parent=None):
         host=parent or app
         with M.db() as c:
-            offer=c.execute('SELECT id,request_id,project_id FROM supplier_offers WHERE id=?',(offer_id,)).fetchone()
+            offer=c.execute('SELECT id,request_id,project_id,action_id FROM supplier_offers WHERE id=?',(offer_id,)).fetchone()
             if not offer:return
             reqs=[dict(r) for r in c.execute('''SELECT r.id,r.item,r.asked_date,coalesce(co.official_name,'') company,
                          coalesce(p.name,'') project_name
@@ -72,7 +97,8 @@ def apply(M):
             try:t.tag_configure('current_link',font=('Calibri',10,'bold'))
             except Exception:pass
         current_rid=int(offer['request_id']) if offer['request_id'] else None
-        current_pid=int(offer['project_id']) if offer['project_id'] else None
+        legacy_action_link=bool(offer['action_id'] and not offer['request_id'])
+        current_pid=(int(offer['project_id']) if offer['project_id'] else None) if not legacy_action_link else None
         def match(text,*parts):
             s=(text or '').strip().casefold()
             return (not s) or s in ' '.join(str(x or '') for x in parts).casefold()
@@ -134,11 +160,18 @@ def apply(M):
             r=old_build(self)
             try:
                 with M.db() as c:
-                    x=c.execute('''SELECT o.request_id,o.project_id,coalesce(o.reference,'') source_title,
-                              coalesce(p.name,'') project_name,coalesce(rq.item,'') request_item
+                    x=c.execute('''SELECT o.request_id,o.project_id,o.action_id,coalesce(o.reference,'') source_title,
+                              CASE
+                                WHEN o.request_id IS NOT NULL THEN coalesce(pr.name,pd.name,'')
+                                WHEN o.project_id IS NOT NULL AND o.action_id IS NULL THEN coalesce(pd.name,'')
+                                ELSE ''
+                              END project_name,
+                              coalesce(rq.item,'') request_item
                               FROM supplier_offers o
                               LEFT JOIN requests rq ON rq.id=o.request_id
-                              LEFT JOIN projects p ON p.id=coalesce(o.project_id,(SELECT a.project_id FROM actions a WHERE a.id=rq.action_id))
+                              LEFT JOIN actions ra ON ra.id=rq.action_id
+                              LEFT JOIN projects pr ON pr.id=ra.project_id
+                              LEFT JOIN projects pd ON pd.id=o.project_id
                               WHERE o.id=?''',(self.oid,)).fetchone()
                 def walk(w):
                     for child in w.winfo_children():
@@ -150,12 +183,12 @@ def apply(M):
                                 if txt.startswith('Vazba:'):
                                     rel='Vazba: '
                                     if x and x['request_id']:rel+=f"Poptávka: {x['request_item'] or '#'+str(x['request_id'])}  •  Akce: {x['project_name'] or '—'}"
-                                    elif x and x['project_id']:rel+=f"Akce: {x['project_name'] or '#'+str(x['project_id'])}  •  bez Poptávky"
+                                    elif x and x['project_name']:rel+=f"Akce: {x['project_name']}  •  bez Poptávky"
                                     else:rel+='nepřiřazeno'
                                     child.configure(text=rel)
                                 elif txt.startswith('Akce:') and '|' in txt:
                                     rest=txt.split('|',1)[1]
-                                    child.configure(text=f"Akce: {x['project_name'] if x else '—'}   |{rest}")
+                                    child.configure(text=f"Akce: {(x['project_name'] if x else '') or '—'}   |{rest}")
                         except Exception:pass
                         walk(child)
                 walk(self.f)
@@ -181,8 +214,8 @@ def apply(M):
                 rows=c.execute('''SELECT p.id,count(DISTINCT o.id) n
                     FROM projects p
                     LEFT JOIN supplier_offers o ON
-                        o.project_id=p.id OR
-                        o.request_id IN (SELECT r.id FROM requests r JOIN actions a ON a.id=r.action_id WHERE a.project_id=p.id)
+                        (o.request_id IS NULL AND o.action_id IS NULL AND o.project_id=p.id)
+                        OR o.request_id IN (SELECT r.id FROM requests r JOIN actions a ON a.id=r.action_id WHERE a.project_id=p.id)
                     GROUP BY p.id''').fetchall()
             return {int(r['id']):int(r['n']) for r in rows}
         except Exception:return {}
@@ -259,7 +292,7 @@ def apply(M):
                          FROM supplier_offers o
                          LEFT JOIN companies s ON s.id=o.supplier_company_id
                          LEFT JOIN requests r ON r.id=o.request_id
-                         WHERE o.project_id=? OR o.request_id IN
+                         WHERE (o.request_id IS NULL AND o.action_id IS NULL AND o.project_id=?) OR o.request_id IN
                            (SELECT rr.id FROM requests rr JOIN actions a ON a.id=rr.action_id WHERE a.project_id=?)
                          ORDER BY o.offer_date DESC,o.id DESC''',(pid,pid)).fetchall()
                 for x in data:
