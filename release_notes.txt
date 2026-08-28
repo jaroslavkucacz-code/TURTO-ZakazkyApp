@@ -1,8 +1,7 @@
-• Pokračování technického úklidu bez změny databáze nebo uživatelských dat.
-• Odstraněny tři překryvné UI vrstvy: v622_palette, v626_smoothui a v627_fastui_dropfix.
-• Přepínání hlavních stránek má jediného vlastníka v628_modernui_resize; odstraněné starší implementace byly později vždy přepsány a už neměly být aktivní.
-• Nativní přetažení Outlook/Průzkumník nadále zajišťuje novější bezpečný řetězec v630 + v631; odstraněna dřívější duplicitní registrace z v627.
-• Jednotné šířky tabulek, dorovnání filtrů a překreslení datumových buněk nyní řídí post_baseline jako jediný finální vlastník po dokončení startu aplikace.
-• Přesné přiřazení stavových barev v Přehledu bylo přesunuto do post_baseline a vyhodnocuje pouze skutečný sloupec Stav, nikoli text celého řádku.
-• Výchozí řazení zůstává beze změny: Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno, Akce abecedně.
-• Build kontroluje, že odstraněné vrstvy nejsou v balíčku ani ve spouštěcím souboru a že konsolidovaný správce layoutu i stavů je zapojen.
+• Pokračování technického úklidu bez změny databáze, uživatelských dat nebo fyzických dokumentů.
+• Odstraněna překryvná vrstva v630_safeofferdrop. Její platné bezpečnostní funkce byly sloučeny přímo do v631_diskdrop.
+• Přetažení PDF/MSG z Průzkumníka a virtuálních e-mailů z Outlooku má nyní jediného nativního vlastníka místo dvou po sobě registrovaných OLE cílů.
+• Zachováno bezpečné COM CoInitialize/CoUninitialize při importu z Outlooku, faulthandler, záznam Tk callback chyb a offer_drop_crash.log.
+• Při zpracování více souborů používá sjednocený drop mechanismus společný dávkový runner, pokud je v aplikaci dostupný; jinak zůstává bezpečný přímý fallback.
+• Výchozí řazení, jednotné šířky tabulek, stavové barvy, DB-first archivace a ověřený dodavatelský Excel export zůstávají beze změny.
+• Build bude ověřovat, že v630 už není v runtime ani ve spouštěcím souboru a že bezpečnostní funkce jsou obsažené v jediném modulu v631.
