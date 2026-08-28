@@ -17,7 +17,13 @@ def apply(M):
     def _heading_contract(app,tree,cols):
         if tree is None:return
         try:
-            tree.configure(show='headings',columns=cols)
+            # Re-applying an identical -columns contract resets geometry on
+            # Windows ttk.Treeview. Only change the structural column list when
+            # it is actually different; headings may be refreshed safely.
+            if tuple(tree.cget('columns'))!=tuple(cols):
+                tree.configure(show='headings',columns=cols)
+            else:
+                tree.configure(show='headings')
             for c in cols:
                 tree.heading(c,text=c,command=lambda col=c,t=tree:app.sort_tree(t,col))
         except Exception:pass
@@ -111,14 +117,12 @@ def apply(M):
     def _remove_problematic_request_bindings(app):
         t=getattr(app,'request_tree',None)
         if t is None or getattr(t,'_v638_clean_bindings',False):return
-        # v633/v637 added floating redraw hooks here. Remove instance hooks;
-        # native Treeview class bindings still provide scrolling normally.
+        # v633/v637 added floating redraw hooks here. Remove only the obsolete
+        # input/redraw hooks. <Configure> now belongs to post_baseline's unified
+        # Treeview fitter and must remain bound.
         for seq in ('<MouseWheel>','<ButtonRelease-1>'):
             try:t.unbind(seq)
             except Exception:pass
-        # Configure refresh was also the source of repeated full reloads while resizing.
-        try:t.unbind('<Configure>')
-        except Exception:pass
         t._v638_clean_bindings=True
 
     def _stabilize(app,sort_projects=False):
@@ -126,6 +130,14 @@ def apply(M):
         _remove_problematic_request_bindings(app)
         _style_urgent_requests(app)
         if sort_projects:_sort_projects_default(app)
+        # v638 still runs its historical delayed consistency passes. Because
+        # those passes may legitimately change columns/counts, always hand the
+        # final geometry back to post_baseline afterwards. This prevents a late
+        # status refresh from leaving the Treeview at its design widths.
+        try:
+            final_layout=getattr(M,'schedule_final_tree_layout',None)
+            if callable(final_layout):final_layout(app)
+        except Exception:pass
 
     # Apply after old wrappers finish their after_idle work. This makes the final
     # contract deterministic and stops the v632/v637 add/remove column race.
