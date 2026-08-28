@@ -1,7 +1,7 @@
-• Opraven import nového formátu cenových nabídek GEROtop / PROSTUPY. Podporované jsou nově i kódy typu 411-0150-030-XXX a opakovaný stejný kód u více různých výrobků.
-• Nový GEROtop formát se čte podle skutečné geometrie řádku v PDF, nikoli podle pořadí textových objektů v souboru. Tím se správně přiřadí množství, původní cena, sleva, cena po slevě i celková cena.
-• Zachováno načítání názvu výrobku, technického popisu, tučného textu a produktového obrázku. Item key je odvozen z názvu výrobku, takže opakovaný placeholder kód nezpůsobí sloučení položek.
-• GEROtop má nyní jeden kanonický vstup Gerotop_Parser: moderní geometrický formát zpracuje přímo a starší PDF předá původnímu ověřenému parseru. Router registruje GEROtop pouze jednou.
-• Pokud PDF dodavatele rozpozná, ale parser uvnitř selže, CRM nově zachová konkrétní důvod chyby místo obecného hlášení „PDF není rozpoznáno jako podporovaná cenová nabídka“.
-• Na dodaném vzorku P12166 / 2026 bylo ověřeno načtení 3 produktových položek, slevy 25 %, data 27.08.2026, názvu akce a obrázků. Přiložený technický/montážní list zůstává správně nerozpoznán jako cenová nabídka.
-• Databázové schéma, uživatelská databáze, existující archiv nabídek a starší GEROtop/Leviat importy se touto verzí nemění.
+• PDF přílohy uvnitř e-mailu, které nejsou cenovou nabídkou (např. technické listy, výkresy nebo certifikáty), se nově evidují jako běžné ostatní přílohy a nezobrazují se jako chyba importu. Skutečná chyba u PDF, které parser jako nabídku rozpoznal, se nadále zobrazí.
+• Odstraněno dvojí upozornění na aktualizaci. v625 už nestahuje latest.json ani nevytváří vlastní aktualizační okno; používá se jediný kanonický App.check_for_updates. Základní startovní kontrola zůstává jedna a další automatická kontrola se plánuje po 10 minutách.
+• Tiché automatické kontroly aktualizací mají společný debounce, takže dvě téměř současná volání nemohou otevřít dvě stejná okna. Nastavení ADMIN „Automaticky kontrolovat aktualizace“ se u tichých kontrol respektuje.
+• Opraven kanonický GEROtop Excel export v624: z databáze se nyní načítá nejen název položky, ale také uložené pole details. V buňce „Název / technický popis“ je název tučně a pod ním víceřádkový technický popis včetně odrážek.
+• Oprava Excelu platí i pro již naimportované GEROtop nabídky, protože technický popis byl v databázi uložen správně už dříve; není nutná migrace databáze ani nový import pro ruční opětovný export.
+• Na vzorku GEROtop P12166 / 2026 bylo ověřeno, že technický list je možné klasifikovat jako ostatní přílohu a že exportní XLSX obsahuje název i technický popis položky.
+• Databázové schéma, uživatelská databáze, existující fyzický archiv a parsování cenových položek GEROtop/Leviat se touto verzí nemění.
