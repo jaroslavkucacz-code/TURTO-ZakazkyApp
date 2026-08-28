@@ -1,5 +1,3 @@
-• Vedle aktivního uživatele je nová ikona Poznámky. Každý uživatel má vlastní jednoduchý zápisník bez vazeb na Akce, Příležitosti, Poptávky nebo Úkoly.
-• Nová poznámka automaticky dostane aktuální datum a čas. Ukládá se přímo do databáze; Ctrl+Enter ji rychle uloží a v seznamu lze poznámky vyhledávat.
-• Přeškrtnutí poznámky je současně její archivace. Z běžného seznamu zmizí; po zapnutí „Zobrazit archivované“ je vidět přeškrtnutá a lze ji obnovit. Samostatný stav „přeškrtnuto“ neexistuje.
-• Poznámku lze dodatečně upravit. Přejmenování uživatele převede i jeho poznámky na nové jméno; odstranění uživatele poznámky fyzicky nemaže.
-• Databáze se pouze aditivně rozšiřuje o tabulku user_notes. Stávající zakázková data, Nabídky, parsery, Excel exporty i historie se nemění.
+• Tlačítko osobních Poznámek v horní liště je nově výraznější a obsahuje text „Poznámky“.
+• Pokud má aktivní uživatel nearchivované poznámky, tlačítko ukazuje jejich počet ve formátu „Poznámky (N)“.
+• Umístění zůstává přímo vedle aktivního uživatele; funkce Poznámek, archivace, vyhledávání i oddělení podle uživatele se nemění.
