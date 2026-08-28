@@ -15,12 +15,20 @@ class OfferPriceHistoryDialog(tk.Toplevel):
         f=M.scrollable_dialog_frame(self,18)
         with M.db() as con:
             rows=con.execute("""SELECT o.offer_date,o.offer_number,o.supplier_name,s.official_name supplier,
-                       a.name action_name,i.original_name,i.product_code,i.quantity,i.unit,
+                       CASE
+                         WHEN o.request_id IS NOT NULL THEN coalesce(pr.name,pd.name,'')
+                         WHEN o.project_id IS NOT NULL AND o.action_id IS NULL THEN coalesce(pd.name,'')
+                         ELSE ''
+                       END action_name,
+                       i.original_name,i.product_code,i.quantity,i.unit,
                        i.original_unit_price,i.discount_pct,i.unit_price,i.total_price
                 FROM supplier_offer_items i
                 JOIN supplier_offers o ON o.id=i.offer_id
                 LEFT JOIN companies s ON s.id=o.supplier_company_id
-                LEFT JOIN actions a ON a.id=o.action_id
+                LEFT JOIN projects pd ON pd.id=o.project_id
+                LEFT JOIN requests rq ON rq.id=o.request_id
+                LEFT JOIN actions ra ON ra.id=rq.action_id
+                LEFT JOIN projects pr ON pr.id=ra.project_id
                 WHERE i.item_key=? AND (coalesce(o.supplier_name,'')=? OR coalesce(s.official_name,'')=?)
                 ORDER BY o.offer_date DESC,o.id DESC,i.id DESC""",(item_key,supplier,supplier)).fetchall()
         ttk.Label(f,text=title_text or item_key,style="Section.TLabel").pack(anchor="w")
@@ -69,7 +77,21 @@ class OfferDetailDialog(tk.Toplevel):
         self.f=M.scrollable_dialog_frame(self,18);self._build()
     def _load(self):
         with M.db() as con:
-            r=con.execute("""SELECT o.*,coalesce(s.official_name,o.supplier_name) supplier,c.official_name customer,a.name action_name FROM supplier_offers o LEFT JOIN companies s ON s.id=o.supplier_company_id LEFT JOIN companies c ON c.id=o.customer_company_id LEFT JOIN actions a ON a.id=o.action_id WHERE o.id=?""",(self.oid,)).fetchone()
+            r=con.execute("""SELECT o.*,coalesce(s.official_name,o.supplier_name) supplier,
+                       c.official_name customer,
+                       CASE
+                         WHEN o.request_id IS NOT NULL THEN coalesce(pr.name,pd.name,'')
+                         WHEN o.project_id IS NOT NULL AND o.action_id IS NULL THEN coalesce(pd.name,'')
+                         ELSE ''
+                       END action_name
+                FROM supplier_offers o
+                LEFT JOIN companies s ON s.id=o.supplier_company_id
+                LEFT JOIN companies c ON c.id=o.customer_company_id
+                LEFT JOIN projects pd ON pd.id=o.project_id
+                LEFT JOIN requests rq ON rq.id=o.request_id
+                LEFT JOIN actions ra ON ra.id=rq.action_id
+                LEFT JOIN projects pr ON pr.id=ra.project_id
+                WHERE o.id=?""",(self.oid,)).fetchone()
             items=con.execute("SELECT * FROM supplier_offer_items WHERE offer_id=? ORDER BY position,id",(self.oid,)).fetchall()
         return r,items
     def _build(self):
@@ -146,23 +168,24 @@ def _offer_filter_values():
                        ORDER BY supplier COLLATE CZECH"""
                 ).fetchall()
             ]
-            try:
-                actions=[
-                    r["name"] for r in con.execute(
-                        """SELECT name FROM projects
-                           WHERE coalesce(active,1)=1
-                             AND trim(coalesce(name,''))<>''
-                           ORDER BY name COLLATE CZECH,id"""
-                    ).fetchall()
-                ]
-            except Exception:
-                actions=[
-                    r["name"] for r in con.execute(
-                        """SELECT DISTINCT trim(name) name FROM actions
-                           WHERE trim(coalesce(name,''))<>''
-                           ORDER BY trim(name) COLLATE CZECH"""
-                    ).fetchall()
-                ]
+            actions=[
+                r["name"] for r in con.execute(
+                    """SELECT DISTINCT name FROM (
+                           SELECT CASE
+                             WHEN o.request_id IS NOT NULL THEN coalesce(pr.name,pd.name,'')
+                             WHEN o.project_id IS NOT NULL AND o.action_id IS NULL THEN coalesce(pd.name,'')
+                             ELSE ''
+                           END name
+                           FROM supplier_offers o
+                           LEFT JOIN projects pd ON pd.id=o.project_id
+                           LEFT JOIN requests rq ON rq.id=o.request_id
+                           LEFT JOIN actions ra ON ra.id=rq.action_id
+                           LEFT JOIN projects pr ON pr.id=ra.project_id
+                       )
+                       WHERE trim(coalesce(name,''))<>''
+                       ORDER BY name COLLATE CZECH"""
+                ).fetchall()
+            ]
     except Exception:
         pass
     return suppliers,actions
@@ -240,8 +263,8 @@ def build_offers(self):
     for variable in (self.offer_q,self.offer_supplier_filter,self.offer_action_filter):
         variable.trace_add("write",lambda *_:self.refresh_offers())
 
-    columns=("Datum","Dodavatel","Číslo nabídky","Akce","Reference","Položek","Hodnota","Měna","Stav")
-    widths=[100,190,145,260,230,75,120,65,100]
+    columns=("Datum","Dodavatel","Číslo nabídky","Přiřazení","Akce","Reference","Položek","Hodnota","Měna","Stav")
+    widths=[100,185,140,105,245,215,70,115,60,95]
     self.offer_tree=self.tree(p,columns,widths)
     try:self.offer_tree.configure(selectmode="extended")
     except Exception:pass
@@ -280,11 +303,20 @@ def refresh_offers(self):
     for x in self.offer_tree.get_children():self.offer_tree.delete(x)
 
     with M.db() as con:
-        # project_id is additive since v6.0.37. Requests remain authoritative:
-        # direct project -> request project -> migrated opportunity project/name.
+        # Only current canonical links count as assignments. Historical action_id
+        # values created by the old reference auto-match are deliberately ignored.
         rs=con.execute("""SELECT o.*,
                 coalesce(s.official_name,o.supplier_name,'') supplier,
-                coalesce(pd.name,pr.name,po.name,oa.name,'') action_name,
+                CASE
+                  WHEN o.request_id IS NOT NULL THEN coalesce(pr.name,pd.name,'')
+                  WHEN o.project_id IS NOT NULL AND o.action_id IS NULL THEN coalesce(pd.name,'')
+                  ELSE ''
+                END action_name,
+                CASE
+                  WHEN o.request_id IS NOT NULL THEN '✓ Poptávka'
+                  WHEN o.project_id IS NOT NULL AND o.action_id IS NULL THEN '✓ Akce'
+                  ELSE '—'
+                END link_state,
                 (SELECT COUNT(*) FROM supplier_offer_items i WHERE i.offer_id=o.id) item_count,
                 (SELECT group_concat(coalesce(i.original_name,'') || ' ' ||
                                      coalesce(i.item_key,'') || ' ' ||
@@ -296,16 +328,15 @@ def refresh_offers(self):
             LEFT JOIN requests rq ON rq.id=o.request_id
             LEFT JOIN actions ra ON ra.id=rq.action_id
             LEFT JOIN projects pr ON pr.id=ra.project_id
-            LEFT JOIN actions oa ON oa.id=o.action_id
-            LEFT JOIN projects po ON po.id=oa.project_id
             ORDER BY CASE WHEN trim(coalesce(o.offer_date,''))='' THEN 1 ELSE 0 END,
                      o.offer_date DESC,o.id DESC""").fetchall()
 
     for r in rs:
         supplier=r["supplier"] or ""
         action=r["action_name"] or ""
+        link_state=r["link_state"] or "—"
         reference=r["reference"] or ""
-        hay=f"{supplier} {action} {r['offer_number']} {r['note']} {reference} {r['item_search']}".casefold()
+        hay=f"{supplier} {action} {link_state} {r['offer_number']} {r['note']} {reference} {r['item_search']}".casefold()
         if sf and sf not in supplier.casefold():continue
         if af and af not in action.casefold():continue
         if q and q not in hay:continue
@@ -315,6 +346,7 @@ def refresh_offers(self):
                 M.fmt_date(r["offer_date"]),
                 supplier,
                 r["offer_number"] or "",
+                link_state,
                 action,
                 reference,
                 r["item_count"],
