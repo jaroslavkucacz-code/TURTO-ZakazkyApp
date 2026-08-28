@@ -98,6 +98,7 @@ def apply(M):
         messages = 0
         attachments = 0
         excel_files = 0
+        archive_folders = []
 
         for raw in paths:
             path = Path(str(raw))
@@ -111,6 +112,8 @@ def apply(M):
                     _log(f'{source_label} MSG processing begin: {path.name}')
                     result = M.process_offer_msg(app, path)
                     _log(f'{source_label} MSG processing end: {path.name}')
+                    if isinstance(result, dict) and result.get('archive_folder'):
+                        archive_folders.append(result['archive_folder'])
                     messages += 1
                     attachments += int((result or {}).get('attachments') or 0)
                     excel_files += len((result or {}).get('excel_files') or [])
@@ -125,6 +128,8 @@ def apply(M):
                     _log(f'{source_label} PDF processing end: {path.name}')
                     if isinstance(result, dict):
                         excel_files += len(result.get('excel_files') or [])
+                        if result.get('archive_folder'):
+                            archive_folders.append(result['archive_folder'])
                     good.append(result)
                 else:
                     errors.append(f'{path.name}: nepodporovaný formát')
@@ -152,6 +157,13 @@ def apply(M):
             )
         except Exception:
             pass
+        if archive_folders:
+            try:
+                opener = getattr(M, 'show_offer_archive_folder', None)
+                if callable(opener):
+                    opener(app, archive_folders)
+            except Exception:
+                pass
         return good
 
     def _process_real_files(app, paths):
