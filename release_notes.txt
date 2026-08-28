@@ -1,5 +1,5 @@
-• Náhled obrázku položky v detailu Nabídky má nyní pevnou výšku. Obrázky s různým poměrem stran se proporčně zmenší a vycentrují, takže panel při přepínání položek neposkakuje.
-• Starý modul Produkty / ceny už nevytváří pomocný archiv TURTO Zakazky\Dokumenty\Nabidky a nekopíruje do něj MSG/PDF ani části e-mailů. Fyzický archiv Nabídek nadále vlastní pouze současná bezpečná archivní pipeline. Existující historické soubory se automaticky nemažou.
-• Našeptávače Dodavatele, Odběratele, Akce a dalších polí mají opravené ovládání ↑/↓. Otevřený seznam se při každém stisku znovu nesestavuje, takže lze šipkami plynule procházet všechny položky.
-• Pole Obchodník v Příležitosti používá stejný AutocompleteEntry jako Dodavatel/Odběratel místo odlišného readonly Comboboxu. Šipky, Enter i správa číselníku se tak chovají jednotně.
-• Databázové schéma se nemění; Nabídky, fyzický archiv, historie, GEROtop/Leviat exporty, Outlook import i hromadné DB-only mazání zůstávají zachované.
+• Hromadné přetažení celých Outlook .MSG zpráv už nejprve synchronně neukládá celý výběr bez odezvy. E-maily se převádějí do dočasných .MSG postupně po jednom přes událostní smyčku aplikace.
+• Ihned se zobrazí samostatný průběh „Přebírám e-maily z Outlooku X z N“ s názvem právě převáděné zprávy. I u stovek e-mailů je tak vidět, že aplikace pracuje.
+• Přípravná fáze má vlastní Storno. Zastaví dávku po právě převáděném e-mailu, smaže dočasně převzaté soubory a žádnou nedokončenou část dávky nepředá ke zpracování.
+• Po úspěšném převzetí se automaticky spustí stávající společný batch runner Nabídek s druhým průběhem, Stornem a zachovanou archivací/exporty. Pevný uživatelský limit počtu .MSG se nezavádí.
+• Databázové schéma, fyzický archiv Nabídek, GEROtop/Leviat exporty, Outlook SaveAs cesta, historie ani hromadné DB-only mazání se nemění.

@@ -200,7 +200,12 @@ def apply(M):
             dialog.lift()
             dialog.attributes('-topmost', True)
             dialog.focus_force()
-            dialog.after(650, lambda d=dialog: d.attributes('-topmost', False) if d.winfo_exists() else None)
+            dialog.after(
+                650,
+                lambda d=dialog: d.attributes('-topmost', False)
+                if d.winfo_exists()
+                else None,
+            )
         except Exception:
             pass
 
@@ -242,7 +247,9 @@ def apply(M):
         try:
             app.bind(
                 '<Destroy>',
-                lambda e: release() if getattr(e, 'widget', None) is app else None,
+                lambda e: release()
+                if getattr(e, 'widget', None) is app
+                else None,
                 add='+',
             )
         except Exception:
@@ -287,8 +294,8 @@ def apply(M):
         )
 
     def import_selected_outlook_offer(self):
-        """Whole-message Outlook import through SaveAs(.msg) + shared batch runner."""
-        from tkinter import messagebox
+        """Incrementally materialize selected Outlook messages, then run the shared batch."""
+        from tkinter import messagebox, ttk
 
         if os.name != 'nt':
             return messagebox.showerror(
@@ -298,13 +305,14 @@ def apply(M):
             )
 
         pythoncom = None
-        temp_dir = None
+        com_initialized = False
         try:
             import pythoncom
             import win32com.client
 
             pythoncom.CoInitialize()
-            _log('Outlook selected-message import start')
+            com_initialized = True
+            _log('Outlook selected-message preparation start')
             try:
                 outlook = win32com.client.GetActiveObject('Outlook.Application')
             except Exception:
@@ -315,73 +323,203 @@ def apply(M):
             count = int(selection.Count) if selection is not None else 0
             if count < 1:
                 raise RuntimeError('V Outlooku není vybraný žádný e-mail.')
-
-            temp_dir = tempfile.TemporaryDirectory(prefix='turto_outlook_msg_')
-            paths = []
-            for index in range(1, count + 1):
-                item = selection.Item(index)
+        except Exception as exc:
+            _log('Outlook selected-message preparation init failed', exc)
+            if com_initialized:
                 try:
-                    if int(getattr(item, 'Class', 0)) != 43:
-                        continue
+                    pythoncom.CoUninitialize()
                 except Exception:
                     pass
-
-                subject = str(
-                    getattr(item, 'Subject', '') or f'outlook_{index}'
-                )
-                path = Path(temp_dir.name) / (
-                    _safe_filename(subject, f'outlook_{index}')
-                    + f'_{index}.msg'
-                )
-                _log(f'Outlook SaveAs begin: {path.name}')
-                try:
-                    item.SaveAs(str(path), 9)
-                except Exception:
-                    item.SaveAs(str(path), 3)
-                if path.exists() and path.stat().st_size > 0:
-                    paths.append(path)
-                    _log(
-                        f'Outlook SaveAs complete: {path.name} '
-                        f'({path.stat().st_size} bytes)'
-                    )
-
-            if not paths:
-                raise RuntimeError(
-                    'Výběr Outlooku neobsahuje zpracovatelný e-mail.'
-                )
-
-            result = _start_visible_batch(
-                self,
-                paths,
-                temp_dir=temp_dir,
-                source_label='Outlook',
-            )
-            # The shared batch now owns these temporary MSG files until its
-            # progress window closes (completion or Storno).
-            temp_dir = None
-            return result
-        except Exception as exc:
-            _log('Outlook selected-message import failed', exc)
-            messagebox.showerror(
+            return messagebox.showerror(
                 'Přenos z Outlooku',
                 'E-mail se nepodařilo bezpečně převzít z Outlooku.\n\n'
                 + str(exc)
                 + '\n\nPodrobnosti jsou v offer_drop_crash.log.',
                 parent=self,
             )
-            return []
-        finally:
-            try:
-                if temp_dir is not None:
-                    temp_dir.cleanup()
-            except Exception:
-                pass
-            try:
-                if pythoncom is not None:
+
+        temp_dir = tempfile.TemporaryDirectory(prefix='turto_outlook_msg_')
+        state = {
+            'index': 1,
+            'saved': [],
+            'errors': [],
+            'cancel': False,
+            'closed': False,
+        }
+
+        dialog = M.tk.Toplevel(self)
+        dialog.title('Přebírání e-mailů z Outlooku')
+        dialog.transient(self)
+        dialog.resizable(False, False)
+        dialog.geometry('610x235')
+
+        box = ttk.Frame(dialog, padding=18)
+        box.pack(fill='both', expand=True)
+        title = ttk.Label(
+            box,
+            text=f'Přebírám e-maily z Outlooku 0 z {count}',
+            style='Section.TLabel',
+        )
+        title.pack(anchor='w')
+        current = ttk.Label(
+            box,
+            text='Připravuji první zprávu…',
+            style='PageSubtitle.TLabel',
+        )
+        current.pack(anchor='w', pady=(6, 6))
+        info = ttk.Label(
+            box,
+            text=(
+                'Nejprve se zprávy bezpečně převedou do dočasných .MSG souborů. '
+                'Potom automaticky začne vlastní zpracování nabídek.'
+            ),
+            style='PageSubtitle.TLabel',
+            wraplength=565,
+        )
+        info.pack(anchor='w', pady=(0, 10))
+        bar = ttk.Progressbar(box, maximum=max(1, count), value=0, length=565)
+        bar.pack(fill='x', pady=(0, 14))
+        buttons = ttk.Frame(box)
+        buttons.pack(fill='x')
+
+        def release_com():
+            if state['closed']:
+                return
+            state['closed'] = True
+            if com_initialized:
+                try:
                     pythoncom.CoUninitialize()
+                except Exception:
+                    pass
+            _log('Outlook selected-message preparation end')
+
+        def cleanup_temp():
+            try:
+                temp_dir.cleanup()
             except Exception:
                 pass
-            _log('Outlook selected-message import end')
+
+        def close_dialog():
+            try:
+                if dialog.winfo_exists():
+                    dialog.destroy()
+            except Exception:
+                pass
+
+        def cancel():
+            if state['cancel']:
+                return
+            state['cancel'] = True
+            current.configure(
+                text='Storno požadováno – dokončím právě převáděný e-mail a zastavím.'
+            )
+
+        ttk.Button(buttons, text='Storno', command=cancel).pack(side='right')
+        dialog.protocol('WM_DELETE_WINDOW', cancel)
+        _foreground_batch_dialog(self, dialog)
+
+        def abort_preparation(message=None):
+            saved_count = len(state['saved'])
+            close_dialog()
+            cleanup_temp()
+            release_com()
+            text = (
+                f'Přebírání e-mailů bylo zastaveno.\n\n'
+                f'Převzato dočasně: {saved_count} z {count}.\n'
+                'Žádná z této nedokončené dávky nebyla předána ke zpracování.'
+            )
+            if message:
+                text += '\n\n' + str(message)
+            messagebox.showinfo('Přenos z Outlooku', text, parent=self)
+
+        def start_processing():
+            paths = tuple(state['saved'])
+            close_dialog()
+            release_com()
+            if not paths:
+                cleanup_temp()
+                detail = '\n'.join(state['errors'][:10])
+                return messagebox.showerror(
+                    'Přenos z Outlooku',
+                    'Nepodařilo se převzít žádný z vybraných e-mailů.'
+                    + (('\n\n' + detail) if detail else ''),
+                    parent=self,
+                )
+            if state['errors']:
+                _log(
+                    f'Outlook preparation completed with {len(state["errors"])} errors; '
+                    f'continuing with {len(paths)} messages'
+                )
+            _start_visible_batch(
+                self,
+                paths,
+                temp_dir=temp_dir,
+                source_label='Outlook',
+            )
+
+        def save_next():
+            if state['cancel']:
+                abort_preparation()
+                return
+            index = state['index']
+            if index > count:
+                start_processing()
+                return
+
+            title.configure(text=f'Přebírám e-maily z Outlooku {index} z {count}')
+            bar['value'] = index - 1
+
+            try:
+                item = selection.Item(index)
+                try:
+                    is_mail = int(getattr(item, 'Class', 0)) == 43
+                except Exception:
+                    is_mail = True
+
+                if not is_mail:
+                    current.configure(text=f'{index}/{count}: přeskočena nepodporovaná položka')
+                else:
+                    subject = str(
+                        getattr(item, 'Subject', '') or f'outlook_{index}'
+                    )
+                    current.configure(text=f'{index}/{count}: {subject[:95]}')
+                    try:
+                        self.update_idletasks()
+                    except Exception:
+                        pass
+
+                    path = Path(temp_dir.name) / (
+                        _safe_filename(subject, f'outlook_{index}')
+                        + f'_{index}.msg'
+                    )
+                    _log(f'Outlook SaveAs begin: {path.name}')
+                    try:
+                        item.SaveAs(str(path), 9)
+                    except Exception:
+                        item.SaveAs(str(path), 3)
+                    if path.exists() and path.stat().st_size > 0:
+                        state['saved'].append(path)
+                        _log(
+                            f'Outlook SaveAs complete: {path.name} '
+                            f'({path.stat().st_size} bytes)'
+                        )
+                    else:
+                        state['errors'].append(
+                            f'{index}/{count} {subject}: Outlook nevytvořil platný .MSG soubor.'
+                        )
+            except Exception as exc:
+                _log(f'Outlook SaveAs failed for selection index {index}', exc)
+                state['errors'].append(f'{index}/{count}: {exc}')
+
+            state['index'] += 1
+            bar['value'] = min(index, count)
+            if state['cancel']:
+                self.after(10, abort_preparation)
+            else:
+                self.after(15, save_next)
+
+        self.after(10, save_next)
+        return []
 
     M.App.import_selected_outlook_offer = import_selected_outlook_offer
 
@@ -569,9 +707,13 @@ def apply(M):
                 used_names = set()
                 for index, name in supported:
                     try:
-                        _log(f'Outlook PDF FileContents begin: index={index}, name={name}')
+                        _log(
+                            f'Outlook PDF FileContents begin: index={index}, name={name}'
+                        )
                         data = virtual_pdf_content(data_object, index)
-                        base = _safe_filename(Path(name).name, f'outlook_{index + 1}')
+                        base = _safe_filename(
+                            Path(name).name, f'outlook_{index + 1}'
+                        )
                         if not base.lower().endswith('.pdf'):
                             base += '.pdf'
                         candidate = base
@@ -616,20 +758,32 @@ def apply(M):
 
                 def DragEnter(self, data_object, key_state, point, effect):
                     try:
-                        if qget(data_object, win32con.CF_HDROP, pythoncom.TYMED_HGLOBAL):
+                        if qget(
+                            data_object,
+                            win32con.CF_HDROP,
+                            pythoncom.TYMED_HGLOBAL,
+                        ):
                             self.kind = 'files'
                         elif virtual_outlook(data_object):
                             self.kind = 'outlook'
                         else:
                             self.kind = None
-                        return shellcon.DROPEFFECT_COPY if self.kind else shellcon.DROPEFFECT_NONE
+                        return (
+                            shellcon.DROPEFFECT_COPY
+                            if self.kind
+                            else shellcon.DROPEFFECT_NONE
+                        )
                     except Exception as exc:
                         _log('Unified DragEnter failed', exc)
                         self.kind = None
                         return shellcon.DROPEFFECT_NONE
 
                 def DragOver(self, key_state, point, effect):
-                    return shellcon.DROPEFFECT_COPY if self.kind else shellcon.DROPEFFECT_NONE
+                    return (
+                        shellcon.DROPEFFECT_COPY
+                        if self.kind
+                        else shellcon.DROPEFFECT_NONE
+                    )
 
                 def DragLeave(self):
                     self.kind = None
@@ -655,7 +809,9 @@ def apply(M):
                             _log('Explorer drop accepted: ' + ', '.join(supported))
                             self.owner.after(
                                 120,
-                                lambda ps=tuple(supported): _process_real_files(self.owner, ps),
+                                lambda ps=tuple(supported): _process_real_files(
+                                    self.owner, ps
+                                ),
                             )
                             return shellcon.DROPEFFECT_COPY
 
