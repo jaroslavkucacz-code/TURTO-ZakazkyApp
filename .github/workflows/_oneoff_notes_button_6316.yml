@@ -1,0 +1,35 @@
+name: One-off notes button 6.3.16
+on:
+  push:
+    branches: [feat/notes-button-6316]
+    paths: [.github/workflows/_oneoff_notes_button_6316.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/notes-button-6316
+          fetch-depth: 0
+      - name: Patch and validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .tmp_patch_notes_button_6316.py
+          python -m compileall -q ZakazkyApp_base_6.1 post_baseline.py
+          python - <<'PY'
+          from pathlib import Path
+          app=Path('ZakazkyApp_base_6.1/app.py').read_text(encoding='utf-8')
+          assert 'text="📝 Poznámky",style="TopAction.TButton",width=15' in app
+          assert "text=f'📝 Poznámky ({count})' if count else '📝 Poznámky'" in app
+          assert Path('release_version.txt').read_text(encoding='utf-8').strip()=='6.3.16'
+          print('notes button 6.3.16 contract OK')
+          PY
+          git config user.name "TURTO Refactor Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .tmp_patch_notes_button_6316.py
+          git add ZakazkyApp_base_6.1/app.py release_version.txt release_notes.txt
+          git commit -m "TURTO CRM 6.3.16 — výraznější tlačítko Poznámky"
+          git push origin HEAD:feat/notes-button-6316
