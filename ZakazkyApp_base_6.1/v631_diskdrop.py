@@ -304,11 +304,14 @@ def apply(M):
                 parent=self,
             )
 
+        pythoncom = None
+        com_initialized = False
         try:
             import pythoncom
             import win32com.client
 
             pythoncom.CoInitialize()
+            com_initialized = True
             _log('Outlook selected-message preparation start')
             try:
                 outlook = win32com.client.GetActiveObject('Outlook.Application')
@@ -319,14 +322,14 @@ def apply(M):
             selection = explorer.Selection if explorer is not None else None
             count = int(selection.Count) if selection is not None else 0
             if count < 1:
-                pythoncom.CoUninitialize()
                 raise RuntimeError('V Outlooku není vybraný žádný e-mail.')
         except Exception as exc:
             _log('Outlook selected-message preparation init failed', exc)
-            try:
-                pythoncom.CoUninitialize()
-            except Exception:
-                pass
+            if com_initialized:
+                try:
+                    pythoncom.CoUninitialize()
+                except Exception:
+                    pass
             return messagebox.showerror(
                 'Přenos z Outlooku',
                 'E-mail se nepodařilo bezpečně převzít z Outlooku.\n\n'
@@ -383,10 +386,11 @@ def apply(M):
             if state['closed']:
                 return
             state['closed'] = True
-            try:
-                pythoncom.CoUninitialize()
-            except Exception:
-                pass
+            if com_initialized:
+                try:
+                    pythoncom.CoUninitialize()
+                except Exception:
+                    pass
             _log('Outlook selected-message preparation end')
 
         def cleanup_temp():
