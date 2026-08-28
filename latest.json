@@ -1,6 +1,6 @@
 {
-  "version": "6.3.12",
-  "file": "ZakazkyApp_v6.3.12.zip",
-  "sha256": "9618457de2bb0eb88ea3af77cb19867777e9eaf9d1ab4e7f3cdad0a59f0f1047",
-  "notes": "• Opraveno poslední rozhození šířek tabulky po změně stavu: opožděná stabilizace ve v638 už znovu nekonfiguruje identický seznam sloupců, takže po refreshi neshodí Treeview zpět na návrhové šířky.\n• Pokud v638 skutečně provede pozdější strukturální stabilizaci, vždy následně předá geometrii jedinému finálnímu fitteru `post_baseline.schedule_final_tree_layout`, takže napravo nezůstane bílý pruh.\n• U Poptávek už v638 neodpojuje `<Configure>` handler, který patří centrálnímu Treeview layoutu v post_baseline; zachováno je pouze odstranění starých problémových scroll/redraw bindingů.\n• Oprava je cílená pouze na pozdní refresh tabulek po změně stavu. Hromadné mazání Nabídek, kontextové menu, Excel exporty, databázové schéma, parsery a Outlook drag & drop zůstávají beze změny."
+  "version": "6.3.13",
+  "file": "ZakazkyApp_v6.3.13.zip",
+  "sha256": "cf823da914a565292532f25ebc8c5602231d4fda5c0d2f872504893a35893f88",
+  "notes": "• Po dokončení importu cenových nabídek CRM automaticky zobrazí složku s exportem v Průzkumníkovi. Při jednom importu se otevře konkrétní složka nabídky; při dávce s více cílovými složkami se otevře společný kořen archivu.\n• Pokud je cílová složka už v Průzkumníkovi otevřená, CRM neotevírá další duplicitní okno: najde existující Explorer okno podle skutečné cesty, obnoví ho z minimalizace a vytáhne ho dopředu.\n• Stejný mechanismus se používá pro běžný PDF/MSG batch i pro PDF přílohu nebo celý e-mail přetažený přímo z Outlooku.\n• Při vytvoření e-mailu s Poptávkou se po naplnění příjemců, předmětu, textu a podpisu znovu aktivuje přímo Outlook Inspector daného konceptu, takže koncept zůstane navrchu a je hned vidět.\n• Databáze, parsery, Excel exporty, názvy archivů a logika samotného zpracování nabídek se nemění."
 }
