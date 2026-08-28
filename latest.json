@@ -1,6 +1,6 @@
 {
-  "version": "6.3.1",
-  "file": "ZakazkyApp_v6.3.1.zip",
-  "sha256": "4eb0e879e707fed0ecc88a269d3ba6b4654c21e2d189ad9c725ec0615e7cd2e1",
-  "notes": "• Opraveno výchozí řazení po čistém runtime přesunu v 6.3.0.\n• Výchozí řazení má nyní jediného vlastníka: Příležitosti podle Přijato sestupně, Poptávky a MIVO podle Poptáno sestupně, Akce abecedně podle názvu.\n• Historický v635_actions_sort se už neaplikuje, protože se přetahoval s novějším výchozím řazením a mohl později přepsat správné pořadí.\n• v644_default_date_sort se aplikuje až jako poslední vrstva po post_baseline, takže refresh ani změna záložky nemají výchozí pořadí přepsat.\n• Opraven updater pro čistou 6.3: při aktualizaci odstraní staré historické runtime soubory z kořene existující instalace, ale uživatelská data v Dokumenty/TURTO Zakazky ponechá nedotčená.\n• Updater po aktualizaci používá aktuální Spustit_Zakazky.vbs místo starého Spustit_Zakazky_v5.vbs.\n• Build nově kontroluje i správné pořadí runtime vrstev a aktuální restartovací spouštěč."
+  "version": "6.3.2",
+  "file": "ZakazkyApp_v6.3.2.zip",
+  "sha256": "7f9e69c490655d393f8ee9eb57b2cd73bec84f8ccc212f04902b1a22462a1859",
+  "notes": "• Pokračování technického úklidu bez změny databáze nebo uživatelských dat.\n• Z runtime i ze zdrojového baseline byly odstraněny čtyři již nepotřebné vrstvy: v635_actions_sort, v641_fill_tables, v642_exact_table_fill a v645_project_table_fill.\n• Výchozí řazení má nadále jediného aktivního vlastníka v644_default_date_sort: Příležitosti podle Přijato, Poptávky a MIVO podle Poptáno, Akce abecedně.\n• Odstraněn také již nepoužívaný post_fix_613, jeho platná logika zůstává v konsolidovaném post_baseline.\n• Aktualizátor před instalací smaže starou interní složku _runtime a vytvoří ji znovu, takže po aktualizaci nezůstávají nepoužívané moduly z předchozích verzí.\n• Build nově ověřuje, že odstraněné vrstvy nejsou v balíčku ani ve spouštěcím souboru a že výchozí řazení zůstává zapojené až po hlavní aktivní vrstvě."
 }
