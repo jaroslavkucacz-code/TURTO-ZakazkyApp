@@ -34,6 +34,12 @@ def apply(M):
         except Exception:pass
         return b''
 
+    def _is_benign_non_offer(exc):
+        # Technical sheets/drawings/certificates inside an e-mail are normal.
+        if bool(getattr(exc,'benign_offer_attachment',False)):return True
+        # Compatibility while an in-place update replaces both modules.
+        return str(exc).strip()=='PDF není rozpoznáno jako podporovaná cenová nabídka.'
+
     def process_msg(app,path):
         path=Path(path);raw=path.read_bytes();mh=hashlib.sha256(raw).hexdigest()
         try:
@@ -74,7 +80,9 @@ def apply(M):
                     if ext=='.pdf':
                         try:
                             r=M.process_offer_pdf(app,tmp,mid,name,data);results.append(r)
-                        except Exception as e:errors.append(f'{name}: {e}')
+                        except Exception as e:
+                            if _is_benign_non_offer(e):unsupported.append(name)
+                            else:errors.append(f'{name}: {e}')
                     else:unsupported.append(name)
             good=[r for r in results if r and not r.get('error')]
             note=f'Příloh: {attachments}; rozpoznaných nabídek: {len(good)}; ostatní: {len(unsupported)}; chyb: {len(errors)}'
@@ -135,8 +143,7 @@ def apply(M):
                     self.preview_image.configure(image='',text='K této položce není uložen obrázek.');self.preview_image.image=None
                     self.preview_source.configure(text='');return
                 from PIL import Image,ImageTk
-                img=Image.open(io.BytesIO(bytes(im['image_blob'])));img.thumbnail((320,220));ph=ImageTk.PhotoImage(img)
-                self.preview_image.configure(image=ph,text='');self.preview_image.image=ph
+                img=Image.open(io.BytesIO(bytes(im['image_blob'])));img.thumbnail((320,220));ph=ImageTk.PhotoImage(img);self.preview_image.configure(image=ph,text='');self.preview_image.image=ph
                 self.preview_source.configure(text=f"Zdroj obrázku: nabídka {im.get('source_offer_no') or '—'} z {M.fmt_date(im.get('source_offer_date'))}")
             except Exception as e:
                 try:self.preview_image.configure(image='',text=f'Obrázek nelze zobrazit: {e}')

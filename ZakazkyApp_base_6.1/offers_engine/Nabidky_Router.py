@@ -12,13 +12,26 @@ import Gerotop_Parser as gerotop
 BUILTINS=[]
 PROVIDERS=[]
 
+
+class UnsupportedOfferPDF(ValueError):
+    """No registered offer parser recognized this PDF.
+
+    This is a normal condition for PDF attachments inside e-mails: technical
+    sheets, drawings and certificates are still preserved, but are not offers.
+    """
+
+    benign_offer_attachment = True
+
+
 def _register_builtin(name,detect,parse,export=None):
     BUILTINS.append({'supplier':name,'detect':detect,'parse':parse,'export':export})
+
 
 def _leviat_detect(path):
     try:
         d=leviat.parse_offer(str(path));return bool(d and d.get('offer_no'))
     except Exception:return False
+
 
 def _leviat_parse(path):
     data=leviat.parse_offer(str(path));data['supplier']='Leviat';data['source_type']='PDF'
@@ -26,8 +39,10 @@ def _leviat_parse(path):
         item.setdefault('item_key',item.get('description',''));item.setdefault('details','');item.setdefault('image_bytes',None);item.setdefault('image_ext',None)
     return data
 
+
 _register_builtin('GEROtop',gerotop.detect_pdf,gerotop.parse_offer,gerotop.export_excel)
 _register_builtin('Leviat',_leviat_detect,_leviat_parse,leviat.export_excel)
+
 
 def _load_providers():
     if PROVIDERS:return
@@ -43,8 +58,10 @@ def _load_providers():
         except Exception:
             pass
 
+
 def parsers():
     _load_providers();return BUILTINS+PROVIDERS
+
 
 def detect_supplier(pdf_path):
     for p in parsers():
@@ -52,6 +69,7 @@ def detect_supplier(pdf_path):
             if p['detect'](pdf_path):return p['supplier']
         except Exception:pass
     return None
+
 
 def parse_offer(pdf_path):
     matched_errors=[]
@@ -73,7 +91,8 @@ def parse_offer(pdf_path):
             matched_errors.append(f"{p['supplier']}: {exc}")
     if matched_errors:
         raise ValueError('PDF bylo rozpoznáno jako cenová nabídka, ale parser ji nedokázal načíst. ' + ' | '.join(matched_errors))
-    raise ValueError('PDF není rozpoznáno jako podporovaná cenová nabídka.')
+    raise UnsupportedOfferPDF('PDF není rozpoznáno jako podporovaná cenová nabídka.')
+
 
 def export_excel(data, output_path, price_alerts=None):
     supplier=data.get('supplier')
@@ -81,6 +100,7 @@ def export_excel(data, output_path, price_alerts=None):
         if p['supplier']==supplier and p.get('export'):
             return p['export'](data,output_path,price_alerts=price_alerts)
     raise ValueError(f'Pro dodavatele {supplier or "?"} není definován Excel export.')
+
 
 def process_file(pdf_path, output_path=None, price_alerts=None):
     data=parse_offer(pdf_path)
