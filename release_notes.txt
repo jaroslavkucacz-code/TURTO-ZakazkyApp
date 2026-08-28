@@ -1,7 +1,7 @@
-• GEROtop Excel extrakce nově zachovává tučné části technického popisu podle původního PDF. Název položky zůstává tučně a jednotlivé zvýrazněné úseky v odrážkách se zapisují do Excelu jako rich text.
-• Formátování GEROtop se ukládá jako doplňková metadata `details_rich_json`; původní textové pole `details` se nemění. U již uložených GEROtop nabídek se metadata při exportu automaticky doplní z původního PDF, pokud je zdrojový soubor stále dostupný nebo je PDF zachováno v databázi jako příloha MSG.
-• Složky nových archivů nabídek mají přehledný formát `nabídka Dodavatel_RR-MM-DD_Název akce`. Pokud interní Akce v CRM ještě není přiřazená, použije se místo ní číslo nabídky. Z názvu složky byl odstraněn technický hash.
-• Leviat Excel nově používá výhradně vlastní pole `Reference zákazníka` načtené z nabídky Leviatu. Tato hodnota se nezaměňuje s interním názvem Akce v CRM a interní Akci si uživatel nadále přiřazuje samostatně.
-• GEROtop a Leviat tak mají oddělený význam dodavatelské reference a interní Akce: interní Akce se používá pro vazbu CRM a pro název archivní složky, dodavatelský název/reference zůstává součástí původní nabídky a její extrakce.
-• Release validace hlídá přítomnost rich-text úložiště, použití Leviat `reference` místo `action_name` a nový kontrakt názvu archivní složky. Zachována je také bezpečná MSG/PDF drag & drop cesta z verze 6.3.8.
-• Databáze se pouze bezpečně rozšiřuje o jeden textový sloupec s výchozí prázdnou hodnotou; nedochází k mazání, přepisování ani migraci existujících uživatelských dat či archivovaných souborů.
+• Název Excel extrakce nově obsahuje také dodavatelský název/reference nabídky přímo z PDF. Příklad: „Extrakce dat CN P12166-2026_TĚSNÍCÍ VLOŽKY.xlsx“.
+• U Leviatu se do názvu Excelu používá výhradně „Reference zákazníka“ z nabídky Leviatu, nikoli interní název Akce v CRM.
+• U GEROtopu se používá pracovní název akce/reference načtený z dodavatelského PDF. Interní Akce CRM zůstává oddělená.
+• Pokud dodavatelská reference v PDF chybí, název Excelu bezpečně zůstane ve formátu „Extrakce dat CN <číslo nabídky>.xlsx“.
+• Ruční export i automatická extrakce do archivní složky používají stejný kanonický generátor názvu souboru; při více nabídkách v jednom MSG se případná shoda názvů bezpečně očísluje.
+• Znaky nepovolené ve Windows názvech souborů se nahrazují podtržítkem; mezery a česká diakritika se zachovávají.
+• Databázové schéma, uživatelská data, parsery, formátování GEROtop i bezpečná MSG/PDF drag & drop cesta se touto verzí nemění.
