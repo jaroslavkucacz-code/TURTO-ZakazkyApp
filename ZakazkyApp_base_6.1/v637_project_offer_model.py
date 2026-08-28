@@ -43,7 +43,8 @@ def apply(M):
         def save_offer_import(*args,**kwargs):
             explicit_action=''
             try:
-                explicit_action=str(args[3] if len(args)>3 else kwargs.get('action_name','') or '').strip()
+                raw_action=args[3] if len(args)>3 else kwargs.get('action_name','')
+                explicit_action=str(raw_action or '').strip()
             except Exception:
                 explicit_action=''
             result=old_save_offer_import(*args,**kwargs)
