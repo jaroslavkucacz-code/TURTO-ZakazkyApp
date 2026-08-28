@@ -29,8 +29,12 @@ def main():
         roots=[p for p in td.iterdir() if p.is_dir()]
         src=roots[0] if len(roots)==1 else td
 
-        # Od 6.3 jsou historické runtime moduly uvnitř _runtime. Při přechodu ze
-        # starší instalace proto odstraň staré kopie jen z kořene programu.
+        # Interní runtime obsahuje jen programové moduly. Smažeme jej celý, aby
+        # po aktualizaci nezůstávaly nepoužívané vrstvy z předchozích verzí.
+        try:shutil.rmtree(target/'_runtime',ignore_errors=True)
+        except Exception:pass
+
+        # Při přechodu ze starší instalace odstraň i historické kopie z kořene.
         # Uživatelská data jsou mimo instalační adresář v Dokumenty/TURTO Zakazky.
         for name in STALE_ROOT_FILES:
             p=target/name
@@ -52,7 +56,6 @@ def main():
             except Exception:
                 time.sleep(.5);shutil.copy2(p,dest)
 
-    # 6.3 používá jediný aktuální spouštěč.
     vbs=target/'Spustit_Zakazky.vbs'
     if sys.platform.startswith('win') and vbs.exists():
         subprocess.Popen(['wscript.exe',str(vbs)],cwd=str(target))
