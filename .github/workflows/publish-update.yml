@@ -121,14 +121,17 @@ jobs:
           ! grep -q "v624_legacy_exports.apply(app)" "$DIR/ZakazkyCRM.pyw"
           ! grep -Eq "v622_palette|v626_smoothui|v627_fastui_dropfix|v630_safeofferdrop|v634_assignment_search|v635_actions_sort" "$DIR/ZakazkyCRM.pyw"
 
-          # One native drop owner; the old widget-level TkDND target is gone.
+          # One native drop owner. FileContents is PDF-only; whole MSG uses SaveAs.
           ! grep -q "tkdnd::drop_target" "$DIR/_runtime/v620_outlookdrop.py"
           grep -q "class UnifiedDropTarget" "$DIR/_runtime/v631_diskdrop.py"
           grep -q "def _enable_faulthandler" "$DIR/_runtime/v631_diskdrop.py"
           grep -q "def _install_tk_exception_guard" "$DIR/_runtime/v631_diskdrop.py"
           grep -q "def virtual_descriptors" "$DIR/_runtime/v631_diskdrop.py"
-          grep -q "def virtual_content" "$DIR/_runtime/v631_diskdrop.py"
+          grep -q "def virtual_pdf_content" "$DIR/_runtime/v631_diskdrop.py"
+          grep -q "def materialize_pdf_attachments" "$DIR/_runtime/v631_diskdrop.py"
           grep -q "RegisterClipboardFormat('FileContents')" "$DIR/_runtime/v631_diskdrop.py"
+          grep -q "FileContents bypassed; scheduling SaveAs(.msg)" "$DIR/_runtime/v631_diskdrop.py"
+          grep -q "if Path(name).suffix.lower() == '.pdf'" "$DIR/_runtime/v631_diskdrop.py"
           grep -q "M.App.import_selected_outlook_offer = import_selected_outlook_offer" "$DIR/_runtime/v631_diskdrop.py"
 
           # One DB-first archive/export pipeline with strict attachment filtering.
