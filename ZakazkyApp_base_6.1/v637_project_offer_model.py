@@ -34,33 +34,6 @@ def apply(M):
                        LEFT JOIN actions a ON a.id=r.action_id WHERE r.id=?''',(rid,)).fetchone()
         return r['project_id'] if r and r['project_id'] else None
 
-    # The base importer historically auto-filled action_id when the parsed
-    # supplier reference happened to equal an Opportunity name. Keep explicit
-    # action_name calls backwards-compatible, but never create that automatic
-    # relationship for ordinary parser/MSG/PDF imports.
-    old_save_offer_import=getattr(M,'save_offer_import',None)
-    if callable(old_save_offer_import):
-        def save_offer_import(*args,**kwargs):
-            explicit_action=''
-            try:
-                raw_action=args[3] if len(args)>3 else kwargs.get('action_name','')
-                explicit_action=str(raw_action or '').strip()
-            except Exception:
-                explicit_action=''
-            result=old_save_offer_import(*args,**kwargs)
-            try:
-                oid=result[0] if result else None
-                created=bool(result[1]) if result and len(result)>1 else False
-                if oid and created and not explicit_action:
-                    with M.db() as c:
-                        c.execute('''UPDATE supplier_offers
-                                     SET action_id=NULL
-                                     WHERE id=? AND request_id IS NULL''',(oid,))
-            except Exception:
-                pass
-            return result
-        M.save_offer_import=save_offer_import
-
     # ------------------------------------------------------------------
     # SEARCHABLE ASSIGNMENT: Request or real Action(project), never Opportunity.
     # ------------------------------------------------------------------
