@@ -1,6 +1,6 @@
 {
-  "version": "6.3.24",
-  "file": "ZakazkyApp_v6.3.24.zip",
-  "sha256": "d4b7697113fd563f7dea04f920a5c6d3b1115406f7e462e6adea53bee58467a1",
-  "notes": "• Opraven filtr Dodavatelů v záložce Nabídky: seznam hodnot se nyní obnovuje při každém refreshi Nabídek, takže nový dodavatel se objeví ihned po prvním importu bez restartu nebo znovuotevření záložky.\n• Stejným způsobem se živě aktualizuje i filtr Akce podle skutečně přiřazených nabídek.\n• Název dodavatele se při zobrazení a filtrování bere v pořadí oficiální název → krátký název → název z parseru. Záznam s prázdným oficiálním názvem tak už z filtru nezmizí.\n• Oprava je přímo v kanonickém vlastníkovi seznamu Nabídek `crm_features.py`; nevzniká nový patch ani wrapper.\n• Databázové schéma, PohlCon/GEROtop/Leviat parsery, Outlook import, archiv, historie cen, Excel exporty a DB-only mazání se nemění."
+  "version": "6.3.25",
+  "file": "ZakazkyApp_v6.3.25.zip",
+  "sha256": "3ec3df2002c0ae8777356890e0531c8d62f8ddc43d23092b603db79687a37420",
+  "notes": "• Nouzově opravena spouštěcí cesta aplikace. Starý `Spustit_Zakazky.bat` už nikdy nespouští samotný `app.py`; vždy přesměruje na kanonický `ZakazkyCRM.pyw` přes `Spustit_Zakazky.vbs`.\n• Opravena situace, kdy mohl starší zástupce na ploše po pádu/spuštění otevřít pouze základní aplikaci bez `_runtime` vrstev. V takovém stavu sice aplikace hlásila aktuální číslo verze, ale chyběl drag&drop a novější funkce.\n• Kompatibilní `Spustit_Zakazky.bat` je od této verze znovu součástí release balíčku právě jako bezpečný přesměrovávač. Tím se při aktualizaci automaticky opraví i existující staré zástupce, které na tento BAT míří.\n• Publish validace nově vyžaduje přítomnost bezpečného BAT launcheru a kontroluje, že směřuje na `ZakazkyCRM.pyw`, nikoli na `app.py`.\n• Databáze ani uživatelská data se nemění. Log případného pádu Outlook drag&drop zůstává v `Dokumenty\\TURTO Zakazky\\logs\\offer_drop_crash.log` pro přesnou diagnostiku samotného pádu."
 }
