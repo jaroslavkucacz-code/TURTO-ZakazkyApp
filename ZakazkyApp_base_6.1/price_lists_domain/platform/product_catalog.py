@@ -278,28 +278,29 @@ def count_unlinked(M) -> int:
 
 
 def sync_all_unlinked(M, max_documents: int | None = 250, progress=None) -> dict:
-    limit_sql = "" if max_documents is None else f" LIMIT {max(1, int(max_documents))}"
     with M.db() as con:
-        price_ids = [int(row[0]) for row in con.execute(
-            "SELECT DISTINCT price_list_id FROM price_list_items WHERE catalog_product_id IS NULL ORDER BY price_list_id" + limit_sql
-        ).fetchall()]
-        offer_ids = [int(row[0]) for row in con.execute(
-            "SELECT DISTINCT offer_id FROM supplier_offer_items WHERE catalog_product_id IS NULL ORDER BY offer_id" + limit_sql
-        ).fetchall()]
-    total = len(price_ids) + len(offer_ids)
-    done = 0
+        sql = """SELECT source_kind,parent_id FROM (
+                   SELECT 0 source_order,'Ceník' source_kind,price_list_id parent_id
+                   FROM price_list_items WHERE catalog_product_id IS NULL GROUP BY price_list_id
+                   UNION ALL
+                   SELECT 1,'Cenová nabídka',offer_id
+                   FROM supplier_offer_items WHERE catalog_product_id IS NULL GROUP BY offer_id
+                 ) ORDER BY source_order,parent_id"""
+        params = []
+        if max_documents is not None:
+            sql += " LIMIT ?"
+            params.append(max(1, int(max_documents)))
+        documents = con.execute(sql, params).fetchall()
+    total = len(documents)
     linked = 0
-    for price_list_id in price_ids:
-        linked += sync_price_list(M, price_list_id)
-        done += 1
+    for done, row in enumerate(documents, 1):
+        if row["source_kind"] == "Ceník":
+            linked += sync_price_list(M, int(row["parent_id"]))
+        else:
+            linked += sync_supplier_offer(M, int(row["parent_id"]))
         if progress:
-            progress(done, total, f"Ceník {price_list_id}")
-    for offer_id in offer_ids:
-        linked += sync_supplier_offer(M, offer_id)
-        done += 1
-        if progress:
-            progress(done, total, f"Cenová nabídka {offer_id}")
-    return {"documents": done, "items": linked, "remaining": count_unlinked(M)}
+            progress(done, total, f"{row['source_kind']} {row['parent_id']}")
+    return {"documents": total, "items": linked, "remaining": count_unlinked(M)}
 
 
 def set_product_taxonomy(M, product_ids, category_id=None, subgroup_id=None) -> int:
@@ -547,7 +548,7 @@ def _open_sources(M, parent, product_id: int) -> None:
 
 def open_product_catalog(M, app, category_id=None, subgroup_id=None) -> None:
     # Link a bounded initial batch so the window opens quickly even on a large legacy database.
-    initial_sync = sync_all_unlinked(M, max_documents=250)
+    initial_sync = sync_all_unlinked(M, max_documents=100)
     win = M.tk.Toplevel(app)
     win.title("Katalog produktů")
     win.transient(app)
@@ -778,8 +779,10 @@ def open_product_catalog(M, app, category_id=None, subgroup_id=None) -> None:
 
         try:
             result = sync_all_unlinked(M, max_documents=None, progress=progress)
-        finally:
+        except Exception as exc:
             progress_win.destroy()
+            return M.messagebox.showerror("Katalog produktů", f"Synchronizaci se nepodařilo dokončit:\n{exc}", parent=win)
+        progress_win.destroy()
         refresh_filters()
         refresh()
         M.messagebox.showinfo(

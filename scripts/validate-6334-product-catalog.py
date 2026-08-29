@@ -30,6 +30,7 @@ for rel, needles in {
 categories_text = (root / "price_lists_domain/platform/categories.py").read_text(encoding="utf-8")
 assert "Klíčová slova" not in categories_text
 assert "def classify_text(M, value: object):\n    return None" in categories_text
+assert "Automaticky podle položek" not in (root / "price_lists_domain/platform/price_dialogs.py").read_text(encoding="utf-8")
 
 sys.path.insert(0, str(root))
 from price_lists_domain.platform import database, product_catalog

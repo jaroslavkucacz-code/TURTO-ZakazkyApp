@@ -159,8 +159,8 @@ def metadata_dialog(M, parent, parsed: dict, path: Path, source_offer_id=None):
                     "Ceníky", "Předchozí ceník patří jinému dodavateli.", parent=dialog
                 )
         selected_category = category_value.get()
-        auto_category = selected_category == "Automaticky podle položek"
-        category_id = None if selected_category in {"Automaticky podle položek", "Nezařazeno"} else categories.category_id_by_name(M, selected_category)
+        auto_category = False
+        category_id = None if selected_category == "Nezařazeno" else categories.category_id_by_name(M, selected_category)
         result["value"] = {
             "supplier": supplier.get().strip(), "title": title.get().strip(),
             "valid_from": _iso_date(valid_from.get()), "valid_to": _iso_date(valid_to.get()),
@@ -216,7 +216,7 @@ def edit_price_list_metadata(M, app) -> None:
         "branch": M.tk.StringVar(value=row["branch"] or ""),
         "update_mode": M.tk.StringVar(value=UPDATE_MODES.get(row["update_mode"] or "partial", UPDATE_MODES["partial"])),
         "previous": M.tk.StringVar(value=""),
-        "category": M.tk.StringVar(value=categories.category_name(M, row["category_id"]) or "Automaticky podle položek"),
+        "category": M.tk.StringVar(value=categories.category_name(M, row["category_id"]) or "Nezařazeno"),
     }
     labels = (("Název", "title"), ("Rozsah / cenová řada", "product_group"), ("Větev / podmínka", "branch"))
     for idx, (label, key) in enumerate(labels):
@@ -260,7 +260,9 @@ def edit_price_list_metadata(M, app) -> None:
             return M.messagebox.showwarning("Ceníky", "Vyplňte datum Platí od.", parent=dialog)
         mode = next((key for key, label in UPDATE_MODES.items() if label == variables["update_mode"].get()), "partial")
         category_label = variables["category"].get()
-        category_id = None if category_label in {"Automaticky podle položek", "Nezařazeno"} else categories.category_id_by_name(M, category_label)
+        category_id = None if category_label == "Nezařazeno" else categories.category_id_by_name(M, category_label)
+        product_catalog.sync_price_list(M, price_list_id)
+        item_ids = []
         with M.db() as con:
             con.execute(
                 """UPDATE price_lists SET title=?,valid_from=?,valid_to=?,product_group=?,branch=?,
@@ -271,6 +273,9 @@ def edit_price_list_metadata(M, app) -> None:
                     previous_id, note.get("1.0", "end").strip(), category_id, price_list_id,
                 ),
             )
+            item_ids = [int(item[0]) for item in con.execute(
+                "SELECT id FROM price_list_items WHERE price_list_id=?", (price_list_id,)
+            ).fetchall()]
             if category_label == "Nezařazeno":
                 con.execute("UPDATE price_list_items SET category_id=NULL,subgroup_id=NULL WHERE price_list_id=?", (price_list_id,))
             elif category_id:
@@ -281,8 +286,8 @@ def edit_price_list_metadata(M, app) -> None:
                     "UPDATE price_lists SET valid_to=? WHERE id=? AND (valid_to='' OR valid_to>?)",
                     (previous_day, previous_id, previous_day),
                 )
-        if category_label == "Automaticky podle položek":
-            categories.autocategorize_price_list(M, price_list_id, only_empty=False)
+        if item_ids:
+            product_catalog.propagate_taxonomy_from_items(M, "price_list_items", item_ids)
         dialog.destroy()
         app.refresh_price_lists()
         try:app.refresh_offers()

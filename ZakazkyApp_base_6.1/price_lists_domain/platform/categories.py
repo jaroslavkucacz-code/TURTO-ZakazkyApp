@@ -146,6 +146,22 @@ def set_item_taxonomy(M, table: str, item_ids, category_id=None, subgroup_id=Non
     ids = [int(value) for value in item_ids if value]
     if not ids:
         return 0
+    # Existing historical rows may not yet be linked to the stable product master.
+    # Link their parent documents before changing taxonomy so this manual decision
+    # is inherited by later price-list versions as well.
+    if table in {"price_list_items", "supplier_offer_items"}:
+        from . import product_catalog
+        parent_column = "price_list_id" if table == "price_list_items" else "offer_id"
+        marks = ",".join("?" for _ in ids)
+        with M.db() as con:
+            parent_ids = [int(row[0]) for row in con.execute(
+                f"SELECT DISTINCT {parent_column} FROM {table} WHERE id IN ({marks})", ids
+            ).fetchall() if row[0]]
+        for parent_id in parent_ids:
+            if table == "price_list_items":
+                product_catalog.sync_price_list(M, parent_id)
+            else:
+                product_catalog.sync_supplier_offer(M, parent_id)
     if subgroup_id:
         parent = subgroup_parent_id(M, subgroup_id)
         if not parent:
@@ -159,11 +175,7 @@ def set_item_taxonomy(M, table: str, item_ids, category_id=None, subgroup_id=Non
             [(category_id, subgroup_id, item_id) for item_id in ids],
         )
     if table in {"price_list_items", "supplier_offer_items"}:
-        try:
-            from . import product_catalog
-            product_catalog.propagate_taxonomy_from_items(M, table, ids)
-        except Exception:
-            pass
+        product_catalog.propagate_taxonomy_from_items(M, table, ids)
     return len(ids)
 
 
@@ -198,21 +210,24 @@ def set_price_list_category(M, price_list_ids, category_id, apply_to_items: bool
         return 0
     if subgroup_id:
         category_id = subgroup_parent_id(M, subgroup_id)
+    from . import product_catalog
+    if apply_to_items:
+        for price_list_id in ids:
+            product_catalog.sync_price_list(M, price_list_id)
+    changed_item_ids = []
     with M.db() as con:
         con.executemany("UPDATE price_lists SET category_id=? WHERE id=?", [(category_id, pid) for pid in ids])
         if apply_to_items:
-            for pid in ids:
-                rows = con.execute("SELECT id FROM price_list_items WHERE price_list_id=?", (pid,)).fetchall()
-                item_ids = [int(row["id"]) for row in rows]
-                con.executemany(
-                    "UPDATE price_list_items SET category_id=?,subgroup_id=? WHERE id=?",
-                    [(category_id, subgroup_id, item_id) for item_id in item_ids],
-                )
-                try:
-                    from . import product_catalog
-                    product_catalog.propagate_taxonomy_from_items(M, "price_list_items", item_ids)
-                except Exception:
-                    pass
+            marks = ",".join("?" for _ in ids)
+            changed_item_ids = [int(row[0]) for row in con.execute(
+                f"SELECT id FROM price_list_items WHERE price_list_id IN ({marks})", ids
+            ).fetchall()]
+            con.executemany(
+                "UPDATE price_list_items SET category_id=?,subgroup_id=? WHERE id=?",
+                [(category_id, subgroup_id, item_id) for item_id in changed_item_ids],
+            )
+    if changed_item_ids:
+        product_catalog.propagate_taxonomy_from_items(M, "price_list_items", changed_item_ids)
     return len(ids)
 
 
@@ -333,7 +348,7 @@ def manage_categories(M, app) -> None:
     from . import product_catalog
 
     # Deterministically link a bounded legacy batch so product counts are useful immediately.
-    product_catalog.sync_all_unlinked(M, max_documents=250)
+    product_catalog.sync_all_unlinked(M, max_documents=100)
     dialog = M.tk.Toplevel(app)
     dialog.title("Produktové skupiny a podskupiny")
     dialog.transient(app)
@@ -570,6 +585,10 @@ def manage_categories(M, app) -> None:
         kind, row_id = selected()
         category_id = row_id if kind == "group" else subgroup_parent_id(M, row_id) if kind == "subgroup" else None
         subgroup_id = row_id if kind == "subgroup" else None
+        try:
+            dialog.grab_release()
+        except Exception:
+            pass
         product_catalog.open_product_catalog(M, app, category_id, subgroup_id)
         refresh(("g" if kind == "group" else "s") + str(row_id) if row_id else None)
 
