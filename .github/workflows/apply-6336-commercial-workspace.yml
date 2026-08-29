@@ -1,6 +1,9 @@
 name: Apply TURTO CRM 6.3.36 commercial workspaces
 
 on:
+  push:
+    branches:
+      - feature/6.3.36-commercial-workspaces
   workflow_dispatch:
 
 permissions:
