@@ -273,7 +273,7 @@ def edit_price_list_metadata(M, app) -> None:
                 ),
             )
             if category_label == "Nezařazeno":
-                con.execute("UPDATE price_list_items SET category_id=NULL WHERE price_list_id=?", (price_list_id,))
+                con.execute("UPDATE price_list_items SET category_id=NULL,subgroup_id=NULL WHERE price_list_id=?", (price_list_id,))
             elif category_id:
                 con.execute("UPDATE price_list_items SET category_id=?,subgroup_id=NULL WHERE price_list_id=?", (category_id, price_list_id))
             if previous_id and mode in {"replace_group", "replace_all"}:

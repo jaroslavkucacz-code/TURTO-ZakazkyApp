@@ -181,7 +181,7 @@ def build_price_lists(M, app) -> None:
     M.ttk.Button(evidence_tools, text="Smazat z DB", command=lambda: _delete_selected(M, app)).pack(side="right", padx=3)
 
     evidence_cols = (
-        "Stav", "Platí od", "Platí do", "Dodavatel", "Produktová skupina", "Název", "Skupina", "Větev",
+        "Stav", "Platí od", "Platí do", "Dodavatel", "Produktová skupina", "Název", "Rozsah / cenová řada", "Větev",
         "Režim", "Položek", "Soubor", "Import",
     )
     evidence_widths = [130, 95, 95, 190, 210, 280, 150, 180, 180, 75, 250, 145]

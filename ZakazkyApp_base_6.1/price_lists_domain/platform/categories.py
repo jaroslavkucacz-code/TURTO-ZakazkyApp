@@ -233,16 +233,19 @@ def autocategorize_price_list(M, price_list_id: int, only_empty: bool = True) ->
     for row in rows:
         old_category = int(row["category_id"]) if row["category_id"] else None
         old_subgroup = int(row["subgroup_id"]) if row["subgroup_id"] else None
-        category_id, subgroup_id = classify_item_taxonomy(M, row)
-        category_id = old_category or category_id or fallback
-        if old_subgroup:
-            subgroup_id = old_subgroup
-            category_id = subgroup_parent_id(M, old_subgroup) or category_id
-        elif category_id:
-            subgroup_id = classify_subgroup_text(M, category_id, _row_text(row))
+        text = _row_text(row)
+        guessed_category = classify_text(M, text) or fallback
+        guessed_subgroup = classify_subgroup_text(M, guessed_category, text) if guessed_category else None
         if only_empty:
-            category_id = old_category or category_id
-            subgroup_id = old_subgroup or subgroup_id
+            category_id = old_category or guessed_category
+            subgroup_id = old_subgroup or (
+                classify_subgroup_text(M, category_id, text) if category_id else None
+            )
+            if old_subgroup:
+                category_id = subgroup_parent_id(M, old_subgroup) or category_id
+        else:
+            category_id = guessed_category
+            subgroup_id = guessed_subgroup
         if category_id:
             if category_id != old_category or subgroup_id != old_subgroup:
                 updates.append((category_id, subgroup_id, int(row["id"])))
@@ -635,8 +638,9 @@ def manage_categories(M, app) -> None:
                     """SELECT (SELECT COUNT(*) FROM price_lists WHERE category_id=?) +
                               (SELECT COUNT(*) FROM price_list_items WHERE category_id=?) +
                               (SELECT COUNT(*) FROM supplier_offer_items WHERE category_id=?) +
+                              (SELECT COUNT(*) FROM business_document_items WHERE category_id=?) +
                               (SELECT COUNT(*) FROM product_subgroups WHERE category_id=?)""",
-                    (row_id, row_id, row_id, row_id),
+                    (row_id, row_id, row_id, row_id, row_id),
                 ).fetchone()[0]
                 table = "product_categories"
             else:
