@@ -188,6 +188,39 @@ def ensure_platform_schema(M) -> None:
               FOREIGN KEY(category_id) REFERENCES product_categories(id) ON DELETE RESTRICT
             );
 
+            CREATE TABLE IF NOT EXISTS catalog_products(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              manufacturer_company_id INTEGER,
+              manufacturer_name TEXT DEFAULT '',
+              internal_code TEXT DEFAULT '',
+              internal_name TEXT DEFAULT '',
+              category_id INTEGER,
+              subgroup_id INTEGER,
+              active INTEGER NOT NULL DEFAULT 1,
+              created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY(manufacturer_company_id) REFERENCES companies(id),
+              FOREIGN KEY(category_id) REFERENCES product_categories(id),
+              FOREIGN KEY(subgroup_id) REFERENCES product_subgroups(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS catalog_product_sources(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              product_id INTEGER NOT NULL,
+              supplier_company_id INTEGER,
+              supplier_name TEXT DEFAULT '',
+              supplier_name_norm TEXT DEFAULT '',
+              source_key TEXT NOT NULL UNIQUE,
+              product_identity TEXT NOT NULL,
+              supplier_product_code TEXT DEFAULT '',
+              source_name TEXT DEFAULT '',
+              source_kind TEXT DEFAULT '',
+              last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY(product_id) REFERENCES catalog_products(id) ON DELETE CASCADE,
+              FOREIGN KEY(supplier_company_id) REFERENCES companies(id)
+            );
+
             CREATE TABLE IF NOT EXISTS price_list_ocr_cache(
               source_hash TEXT NOT NULL,
               page_no INTEGER NOT NULL,
@@ -264,12 +297,26 @@ def ensure_platform_schema(M) -> None:
             """
         )
 
+        _add_column(con, "product_categories", "default_margin_pct REAL NOT NULL DEFAULT 0")
+        _add_column(con, "product_categories", "default_discount_pct REAL NOT NULL DEFAULT 0")
+        _add_column(con, "product_categories", "show_recommended_price INTEGER NOT NULL DEFAULT 1")
+        _add_column(con, "product_subgroups", "default_margin_pct REAL NOT NULL DEFAULT 0")
+        _add_column(con, "product_subgroups", "default_discount_pct REAL NOT NULL DEFAULT 0")
         _add_column(con, "price_lists", "category_id INTEGER")
         _add_column(con, "price_list_items", "category_id INTEGER")
         _add_column(con, "price_list_items", "subgroup_id INTEGER REFERENCES product_subgroups(id)")
+        _add_column(con, "price_list_items", "catalog_product_id INTEGER REFERENCES catalog_products(id)")
         _add_column(con, "supplier_offer_items", "category_id INTEGER")
         _add_column(con, "supplier_offer_items", "subgroup_id INTEGER REFERENCES product_subgroups(id)")
+        _add_column(con, "supplier_offer_items", "catalog_product_id INTEGER REFERENCES catalog_products(id)")
         _add_column(con, "business_document_items", "subgroup_id INTEGER REFERENCES product_subgroups(id)")
+        _add_column(con, "business_document_items", "catalog_product_id INTEGER REFERENCES catalog_products(id)")
+        _add_column(con, "business_document_items", "internal_code_snapshot TEXT DEFAULT ''")
+        _add_column(con, "business_document_items", "internal_name_snapshot TEXT DEFAULT ''")
+        _add_column(con, "business_document_items", "purchase_unit_price REAL DEFAULT 0")
+        _add_column(con, "business_document_items", "margin_pct REAL DEFAULT 0")
+        _add_column(con, "business_document_items", "recommended_unit_price REAL DEFAULT 0")
+        _add_column(con, "business_document_items", "show_recommended_price INTEGER DEFAULT 1")
         for table in ("supplier_offers", "actions", "tasks"):
             _add_column(con, table, "archived INTEGER NOT NULL DEFAULT 0")
             _add_column(con, table, "archived_at TEXT DEFAULT ''")
@@ -323,6 +370,14 @@ def ensure_platform_schema(M) -> None:
               ON product_categories(active,sort_order,name);
             CREATE INDEX IF NOT EXISTS idx_product_subgroups_group_order
               ON product_subgroups(category_id,active,sort_order,name);
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_catalog_products_internal_code
+              ON catalog_products(lower(trim(internal_code))) WHERE trim(coalesce(internal_code,''))<>'';
+            CREATE INDEX IF NOT EXISTS idx_catalog_products_taxonomy
+              ON catalog_products(active,category_id,subgroup_id,manufacturer_name,id);
+            CREATE INDEX IF NOT EXISTS idx_catalog_sources_lookup
+              ON catalog_product_sources(product_identity,supplier_company_id,supplier_name_norm,product_id);
+            CREATE INDEX IF NOT EXISTS idx_catalog_sources_product
+              ON catalog_product_sources(product_id,supplier_name,supplier_product_code);
             CREATE INDEX IF NOT EXISTS idx_price_lists_workset
               ON price_lists(archived,valid_from,valid_to,category_id,id);
             CREATE INDEX IF NOT EXISTS idx_price_list_items_workset
@@ -331,8 +386,12 @@ def ensure_platform_schema(M) -> None:
               ON price_list_items(category_id,name,product_code);
             CREATE INDEX IF NOT EXISTS idx_price_list_items_subgroup
               ON price_list_items(subgroup_id,category_id,name,product_code);
+            CREATE INDEX IF NOT EXISTS idx_price_list_items_catalog_product
+              ON price_list_items(catalog_product_id,price_list_id,active,id);
             CREATE INDEX IF NOT EXISTS idx_supplier_offer_items_taxonomy
               ON supplier_offer_items(category_id,subgroup_id,offer_id,id);
+            CREATE INDEX IF NOT EXISTS idx_supplier_offer_items_catalog_product
+              ON supplier_offer_items(catalog_product_id,offer_id,id);
             CREATE INDEX IF NOT EXISTS idx_business_document_items_taxonomy
               ON business_document_items(category_id,subgroup_id,document_id,id);
             CREATE INDEX IF NOT EXISTS idx_supplier_offers_archive_date

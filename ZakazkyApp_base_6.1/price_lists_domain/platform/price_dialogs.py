@@ -5,7 +5,7 @@ import io
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from . import categories
+from . import categories, product_catalog
 
 
 def _selected_price_list_ids(app):
@@ -54,7 +54,7 @@ def metadata_dialog(M, parent, parsed: dict, path: Path, source_offer_id=None):
     suggested_mode = str(parsed.get("suggested_update_mode") or "partial")
     update_mode = M.tk.StringVar(value=UPDATE_MODES.get(suggested_mode, UPDATE_MODES["partial"]))
     previous = M.tk.StringVar(value="")
-    category_value = M.tk.StringVar(value="Automaticky podle položek")
+    category_value = M.tk.StringVar(value="Nezařazeno")
 
     M.ttk.Label(outer, text="Zdrojový soubor").grid(row=0, column=0, sticky="w", pady=5)
     M.ttk.Label(outer, text=path.name, style="PageSubtitle.TLabel").grid(row=0, column=1, columnspan=2, sticky="w", pady=5)
@@ -71,14 +71,14 @@ def metadata_dialog(M, parent, parsed: dict, path: Path, source_offer_id=None):
             widget = M.ttk.Entry(outer, textvariable=variable)
         widget.grid(row=offset, column=1, columnspan=2, sticky="ew", pady=5)
 
-    category_labels = ["Automaticky podle položek", "Nezařazeno"] + [row["name"] for row in category_rows]
+    category_labels = ["Nezařazeno"] + [row["name"] for row in category_rows]
     M.ttk.Label(outer, text="Výchozí produktová skupina").grid(row=6, column=0, sticky="w", pady=5)
     M.safe_combobox(outer, textvariable=category_value, values=category_labels, state="readonly").grid(
         row=6, column=1, columnspan=2, sticky="ew", pady=5
     )
     M.ttk.Label(
         outer,
-        text="Automatika může v jednom ceníku rozdělit jednotlivé položky do různých kategorií.",
+        text="Zařazení produktů se spravuje ručně v Katalogu produktů a zachová se při dalších aktualizacích ceníku.",
         style="PageSubtitle.TLabel",
     ).grid(row=7, column=1, columnspan=2, sticky="w", pady=(0, 4))
 
@@ -119,9 +119,8 @@ def metadata_dialog(M, parent, parsed: dict, path: Path, source_offer_id=None):
     tree.configure(yscrollcommand=scroll.set)
     category_name_by_id = {int(row["id"]): row["name"] for row in category_rows}
     for index, item in enumerate((parsed.get("items") or [])[:300], 1):
-        item_text = " ".join(str(item.get(key) or "") for key in ("product_code", "item_key", "name", "description", "condition_text"))
-        guessed = categories.classify_text(M, item_text)
-        guessed_subgroup = categories.classify_subgroup_text(M, guessed, item_text)
+        guessed = item.get("category_id")
+        guessed_subgroup = item.get("subgroup_id")
         tree.insert(
             "", "end",
             values=(
@@ -223,7 +222,7 @@ def edit_price_list_metadata(M, app) -> None:
     for idx, (label, key) in enumerate(labels):
         M.ttk.Label(outer, text=label).grid(row=idx, column=0, sticky="w", pady=5)
         M.ttk.Entry(outer, textvariable=variables[key]).grid(row=idx, column=1, sticky="ew", pady=5)
-    category_labels = ["Automaticky podle položek", "Nezařazeno"] + [cat["name"] for cat in categories.list_categories(M)]
+    category_labels = ["Nezařazeno"] + [cat["name"] for cat in categories.list_categories(M)]
     M.ttk.Label(outer, text="Výchozí produktová skupina").grid(row=3, column=0, sticky="w", pady=5)
     M.safe_combobox(outer, textvariable=variables["category"], values=category_labels, state="readonly").grid(
         row=3, column=1, sticky="ew", pady=5
@@ -360,7 +359,7 @@ class PriceListDetailDialog:
         tools = M.ttk.Frame(outer, style="Panel.TFrame", padding=8)
         tools.pack(fill="x", pady=(0, 6))
         M.ttk.Button(tools, text="Přiřadit skupinu / podskupinu", command=self.assign_category).pack(side="left")
-        M.ttk.Button(tools, text="Automaticky zařadit nezařazené", command=self.auto_categories).pack(side="left", padx=5)
+        M.ttk.Button(tools, text="Katalog produktů…", command=lambda: product_catalog.open_product_catalog(M, app)).pack(side="left", padx=5)
         user = M.get_setting("active_user", "")
         self.photos = M.tk.BooleanVar(value=M.get_user_setting(user, "load_product_photos", "0") == "1")
         M.ttk.Checkbutton(tools, text="Načítat fotografie", variable=self.photos, command=self.sync_photo).pack(side="left", padx=(15, 5))

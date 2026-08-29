@@ -5,7 +5,7 @@ import json
 import re
 from pathlib import Path
 
-from . import categories
+from . import categories, product_catalog
 from .price_dialogs import metadata_dialog
 from . import price_page as price_page_module
 
@@ -13,14 +13,13 @@ from . import price_page as price_page_module
 def _patch_save(M) -> None:
     from .. import importer, offer_integration, storage
 
-    if getattr(storage, "_turto_category_save_v630", False):
+    if getattr(storage, "_turto_catalog_save_v634", False):
         return
     old_save = storage._save_price_list
 
     def save(path, parsed, metadata):
         price_list_id, created = old_save(path, parsed, metadata)
         category_id = metadata.get("category_id")
-        auto = bool(metadata.get("auto_category", False))
         with M.db() as con:
             con.execute("UPDATE price_lists SET category_id=? WHERE id=?", (category_id, price_list_id))
             if category_id:
@@ -28,8 +27,8 @@ def _patch_save(M) -> None:
                     "UPDATE price_list_items SET category_id=?,subgroup_id=NULL WHERE price_list_id=?",
                     (category_id, price_list_id),
                 )
-        if auto:
-            categories.autocategorize_price_list(M, int(price_list_id), only_empty=True)
+        # Deterministic supplier/product linking replaces keyword guesses.
+        product_catalog.sync_price_list(M, int(price_list_id))
         return price_list_id, created
 
     storage._save_price_list = save
@@ -41,7 +40,7 @@ def _patch_save(M) -> None:
     offer_integration._metadata_dialog = lambda parent, parsed, path, source_offer_id=None: metadata_dialog(
         M, parent, parsed, Path(path), source_offer_id
     )
-    storage._turto_category_save_v630 = True
+    storage._turto_catalog_save_v634 = True
 
 
 def _patch_pohlcon(M) -> None:
