@@ -9,7 +9,7 @@ from .schema import ensure_price_list_schema
 
 
 def apply(module):
-    if getattr(module, "_turto_price_lists_domain_v6335", False):
+    if getattr(module, "_turto_price_lists_domain_v6336", False):
         return
     context.M = module
     old_ensure = module.ensure_schema
@@ -33,7 +33,7 @@ def apply(module):
     from .platform import install as install_platform
     install_platform(module)
 
-    module._turto_price_lists_domain_v6335 = True
+    module._turto_price_lists_domain_v6336 = True
 
 
 __all__ = ["apply", "ensure_price_list_schema", "price_list_archive_root", "parse_price_list_file"]
