@@ -3,7 +3,7 @@ from __future__ import annotations
 
 
 def install(module) -> None:
-    """Install each owner exactly once, with navigation installed last."""
+    """Install each owner exactly once; navigation and updates are final."""
     from .database import install_fast_db, patch_schema
     from .fast_ocr import install as install_ocr
     from .integration import install as install_price_integration
@@ -13,6 +13,7 @@ def install(module) -> None:
     from .finalize import install as install_finalize
     from .compat import install as install_compat
     from .lazy_refresh import install as install_lazy_refresh
+    from .automatic_updates import install as install_automatic_updates
 
     if getattr(module, "_turto_platform_v6331", False):
         return
@@ -26,9 +27,11 @@ def install(module) -> None:
     install_worksets(module)
     install_finalize(module)
     install_compat(module)
-    # This must be the final UI step. It replaces the accumulated legacy
-    # show_page wrapper chain with one responsive navigation owner.
+    # Navigation replaces the accumulated legacy show_page wrapper chain.
     install_lazy_refresh(module)
+    # The updater is installed last so no older runtime layer can restore a
+    # confirmation dialog or a second competing startup check.
+    install_automatic_updates(module)
 
     module._turto_platform_v6331 = True
 
