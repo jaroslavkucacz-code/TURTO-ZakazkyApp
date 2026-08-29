@@ -16,7 +16,7 @@ for rel, needles in {
     ),
     "price_lists_domain/platform/product_catalog.py": (
         "def sync_price_list", "def sync_supplier_offer", "def update_product",
-        "def calculate_prices", "Interní kód", "Zdroje a ceny…",
+        "def calculate_prices", "Interní kód", "Zdroje a ceny…", "__TURTO_CATALOG_CANCELLED__",
     ),
     "price_lists_domain/platform/price_page.py": (
         "Interní kód", "Nákupní cena/MJ", "Doporučená cena", "Výsledná cena",

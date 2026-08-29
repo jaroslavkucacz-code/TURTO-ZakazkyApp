@@ -172,6 +172,31 @@ def main() -> None:
         assert root._current_page == "dash"
         assert not callback_errors, "\n".join(callback_errors)
 
+        # Open the actual catalogue against the isolated additive schema. This
+        # catches modal-grab, SQL-column and Treeview integration regressions.
+        root.open_product_catalog()
+        root.update()
+        catalogue_windows = [
+            child for child in root.winfo_children()
+            if isinstance(child, app.tk.Toplevel) and child.winfo_exists() and child.title() == "Katalog produktů"
+        ]
+        assert len(catalogue_windows) == 1, catalogue_windows
+        catalogue = catalogue_windows[0]
+
+        def walk(widget):
+            yield widget
+            for child in widget.winfo_children():
+                yield from walk(child)
+
+        catalogue_trees = [widget for widget in walk(catalogue) if isinstance(widget, app.ttk.Treeview)]
+        assert catalogue_trees, "Katalog produktů neobsahuje tabulku"
+        columns = set(catalogue_trees[0]["columns"])
+        for required in ("Výrobce", "Interní kód", "Interní označení", "Produktová skupina", "Podskupina", "Marže", "Sleva"):
+            assert required in columns, required
+        catalogue.destroy()
+        root.update()
+        assert not callback_errors, "\n".join(callback_errors)
+
         # Reproduce the attached-log failure path: a delayed notification
         # refresh must ignore an already destroyed button.
         bell = getattr(root, "bell_button", None)

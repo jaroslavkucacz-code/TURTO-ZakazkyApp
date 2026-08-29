@@ -348,7 +348,7 @@ def manage_categories(M, app) -> None:
     from . import product_catalog
 
     # Deterministically link a bounded legacy batch so product counts are useful immediately.
-    product_catalog.sync_all_unlinked(M, max_documents=100)
+    product_catalog.sync_all_unlinked(M, max_documents=25)
     dialog = M.tk.Toplevel(app)
     dialog.title("Produktové skupiny a podskupiny")
     dialog.transient(app)

@@ -401,6 +401,18 @@ def _selected_product_ids(tree) -> list[int]:
     return result
 
 
+def _root_app(widget):
+    current = widget
+    seen = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        master = getattr(current, "master", None)
+        if master is None:
+            break
+        current = master
+    return current or widget
+
+
 def _edit_product(M, app, parent, product_id: int, on_saved=None) -> None:
     with M.db() as con:
         row = con.execute(
@@ -547,8 +559,18 @@ def _open_sources(M, parent, product_id: int) -> None:
 
 
 def open_product_catalog(M, app, category_id=None, subgroup_id=None) -> None:
-    # Link a bounded initial batch so the window opens quickly even on a large legacy database.
-    initial_sync = sync_all_unlinked(M, max_documents=100)
+    app = _root_app(app)
+    # The catalogue may be opened from a modal Ceník/Nabídka detail. Release its
+    # grab first so the new window is always interactive.
+    try:
+        grabbed = app.grab_current()
+        if grabbed is not None:
+            grabbed.grab_release()
+    except Exception:
+        pass
+    # Link only a small legacy batch synchronously; full migration has progress
+    # and Storno so a large customer database never appears frozen.
+    initial_sync = sync_all_unlinked(M, max_documents=25)
     win = M.tk.Toplevel(app)
     win.title("Katalog produktů")
     win.transient(app)
@@ -771,17 +793,31 @@ def open_product_catalog(M, app, category_id=None, subgroup_id=None) -> None:
         M.ttk.Label(frame, textvariable=label).pack(anchor="w", pady=(0, 8))
         bar = M.ttk.Progressbar(frame, mode="determinate", length=520)
         bar.pack(fill="x")
+        cancelled = {"value": False}
+        M.ttk.Button(
+            frame, text="Storno", command=lambda: cancelled.__setitem__("value", True)
+        ).pack(anchor="e", pady=(10, 0))
 
         def progress(done, total, text):
             bar.configure(maximum=max(1, total), value=done)
             label.set(f"{done}/{total} · {text}")
-            progress_win.update_idletasks()
+            progress_win.update()
+            if cancelled["value"]:
+                raise RuntimeError("__TURTO_CATALOG_CANCELLED__")
 
         try:
             result = sync_all_unlinked(M, max_documents=None, progress=progress)
         except Exception as exc:
             progress_win.destroy()
-            return M.messagebox.showerror("Katalog produktů", f"Synchronizaci se nepodařilo dokončit:\n{exc}", parent=win)
+            if str(exc) == "__TURTO_CATALOG_CANCELLED__":
+                refresh_filters()
+                refresh()
+                return M.messagebox.showinfo(
+                    "Katalog produktů", "Synchronizace byla stornována. Již propojené položky zůstaly bezpečně uložené.", parent=win
+                )
+            return M.messagebox.showerror(
+                "Katalog produktů", "Synchronizaci se nepodařilo dokončit:" + chr(10) + str(exc), parent=win
+            )
         progress_win.destroy()
         refresh_filters()
         refresh()
