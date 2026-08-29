@@ -1,10 +1,11 @@
-• Opraveno zamrzání při rychlém přepínání mezi záložkami. Navigace má nyní jediného vlastníka: zvolená záložka se zobrazí okamžitě a opakované rychlé kliknutí se sloučí do jediného odloženého načtení poslední vybrané záložky.
-• Při změně dat se již znovu nenačítají skryté záložky. Obnoví se pouze aktuálně zobrazená pracovní plocha; ostatní se označí jako neaktuální a načtou se až při otevření.
-• Zrušeno opakované globální přepočítávání šířek a řazení všech tabulek po každém překliknutí. Levnější dokončení rozložení a výchozí řazení se provádí pouze nad právě obnovenou tabulkou.
-• Záložka Ceníky se při startu sestavuje pouze jednou. Její databázové dotazy se nespouštějí, dokud není záložka skutečně otevřená; tím se odstranilo dvojí vytváření stránky a zbytečné načítání skrytých Ceníků.
-• Ošetřen zjištěný pád asynchronního upozornění nad již zrušeným tlačítkem zvonku. Pozdní Tk callback už nepracuje se zničeným widgetem a při zavírání aplikace se čekající navigační úlohy ruší.
-• Aktualizace jsou nově bezobslužné. CRM po spuštění samo zkontroluje oficiální kanál, stáhne novější balíček na pozadí, ověří jeho SHA-256, spustí interní aktualizátor a znovu se otevře. Uživatel už nestahuje ZIP ani nepotvrzuje instalační dialog.
-• Zdroj aktualizací je pevně nastaven na oficiální GitHub kanál TURTO. Starý souběžný dialog kontroly aktualizací je vypnutý a více startovacích kontrol se sloučí do jediné operace. Případná nedostupnost internetu aplikaci nezablokuje a zapíše se do logs\\automatic_updates.log.
-• Přidán diagnostický soubor logs\\ui_navigation.log. Zapisuje pouze chyby a skutečně pomalé načtení záložky, nikoli každý běžný klik.
-• Doplněn automatický zátěžový test rychlého přepínání záložek, test zrušení starého globálního překreslení, test zničeného tlačítka upozornění a samostatný test bezobslužné aktualizace bez potvrzovacího dialogu. Validace probíhá na Pythonu 3.12 i 3.14.
-• Databázové schéma ani uživatelská data se touto opravou nemění. Nabídky, Ceníky, historie, fyzické archivy, Outlook drag&drop a dosavadní neregresní chování zůstávají zachovány.
+• Opravena chyba při otevření vnitřní záložky Evidence ceníků. Odlehčené načítání nyní používá správné rozhraní a nepadá na chybě „takes 1 positional argument but 2 were given“.
+• Čekající MIVO poptávky staré 7 a více dní jsou opět zvýrazněny tučným písmem přes celý řádek. Barevné rozlišení stavu zůstává zachováno.
+• Nad MIVO přibyl stručný souhrn: počet zobrazených záznamů, počet čekajících a počet čekajících 7+ dní.
+• Ceníky dostaly přehledový panel s počtem platných položek, aktivních ceníků, ceníků ke kontrole, ceníků končících do 30 dnů a ceníků po platnosti.
+• V Evidenci ceníků je nový sloupec Platnost s textem například „končí za 12 dní“, „končí dnes“, „9 dní po platnosti“ nebo „bez omezení“.
+• Do filtru stavů přibyla možnost Končí do 30 dnů a nad přehledem jsou rychlé volby Aktuální, Končí do 30 dnů, Ke kontrole a Po platnosti.
+• V přehledu Aktuální ceny je nový údaj Platnost zdroje, aby bylo bez otevírání detailu zřejmé, z jak dlouho platného ceníku cena pochází.
+• Ceníky jsou barevně rozlišeny na aktuální, budoucí, brzy končící, vyžadující kontrolu, prošlé a archivované.
+• Evidence používá odlehčené explicitní SQL sloupce; při běžném přepínání nenačítá OCR texty, OCR rozložení, fotografie ani jiné velké datové části.
+• Přidán regresní test přesně pro otevření Evidence ceníků, filtr Končí do 30 dnů a tučné MIVO poptávky. Test běží na Pythonu 3.12 i 3.14 vedle stávajících navigačních, škálovatelnostních a automatizačních kontrol.
+• Databázové schéma ani uživatelská data se touto opravou nemění. Historie, nabídky, archivní soubory Ceníků, Outlook import a automatické aktualizace zůstávají zachovány.
