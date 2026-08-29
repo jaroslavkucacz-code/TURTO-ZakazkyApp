@@ -1,9 +1,10 @@
-• Klíčová slova byla odstraněna z uživatelského rozhraní a produktové zařazení se už automaticky nehádá. Skupiny a podskupiny se spravují ručně.
-• Přidán stabilní Katalog produktů. U produktu je vidět výrobce, zdrojový dodavatel, dodavatelský kód, označení ve zdroji, interní kód, interní označení, skupina, podskupina a počet cenových zdrojů.
-• Produkty lze hromadně přesouvat mezi skupinami a podskupinami. Stejný produkt v novém ceníku převezme zařazení, interní kód i interní označení podle dodavatele a produktového kódu.
-• U každé podskupiny lze nastavit základní marži a základní slevu. Skupina obsahuje stejné výchozí hodnoty pro produkty bez podskupiny.
-• U každé hlavní skupiny lze zvolit, zda se má ve vydaných nabídkách zobrazovat doporučená i výsledná cena, nebo pouze výsledná cena.
-• Aktuální ceny nově ukazují interní kód a označení, výrobce, nákupní cenu, marži, doporučenou cenu, slevu a výslednou cenu. Doporučená cena se u skupin s režimem „Pouze výsledná“ nezobrazuje.
-• Výpočet je jednotný: doporučená cena = nákupní cena × (1 + marže/100); výsledná cena = doporučená cena × (1 − sleva/100).
-• Datový základ budoucích Vydaných nabídek a objednávek obsahuje vazbu na katalog produktu a snímky interního označení, nákupní ceny, marže a doporučené ceny.
-• Databázová změna je pouze aditivní. Historické nabídky, ceníky, ceny, fyzické archivy, Outlook import a uživatelská data zůstávají zachovány.
+• Katalog produktů byl přepracován do jednoho přehledného pracovního prostoru ve stylu CRM. Vlevo je rozbalovací strom Produktová skupina → Podskupina a vpravo produkty patřící do právě označené části katalogu.
+• Strom zobrazuje počty produktů, navázaných Ceníků a cenových Nabídek. Obsahuje také samostatné pohledy Všechny produkty, Nezařazené a Bez podskupiny.
+• Kliknutí na skupinu nebo podskupinu okamžitě vyfiltruje její produkty. Skupiny lze rozbalovat a podskupiny procházet bez otevírání dalšího skrytého dialogu.
+• Vybrané produkty lze jedním tlačítkem přesunout přímo do skupiny nebo podskupiny označené vlevo. Dostupný zůstává také výběr jiného cíle přes samostatný dialog.
+• Hromadný přesun se provádí nad stabilním interním produktem a automaticky se propíše do všech jeho již uložených Ceníků i přijatých cenových Nabídek. Historické ceny se nemění.
+• Pravá tabulka ukazuje interní kód a označení, výrobce, dodavatele, kód a označení dodavatele, skupinu, podskupinu, aktuální nákupní cenu, marži, slevu, výslednou cenu a počty cenových zdrojů.
+• Přibyl souhrn vybrané části katalogu: počet produktů, výrobců a vazeb na Ceníky a cenové Nabídky. Viditelný je také počet právě označených řádků.
+• Produkty lze upravit dvojklikem nebo z kontextové nabídky pravého tlačítka. Stejným způsobem lze otevřít jejich zdroje a ceny nebo je hromadně přesunout.
+• Otevření katalogu už synchronizuje pouze malou dávku dosud nespojených dokumentů až po vykreslení okna. Úplná synchronizace zůstává samostatná, má průběh a Storno.
+• Databázové schéma se nemění. Historické nabídky, Ceníky, ceny, fyzické archivy, Outlook import, skupiny, podskupiny, marže, slevy a uživatelská data zůstávají zachovány.

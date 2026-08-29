@@ -189,10 +189,25 @@ def main() -> None:
                 yield from walk(child)
 
         catalogue_trees = [widget for widget in walk(catalogue) if isinstance(widget, app.ttk.Treeview)]
-        assert catalogue_trees, "Katalog produktů neobsahuje tabulku"
-        columns = set(catalogue_trees[0]["columns"])
-        for required in ("Výrobce", "Interní kód", "Interní označení", "Produktová skupina", "Podskupina", "Marže", "Sleva"):
-            assert required in columns, required
+        assert len(catalogue_trees) >= 2, "Katalog produktů musí obsahovat strom skupin i tabulku produktů"
+        required_product_columns = {
+            "Výrobce", "Interní kód", "Interní označení", "Produktová skupina", "Podskupina",
+            "Marže", "Sleva", "Výsledná cena",
+        }
+        product_trees = [tree for tree in catalogue_trees if required_product_columns.issubset(set(tree["columns"]))]
+        structure_trees = [
+            tree for tree in catalogue_trees
+            if {"Produktů", "Ceníků", "Nabídek"}.issubset(set(tree["columns"]))
+            and not required_product_columns.issubset(set(tree["columns"]))
+        ]
+        assert len(product_trees) == 1, [set(tree["columns"]) for tree in catalogue_trees]
+        assert len(structure_trees) == 1, [set(tree["columns"]) for tree in catalogue_trees]
+        structure = structure_trees[0]
+        assert structure.exists("all") and structure.exists("unassigned")
+        assert any(str(iid).startswith("g") for iid in structure.get_children(""))
+        workspace_api = getattr(catalogue, "_turto_product_workspace", None)
+        assert workspace_api and workspace_api["structure_tree"] is structure
+        assert workspace_api["product_tree"] is product_trees[0]
         catalogue.destroy()
         root.update()
         assert not callback_errors, "\n".join(callback_errors)
@@ -208,7 +223,7 @@ def main() -> None:
 
         # Dialog errors during startup indicate a real integration failure.
         assert not dialog_errors, dialog_errors
-        print(f"TURTO CRM 6.3.31 real Tk navigation test: OK ({click_elapsed:.3f} s / 240 clicks)")
+        print(f"TURTO CRM 6.3.35 real Tk navigation test: OK ({click_elapsed:.3f} s / 240 clicks)")
     finally:
         try:
             if root is not None and root.winfo_exists():
