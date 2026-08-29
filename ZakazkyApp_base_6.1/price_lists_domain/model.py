@@ -11,7 +11,7 @@ def _base_item(**values) -> dict:
         "minimum_qty": 0.0, "package_qty": 0.0, "package_unit": "",
         "pallet_qty": 0.0, "weight_unit": 0.0, "weight_package": 0.0,
         "weight_pallet": 0.0, "gtin": "", "customs_code": "", "dimensions": "",
-        "condition_text": "", "source_row_json": "", "attributes": [],
+        "condition_text": "", "source_row_json": "", "category_id": None, "subgroup_id": None, "attributes": [],
     }
     item.update(values)
     item["name"] = str(item.get("name") or "").strip()

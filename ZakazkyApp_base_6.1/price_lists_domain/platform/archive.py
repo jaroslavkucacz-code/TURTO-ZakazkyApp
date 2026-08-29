@@ -469,7 +469,7 @@ def _patch_settings(M, App) -> None:
             M.ttk.Button(card, text="Správa archivu a výkonu…", style="Accent.TButton", command=lambda: open_bulk_archive_manager(M, self)).grid(
                 row=1, column=0, sticky="w", pady=6
             )
-            M.ttk.Button(card, text="Kategorie produktů…", command=lambda: categories.manage_categories(M, self)).grid(
+            M.ttk.Button(card, text="Produktové skupiny a podskupiny…", command=lambda: categories.manage_categories(M, self)).grid(
                 row=1, column=1, sticky="w", padx=8, pady=6
             )
             M.ttk.Button(card, text="Otestovat OCR na PDF…", command=lambda: test_ocr(M, self)).grid(

@@ -17,8 +17,8 @@ _WAL_READY: set[str] = set()
 
 
 CATEGORY_SEEDS = (
-    (10, "Izolační nosníky", "izolacni nosnik|isokorb|egcobox|hit hp|hit mv|hit smv|hit mvx|thermo nosnik"),
-    (20, "Akustická izolace schodišť", "tronsole|cisador|cibatur|schodist|schodovy prvek|akustika schod"),
+    (10, "PŘERUŠENÍ TEPELNÝCH MOSTŮ - IZONOSNÍK", "izolacni nosnik|isokorb|egcobox|hit hp|hit mv|hit smv|hit mvx|thermo nosnik"),
+    (20, "AKUSTICKÁ IZOLACE SCHODIŠŤ", "tronsole|cisador|cibatur|schodist|schodovy prvek|akustika schod|treppensicherung|impact sound insulation"),
     (30, "Dilatační smykové trny", "sinton|smykovy trn|dilatacni trn|dilatační trn|dorn"),
     (40, "PVC pásy (Kunex)", "kunex"),
     (50, "Plastové distanční prvky", "plastovy distanc|plastova distance|plastovy distancni|plastový distanční"),
@@ -30,6 +30,30 @@ CATEGORY_SEEDS = (
     (110, "Kotevní technika", "kotevni lista|kotevní lišta|kotevni sroub|kotevní šroub|chemicka kotva|chemická kotva"),
     (120, "Vibroizolace", "vibroizolace|vibroizolacni|vibroizolační|calenberg"),
     (999, "Ostatní", ""),
+)
+
+GROUP_RENAMES = (
+    ("Izolační nosníky", "PŘERUŠENÍ TEPELNÝCH MOSTŮ - IZONOSNÍK"),
+    ("Akustická izolace schodišť", "AKUSTICKÁ IZOLACE SCHODIŠŤ"),
+)
+
+SUBGROUP_SEEDS = (
+    ("PŘERUŠENÍ TEPELNÝCH MOSTŮ - IZONOSNÍK", 10, "TEPELNĚ IZOLAČNÍ NOSNÍK",
+     "izolační nosník|izolacni nosnik|isokorb|egcobox|hit hp|hit mv|hit smv|hit mvx"),
+    ("PŘERUŠENÍ TEPELNÝCH MOSTŮ - IZONOSNÍK", 20, "MEZIVÝPLŇ IZOLAČNÍCH NOSNÍKŮ",
+     "mezivýplň|mezivypln|výplň izolačních nosníků|vypln izolacnich nosniku"),
+    ("AKUSTICKÁ IZOLACE SCHODIŠŤ", 10, "BOX PRO ULOŽENÍ PODEST DO STĚN",
+     "hbb v-box|hbb vh-box|hbb vvh-box|hbb-ov|hbb-ovv|hbb-ovvh|box pro uložení podest"),
+    ("AKUSTICKÁ IZOLACE SCHODIŠŤ", 20, "PRVEK PRO NAPOJENÍ MONOLITICKÉHO SCHODIŠTĚ NA MONOLITICKOU PODESTU",
+     "napojení monolitického schodiště|napojeni monolitickeho schodiste|htf-t"),
+    ("AKUSTICKÁ IZOLACE SCHODIŠŤ", 30, "TLUMICÍ DESKA PRO NAPOJENÍ SCHODIŠŤOVÉHO RAMENE A ZÁKLADOVÉ DESKY",
+     "tlumicí deska|tlumici deska|cisador|cibatur|napojení schodišťového ramene a základové desky"),
+    ("AKUSTICKÁ IZOLACE SCHODIŠŤ", 40, "KAPSA PRO ULOŽENÍ PREFABRIKOVANÉHO SCHODIŠŤOVÉHO RAMENA NA KONZOLU PODESTY",
+     "kapsa pro uložení prefabrikovaného schodišťového ramena|kapsa pro ulozeni prefabrikovaneho schodistoveho ramena"),
+    ("AKUSTICKÁ IZOLACE SCHODIŠŤ", 50, "SPÁROVÁ DESKA, BOČNÍ ODDĚLENÍ SCHODIŠŤOVÉHO RAMENA A STĚNY",
+     "spárová deska|sparova deska|boční oddělení schodišťového ramena|bocni oddeleni schodistoveho ramena|htpl"),
+    ("AKUSTICKÁ IZOLACE SCHODIŠŤ", 60, "TRN PRO ZALOŽENÍ SCHODIŠTĚ",
+     "trn pro založení schodiště|trn pro zalozeni schodiste|treppensicherung|cet-ts|hsd-p"),
 )
 
 
@@ -151,6 +175,19 @@ def ensure_platform_schema(M) -> None:
               FOREIGN KEY(parent_id) REFERENCES product_categories(id) ON DELETE SET NULL
             );
 
+            CREATE TABLE IF NOT EXISTS product_subgroups(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              category_id INTEGER NOT NULL,
+              name TEXT NOT NULL COLLATE CZECH,
+              keywords TEXT DEFAULT '',
+              active INTEGER NOT NULL DEFAULT 1,
+              sort_order INTEGER NOT NULL DEFAULT 100,
+              created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE(category_id,name),
+              FOREIGN KEY(category_id) REFERENCES product_categories(id) ON DELETE RESTRICT
+            );
+
             CREATE TABLE IF NOT EXISTS price_list_ocr_cache(
               source_hash TEXT NOT NULL,
               page_no INTEGER NOT NULL,
@@ -229,11 +266,29 @@ def ensure_platform_schema(M) -> None:
 
         _add_column(con, "price_lists", "category_id INTEGER")
         _add_column(con, "price_list_items", "category_id INTEGER")
+        _add_column(con, "price_list_items", "subgroup_id INTEGER REFERENCES product_subgroups(id)")
         _add_column(con, "supplier_offer_items", "category_id INTEGER")
+        _add_column(con, "supplier_offer_items", "subgroup_id INTEGER REFERENCES product_subgroups(id)")
+        _add_column(con, "business_document_items", "subgroup_id INTEGER REFERENCES product_subgroups(id)")
         for table in ("supplier_offers", "actions", "tasks"):
             _add_column(con, table, "archived INTEGER NOT NULL DEFAULT 0")
             _add_column(con, table, "archived_at TEXT DEFAULT ''")
             _add_column(con, table, "archived_by TEXT DEFAULT ''")
+
+        # Preserve stable IDs when replacing the initial working labels with the
+        # user-approved product-group names. Existing product assignments need no rewrite.
+        for old_name, new_name in GROUP_RENAMES:
+            old = con.execute(
+                "SELECT id FROM product_categories WHERE lower(trim(name))=lower(trim(?))", (old_name,)
+            ).fetchone()
+            new = con.execute(
+                "SELECT id FROM product_categories WHERE lower(trim(name))=lower(trim(?))", (new_name,)
+            ).fetchone()
+            if old and not new:
+                con.execute(
+                    "UPDATE product_categories SET name=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    (new_name, old["id"]),
+                )
 
         for sort_order, name, keywords in CATEGORY_SEEDS:
             con.execute(
@@ -246,16 +301,40 @@ def ensure_platform_schema(M) -> None:
                 (name, keywords, sort_order),
             )
 
+        for group_name, sort_order, subgroup_name, keywords in SUBGROUP_SEEDS:
+            group = con.execute(
+                "SELECT id FROM product_categories WHERE lower(trim(name))=lower(trim(?))",
+                (group_name,),
+            ).fetchone()
+            if group:
+                con.execute(
+                    """INSERT INTO product_subgroups(category_id,name,keywords,active,sort_order)
+                       VALUES(?,?,?,1,?)
+                       ON CONFLICT(category_id,name) DO UPDATE SET
+                         keywords=CASE WHEN trim(coalesce(product_subgroups.keywords,''))=''
+                                       THEN excluded.keywords ELSE product_subgroups.keywords END,
+                         sort_order=MIN(product_subgroups.sort_order,excluded.sort_order)""",
+                    (group["id"], subgroup_name, keywords, sort_order),
+                )
+
         con.executescript(
             """
             CREATE INDEX IF NOT EXISTS idx_categories_active_order
               ON product_categories(active,sort_order,name);
+            CREATE INDEX IF NOT EXISTS idx_product_subgroups_group_order
+              ON product_subgroups(category_id,active,sort_order,name);
             CREATE INDEX IF NOT EXISTS idx_price_lists_workset
               ON price_lists(archived,valid_from,valid_to,category_id,id);
             CREATE INDEX IF NOT EXISTS idx_price_list_items_workset
               ON price_list_items(price_list_id,active,category_id,product_code,item_key,id);
             CREATE INDEX IF NOT EXISTS idx_price_list_items_category_name
               ON price_list_items(category_id,name,product_code);
+            CREATE INDEX IF NOT EXISTS idx_price_list_items_subgroup
+              ON price_list_items(subgroup_id,category_id,name,product_code);
+            CREATE INDEX IF NOT EXISTS idx_supplier_offer_items_taxonomy
+              ON supplier_offer_items(category_id,subgroup_id,offer_id,id);
+            CREATE INDEX IF NOT EXISTS idx_business_document_items_taxonomy
+              ON business_document_items(category_id,subgroup_id,document_id,id);
             CREATE INDEX IF NOT EXISTS idx_supplier_offers_archive_date
               ON supplier_offers(archived,offer_date DESC,id DESC);
             CREATE INDEX IF NOT EXISTS idx_supplier_offers_archive_supplier

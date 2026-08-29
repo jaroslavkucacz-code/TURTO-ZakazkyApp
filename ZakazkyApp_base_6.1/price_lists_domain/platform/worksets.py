@@ -186,8 +186,10 @@ def refresh_requests(M, app, mivo: bool = False):
     for row in rows:
         state = _request_status(row)
         if mivo:
+            # MIVO uses bold ageing only. Keep the stored date visually clean;
+            # warning symbols belong to the regular Poptávky table, not here.
             values = (
-                state,row["assigned_user"] or "",M.request_wait_date(row["asked_date"],row["received_date"]),
+                state,row["assigned_user"] or "",M.fmt_date(row["asked_date"]),
                 M.fmt_date(row["received_date"]),row["requested_for"] or "",row["action_name"] or "",
                 row["item"] or "",row["recipients_snapshot"] or "",
             )
@@ -201,7 +203,8 @@ def refresh_requests(M, app, mivo: bool = False):
         tree.insert("", "end", iid=iid, values=values, tags=(_request_tag(row),))
         if iid in selected:tree.selection_add(iid)
         overdue.append((iid, M.request_is_overdue(row["asked_date"], row["received_date"]) and not int(row["no_response"] or 0)))
-    app.after_idle(lambda rows=overdue, target=tree: app._refresh_request_date_highlights(target, rows))
+    if not mivo:
+        app.after_idle(lambda rows=overdue, target=tree: app._refresh_request_date_highlights(target, rows))
     try:app.reapply_tree_sort(tree)
     except Exception:pass
 

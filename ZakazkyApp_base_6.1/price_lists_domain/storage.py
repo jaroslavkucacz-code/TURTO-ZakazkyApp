@@ -61,8 +61,9 @@ def _save_price_list(path: Path, parsed: dict, metadata: dict) -> tuple[int, boo
                      price_list_id,row_no,product_code,supplier_item_code,item_key,name,description,unit,
                      source_price,currency,price_basis_qty,normalized_unit_price,discount_pct,surcharge_pct,
                      net_price,minimum_qty,package_qty,package_unit,pallet_qty,weight_unit,weight_package,
-                     weight_pallet,gtin,customs_code,dimensions,condition_text,source_row_json,active
-                   ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)""",
+                     weight_pallet,gtin,customs_code,dimensions,condition_text,source_row_json,
+                     category_id,subgroup_id,active
+                   ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)""",
                 (price_list_id, int(item.get("row_no") or index), item.get("product_code", ""),
                  item.get("supplier_item_code", ""), item.get("item_key", ""), item.get("name", ""),
                  item.get("description", ""), item.get("unit", ""), _number(item.get("source_price")),
@@ -73,7 +74,8 @@ def _save_price_list(path: Path, parsed: dict, metadata: dict) -> tuple[int, boo
                  item.get("package_unit", ""), _number(item.get("pallet_qty")),
                  _number(item.get("weight_unit")), _number(item.get("weight_package")),
                  _number(item.get("weight_pallet")), item.get("gtin", ""), item.get("customs_code", ""),
-                 item.get("dimensions", ""), item.get("condition_text", ""), item.get("source_row_json", "")),
+                 item.get("dimensions", ""), item.get("condition_text", ""), item.get("source_row_json", ""),
+                 item.get("category_id"), item.get("subgroup_id")),
             ).lastrowid
             for attr in item.get("attributes") or []:
                 con.execute(

@@ -60,7 +60,7 @@ def metadata_dialog(M, parent, parsed: dict, path: Path, source_offer_id=None):
     M.ttk.Label(outer, text=path.name, style="PageSubtitle.TLabel").grid(row=0, column=1, columnspan=2, sticky="w", pady=5)
     fields = (
         ("Dodavatel", supplier), ("Název ceníku", title),
-        ("Produktová skupina", product_group), ("Dodavatelská větev / podmínka", branch),
+        ("Rozsah / cenová řada", product_group), ("Dodavatelská větev / podmínka", branch),
         ("Měna", currency),
     )
     for offset, (label, variable) in enumerate(fields, 1):
@@ -72,7 +72,7 @@ def metadata_dialog(M, parent, parsed: dict, path: Path, source_offer_id=None):
         widget.grid(row=offset, column=1, columnspan=2, sticky="ew", pady=5)
 
     category_labels = ["Automaticky podle položek", "Nezařazeno"] + [row["name"] for row in category_rows]
-    M.ttk.Label(outer, text="Výchozí kategorie").grid(row=6, column=0, sticky="w", pady=5)
+    M.ttk.Label(outer, text="Výchozí produktová skupina").grid(row=6, column=0, sticky="w", pady=5)
     M.safe_combobox(outer, textvariable=category_value, values=category_labels, state="readonly").grid(
         row=6, column=1, columnspan=2, sticky="ew", pady=5
     )
@@ -107,8 +107,8 @@ def metadata_dialog(M, parent, parsed: dict, path: Path, source_offer_id=None):
     preview.grid(row=13, column=0, columnspan=3, sticky="nsew", pady=(10, 5))
     preview.columnconfigure(0, weight=1)
     preview.rowconfigure(0, weight=1)
-    cols = ("Ř.", "Kategorie", "Kód", "Produkt", "Cena/MJ", "MJ", "Hmotnost", "Podmínka")
-    widths = (55, 210, 125, 350, 115, 65, 100, 220)
+    cols = ("Ř.", "Produktová skupina", "Podskupina", "Kód", "Produkt", "Cena/MJ", "MJ", "Hmotnost", "Podmínka")
+    widths = (55, 250, 260, 125, 350, 115, 65, 100, 220)
     tree = M.ttk.Treeview(preview, columns=cols, show="headings", height=12)
     for col, width in zip(cols, widths):
         tree.heading(col, text=col)
@@ -119,14 +119,14 @@ def metadata_dialog(M, parent, parsed: dict, path: Path, source_offer_id=None):
     tree.configure(yscrollcommand=scroll.set)
     category_name_by_id = {int(row["id"]): row["name"] for row in category_rows}
     for index, item in enumerate((parsed.get("items") or [])[:300], 1):
-        guessed = categories.classify_text(
-            M,
-            " ".join(str(item.get(key) or "") for key in ("product_code", "item_key", "name", "description", "condition_text")),
-        )
+        item_text = " ".join(str(item.get(key) or "") for key in ("product_code", "item_key", "name", "description", "condition_text"))
+        guessed = categories.classify_text(M, item_text)
+        guessed_subgroup = categories.classify_subgroup_text(M, guessed, item_text)
         tree.insert(
             "", "end",
             values=(
                 item.get("row_no") or index, category_name_by_id.get(guessed, "Nezařazeno"),
+                categories.subgroup_name(M, guessed_subgroup),
                 item.get("product_code") or "", item.get("name") or item.get("description") or "",
                 _format_price(item.get("normalized_unit_price"), currency.get()), item.get("unit") or "",
                 f"{_number(item.get('weight_unit')):g} kg" if _number(item.get("weight_unit")) else "",
@@ -219,12 +219,12 @@ def edit_price_list_metadata(M, app) -> None:
         "previous": M.tk.StringVar(value=""),
         "category": M.tk.StringVar(value=categories.category_name(M, row["category_id"]) or "Automaticky podle položek"),
     }
-    labels = (("Název", "title"), ("Produktová skupina", "product_group"), ("Větev / podmínka", "branch"))
+    labels = (("Název", "title"), ("Rozsah / cenová řada", "product_group"), ("Větev / podmínka", "branch"))
     for idx, (label, key) in enumerate(labels):
         M.ttk.Label(outer, text=label).grid(row=idx, column=0, sticky="w", pady=5)
         M.ttk.Entry(outer, textvariable=variables[key]).grid(row=idx, column=1, sticky="ew", pady=5)
     category_labels = ["Automaticky podle položek", "Nezařazeno"] + [cat["name"] for cat in categories.list_categories(M)]
-    M.ttk.Label(outer, text="Výchozí kategorie").grid(row=3, column=0, sticky="w", pady=5)
+    M.ttk.Label(outer, text="Výchozí produktová skupina").grid(row=3, column=0, sticky="w", pady=5)
     M.safe_combobox(outer, textvariable=variables["category"], values=category_labels, state="readonly").grid(
         row=3, column=1, sticky="ew", pady=5
     )
@@ -273,9 +273,9 @@ def edit_price_list_metadata(M, app) -> None:
                 ),
             )
             if category_label == "Nezařazeno":
-                con.execute("UPDATE price_list_items SET category_id=NULL WHERE price_list_id=?", (price_list_id,))
+                con.execute("UPDATE price_list_items SET category_id=NULL,subgroup_id=NULL WHERE price_list_id=?", (price_list_id,))
             elif category_id:
-                con.execute("UPDATE price_list_items SET category_id=? WHERE price_list_id=?", (category_id, price_list_id))
+                con.execute("UPDATE price_list_items SET category_id=?,subgroup_id=NULL WHERE price_list_id=?", (category_id, price_list_id))
             if previous_id and mode in {"replace_group", "replace_all"}:
                 previous_day = (datetime.strptime(valid_from, "%Y-%m-%d").date() - timedelta(days=1)).isoformat()
                 con.execute(
@@ -338,22 +338,28 @@ class PriceListDetailDialog:
         filters.pack(fill="x", pady=(0, 6))
         self.query = M.tk.StringVar()
         self.category = M.tk.StringVar(value="Všechny")
+        self.subgroup = M.tk.StringVar(value="Všechny")
         M.ttk.Label(filters, text="Hledat", style="FilterLabel.TLabel").grid(row=0, column=0, sticky="w")
-        M.ttk.Label(filters, text="Kategorie", style="FilterLabel.TLabel").grid(row=0, column=1, sticky="w")
+        M.ttk.Label(filters, text="Produktová skupina", style="FilterLabel.TLabel").grid(row=0, column=1, sticky="w")
+        M.ttk.Label(filters, text="Podskupina", style="FilterLabel.TLabel").grid(row=0, column=2, sticky="w")
         M.ttk.Entry(filters, textvariable=self.query).grid(row=1, column=0, sticky="ew", padx=(0, 6))
         self.category_box = M.safe_combobox(
             filters, textvariable=self.category,
             values=["Všechny"] + [row["name"] for row in categories.list_categories(M)], state="readonly",
         )
-        self.category_box.grid(row=1, column=1, sticky="ew")
+        self.category_box.grid(row=1, column=1, sticky="ew", padx=(0, 6))
+        self.subgroup_box = M.safe_combobox(filters, textvariable=self.subgroup, values=["Všechny"], state="readonly")
+        self.subgroup_box.grid(row=1, column=2, sticky="ew")
         filters.columnconfigure(0, weight=2)
         filters.columnconfigure(1, weight=1)
+        filters.columnconfigure(2, weight=1)
         self.query.trace_add("write", lambda *_: self.schedule_refresh())
-        self.category.trace_add("write", lambda *_: self.schedule_refresh())
+        self.category.trace_add("write", self.category_changed)
+        self.subgroup.trace_add("write", lambda *_: self.schedule_refresh())
 
         tools = M.ttk.Frame(outer, style="Panel.TFrame", padding=8)
         tools.pack(fill="x", pady=(0, 6))
-        M.ttk.Button(tools, text="Přiřadit kategorii vybraným", command=self.assign_category).pack(side="left")
+        M.ttk.Button(tools, text="Přiřadit skupinu / podskupinu", command=self.assign_category).pack(side="left")
         M.ttk.Button(tools, text="Automaticky zařadit nezařazené", command=self.auto_categories).pack(side="left", padx=5)
         user = M.get_setting("active_user", "")
         self.photos = M.tk.BooleanVar(value=M.get_user_setting(user, "load_product_photos", "0") == "1")
@@ -367,10 +373,10 @@ class PriceListDetailDialog:
         table_wrap.columnconfigure(0, weight=1)
         table_wrap.rowconfigure(0, weight=1)
         cols = (
-            "Ř.", "Kategorie", "Kód", "Produkt", "Zdrojová cena", "Cena/MJ", "Cena za", "MJ",
+            "Ř.", "Produktová skupina", "Podskupina", "Kód", "Produkt", "Zdrojová cena", "Cena/MJ", "Cena za", "MJ",
             "Přirážka", "Sleva", "Min. odběr", "Balení", "Paleta", "Hmotnost/MJ", "Podmínka",
         )
-        widths = (55, 210, 120, 330, 110, 110, 70, 60, 80, 70, 90, 100, 80, 105, 240)
+        widths = (55, 250, 280, 120, 330, 110, 110, 70, 60, 80, 70, 90, 100, 80, 105, 240)
         self.tree = M.ttk.Treeview(table_wrap, columns=cols, show="headings", selectmode="extended")
         for col, width in zip(cols, widths):
             self.tree.heading(col, text=col)
@@ -405,6 +411,14 @@ class PriceListDetailDialog:
         M.ttk.Button(nav, text="Zavřít", style="Accent.TButton", command=self.win.destroy).pack(side="right", padx=(12, 3))
         self.refresh()
 
+    def category_changed(self, *_):
+        category_id = categories.category_id_by_name(self.M, self.category.get()) if self.category.get() != "Všechny" else None
+        values = ["Všechny"] + [row["name"] for row in categories.list_subgroups(self.M, category_id)]
+        self.subgroup_box.configure(values=values)
+        if self.subgroup.get() not in values:
+            self.subgroup.set("Všechny")
+        self.schedule_refresh()
+
     def sync_photo(self):
         user = self.M.get_setting("active_user", "")
         enabled = bool(self.photos.get())
@@ -436,6 +450,11 @@ class PriceListDetailDialog:
             cid = categories.category_id_by_name(self.M, self.category.get())
             where.append("coalesce(i.category_id,p.category_id)=?")
             params.append(cid or -1)
+        if self.subgroup.get() != "Všechny":
+            cid = categories.category_id_by_name(self.M, self.category.get()) if self.category.get() != "Všechny" else None
+            sid = categories.subgroup_id_by_name(self.M, self.subgroup.get(), cid)
+            where.append("i.subgroup_id=?")
+            params.append(sid or -1)
         sql_where = " AND ".join(where)
         with self.M.db() as con:
             total = con.execute(
@@ -446,11 +465,13 @@ class PriceListDetailDialog:
                 f"""SELECT i.id,i.row_no,i.product_code,i.item_key,i.name,i.description,i.unit,
                            i.source_price,i.currency,i.price_basis_qty,i.normalized_unit_price,
                            i.discount_pct,i.surcharge_pct,i.minimum_qty,i.package_qty,i.package_unit,
-                           i.pallet_qty,i.weight_unit,i.condition_text,i.category_id,
-                           coalesce(ic.name,lc.name,'Nezařazeno') category
+                           i.pallet_qty,i.weight_unit,i.condition_text,i.category_id,i.subgroup_id,
+                           coalesce(ic.name,lc.name,'Nezařazeno') category,
+                           coalesce(sg.name,'') subgroup
                     FROM price_list_items i JOIN price_lists p ON p.id=i.price_list_id
                     LEFT JOIN product_categories ic ON ic.id=i.category_id
                     LEFT JOIN product_categories lc ON lc.id=p.category_id
+                    LEFT JOIN product_subgroups sg ON sg.id=i.subgroup_id
                     WHERE {sql_where}
                     ORDER BY i.row_no,i.id LIMIT ? OFFSET ?""",
                 params + [self.page_size, self.page * self.page_size],
@@ -462,7 +483,7 @@ class PriceListDetailDialog:
             self.tree.insert(
                 "", "end", iid=iid,
                 values=(
-                    row["row_no"], row["category"], row["product_code"] or row["item_key"] or "",
+                    row["row_no"], row["category"], row["subgroup"] or "", row["product_code"] or row["item_key"] or "",
                     row["name"] or row["description"] or "", _format_price(row["source_price"], row["currency"]),
                     _format_price(row["normalized_unit_price"], row["currency"]), f"{float(row['price_basis_qty'] or 1):g}",
                     row["unit"] or "", f"+{float(row['surcharge_pct'] or 0):g} %" if row["surcharge_pct"] else "",
@@ -496,11 +517,15 @@ class PriceListDetailDialog:
         ids = self.selected_item_ids()
         if not ids:
             return self.M.messagebox.showinfo("Ceníky", "Vyberte jednu nebo více položek.", parent=self.win)
-        selected = categories.choose_category(self.M, self.win, "Přiřadit kategorii položkám")
+        first = self.rows.get(self.tree.selection()[0], {}) if self.tree.selection() else {}
+        selected = categories.choose_taxonomy(
+            self.M, self.win, "Přiřadit produktovou skupinu a podskupinu",
+            first.get("category_id"), first.get("subgroup_id"),
+        )
         if selected == "cancel":
             return
-        with self.M.db() as con:
-            con.executemany("UPDATE price_list_items SET category_id=? WHERE id=?", [(selected, item_id) for item_id in ids])
+        category_id, subgroup_id = selected
+        categories.set_item_taxonomy(self.M, "price_list_items", ids, category_id, subgroup_id)
         self.refresh()
         self.app.refresh_price_lists()
 

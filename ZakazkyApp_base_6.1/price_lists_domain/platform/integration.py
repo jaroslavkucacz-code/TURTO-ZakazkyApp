@@ -25,11 +25,11 @@ def _patch_save(M) -> None:
             con.execute("UPDATE price_lists SET category_id=? WHERE id=?", (category_id, price_list_id))
             if category_id:
                 con.execute(
-                    "UPDATE price_list_items SET category_id=? WHERE price_list_id=?",
+                    "UPDATE price_list_items SET category_id=?,subgroup_id=NULL WHERE price_list_id=?",
                     (category_id, price_list_id),
                 )
         if auto:
-            categories.autocategorize_price_list(M, int(price_list_id), only_empty=False)
+            categories.autocategorize_price_list(M, int(price_list_id), only_empty=True)
         return price_list_id, created
 
     storage._save_price_list = save
