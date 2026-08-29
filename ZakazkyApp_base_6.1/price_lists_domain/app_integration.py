@@ -87,3 +87,12 @@ def _install_settings(module):
         return result
 
     module.App.build_settings = build_settings
+
+    # 6.3.30: activate the canonical performance/catalogue platform only after
+    # the original Ceníky navigation and settings wrappers are in place.
+    from .platform import install as install_platform
+    from .platform.worksets import install as install_worksets
+    from .platform.finalize import install as install_finalize
+    install_platform(module)
+    install_worksets(module)
+    install_finalize(module)
