@@ -1,0 +1,56 @@
+name: Apply TURTO CRM 6.3.33 source changes
+
+on:
+  push:
+    branches:
+      - feature/6.3.33-product-taxonomy
+    paths:
+      - .github/workflows/apply-6333-source.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'Bootstrap TURTO CRM 6.3.33 source update'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/6.3.33-product-taxonomy
+          fetch-depth: 0
+
+      - name: Apply canonical source changes
+        run: |
+          python - <<'PY'
+          import base64
+          import pathlib
+          import zlib
+
+          root = pathlib.Path('.')
+          payload = ''.join(
+              (root / f'.github/6333-parts/part{i:02d}').read_text(encoding='ascii').strip()
+              for i in range(1, 8)
+          )
+          source = zlib.decompress(base64.b64decode(payload))
+          script = root / 'scripts' / '_apply_6333_once.py'
+          script.write_bytes(source)
+          namespace = {'__file__': str(script), '__name__': '__main__'}
+          exec(compile(source, str(script), 'exec'), namespace)
+          PY
+
+      - name: Compile and run focused checks
+        run: |
+          python -m compileall -q ZakazkyApp_base_6.1
+          python scripts/validate-6333-taxonomy.py ZakazkyApp_base_6.1
+          bash -n scripts/publish-update.sh
+
+      - name: Commit implementation
+        run: |
+          rm -rf .github/6333-parts
+          rm -f .github/workflows/apply-6333-source.yml scripts/_apply_6333_once.py
+          git config user.name "TURTO Update Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Implement TURTO CRM 6.3.33 product taxonomy"
+          git push origin HEAD:feature/6.3.33-product-taxonomy
