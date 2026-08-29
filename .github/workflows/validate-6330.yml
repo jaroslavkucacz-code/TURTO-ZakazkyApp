@@ -39,5 +39,13 @@ jobs:
       - name: Navigation stress and stale-widget regression test
         run: python scripts/validate-ui-navigation.py ZakazkyApp_base_6.1
 
+      - name: Ensure virtual display
+        if: matrix.python-version == '3.14'
+        run: command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
+
+      - name: Real Tk application navigation stress test
+        if: matrix.python-version == '3.14'
+        run: timeout 75s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
+
       - name: Validate release script syntax
         run: bash -n scripts/publish-update.sh
