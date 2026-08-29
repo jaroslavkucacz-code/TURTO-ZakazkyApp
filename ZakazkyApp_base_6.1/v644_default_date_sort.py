@@ -132,7 +132,10 @@ def apply(M):
         def make(function, key):
             def wrapped(self, *args, **kwargs):
                 result = function(self, *args, **kwargs)
-                schedule_default(self, key)
+                # The responsive navigation owner applies the sort once after a
+                # controlled page refresh. Direct refresh calls still receive it.
+                if not getattr(self, "_turto_page_refresh_running", False):
+                    schedule_default(self, key)
                 return result
             return wrapped
 
