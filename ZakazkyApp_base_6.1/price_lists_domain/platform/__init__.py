@@ -8,6 +8,7 @@ def install(module) -> None:
     from .fast_ocr import install as install_ocr
     from .integration import install as install_price_integration
     from .product_catalog import install as install_product_catalog
+    from .product_workspace import install as install_product_workspace
     from .offers import install as install_offers
     from .archive import install as install_archive
     from .worksets import install as install_worksets
@@ -17,7 +18,7 @@ def install(module) -> None:
     from .lazy_refresh import install as install_lazy_refresh
     from .automatic_updates import install as install_automatic_updates
 
-    if getattr(module, "_turto_platform_v6334", False):
+    if getattr(module, "_turto_platform_v6335", False):
         return
 
     install_fast_db(module)
@@ -25,6 +26,10 @@ def install(module) -> None:
     install_ocr(module)
     install_price_integration(module)
     install_product_catalog(module)
+    # The catalogue service above owns identity and propagation. This dedicated
+    # workspace is its only presentation owner and is reused by Ceníky and the
+    # hierarchy manager instead of layering another data implementation.
+    install_product_workspace(module)
     install_offers(module)
     install_archive(module)
     install_worksets(module)
@@ -39,7 +44,7 @@ def install(module) -> None:
     # confirmation dialog or a second competing startup check.
     install_automatic_updates(module)
 
-    module._turto_platform_v6334 = True
+    module._turto_platform_v6335 = True
 
 
 __all__ = ["install"]
