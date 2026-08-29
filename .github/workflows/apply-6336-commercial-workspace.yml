@@ -22,12 +22,18 @@ jobs:
         run: |
           cat scripts/.tmp6336/chunk*.b64 | base64 -d > /tmp/apply-6336.py
           python /tmp/apply-6336.py
+          # A workflow token may not modify workflow files. Keep them unchanged
+          # in this generated commit; they are updated/removed separately.
+          git checkout HEAD -- .github/workflows/validate-6330.yml
+          git checkout HEAD -- .github/workflows/apply-6336-commercial-workspace.yml
 
       - name: Validate generated Python
         run: |
           python -m compileall -q ZakazkyApp_base_6.1
           python -m py_compile scripts/validate-6336-commercial-workspace.py
           bash -n scripts/publish-update.sh
+          find ZakazkyApp_base_6.1 scripts -type d -name __pycache__ -prune -exec rm -rf {} +
+          find ZakazkyApp_base_6.1 scripts -type f -name '*.pyc' -delete
 
       - name: Commit generated implementation
         run: |
