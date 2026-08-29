@@ -3,6 +3,8 @@
 • Zrušeno opakované globální přepočítávání šířek a řazení všech tabulek po každém překliknutí. Levnější dokončení rozložení a výchozí řazení se provádí pouze nad právě obnovenou tabulkou.
 • Záložka Ceníky se při startu sestavuje pouze jednou. Její databázové dotazy se nespouštějí, dokud není záložka skutečně otevřená; tím se odstranilo dvojí vytváření stránky a zbytečné načítání skrytých Ceníků.
 • Ošetřen zjištěný pád asynchronního upozornění nad již zrušeným tlačítkem zvonku. Pozdní Tk callback už nepracuje se zničeným widgetem a při zavírání aplikace se čekající navigační úlohy ruší.
+• Aktualizace jsou nově bezobslužné. CRM po spuštění samo zkontroluje oficiální kanál, stáhne novější balíček na pozadí, ověří jeho SHA-256, spustí interní aktualizátor a znovu se otevře. Uživatel už nestahuje ZIP ani nepotvrzuje instalační dialog.
+• Zdroj aktualizací je pevně nastaven na oficiální GitHub kanál TURTO. Starý souběžný dialog kontroly aktualizací je vypnutý a více startovacích kontrol se sloučí do jediné operace. Případná nedostupnost internetu aplikaci nezablokuje a zapíše se do logs\\automatic_updates.log.
 • Přidán diagnostický soubor logs\\ui_navigation.log. Zapisuje pouze chyby a skutečně pomalé načtení záložky, nikoli každý běžný klik.
-• Doplněn automatický zátěžový test 100 rychlých přepnutí záložek, test zrušení starého globálního překreslení a test zničeného tlačítka upozornění. Validace probíhá na Pythonu 3.12 i 3.14.
+• Doplněn automatický zátěžový test rychlého přepínání záložek, test zrušení starého globálního překreslení, test zničeného tlačítka upozornění a samostatný test bezobslužné aktualizace bez potvrzovacího dialogu. Validace probíhá na Pythonu 3.12 i 3.14.
 • Databázové schéma ani uživatelská data se touto opravou nemění. Nabídky, Ceníky, historie, fyzické archivy, Outlook drag&drop a dosavadní neregresní chování zůstávají zachovány.
