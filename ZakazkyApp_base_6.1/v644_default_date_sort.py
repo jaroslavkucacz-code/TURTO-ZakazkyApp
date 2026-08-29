@@ -1,23 +1,36 @@
-# TURTO CRM 6.3.1 - single owner of default table sorting
+# TURTO CRM 6.3.31 - single owner of default table sorting
 from datetime import datetime
 
 
-WARNING_MARKERS = ('⚠️', '⚠', '▲', '△')
+WARNING_MARKERS = ("⚠️", "⚠", "▲", "△")
+PAGE_SORTS = {
+    "actions": ("date", "action_tree", ("Přijato", "Datum přijetí", "Přijetí")),
+    "requests": ("date", "request_tree", ("Poptáno", "Datum poptávky", "Poptávka")),
+    "mivo": ("date", "mivo_tree", ("Poptáno", "Datum poptávky", "Poptávka")),
+    "projects": ("alpha", "project_tree", ("Název Akce", "Název akce", "Akce", "Název")),
+}
 
 
 def apply(M):
+    if getattr(M, "_turto_default_sort_v6331", False):
+        return
+
+    def widget_exists(widget):
+        try:
+            return widget is not None and bool(widget.winfo_exists())
+        except Exception:
+            return widget is not None
+
     def parse_date(value):
-        # Date cells can be decorated briefly by older warning/highlight callbacks
-        # before v640 removes the visual marker. Sorting must always use the real
-        # date value, otherwise a transient "⚠ 20.08.2026" is treated as empty and
-        # waiting requests jump to the end until the next page refresh.
-        s = str(value or '').strip()
+        # Keep the 6.3.21 regression fix: a temporary visual warning marker must
+        # never make a real date sort as an empty value.
+        text = str(value or "").strip()
         for marker in WARNING_MARKERS:
-            s = s.replace(marker, '')
-        s = ' '.join(s.split())
-        for fmt in ('%d.%m.%Y', '%Y-%m-%d', '%d.%m.%y'):
+            text = text.replace(marker, "")
+        text = " ".join(text.split())
+        for fmt in ("%d.%m.%Y", "%Y-%m-%d", "%d.%m.%y"):
             try:
-                return datetime.strptime(s, fmt)
+                return datetime.strptime(text, fmt)
             except Exception:
                 pass
         return datetime.min
@@ -30,112 +43,100 @@ def apply(M):
             pass
 
     def sort_date(tree, candidates):
-        if tree is None:
+        if not widget_exists(tree):
             return
         try:
-            cols = list(tree.cget('columns'))
-            col = next((c for c in candidates if c in cols), None)
-            if not col:
+            columns = list(tree.cget("columns"))
+            column = next((candidate for candidate in candidates if candidate in columns), None)
+            if not column:
                 return
-            rows = [
-                (parse_date(tree.set(iid, col)), iid)
-                for iid in tree.get_children('')
-            ]
-            rows.sort(key=lambda x: x[0], reverse=True)
-            for pos, (_, iid) in enumerate(rows):
-                tree.move(iid, '', pos)
+            rows = [(parse_date(tree.set(iid, column)), iid) for iid in tree.get_children("")]
+            rows.sort(key=lambda pair: pair[0], reverse=True)
+            for position, (_value, iid) in enumerate(rows):
+                tree.move(iid, "", position)
             reset_sort_state(tree)
         except Exception:
             pass
 
     def sort_alpha(tree, candidates):
-        if tree is None:
+        if not widget_exists(tree):
             return
         try:
-            cols = list(tree.cget('columns'))
-            col = next((c for c in candidates if c in cols), None)
-            if not col:
+            columns = list(tree.cget("columns"))
+            column = next((candidate for candidate in candidates if candidate in columns), None)
+            if not column:
                 return
-            key = getattr(
-                M,
-                'czech_sort_key',
-                lambda v: str(v or '').strip().casefold(),
-            )
-            rows = list(tree.get_children(''))
-            rows.sort(key=lambda iid: key(tree.set(iid, col)))
-            for pos, iid in enumerate(rows):
-                tree.move(iid, '', pos)
+            key = getattr(M, "czech_sort_key", lambda value: str(value or "").strip().casefold())
+            rows = list(tree.get_children(""))
+            rows.sort(key=lambda iid: key(tree.set(iid, column)))
+            for position, iid in enumerate(rows):
+                tree.move(iid, "", position)
             reset_sort_state(tree)
         except Exception:
             pass
 
-    def apply_defaults(app):
-        # Příležitosti: nejnovější Přijato nahoře.
-        sort_date(
-            getattr(app, 'action_tree', None),
-            ('Přijato', 'Datum přijetí', 'Přijetí'),
-        )
-        # Poptávky + MIVO: nejnovější Poptáno nahoře.
-        sort_date(
-            getattr(app, 'request_tree', None),
-            ('Poptáno', 'Datum poptávky', 'Poptávka'),
-        )
-        sort_date(
-            getattr(app, 'mivo_tree', None),
-            ('Poptáno', 'Datum poptávky', 'Poptávka'),
-        )
-        # Akce: abecedně podle názvu.
-        sort_alpha(
-            getattr(app, 'project_tree', None),
-            ('Název Akce', 'Název akce', 'Akce', 'Název'),
-        )
+    def apply_default(app, page_key=None):
+        # No global sort sweep. Only the table that has just been refreshed is
+        # touched, so switching tabs cannot repeatedly sort unrelated datasets.
+        key = page_key or getattr(app, "_current_page", None)
+        spec = PAGE_SORTS.get(key)
+        if not spec:
+            return
+        mode, attribute, candidates = spec
+        tree = getattr(app, attribute, None)
+        if mode == "date":
+            sort_date(tree, candidates)
+        else:
+            sort_alpha(tree, candidates)
 
-    for name in (
-        'refresh_actions',
-        'refresh_requests',
-        'refresh_mivo_requests',
-        'refresh_mivo',
-        'refresh_projects',
-        'refresh_all',
+    def schedule_default(app, page_key):
+        if getattr(app, "_turto_closing", False):
+            return
+        jobs = getattr(app, "_turto_default_sort_jobs", None)
+        if jobs is None:
+            jobs = {}
+            app._turto_default_sort_jobs = jobs
+        previous = jobs.pop(page_key, None)
+        if previous is not None:
+            try:
+                app.after_cancel(previous)
+            except Exception:
+                pass
+
+        def run():
+            jobs.pop(page_key, None)
+            if getattr(app, "_turto_closing", False):
+                return
+            # Hidden tables do not need work. The navigation owner applies the
+            # default immediately after the page is actually refreshed.
+            if getattr(app, "_current_page", None) != page_key:
+                return
+            apply_default(app, page_key)
+
+        try:
+            jobs[page_key] = app.after_idle(run)
+        except Exception:
+            apply_default(app, page_key)
+
+    for method_name, page_key in (
+        ("refresh_actions", "actions"),
+        ("refresh_requests", "requests"),
+        ("refresh_mivo_requests", "mivo"),
+        ("refresh_mivo", "mivo"),
+        ("refresh_projects", "projects"),
     ):
-        old = getattr(M.App, name, None)
-        if not callable(old):
+        original = getattr(M.App, method_name, None)
+        if not callable(original):
             continue
 
-        def make(fn):
+        def make(function, key):
             def wrapped(self, *args, **kwargs):
-                result = fn(self, *args, **kwargs)
-                try:
-                    self.after_idle(lambda: apply_defaults(self))
-                except Exception:
-                    apply_defaults(self)
+                result = function(self, *args, **kwargs)
+                schedule_default(self, key)
                 return result
-
             return wrapped
 
-        setattr(M.App, name, make(old))
+        setattr(M.App, method_name, make(original, page_key))
 
-    old_show = getattr(M.App, 'show_page', None)
-    if callable(old_show):
-        def show_page(self, *args, **kwargs):
-            result = old_show(self, *args, **kwargs)
-            try:
-                self.after_idle(lambda: apply_defaults(self))
-            except Exception:
-                apply_defaults(self)
-            return result
-
-        M.App.show_page = show_page
-
-    old_init = M.App.__init__
-
-    def init(self, *args, **kwargs):
-        result = old_init(self, *args, **kwargs)
-        try:
-            self.after(250, lambda: apply_defaults(self))
-            self.after(1000, lambda: apply_defaults(self))
-        except Exception:
-            pass
-        return result
-
-    M.App.__init__ = init
+    M.apply_default_table_sort = apply_default
+    M._turto_default_sort_v6331 = True
