@@ -21,7 +21,7 @@ jobs:
           fetch-depth: 0
 
       - name: Apply catalogue UI review
-        run: python scripts/_apply_6334_ui_review.py
+        run: python scripts/_apply_6334_ui_review2.py
 
       - name: Validate catalogue UI review
         run: |
