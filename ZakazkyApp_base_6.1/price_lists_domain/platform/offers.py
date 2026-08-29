@@ -5,6 +5,8 @@ import json
 import tempfile
 from pathlib import Path
 
+from . import categories
+
 
 def _patch_offer_detail(M) -> None:
     try:
@@ -51,7 +53,7 @@ def _patch_offer_detail(M) -> None:
                     """SELECT id,offer_id,position,original_name,item_key,quantity,unit,
                               unit_price,discount,net_price,total_price,image_path,
                               image_source_offer_date,image_ext,product_code,details,
-                              original_unit_price,discount_pct,category_id
+                              original_unit_price,discount_pct,category_id,subgroup_id
                        FROM supplier_offer_items WHERE offer_id=? ORDER BY position,id""",
                     (self.oid,),
                 ).fetchall()
@@ -62,6 +64,31 @@ def _patch_offer_detail(M) -> None:
         def build(self, *args, __old=old_build, _M=M, **kwargs):
             result = __old(self, *args, **kwargs)
             try:
+                tree = getattr(self, "tree", None)
+                if tree is not None:
+                    columns = list(tree["columns"])
+                    for name, width in (("Produktová skupina", 250), ("Podskupina", 290)):
+                        if name not in columns:
+                            columns.append(name)
+                    tree.configure(columns=tuple(columns), selectmode="extended")
+                    for name, width in (("Produktová skupina", 250), ("Podskupina", 290)):
+                        tree.heading(name, text=name)
+                        tree.column(name, width=width, minwidth=120, anchor="w", stretch=False)
+                    with _M.db() as con:
+                        taxonomy_rows = con.execute(
+                            """SELECT i.id,i.category_id,i.subgroup_id,
+                                      coalesce(c.name,'') category,coalesce(s.name,'') subgroup
+                               FROM supplier_offer_items i
+                               LEFT JOIN product_categories c ON c.id=i.category_id
+                               LEFT JOIN product_subgroups s ON s.id=i.subgroup_id
+                               WHERE i.offer_id=?""", (self.oid,)
+                        ).fetchall()
+                    for row in taxonomy_rows:
+                        iid = f"i{row['id']}"
+                        if tree.exists(iid):
+                            tree.set(iid, "Produktová skupina", row["category"] or "Nezařazeno")
+                            tree.set(iid, "Podskupina", row["subgroup"] or "")
+
                 photo_button = None
 
                 def walk(widget):
@@ -82,6 +109,36 @@ def _patch_offer_detail(M) -> None:
                 walk(self)
                 if photo_button is None:
                     return result
+
+                def assign_taxonomy():
+                    selection = tuple(tree.selection()) if tree is not None else ()
+                    ids = [int(str(iid)[1:]) for iid in selection if str(iid).startswith("i")]
+                    if not ids:
+                        return _M.messagebox.showinfo(
+                            "Nabídky", "Vyberte jednu nebo více položek nabídky.", parent=self
+                        )
+                    first = None
+                    with _M.db() as con:
+                        first = con.execute(
+                            "SELECT category_id,subgroup_id FROM supplier_offer_items WHERE id=?", (ids[0],)
+                        ).fetchone()
+                    selected = categories.choose_taxonomy(
+                        _M, self, "Přiřadit produktovou skupinu a podskupinu",
+                        first["category_id"] if first else None,
+                        first["subgroup_id"] if first else None,
+                    )
+                    if selected == "cancel":
+                        return
+                    category_id, subgroup_id = selected
+                    categories.set_item_taxonomy(
+                        _M, "supplier_offer_items", ids, category_id, subgroup_id
+                    )
+                    self._build()
+
+                _M.ttk.Button(
+                    photo_button.master, text="Přiřadit skupinu / podskupinu…",
+                    command=assign_taxonomy,
+                ).pack(side="left", padx=5)
                 user = _M.get_setting("active_user", "")
                 enabled = _M.get_user_setting(user, "load_product_photos", "0") == "1"
                 self._turto_photo_enabled = _M.tk.BooleanVar(value=enabled)
@@ -140,7 +197,7 @@ def _patch_offer_to_price_list(M) -> None:
                 ).fetchone()
             offer_items = con.execute(
                 """SELECT id,position,original_name,item_key,quantity,unit,unit_price,total_price,
-                          product_code,details,original_unit_price,discount_pct,category_id
+                          product_code,details,original_unit_price,discount_pct,category_id,subgroup_id
                    FROM supplier_offer_items WHERE offer_id=? ORDER BY position,id""",
                 (offer_id,),
             ).fetchall()
@@ -193,7 +250,7 @@ def _patch_offer_to_price_list(M) -> None:
                         normalized_unit_price=_number(row["unit_price"]),
                         discount_pct=_number(row["discount_pct"]),
                         minimum_qty=_number(row["quantity"]),
-                        category_id=row["category_id"],
+                        category_id=row["category_id"], subgroup_id=row["subgroup_id"],
                         source_row_json=json.dumps(
                             {
                                 "id": row["id"], "position": row["position"],
@@ -203,6 +260,7 @@ def _patch_offer_to_price_list(M) -> None:
                                 "original_unit_price": row["original_unit_price"],
                                 "discount_pct": row["discount_pct"], "unit_price": row["unit_price"],
                                 "total_price": row["total_price"],
+                                "category_id": row["category_id"], "subgroup_id": row["subgroup_id"],
                             },
                             ensure_ascii=False,
                             default=str,

@@ -16,7 +16,7 @@ def install(module) -> None:
     from .lazy_refresh import install as install_lazy_refresh
     from .automatic_updates import install as install_automatic_updates
 
-    if getattr(module, "_turto_platform_v6332", False):
+    if getattr(module, "_turto_platform_v6333", False):
         return
 
     install_fast_db(module)
@@ -37,7 +37,7 @@ def install(module) -> None:
     # confirmation dialog or a second competing startup check.
     install_automatic_updates(module)
 
-    module._turto_platform_v6332 = True
+    module._turto_platform_v6333 = True
 
 
 __all__ = ["install"]

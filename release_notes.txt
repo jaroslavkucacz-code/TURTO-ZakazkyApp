@@ -1,11 +1,8 @@
-• Opravena chyba při otevření vnitřní záložky Evidence ceníků. Odlehčené načítání nyní používá správné rozhraní a nepadá na chybě „takes 1 positional argument but 2 were given“.
-• Čekající MIVO poptávky staré 7 a více dní jsou opět zvýrazněny tučným písmem přes celý řádek. Barevné rozlišení stavu zůstává zachováno.
-• Nad MIVO přibyl stručný souhrn: počet zobrazených záznamů, počet čekajících a počet čekajících 7+ dní.
-• Ceníky dostaly přehledový panel s počtem platných položek, aktivních ceníků, ceníků ke kontrole, ceníků končících do 30 dnů a ceníků po platnosti.
-• V Evidenci ceníků je nový sloupec Platnost s textem například „končí za 12 dní“, „končí dnes“, „9 dní po platnosti“ nebo „bez omezení“.
-• Do filtru stavů přibyla možnost Končí do 30 dnů a nad přehledem jsou rychlé volby Aktuální, Končí do 30 dnů, Ke kontrole a Po platnosti.
-• V přehledu Aktuální ceny je nový údaj Platnost zdroje, aby bylo bez otevírání detailu zřejmé, z jak dlouho platného ceníku cena pochází.
-• Ceníky jsou barevně rozlišeny na aktuální, budoucí, brzy končící, vyžadující kontrolu, prošlé a archivované.
-• Evidence používá odlehčené explicitní SQL sloupce; při běžném přepínání nenačítá OCR texty, OCR rozložení, fotografie ani jiné velké datové části.
-• Přidán regresní test přesně pro otevření Evidence ceníků, filtr Končí do 30 dnů a tučné MIVO poptávky. Test běží na Pythonu 3.12 i 3.14 vedle stávajících navigačních, škálovatelnostních a automatizačních kontrol.
-• Databázové schéma ani uživatelská data se touto opravou nemění. Historie, nabídky, archivní soubory Ceníků, Outlook import a automatické aktualizace zůstávají zachovány.
+• MIVO už u dlouho čekajících Poptávek nezobrazuje žádný trojúhelník ani jiný varovný znak. Poptávky staré 7 a více dní jsou odlišeny pouze tučným písmem přes celý řádek.
+• Přidán spravovatelný dvouúrovňový katalog Produktová skupina → Podskupina. Skupiny i podskupiny lze přidávat, přejmenovávat, přesouvat, deaktivovat a nepoužívané záznamy odstranit.
+• Přejmenování se díky stabilním databázovým ID automaticky projeví u všech již přiřazených produktů bez přepisu historie cen. Použité položky se při odebrání pouze deaktivují.
+• Založeny skupiny PŘERUŠENÍ TEPELNÝCH MOSTŮ - IZONOSNÍK a AKUSTICKÁ IZOLACE SCHODIŠŤ včetně zadaných prvních podskupin. Další skupiny a podskupiny lze průběžně doplňovat v Nastavení.
+• Produktovou skupinu a podskupinu lze hromadně přiřadit položkám Ceníků i položkám cenových Nabídek. Stejné zařazení se zachová při převodu Nabídky na Ceník.
+• Aktuální ceny a detail Ceníku mají samostatné sloupce a filtry Produktová skupina a Podskupina. Dosavadní volný údaj Produktová skupina na hlavičce Ceníku byl zpřesněn na Rozsah / cenová řada.
+• Přesun podskupiny pod jinou skupinu automaticky sjednotí hlavní skupinu všech přiřazených produktů Ceníků, cenových Nabídek i budoucích vydaných dokumentů.
+• Databázová změna je pouze aditivní. Historické nabídky, Ceníky, ceny, archivy, Outlook import a uživatelská data zůstávají zachovány.
