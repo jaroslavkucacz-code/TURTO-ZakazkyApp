@@ -34,7 +34,8 @@ jobs:
           python scripts/validate-ui-navigation.py ZakazkyApp_base_6.1
           python scripts/validate-auto-update.py ZakazkyApp_base_6.1
           python scripts/validate-6332-clarity.py ZakazkyApp_base_6.1
-          command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3-tk xvfb
           timeout 90s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
           bash -n scripts/publish-update.sh
           find ZakazkyApp_base_6.1 -type d -name __pycache__ -prune -exec rm -rf {} +
