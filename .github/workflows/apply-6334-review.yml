@@ -20,6 +20,7 @@ jobs:
           ref: feature/6.3.34-product-catalog-pricing
           fetch-depth: 0
 
+      # Review pass 2: deterministic product linking and legacy-test compatibility.
       - name: Apply review fixes
         run: python scripts/_apply_6334_review2.py
 
