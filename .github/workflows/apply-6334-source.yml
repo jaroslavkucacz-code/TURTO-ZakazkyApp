@@ -1,0 +1,44 @@
+name: Apply TURTO CRM 6.3.34 source changes
+
+on:
+  push:
+    branches:
+      - feature/6.3.34-product-catalog-pricing
+    paths:
+      - .github/workflows/apply-6334-source.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'Run TURTO CRM 6.3.34 source migration'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/6.3.34-product-catalog-pricing
+          fetch-depth: 0
+
+      - name: Apply canonical source changes
+        run: python scripts/_apply_6334_once.py
+
+      - name: Compile and run focused checks
+        run: |
+          find ZakazkyApp_base_6.1 -type d -name __pycache__ -prune -exec rm -rf {} +
+          find ZakazkyApp_base_6.1 -type f -name '*.pyc' -delete
+          python -m compileall -q ZakazkyApp_base_6.1
+          python scripts/validate-6334-product-catalog.py ZakazkyApp_base_6.1
+          bash -n scripts/publish-update.sh
+          find ZakazkyApp_base_6.1 -type d -name __pycache__ -prune -exec rm -rf {} +
+          find ZakazkyApp_base_6.1 -type f -name '*.pyc' -delete
+
+      - name: Commit implementation
+        run: |
+          git config user.name "TURTO Update Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add ZakazkyApp_base_6.1/price_lists_domain \
+                  release_version.txt release_notes.txt \
+                  scripts/validate-6334-product-catalog.py scripts/publish-update.sh
+          git commit -m "Implement TURTO CRM 6.3.34 product catalogue pricing"
+          git push origin HEAD:feature/6.3.34-product-catalog-pricing
