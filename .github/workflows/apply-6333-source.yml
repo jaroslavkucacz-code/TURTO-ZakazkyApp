@@ -47,12 +47,16 @@ jobs:
 
       - name: Commit implementation
         run: |
-          rm -rf .github/6333-parts
-          rm -f .github/workflows/apply-6333-source.yml scripts/_apply_6333_once.py
+          # The job token may not write workflow files. Keep CI workflow updates
+          # for the normal GitHub API commit after this source commit succeeds.
+          git checkout -- .github/workflows/validate-6330.yml
+          rm -f scripts/_apply_6333_once.py
+          find ZakazkyApp_base_6.1 -type d -name __pycache__ -prune -exec rm -rf {} +
+          find ZakazkyApp_base_6.1 -type f -name '*.pyc' -delete
           git config user.name "TURTO Update Bot"
           git config user.email "actions@users.noreply.github.com"
           git add -A
           git commit -m "Implement TURTO CRM 6.3.33 product taxonomy"
           git push origin HEAD:feature/6.3.33-product-taxonomy
 
-# retry after verified payload checksum
+# retry with workflow-safe source commit
