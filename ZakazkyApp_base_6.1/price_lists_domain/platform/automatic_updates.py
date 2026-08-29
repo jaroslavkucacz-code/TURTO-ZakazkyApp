@@ -139,6 +139,9 @@ def install(M) -> None:
         return
 
     def check_for_updates(self, silent=True):
+        disabled = str(os.environ.get("TURTO_DISABLE_AUTO_UPDATE", "")).strip().casefold()
+        if disabled in {"1", "true", "yes", "ano"}:
+            return False
         if getattr(self, "_turto_closing", False):
             return False
         if getattr(self, "_turto_update_launching", False):
