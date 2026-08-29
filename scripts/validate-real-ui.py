@@ -113,6 +113,11 @@ def main() -> None:
     except Exception:
         pass
 
+    # The production morning overview is intentionally modal. It is unrelated to
+    # navigation and would wait forever in a headless stress test with no user to
+    # close it, so suppress only this test-time callback.
+    app.App.maybe_show_morning_overview = lambda self: None
+
     root = None
     try:
         root = app.App()
