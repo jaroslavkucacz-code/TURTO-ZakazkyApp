@@ -21,7 +21,7 @@ jobs:
           fetch-depth: 0
 
       - name: Apply review fixes
-        run: python scripts/_apply_6334_review.py
+        run: python scripts/_apply_6334_review2.py
 
       - name: Validate hardened source
         run: |
