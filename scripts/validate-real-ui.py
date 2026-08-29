@@ -17,6 +17,9 @@ def main() -> None:
     home = pathlib.Path(tempfile.mkdtemp(prefix="turto6331_real_ui_"))
     os.environ["HOME"] = str(home)
     os.environ["USERPROFILE"] = str(home)
+    # The navigation test must never contact or install from the live release
+    # channel. Automatic updating has its own deterministic regression test.
+    os.environ["TURTO_DISABLE_AUTO_UPDATE"] = "1"
     os.chdir(source)
     sys.path.insert(0, str(source))
     sys.path.insert(0, str(repository))
@@ -65,7 +68,13 @@ def main() -> None:
     app.messagebox.askyesno = lambda *args, **kwargs: False
     app.messagebox.askokcancel = lambda *args, **kwargs: False
 
-    # Match the generated ZakazkyCRM.pyw order exactly.
+    # crm_runtime initializes its ADMIN tables immediately. Existing customer
+    # installations already contain the base schema; create the same baseline in
+    # this isolated HOME before applying the runtime wrappers.
+    app.cleanup_stale_test_session()
+    app.ensure_schema()
+
+    # Match the generated ZakazkyCRM.pyw layer order.
     crm_features.apply(app)
     crm_runtime.apply(app)
     crm_v605.apply(app)
@@ -96,7 +105,7 @@ def main() -> None:
     crm_features.install_offer_ui(app)
     crm_price_lists.apply(app)
 
-    app.cleanup_stale_test_session()
+    # Run the fully wrapped schema owner once more for additive platform tables.
     app.ensure_schema()
     app.ensure_test_user()
     try:
