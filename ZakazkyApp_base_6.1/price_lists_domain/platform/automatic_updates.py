@@ -146,7 +146,7 @@ def install(M) -> None:
 
         now = time.monotonic()
         last = float(getattr(self, "_turto_auto_update_last_check", 0.0) or 0.0)
-        if silent and now - last < _RECENT_SILENT_CHECK_SECONDS:
+        if silent and last > 0.0 and now - last < _RECENT_SILENT_CHECK_SECONDS:
             return False
         if getattr(self, "_turto_auto_update_running", False):
             return False
