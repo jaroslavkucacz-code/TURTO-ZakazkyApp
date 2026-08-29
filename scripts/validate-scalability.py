@@ -2,7 +2,6 @@
 """CI smoke validation for the scalable Ceníky platform."""
 from __future__ import annotations
 
-import importlib
 import pathlib
 import shutil
 import sqlite3
@@ -22,7 +21,7 @@ def main() -> None:
     M = Fake()
     M.sqlite3 = sqlite3
     M._czech_collate = lambda a, b: (str(a or "") > str(b or "")) - (str(a or "") < str(b or ""))
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="turto6330_ci_"))
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="turto6331_ci_"))
     try:
         M.DB = temp / "smoke.db"
         M.BACKUP_DIR = temp / "backup"
@@ -67,23 +66,41 @@ def main() -> None:
         assert label == "PVC pásy (Kunex)", label
 
         platform = root / "price_lists_domain" / "platform"
+        domain_init = (root / "price_lists_domain" / "__init__.py").read_text(encoding="utf-8")
         app_integration = (root / "price_lists_domain" / "app_integration.py").read_text(encoding="utf-8")
-        assert "install_platform(module)" in app_integration
-        assert "install_worksets(module)" in app_integration
-        assert "install_finalize(module)" in app_integration
+        platform_init = (platform / "__init__.py").read_text(encoding="utf-8")
+        integration = (platform / "integration.py").read_text(encoding="utf-8")
         workset_wrapper = (platform / "worksets" / "__init__.py").read_text(encoding="utf-8")
-        assert "_finalize_then_compat" in workset_wrapper
+        lazy_refresh = (platform / "lazy_refresh.py").read_text(encoding="utf-8")
+
+        # One deterministic platform installation; no global installer mutation
+        # and no second App.build/show_page/refresh_all wrapper in Ceníky.
+        assert "install_platform(module)" in domain_init
+        assert "install_platform(module)" not in app_integration
+        assert "old_show" not in app_integration and "old_refresh_all" not in app_integration
+        assert "old_build" not in integration and "M.App.build =" not in integration
+        assert "finalize.install =" not in workset_wrapper
+        order = [
+            platform_init.index("install_worksets(module)"),
+            platform_init.index("install_finalize(module)"),
+            platform_init.index("install_compat(module)"),
+            platform_init.index("install_lazy_refresh(module)"),
+        ]
+        assert order == sorted(order), order
+        assert '_turto_navigation_owner = "price_lists_domain.platform.lazy_refresh"' in lazy_refresh
+        assert '_cancel(app, "_turto_final_layout_after")' in lazy_refresh
+
         fast_ocr = (platform / "fast_ocr.py").read_text(encoding="utf-8")
         assert "DPI = 170" in fast_ocr and "price_list_ocr_cache" in fast_ocr and "ocr_batch.ps1" in fast_ocr
         offer_perf = (platform / "offers.py").read_text(encoding="utf-8")
         load_segment = offer_perf.split("def load", 1)[1].split("old_build", 1)[0]
         select_segment = load_segment.split("items = con.execute", 1)[1].split("FROM supplier_offer_items", 1)[0]
         assert "image_blob" not in select_segment
-        pohlcon = (platform / "integration.py").read_text(encoding="utf-8")
+        pohlcon = integration
         assert 'scope_value="Kunex"' in pohlcon and 'scope_type="product_name_prefix"' in pohlcon
         future = (platform / "database.py").read_text(encoding="utf-8")
         assert "business_documents" in future and "business_document_items" in future
-        print("TURTO CRM 6.3.30 scalability smoke test: OK")
+        print("TURTO CRM 6.3.31 scalability smoke test: OK")
     finally:
         shutil.rmtree(temp, ignore_errors=True)
 
