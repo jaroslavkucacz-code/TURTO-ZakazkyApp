@@ -1,4 +1,4 @@
-"""Stable wrapper for lazy refresh plus WAL-safe SQLite backups."""
+"""Stable package API for responsive navigation plus WAL-safe backups."""
 from __future__ import annotations
 
 import importlib.util
@@ -6,7 +6,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-_IMPL_NAME = "price_lists_domain.platform._lazy_refresh_v630_impl"
+_IMPL_NAME = "price_lists_domain.platform._lazy_refresh_v6331_impl"
 _IMPL_PATH = Path(__file__).resolve().parent.parent / "lazy_refresh.py"
 
 if _IMPL_NAME in sys.modules:
@@ -14,10 +14,13 @@ if _IMPL_NAME in sys.modules:
 else:
     _spec = importlib.util.spec_from_file_location(_IMPL_NAME, _IMPL_PATH)
     if _spec is None or _spec.loader is None:
-        raise ImportError(f"Nelze načíst lazy-refresh implementaci: {_IMPL_PATH}")
+        raise ImportError(f"Nelze načíst navigační implementaci: {_IMPL_PATH}")
     _impl = importlib.util.module_from_spec(_spec)
     sys.modules[_IMPL_NAME] = _impl
     _spec.loader.exec_module(_impl)
+
+PAGE_REFRESH = _impl.PAGE_REFRESH
+PAGE_TREES = _impl.PAGE_TREES
 
 
 def _install_safe_backup(module) -> None:
@@ -47,4 +50,4 @@ def install(module):
     return _impl.install(module)
 
 
-__all__ = ["install"]
+__all__ = ["install", "PAGE_REFRESH", "PAGE_TREES"]
