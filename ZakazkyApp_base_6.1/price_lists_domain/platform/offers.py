@@ -5,7 +5,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from . import categories
+from . import categories, product_catalog
 
 
 def _patch_offer_detail(M) -> None:
@@ -67,25 +67,32 @@ def _patch_offer_detail(M) -> None:
                 tree = getattr(self, "tree", None)
                 if tree is not None:
                     columns = list(tree["columns"])
-                    for name, width in (("Produktová skupina", 250), ("Podskupina", 290)):
+                    for name, width in (("Výrobce", 180), ("Interní kód", 130), ("Interní označení", 250), ("Produktová skupina", 250), ("Podskupina", 290)):
                         if name not in columns:
                             columns.append(name)
                     tree.configure(columns=tuple(columns), selectmode="extended")
-                    for name, width in (("Produktová skupina", 250), ("Podskupina", 290)):
+                    for name, width in (("Výrobce", 180), ("Interní kód", 130), ("Interní označení", 250), ("Produktová skupina", 250), ("Podskupina", 290)):
                         tree.heading(name, text=name)
                         tree.column(name, width=width, minwidth=120, anchor="w", stretch=False)
                     with _M.db() as con:
                         taxonomy_rows = con.execute(
                             """SELECT i.id,i.category_id,i.subgroup_id,
-                                      coalesce(c.name,'') category,coalesce(s.name,'') subgroup
+                                      coalesce(c.name,'') category,coalesce(s.name,'') subgroup,
+                                      coalesce(cp.manufacturer_name,'') manufacturer,
+                                      coalesce(cp.internal_code,'') internal_code,
+                                      coalesce(cp.internal_name,'') internal_name
                                FROM supplier_offer_items i
-                               LEFT JOIN product_categories c ON c.id=i.category_id
-                               LEFT JOIN product_subgroups s ON s.id=i.subgroup_id
+                               LEFT JOIN catalog_products cp ON cp.id=i.catalog_product_id
+                               LEFT JOIN product_categories c ON c.id=coalesce(cp.category_id,i.category_id)
+                               LEFT JOIN product_subgroups s ON s.id=coalesce(cp.subgroup_id,i.subgroup_id)
                                WHERE i.offer_id=?""", (self.oid,)
                         ).fetchall()
                     for row in taxonomy_rows:
                         iid = f"i{row['id']}"
                         if tree.exists(iid):
+                            tree.set(iid, "Výrobce", row["manufacturer"] or "")
+                            tree.set(iid, "Interní kód", row["internal_code"] or "")
+                            tree.set(iid, "Interní označení", row["internal_name"] or "")
                             tree.set(iid, "Produktová skupina", row["category"] or "Nezařazeno")
                             tree.set(iid, "Podskupina", row["subgroup"] or "")
 
@@ -138,6 +145,10 @@ def _patch_offer_detail(M) -> None:
                 _M.ttk.Button(
                     photo_button.master, text="Přiřadit skupinu / podskupinu…",
                     command=assign_taxonomy,
+                ).pack(side="left", padx=5)
+                _M.ttk.Button(
+                    photo_button.master, text="Katalog produktů…",
+                    command=lambda: product_catalog.open_product_catalog(_M, self),
                 ).pack(side="left", padx=5)
                 user = _M.get_setting("active_user", "")
                 enabled = _M.get_user_setting(user, "load_product_photos", "0") == "1"

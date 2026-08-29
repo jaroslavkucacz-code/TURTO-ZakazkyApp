@@ -1,23 +1,13 @@
-"""Canonical product-group and subgroup catalogue for TURTO CRM.
+"""Canonical manually managed product-group and subgroup catalogue.
 
-The catalogue stores stable IDs. Renaming a group or subgroup therefore appears
-immediately on all already assigned Ceník and supplier-offer products without
-rewriting historical prices. Used entries are deactivated rather than deleted.
+Product placement is intentionally not guessed from keywords. Stable IDs keep
+renames, pricing defaults and later price-list updates connected to the same
+internal product catalogue.
 """
 from __future__ import annotations
 
-import re
-import unicodedata
-from collections import Counter
-
 UNASSIGNED = "Nezařazeno"
 NO_SUBGROUP = "Bez podskupiny"
-
-
-def _norm(value: object) -> str:
-    text = unicodedata.normalize("NFKD", str(value or ""))
-    text = "".join(ch for ch in text if not unicodedata.combining(ch)).casefold()
-    return " ".join(re.sub(r"[^a-z0-9]+", " ", text).split())
 
 
 def _columns(con, table: str) -> set[str]:
@@ -27,10 +17,20 @@ def _columns(con, table: str) -> set[str]:
         return set()
 
 
+def _number(value, default=0.0) -> float:
+    try:
+        return float(value or 0)
+    except Exception:
+        return float(default)
+
+
 def list_categories(M, include_inactive: bool = False):
     with M.db() as con:
         return con.execute(
-            """SELECT id,name,parent_id,keywords,active,sort_order
+            """SELECT id,name,parent_id,active,sort_order,
+                      coalesce(default_margin_pct,0) default_margin_pct,
+                      coalesce(default_discount_pct,0) default_discount_pct,
+                      coalesce(show_recommended_price,1) show_recommended_price
                FROM product_categories
                WHERE (?=1 OR active=1)
                ORDER BY active DESC,sort_order,name COLLATE CZECH""",
@@ -41,8 +41,11 @@ def list_categories(M, include_inactive: bool = False):
 def list_subgroups(M, category_id=None, include_inactive: bool = False):
     with M.db() as con:
         return con.execute(
-            """SELECT s.id,s.category_id,s.name,s.keywords,s.active,s.sort_order,
-                      c.name category_name,c.active category_active
+            """SELECT s.id,s.category_id,s.name,s.active,s.sort_order,
+                      coalesce(s.default_margin_pct,0) default_margin_pct,
+                      coalesce(s.default_discount_pct,0) default_discount_pct,
+                      c.name category_name,c.active category_active,
+                      coalesce(c.show_recommended_price,1) show_recommended_price
                FROM product_subgroups s
                JOIN product_categories c ON c.id=s.category_id
                WHERE (? IS NULL OR s.category_id=?)
@@ -109,51 +112,18 @@ def taxonomy_path(M, category_id=None, subgroup_id=None) -> str:
     return group or subgroup or UNASSIGNED
 
 
+# Keyword-based assignment is deliberately disabled. These compatibility
+# functions remain because older import dialogs call them, but they never guess.
 def classify_text(M, value: object):
-    hay = _norm(value)
-    if not hay:
-        return None
-    fallback = None
-    for row in list_categories(M):
-        if _norm(row["name"]) == "ostatni":
-            fallback = int(row["id"])
-            continue
-        keywords = [part.strip() for part in re.split(r"[|;\n]+", str(row["keywords"] or "")) if part.strip()]
-        for keyword in keywords:
-            needle = _norm(keyword)
-            if needle and needle in hay:
-                return int(row["id"])
-    return fallback
+    return None
 
 
 def classify_subgroup_text(M, category_id, value: object):
-    if not category_id:
-        return None
-    hay = _norm(value)
-    if not hay:
-        return None
-    matches = []
-    for row in list_subgroups(M, category_id):
-        needles = [
-            _norm(part) for part in re.split(r"[|;\n]+", str(row["keywords"] or "")) if _norm(part)
-        ]
-        score = max((len(needle) for needle in needles if needle in hay), default=0)
-        if score:
-            matches.append((score, -int(row["sort_order"] or 0), int(row["id"])))
-    return max(matches)[2] if matches else None
-
-
-def _row_text(row) -> str:
-    fields = (
-        "product_code", "supplier_item_code", "item_key", "name", "original_name",
-        "description", "details", "condition_text", "dimensions", "source_row_json",
-    )
-    keys = set(row.keys()) if hasattr(row, "keys") else set(row)
-    return " ".join(str(row[key] or "") for key in fields if key in keys)
+    return None
 
 
 def classify_item(M, row):
-    return classify_text(M, _row_text(row))
+    return None
 
 
 def classify_item_taxonomy(M, row):
@@ -161,22 +131,12 @@ def classify_item_taxonomy(M, row):
     category_id = int(row["category_id"]) if "category_id" in keys and row["category_id"] else None
     subgroup_id = int(row["subgroup_id"]) if "subgroup_id" in keys and row["subgroup_id"] else None
     if subgroup_id:
-        parent = subgroup_parent_id(M, subgroup_id)
-        if parent:
-            category_id = parent
-    text = _row_text(row)
-    category_id = category_id or classify_text(M, text)
-    subgroup_id = subgroup_id or classify_subgroup_text(M, category_id, text)
+        category_id = subgroup_parent_id(M, subgroup_id) or category_id
     return category_id, subgroup_id
 
 
 def majority_category(M, items) -> int | None:
-    counts: Counter[int] = Counter()
-    for item in list(items or [])[:500]:
-        cid = classify_text(M, _row_text(item))
-        if cid:
-            counts[int(cid)] += 1
-    return counts.most_common(1)[0][0] if counts else None
+    return None
 
 
 def set_item_taxonomy(M, table: str, item_ids, category_id=None, subgroup_id=None) -> int:
@@ -186,19 +146,36 @@ def set_item_taxonomy(M, table: str, item_ids, category_id=None, subgroup_id=Non
     ids = [int(value) for value in item_ids if value]
     if not ids:
         return 0
+    # Existing historical rows may not yet be linked to the stable product master.
+    # Link their parent documents before changing taxonomy so this manual decision
+    # is inherited by later price-list versions as well.
+    if table in {"price_list_items", "supplier_offer_items"}:
+        from . import product_catalog
+        parent_column = "price_list_id" if table == "price_list_items" else "offer_id"
+        marks = ",".join("?" for _ in ids)
+        with M.db() as con:
+            parent_ids = [int(row[0]) for row in con.execute(
+                f"SELECT DISTINCT {parent_column} FROM {table} WHERE id IN ({marks})", ids
+            ).fetchall() if row[0]]
+        for parent_id in parent_ids:
+            if table == "price_list_items":
+                product_catalog.sync_price_list(M, parent_id)
+            else:
+                product_catalog.sync_supplier_offer(M, parent_id)
     if subgroup_id:
         parent = subgroup_parent_id(M, subgroup_id)
         if not parent:
             raise ValueError("Vybraná podskupina už neexistuje.")
         category_id = parent
     with M.db() as con:
-        cols = _columns(con, table)
-        if "subgroup_id" not in cols:
+        if "subgroup_id" not in _columns(con, table):
             raise RuntimeError("Databáze ještě neobsahuje podporu produktových podskupin.")
         con.executemany(
             f"UPDATE {table} SET category_id=?,subgroup_id=? WHERE id=?",
             [(category_id, subgroup_id, item_id) for item_id in ids],
         )
+    if table in {"price_list_items", "supplier_offer_items"}:
+        product_catalog.propagate_taxonomy_from_items(M, table, ids)
     return len(ids)
 
 
@@ -210,54 +187,21 @@ def move_subgroup(M, subgroup_id: int, category_id: int) -> None:
             "UPDATE product_subgroups SET category_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
             (category_id, subgroup_id),
         )
-        for table in ("price_list_items", "supplier_offer_items", "business_document_items"):
+        for table in ("price_list_items", "supplier_offer_items", "business_document_items", "catalog_products"):
             if {"category_id", "subgroup_id"}.issubset(_columns(con, table)):
-                con.execute(
-                    f"UPDATE {table} SET category_id=? WHERE subgroup_id=?",
-                    (category_id, subgroup_id),
-                )
+                con.execute(f"UPDATE {table} SET category_id=? WHERE subgroup_id=?", (category_id, subgroup_id))
 
 
 def autocategorize_price_list(M, price_list_id: int, only_empty: bool = True) -> tuple[int, int]:
+    """Compatibility entry point: link deterministic products, never guess taxonomy."""
+    from . import product_catalog
+    linked = product_catalog.sync_price_list(M, int(price_list_id))
     with M.db() as con:
-        header = con.execute("SELECT category_id FROM price_lists WHERE id=?", (price_list_id,)).fetchone()
-        rows = con.execute(
-            """SELECT id,category_id,subgroup_id,product_code,supplier_item_code,item_key,name,description,
-                      condition_text,dimensions,source_row_json
-               FROM price_list_items WHERE price_list_id=? AND active=1""",
+        unassigned = int(con.execute(
+            "SELECT COUNT(*) FROM price_list_items WHERE price_list_id=? AND category_id IS NULL",
             (price_list_id,),
-        ).fetchall()
-    fallback = int(header["category_id"]) if header and header["category_id"] else None
-    updates = []
-    unassigned = 0
-    for row in rows:
-        old_category = int(row["category_id"]) if row["category_id"] else None
-        old_subgroup = int(row["subgroup_id"]) if row["subgroup_id"] else None
-        text = _row_text(row)
-        guessed_category = classify_text(M, text) or fallback
-        guessed_subgroup = classify_subgroup_text(M, guessed_category, text) if guessed_category else None
-        if only_empty:
-            category_id = old_category or guessed_category
-            subgroup_id = old_subgroup or (
-                classify_subgroup_text(M, category_id, text) if category_id else None
-            )
-            if old_subgroup:
-                category_id = subgroup_parent_id(M, old_subgroup) or category_id
-        else:
-            category_id = guessed_category
-            subgroup_id = guessed_subgroup
-        if category_id:
-            if category_id != old_category or subgroup_id != old_subgroup:
-                updates.append((category_id, subgroup_id, int(row["id"])))
-        else:
-            unassigned += 1
-    if updates:
-        with M.db() as con:
-            con.executemany(
-                "UPDATE price_list_items SET category_id=?,subgroup_id=? WHERE id=?",
-                updates,
-            )
-    return len(updates), unassigned
+        ).fetchone()[0] or 0)
+    return linked, unassigned
 
 
 def set_price_list_category(M, price_list_ids, category_id, apply_to_items: bool = True, subgroup_id=None) -> int:
@@ -266,13 +210,24 @@ def set_price_list_category(M, price_list_ids, category_id, apply_to_items: bool
         return 0
     if subgroup_id:
         category_id = subgroup_parent_id(M, subgroup_id)
+    from . import product_catalog
+    if apply_to_items:
+        for price_list_id in ids:
+            product_catalog.sync_price_list(M, price_list_id)
+    changed_item_ids = []
     with M.db() as con:
         con.executemany("UPDATE price_lists SET category_id=? WHERE id=?", [(category_id, pid) for pid in ids])
         if apply_to_items:
+            marks = ",".join("?" for _ in ids)
+            changed_item_ids = [int(row[0]) for row in con.execute(
+                f"SELECT id FROM price_list_items WHERE price_list_id IN ({marks})", ids
+            ).fetchall()]
             con.executemany(
-                "UPDATE price_list_items SET category_id=?,subgroup_id=? WHERE price_list_id=?",
-                [(category_id, subgroup_id, pid) for pid in ids],
+                "UPDATE price_list_items SET category_id=?,subgroup_id=? WHERE id=?",
+                [(category_id, subgroup_id, item_id) for item_id in changed_item_ids],
             )
+    if changed_item_ids:
+        product_catalog.propagate_taxonomy_from_items(M, "price_list_items", changed_item_ids)
     return len(ids)
 
 
@@ -286,20 +241,11 @@ def choose_category(M, parent, title: str = "Vybrat produktovou skupinu", curren
     frame = M.ttk.Frame(dialog, padding=16)
     frame.pack(fill="both", expand=True)
     M.ttk.Label(frame, text=title, font=("Calibri", 13, "bold")).pack(anchor="w")
-    labels = []
-    mapping = {}
-    if allow_auto:
-        labels.append("Automaticky podle položek")
-        mapping[labels[-1]] = "auto"
-    labels.append(UNASSIGNED)
-    mapping[labels[-1]] = None
-    for row in rows:
-        labels.append(row["name"])
-        mapping[row["name"]] = int(row["id"])
-    initial = category_name(M, current_id) if current_id else (labels[0] if allow_auto else UNASSIGNED)
-    value = M.tk.StringVar(value=initial if initial in labels else labels[0])
-    box = M.safe_combobox(frame, textvariable=value, values=labels, state="readonly", width=58)
-    box.pack(fill="x", pady=(10, 14))
+    labels = [UNASSIGNED] + [row["name"] for row in rows]
+    mapping = {UNASSIGNED: None, **{row["name"]: int(row["id"]) for row in rows}}
+    initial = category_name(M, current_id) if current_id else UNASSIGNED
+    value = M.tk.StringVar(value=initial if initial in labels else UNASSIGNED)
+    M.safe_combobox(frame, textvariable=value, values=labels, state="readonly", width=62).pack(fill="x", pady=(10, 14))
     result = {"value": "cancel"}
 
     def finish():
@@ -338,40 +284,34 @@ def choose_taxonomy(
     group_var = M.tk.StringVar(value=category_name(M, current_category_id) or UNASSIGNED)
     subgroup_var = M.tk.StringVar(value=subgroup_name(M, current_subgroup_id) or NO_SUBGROUP)
     M.ttk.Label(frame, text="Produktová skupina").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=5)
-    group_box = M.safe_combobox(
-        frame, textvariable=group_var, values=list(group_mapping), state="readonly", width=72
+    M.safe_combobox(frame, textvariable=group_var, values=list(group_mapping), state="readonly", width=74).grid(
+        row=1, column=1, sticky="ew", pady=5
     )
-    group_box.grid(row=1, column=1, sticky="ew", pady=5)
     M.ttk.Label(frame, text="Podskupina").grid(row=2, column=0, sticky="w", padx=(0, 10), pady=5)
-    subgroup_box = M.safe_combobox(frame, textvariable=subgroup_var, values=[NO_SUBGROUP], state="readonly", width=72)
+    subgroup_box = M.safe_combobox(frame, textvariable=subgroup_var, values=[NO_SUBGROUP], state="readonly", width=74)
     subgroup_box.grid(row=2, column=1, sticky="ew", pady=5)
     subgroup_mapping = {NO_SUBGROUP: None}
 
     def update_subgroups(*_):
         nonlocal subgroup_mapping
         category_id = group_mapping.get(group_var.get())
-        rows = list_subgroups(M, category_id) if category_id else []
-        subgroup_mapping = {NO_SUBGROUP: None, **{str(row["name"]): int(row["id"]) for row in rows}}
+        subgroup_mapping = {
+            NO_SUBGROUP: None,
+            **{str(row["name"]): int(row["id"]) for row in list_subgroups(M, category_id) if category_id},
+        }
         subgroup_box.configure(values=list(subgroup_mapping))
         if subgroup_var.get() not in subgroup_mapping:
             subgroup_var.set(NO_SUBGROUP)
 
     group_var.trace_add("write", update_subgroups)
     update_subgroups()
-    if current_subgroup_id:
-        current = subgroup_name(M, current_subgroup_id)
-        if current in subgroup_mapping:
-            subgroup_var.set(current)
+    current = subgroup_name(M, current_subgroup_id)
+    if current in subgroup_mapping:
+        subgroup_var.set(current)
     result = {"value": "cancel"}
 
     def finish():
-        category_id = group_mapping.get(group_var.get())
-        subgroup_id = subgroup_mapping.get(subgroup_var.get())
-        if subgroup_id and not category_id:
-            return M.messagebox.showwarning(
-                "Produktové skupiny", "Podskupinu nelze zvolit bez produktové skupiny.", parent=dialog
-            )
-        result["value"] = (category_id, subgroup_id)
+        result["value"] = (group_mapping.get(group_var.get()), subgroup_mapping.get(subgroup_var.get()))
         dialog.destroy()
 
     buttons = M.ttk.Frame(frame)
@@ -405,11 +345,15 @@ def _invalidate(M, app=None):
 
 
 def manage_categories(M, app) -> None:
+    from . import product_catalog
+
+    # Deterministically link a bounded legacy batch so product counts are useful immediately.
+    product_catalog.sync_all_unlinked(M, max_documents=25)
     dialog = M.tk.Toplevel(app)
     dialog.title("Produktové skupiny a podskupiny")
     dialog.transient(app)
     dialog.grab_set()
-    M.enable_dialog_maximize(dialog, 1280, 760)
+    M.enable_dialog_maximize(dialog, 1400, 780)
     outer = M.ttk.Frame(dialog, padding=16)
     outer.pack(fill="both", expand=True)
     outer.rowconfigure(2, weight=1)
@@ -419,16 +363,16 @@ def manage_categories(M, app) -> None:
     )
     M.ttk.Label(
         outer,
-        text=("Přejmenování se ihned projeví u všech již přiřazených položek Ceníků i cenových Nabídek. "
-              "Použité záznamy se kvůli historii pouze deaktivují."),
+        text=("Zařazení je ruční a je navázané na interní katalog produktu. Přejmenování se ihned "
+              "projeví u historických i nově importovaných cen stejného produktu."),
         style="PageSubtitle.TLabel",
     ).grid(row=1, column=0, sticky="w", pady=(2, 10))
-    cols = ("Typ", "Klíčová slova", "Stav", "Ceníků", "Položek ceníků", "Položek nabídek")
+    cols = ("Typ", "Stav", "Základní marže", "Základní sleva", "Zobrazení ceny", "Produktů", "Ceníků", "Nabídek")
     tree = M.ttk.Treeview(outer, columns=cols, show="tree headings", selectmode="browse")
     tree.heading("#0", text="Skupina / podskupina")
-    tree.column("#0", width=470, minwidth=260, anchor="w")
-    for col, width in (("Typ", 105), ("Klíčová slova", 430), ("Stav", 90), ("Ceníků", 70),
-                       ("Položek ceníků", 115), ("Položek nabídek", 115)):
+    tree.column("#0", width=500, minwidth=300, anchor="w")
+    for col, width in (("Typ", 105), ("Stav", 90), ("Základní marže", 115), ("Základní sleva", 115),
+                       ("Zobrazení ceny", 170), ("Produktů", 85), ("Ceníků", 75), ("Nabídek", 75)):
         tree.heading(col, text=col)
         tree.column(col, width=width, anchor="w")
     tree.grid(row=2, column=0, sticky="nsew")
@@ -443,17 +387,18 @@ def manage_categories(M, app) -> None:
         with M.db() as con:
             groups = con.execute(
                 """SELECT c.*,
-                          (SELECT COUNT(*) FROM price_lists p WHERE p.category_id=c.id) list_count,
-                          (SELECT COUNT(*) FROM price_list_items i WHERE i.category_id=c.id) price_count,
-                          (SELECT COUNT(*) FROM supplier_offer_items i WHERE i.category_id=c.id) offer_count
+                          (SELECT COUNT(*) FROM catalog_products p WHERE p.category_id=c.id) product_count,
+                          (SELECT COUNT(DISTINCT i.price_list_id) FROM price_list_items i WHERE i.category_id=c.id) list_count,
+                          (SELECT COUNT(DISTINCT i.offer_id) FROM supplier_offer_items i WHERE i.category_id=c.id) offer_count
                    FROM product_categories c
                    ORDER BY c.active DESC,c.sort_order,c.name COLLATE CZECH"""
             ).fetchall()
             subgroups = con.execute(
-                """SELECT s.*,
-                          (SELECT COUNT(*) FROM price_list_items i WHERE i.subgroup_id=s.id) price_count,
-                          (SELECT COUNT(*) FROM supplier_offer_items i WHERE i.subgroup_id=s.id) offer_count
-                   FROM product_subgroups s
+                """SELECT s.*,coalesce(c.show_recommended_price,1) show_recommended_price,
+                          (SELECT COUNT(*) FROM catalog_products p WHERE p.subgroup_id=s.id) product_count,
+                          (SELECT COUNT(DISTINCT i.price_list_id) FROM price_list_items i WHERE i.subgroup_id=s.id) list_count,
+                          (SELECT COUNT(DISTINCT i.offer_id) FROM supplier_offer_items i WHERE i.subgroup_id=s.id) offer_count
+                   FROM product_subgroups s JOIN product_categories c ON c.id=s.category_id
                    ORDER BY s.active DESC,s.sort_order,s.name COLLATE CZECH"""
             ).fetchall()
         by_group = {}
@@ -461,10 +406,12 @@ def manage_categories(M, app) -> None:
             by_group.setdefault(int(row["category_id"]), []).append(row)
         for row in groups:
             iid = f"g{row['id']}"
+            display = "Doporučená i výsledná" if row["show_recommended_price"] else "Pouze výsledná"
             tree.insert(
                 "", "end", iid=iid, text=row["name"],
-                values=("Skupina", row["keywords"] or "", "Aktivní" if row["active"] else "Neaktivní",
-                        row["list_count"], row["price_count"], row["offer_count"]),
+                values=("Skupina", "Aktivní" if row["active"] else "Neaktivní",
+                        f"{_number(row['default_margin_pct']):g} %", f"{_number(row['default_discount_pct']):g} %",
+                        display, row["product_count"], row["list_count"], row["offer_count"]),
                 tags=("status_cancel",) if not row["active"] else (),
                 open=(iid in opened or bool(by_group.get(int(row["id"])) and not opened)),
             )
@@ -472,9 +419,10 @@ def manage_categories(M, app) -> None:
                 sid = f"s{subgroup['id']}"
                 tree.insert(
                     iid, "end", iid=sid, text=subgroup["name"],
-                    values=("Podskupina", subgroup["keywords"] or "",
-                            "Aktivní" if subgroup["active"] else "Neaktivní", "",
-                            subgroup["price_count"], subgroup["offer_count"]),
+                    values=("Podskupina", "Aktivní" if subgroup["active"] else "Neaktivní",
+                            f"{_number(subgroup['default_margin_pct']):g} %",
+                            f"{_number(subgroup['default_discount_pct']):g} %",
+                            display, subgroup["product_count"], subgroup["list_count"], subgroup["offer_count"]),
                     tags=("status_cancel",) if not subgroup["active"] else (),
                 )
         if select_iid and tree.exists(select_iid):
@@ -482,25 +430,33 @@ def manage_categories(M, app) -> None:
             tree.see(select_iid)
 
     def selected():
-        sel = tree.selection()
-        if not sel:
+        selection = tree.selection()
+        if not selection:
             return None, None
-        iid = str(sel[0])
-        if iid.startswith("g"):
-            return "group", int(iid[1:])
-        if iid.startswith("s"):
-            return "subgroup", int(iid[1:])
-        return None, None
+        iid = str(selection[0])
+        return ("group", int(iid[1:])) if iid.startswith("g") else ("subgroup", int(iid[1:])) if iid.startswith("s") else (None, None)
 
     def editor(kind: str, row_id=None, parent_group_id=None):
         groups = list_categories(M, include_inactive=True)
-        values = {"name": "", "keywords": "", "sort_order": 100, "category_id": parent_group_id}
+        values = {
+            "name": "", "sort_order": 100, "category_id": parent_group_id,
+            "default_margin_pct": 0.0, "default_discount_pct": 0.0, "show_recommended_price": 1,
+        }
         if row_id:
             table = "product_categories" if kind == "group" else "product_subgroups"
             with M.db() as con:
                 row = con.execute(f"SELECT * FROM {table} WHERE id=?", (row_id,)).fetchone()
             if row:
                 values.update(dict(row))
+        elif kind == "subgroup" and parent_group_id:
+            with M.db() as con:
+                parent = con.execute(
+                    "SELECT default_margin_pct,default_discount_pct FROM product_categories WHERE id=?",
+                    (parent_group_id,),
+                ).fetchone()
+            if parent:
+                values["default_margin_pct"] = parent["default_margin_pct"]
+                values["default_discount_pct"] = parent["default_discount_pct"]
         win = M.tk.Toplevel(dialog)
         win.title("Produktová skupina" if kind == "group" else "Produktová podskupina")
         win.transient(dialog)
@@ -509,26 +465,36 @@ def manage_categories(M, app) -> None:
         frame.pack(fill="both", expand=True)
         frame.columnconfigure(1, weight=1)
         name = M.tk.StringVar(value=str(values.get("name") or ""))
-        keywords = M.tk.StringVar(value=str(values.get("keywords") or ""))
         order = M.tk.StringVar(value=str(values.get("sort_order") or 100))
+        margin = M.tk.StringVar(value=f"{_number(values.get('default_margin_pct')):g}")
+        discount = M.tk.StringVar(value=f"{_number(values.get('default_discount_pct')):g}")
+        show_recommended = M.tk.BooleanVar(value=bool(values.get("show_recommended_price", 1)))
         group_var = M.tk.StringVar()
         group_map = {str(row["name"]): int(row["id"]) for row in groups}
+        row_index = 0
         if kind == "subgroup":
-            group_var.set(category_name(M, values.get("category_id")) or (next(iter(group_map), "")))
-            M.ttk.Label(frame, text="Nadřazená produktová skupina").grid(row=0, column=0, sticky="w", padx=(0, 10), pady=5)
-            M.safe_combobox(frame, textvariable=group_var, values=list(group_map), state="readonly", width=74).grid(
-                row=0, column=1, sticky="ew", pady=5
+            group_var.set(category_name(M, values.get("category_id")) or next(iter(group_map), ""))
+            M.ttk.Label(frame, text="Nadřazená produktová skupina").grid(row=row_index, column=0, sticky="w", padx=(0, 10), pady=5)
+            M.safe_combobox(frame, textvariable=group_var, values=list(group_map), state="readonly", width=76).grid(
+                row=row_index, column=1, sticky="ew", pady=5
             )
-            base_row = 1
-        else:
-            base_row = 0
-        for offset, (label, variable) in enumerate((("Název", name), ("Klíčová slova", keywords), ("Pořadí", order))):
-            M.ttk.Label(frame, text=label).grid(row=base_row + offset, column=0, sticky="w", padx=(0, 10), pady=5)
-            M.ttk.Entry(frame, textvariable=variable, width=76).grid(row=base_row + offset, column=1, sticky="ew", pady=5)
-        M.ttk.Label(
-            frame, text="Klíčová slova oddělujte znakem |. Slouží pouze k návrhu automatického zařazení.",
-            style="PageSubtitle.TLabel",
-        ).grid(row=base_row + 3, column=0, columnspan=2, sticky="w", pady=(2, 8))
+            row_index += 1
+        for label, variable in (("Název", name), ("Pořadí", order), ("Základní marže [%]", margin), ("Základní sleva [%]", discount)):
+            M.ttk.Label(frame, text=label).grid(row=row_index, column=0, sticky="w", padx=(0, 10), pady=5)
+            M.ttk.Entry(frame, textvariable=variable, width=78).grid(row=row_index, column=1, sticky="ew", pady=5)
+            row_index += 1
+        if kind == "group":
+            M.ttk.Checkbutton(
+                frame, text="Ve vydané nabídce zobrazovat doporučenou cenu i výslednou cenu",
+                variable=show_recommended,
+            ).grid(row=row_index, column=0, columnspan=2, sticky="w", pady=(8, 3))
+            row_index += 1
+            M.ttk.Label(
+                frame,
+                text="Vypnuto = zákazník uvidí pouze výslednou cenu po slevě. Nastavení platí pro všechny podskupiny této skupiny.",
+                style="PageSubtitle.TLabel", wraplength=760,
+            ).grid(row=row_index, column=0, columnspan=2, sticky="w", pady=(0, 8))
+            row_index += 1
 
         def save():
             value = name.get().strip()
@@ -536,57 +502,62 @@ def manage_categories(M, app) -> None:
                 return M.messagebox.showwarning("Produktové skupiny", "Vyplňte název.", parent=win)
             try:
                 sort_value = int(order.get().strip() or 100)
+                margin_value = float(margin.get().strip().replace(",", ".") or 0)
+                discount_value = float(discount.get().strip().replace(",", ".") or 0)
             except Exception:
-                sort_value = 100
+                return M.messagebox.showwarning("Produktové skupiny", "Marže, sleva a pořadí musí být číselné.", parent=win)
+            if margin_value < -100 or margin_value > 1000 or discount_value < 0 or discount_value > 100:
+                return M.messagebox.showwarning("Produktové skupiny", "Zkontrolujte zadanou marži a slevu.", parent=win)
             try:
                 if kind == "group":
                     with M.db() as con:
                         if row_id:
                             con.execute(
-                                """UPDATE product_categories SET name=?,keywords=?,sort_order=?,updated_at=CURRENT_TIMESTAMP
-                                   WHERE id=?""",
-                                (value, keywords.get().strip(), sort_value, row_id),
+                                """UPDATE product_categories
+                                   SET name=?,sort_order=?,default_margin_pct=?,default_discount_pct=?,
+                                       show_recommended_price=?,updated_at=CURRENT_TIMESTAMP WHERE id=?""",
+                                (value, sort_value, margin_value, discount_value, 1 if show_recommended.get() else 0, row_id),
                             )
+                            target_id = row_id
                         else:
-                            row_new = con.execute(
-                                "INSERT INTO product_categories(name,keywords,sort_order,active) VALUES(?,?,?,1)",
-                                (value, keywords.get().strip(), sort_value),
-                            )
-                            new_id = int(row_new.lastrowid)
+                            target_id = int(con.execute(
+                                """INSERT INTO product_categories(
+                                     name,keywords,sort_order,active,default_margin_pct,default_discount_pct,show_recommended_price
+                                   ) VALUES(?,'',?,1,?,?,?)""",
+                                (value, sort_value, margin_value, discount_value, 1 if show_recommended.get() else 0),
+                            ).lastrowid)
                 else:
                     category_id = group_map.get(group_var.get())
                     if not category_id:
-                        return M.messagebox.showwarning(
-                            "Produktové skupiny", "Vyberte nadřazenou produktovou skupinu.", parent=win
-                        )
+                        return M.messagebox.showwarning("Produktové skupiny", "Vyberte nadřazenou skupinu.", parent=win)
                     if row_id:
                         with M.db() as con:
                             old = con.execute("SELECT category_id FROM product_subgroups WHERE id=?", (row_id,)).fetchone()
                             con.execute(
-                                """UPDATE product_subgroups SET name=?,keywords=?,sort_order=?,updated_at=CURRENT_TIMESTAMP
+                                """UPDATE product_subgroups
+                                   SET name=?,sort_order=?,default_margin_pct=?,default_discount_pct=?,updated_at=CURRENT_TIMESTAMP
                                    WHERE id=?""",
-                                (value, keywords.get().strip(), sort_value, row_id),
+                                (value, sort_value, margin_value, discount_value, row_id),
                             )
                         if old and int(old["category_id"]) != int(category_id):
                             move_subgroup(M, row_id, category_id)
+                        target_id = row_id
                     else:
                         with M.db() as con:
-                            row_new = con.execute(
-                                """INSERT INTO product_subgroups(category_id,name,keywords,sort_order,active)
-                                   VALUES(?,?,?,?,1)""",
-                                (category_id, value, keywords.get().strip(), sort_value),
-                            )
-                            new_id = int(row_new.lastrowid)
+                            target_id = int(con.execute(
+                                """INSERT INTO product_subgroups(
+                                     category_id,name,keywords,sort_order,active,default_margin_pct,default_discount_pct
+                                   ) VALUES(?,?,'',?,1,?,?)""",
+                                (category_id, value, sort_value, margin_value, discount_value),
+                            ).lastrowid)
             except M.sqlite3.IntegrityError:
-                return M.messagebox.showwarning(
-                    "Produktové skupiny", "Stejný název už v této úrovni existuje.", parent=win
-                )
+                return M.messagebox.showwarning("Produktové skupiny", "Stejný název už v této úrovni existuje.", parent=win)
             _invalidate(M, app)
             win.destroy()
-            refresh(("g" if kind == "group" else "s") + str(row_id or new_id))
+            refresh(("g" if kind == "group" else "s") + str(target_id))
 
         buttons = M.ttk.Frame(frame)
-        buttons.grid(row=base_row + 4, column=0, columnspan=2, sticky="e", pady=(10, 0))
+        buttons.grid(row=row_index, column=0, columnspan=2, sticky="e", pady=(10, 0))
         M.ttk.Button(buttons, text="Zrušit", command=win.destroy).pack(side="right")
         M.ttk.Button(buttons, text="Uložit", style="Accent.TButton", command=save).pack(side="right", padx=(0, 6))
         try:
@@ -602,15 +573,24 @@ def manage_categories(M, app) -> None:
         kind, row_id = selected()
         parent_id = row_id if kind == "group" else subgroup_parent_id(M, row_id) if kind == "subgroup" else None
         if not parent_id:
-            return M.messagebox.showinfo(
-                "Produktové skupiny", "Nejdříve vyberte nadřazenou produktovou skupinu.", parent=dialog
-            )
+            return M.messagebox.showinfo("Produktové skupiny", "Nejdříve vyberte nadřazenou skupinu.", parent=dialog)
         editor("subgroup", parent_group_id=parent_id)
 
     def edit_selected():
         kind, row_id = selected()
         if kind and row_id:
             editor(kind, row_id)
+
+    def open_products():
+        kind, row_id = selected()
+        category_id = row_id if kind == "group" else subgroup_parent_id(M, row_id) if kind == "subgroup" else None
+        subgroup_id = row_id if kind == "subgroup" else None
+        try:
+            dialog.grab_release()
+        except Exception:
+            pass
+        product_catalog.open_product_catalog(M, app, category_id, subgroup_id)
+        refresh(("g" if kind == "group" else "s") + str(row_id) if row_id else None)
 
     def toggle():
         kind, row_id = selected()
@@ -639,8 +619,9 @@ def manage_categories(M, app) -> None:
                               (SELECT COUNT(*) FROM price_list_items WHERE category_id=?) +
                               (SELECT COUNT(*) FROM supplier_offer_items WHERE category_id=?) +
                               (SELECT COUNT(*) FROM business_document_items WHERE category_id=?) +
+                              (SELECT COUNT(*) FROM catalog_products WHERE category_id=?) +
                               (SELECT COUNT(*) FROM product_subgroups WHERE category_id=?)""",
-                    (row_id, row_id, row_id, row_id, row_id),
+                    (row_id, row_id, row_id, row_id, row_id, row_id),
                 ).fetchone()[0]
                 table = "product_categories"
             else:
@@ -648,8 +629,9 @@ def manage_categories(M, app) -> None:
                 used = con.execute(
                     """SELECT (SELECT COUNT(*) FROM price_list_items WHERE subgroup_id=?) +
                               (SELECT COUNT(*) FROM supplier_offer_items WHERE subgroup_id=?) +
-                              (SELECT COUNT(*) FROM business_document_items WHERE subgroup_id=?)""",
-                    (row_id, row_id, row_id),
+                              (SELECT COUNT(*) FROM business_document_items WHERE subgroup_id=?) +
+                              (SELECT COUNT(*) FROM catalog_products WHERE subgroup_id=?)""",
+                    (row_id, row_id, row_id, row_id),
                 ).fetchone()[0]
                 table = "product_subgroups"
         if not row:
@@ -657,7 +639,7 @@ def manage_categories(M, app) -> None:
         if used:
             if M.messagebox.askyesno(
                 "Produktové skupiny",
-                f"„{row['name']}“ už je použita. Kvůli historii ji nelze fyzicky smazat.\n\nOznačit ji jako neaktivní?",
+                f"„{row['name']}“ už je použita. Kvůli historii ji nelze smazat.\n\nOznačit ji jako neaktivní?",
                 parent=dialog,
             ):
                 with M.db() as con:
@@ -676,8 +658,9 @@ def manage_categories(M, app) -> None:
     M.ttk.Button(buttons, text="+ Nová skupina", style="Accent.TButton", command=add_group).pack(side="left")
     M.ttk.Button(buttons, text="+ Nová podskupina", command=add_subgroup).pack(side="left", padx=5)
     M.ttk.Button(buttons, text="Upravit / přejmenovat", command=edit_selected).pack(side="left")
-    M.ttk.Button(buttons, text="Aktivní / neaktivní", command=toggle).pack(side="left", padx=5)
-    M.ttk.Button(buttons, text="Odebrat", command=remove).pack(side="left")
+    M.ttk.Button(buttons, text="Produkty ve výběru…", command=open_products).pack(side="left", padx=5)
+    M.ttk.Button(buttons, text="Aktivní / neaktivní", command=toggle).pack(side="left")
+    M.ttk.Button(buttons, text="Odebrat", command=remove).pack(side="left", padx=5)
     M.ttk.Button(buttons, text="Zavřít", command=dialog.destroy).pack(side="right")
     tree.bind("<Double-1>", lambda _event: edit_selected(), add="+")
     refresh()

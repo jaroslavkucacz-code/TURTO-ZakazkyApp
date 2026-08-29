@@ -32,7 +32,7 @@ for rel, needles in {
         "def choose_taxonomy", "def move_subgroup", "supplier_offer_items", "product_subgroups"
     ),
     "price_lists_domain/platform/price_page.py": (
-        "price_subgroup_filter", '"Produktová skupina", "Podskupina"', "i.subgroup_id=?"
+        "price_subgroup_filter", '"Produktová skupina", "Podskupina"', "i.subgroup_id)=?"
     ),
     "price_lists_domain/platform/price_dialogs.py": (
         "Přiřadit skupinu / podskupinu", "self.subgroup", "product_subgroups sg"

@@ -6,7 +6,7 @@ import re
 import time
 from datetime import date
 
-from . import categories
+from . import categories, product_catalog
 from .price_dialogs import edit_price_list_metadata, open_price_list_detail, _selected_price_list_ids
 
 
@@ -74,6 +74,9 @@ def build_price_lists(M, app) -> None:
         top, text="Produktové skupiny…", command=lambda: categories.manage_categories(M, app)
     ).pack(side="left", padx=5)
     M.ttk.Button(
+        top, text="Katalog produktů…", command=lambda: product_catalog.open_product_catalog(M, app)
+    ).pack(side="left", padx=5)
+    M.ttk.Button(
         top, text="Hromadná archivace…", command=lambda: getattr(M, "open_bulk_archive_manager", lambda _app: None)(app)
     ).pack(side="left", padx=5)
     M.ttk.Label(
@@ -122,10 +125,12 @@ def build_price_lists(M, app) -> None:
     )
 
     current_cols = (
-        "Produktová skupina", "Podskupina", "Dodavatel", "Větev", "Kód", "Produkt", "Cena/MJ", "Zdrojová cena",
-        "Cena za", "MJ", "Přirážka/Sleva", "Hmotnost/MJ", "Min. odběr", "Podmínka", "Platí od", "Zdrojový ceník",
+        "Produktová skupina", "Podskupina", "Interní kód", "Interní označení", "Výrobce",
+        "Dodavatel", "Kód dodavatele", "Produkt", "Nákupní cena/MJ", "Marže",
+        "Doporučená cena", "Sleva", "Výsledná cena", "MJ", "Min. odběr",
+        "Podmínka", "Platí od", "Zdrojový ceník",
     )
-    current_widths = [250, 280, 180, 180, 120, 340, 115, 115, 75, 65, 115, 105, 95, 230, 95, 240]
+    current_widths = [250, 280, 125, 250, 175, 180, 130, 330, 125, 75, 130, 75, 125, 65, 95, 230, 95, 240]
     app.price_current_tree = app.tree(current, current_cols, current_widths)
     app.price_current_rows = {}
     M.bind_row_double_click(app.price_current_tree, lambda _event: _open_current_detail(M, app))
@@ -269,20 +274,25 @@ def _refresh_current(M, app, allow_fts_retry: bool = True) -> None:
         "p.valid_from<=?", "(trim(coalesce(p.valid_to,''))='' OR p.valid_to>=?)",
     ]
     params = [effective, effective]
+    if not getattr(app, "_turto_catalog_price_sync_v634", False):
+        product_catalog.sync_all_unlinked(M, max_documents=120)
+        app._turto_catalog_price_sync_v634 = True
     supplier_expr = "coalesce(nullif(trim(c.official_name),''),nullif(trim(p.supplier_name),''),'')"
-    category_expr = "coalesce(nullif(trim(ic.name),''),nullif(trim(lc.name),''),'Nezařazeno')"
-    subgroup_expr = "coalesce(nullif(trim(sg.name),''),'')"
+    category_expr = "coalesce(nullif(trim(pc.name),''),nullif(trim(ic.name),''),nullif(trim(lc.name),''),'Nezařazeno')"
+    subgroup_expr = "coalesce(nullif(trim(psg.name),''),nullif(trim(sg.name),''),'')"
     query = app.price_q.get().strip()
     use_fts = bool(query and getattr(M, "PRICE_FTS_AVAILABLE", False) and _fts_query(query))
-    join_fts = " JOIN price_list_items_fts ON price_list_items_fts.rowid=i.id " if use_fts else ""
+    join_fts = ""
+    catalog_search = "lower(coalesce(cp.internal_code,'')||' '||coalesce(cp.internal_name,'')||' '||coalesce(cp.manufacturer_name,''))"
     if use_fts:
-        where.append("price_list_items_fts MATCH ?")
-        params.append(_fts_query(query))
+        where.append("(i.id IN (SELECT rowid FROM price_list_items_fts WHERE price_list_items_fts MATCH ?) OR " + catalog_search + " LIKE ?)")
+        params.extend([_fts_query(query), "%" + query.casefold() + "%"])
     elif query:
         where.append(
             "lower(coalesce(i.product_code,'')||' '||coalesce(i.item_key,'')||' '||coalesce(i.name,'')||' '||"
             "coalesce(i.description,'')||' '||coalesce(i.condition_text,'')||' '||coalesce(i.gtin,'')||' '||"
-            "coalesce(i.customs_code,'')||' '||coalesce(i.dimensions,'')) LIKE ?"
+            "coalesce(i.customs_code,'')||' '||coalesce(i.dimensions,'')||' '||coalesce(cp.internal_code,'')||' '||"
+            "coalesce(cp.internal_name,'')||' '||coalesce(cp.manufacturer_name,'')) LIKE ?"
         )
         params.append("%" + query.casefold() + "%")
     supplier = app.price_supplier_filter.get().strip()
@@ -291,12 +301,12 @@ def _refresh_current(M, app, allow_fts_retry: bool = True) -> None:
         params.append("%" + supplier.casefold() + "%")
     category = app.price_category_filter.get().strip()
     if category and category != "Všechny":
-        where.append("coalesce(i.category_id,p.category_id)=?")
+        where.append("coalesce(cp.category_id,i.category_id,p.category_id)=?")
         params.append(categories.category_id_by_name(M, category) or -1)
     subgroup = app.price_subgroup_filter.get().strip()
     if subgroup:
         selected_category = categories.category_id_by_name(M, category) if category and category != "Všechny" else None
-        where.append("i.subgroup_id=?")
+        where.append("coalesce(cp.subgroup_id,i.subgroup_id)=?")
         params.append(categories.subgroup_id_by_name(M, subgroup, selected_category) or -1)
     product_group = app.price_group_filter.get().strip()
     if product_group:
@@ -315,6 +325,12 @@ def _refresh_current(M, app, allow_fts_retry: bool = True) -> None:
                  i.discount_pct,i.surcharge_pct,i.weight_unit,i.minimum_qty,i.package_qty,
                  i.condition_text,p.title,p.valid_from,p.valid_to,p.product_group,p.branch,
                  {supplier_expr} supplier,{category_expr} category,{subgroup_expr} subgroup,
+                 cp.id catalog_product_id,coalesce(cp.internal_code,'') internal_code,
+                 coalesce(cp.internal_name,'') internal_name,
+                 coalesce(nullif(trim(cp.manufacturer_name),''),{supplier_expr}) manufacturer,
+                 coalesce(psg.default_margin_pct,pc.default_margin_pct,0) margin_pct,
+                 coalesce(psg.default_discount_pct,pc.default_discount_pct,0) sales_discount_pct,
+                 coalesce(pc.show_recommended_price,1) show_recommended_price,
                  DENSE_RANK() OVER (
                    PARTITION BY lower({supplier_expr}),lower(coalesce(p.branch,'')),lower(coalesce(p.product_group,'')),
                      lower(coalesce(nullif(i.product_code,''),nullif(i.item_key,''),i.name,'')),
@@ -326,6 +342,9 @@ def _refresh_current(M, app, allow_fts_retry: bool = True) -> None:
           FROM price_list_items i
           JOIN price_lists p ON p.id=i.price_list_id
           LEFT JOIN companies c ON c.id=p.supplier_company_id
+          LEFT JOIN catalog_products cp ON cp.id=i.catalog_product_id
+          LEFT JOIN product_categories pc ON pc.id=cp.category_id
+          LEFT JOIN product_subgroups psg ON psg.id=cp.subgroup_id
           LEFT JOIN product_categories ic ON ic.id=i.category_id
           LEFT JOIN product_categories lc ON lc.id=p.category_id
           LEFT JOIN product_subgroups sg ON sg.id=i.subgroup_id
@@ -352,16 +371,23 @@ def _refresh_current(M, app, allow_fts_retry: bool = True) -> None:
         return _refresh_current(M, app, allow_fts_retry)
     for index, row in enumerate(rows, 1):
         iid = f"pc{row['item_id']}"
-        app.price_current_rows[iid] = {"price_list_id": int(row["price_list_id"]), "item_id": int(row["item_id"])}
+        app.price_current_rows[iid] = {
+            "price_list_id": int(row["price_list_id"]), "item_id": int(row["item_id"]),
+            "catalog_product_id": int(row["catalog_product_id"]) if row["catalog_product_id"] else None,
+        }
+        recommended, final = product_catalog.calculate_prices(
+            row["normalized_unit_price"], row["margin_pct"], row["sales_discount_pct"]
+        )
         tree.insert(
             "", "end", iid=iid,
             values=(
-                row["category"], row["subgroup"] or "", row["supplier"], row["branch"] or "", row["product_code"] or row["item_key"] or "",
+                row["category"], row["subgroup"] or "", row["internal_code"], row["internal_name"],
+                row["manufacturer"], row["supplier"], row["product_code"] or row["item_key"] or "",
                 row["name"] or row["description"] or "", _format_price(row["normalized_unit_price"], row["currency"]),
-                _format_price(row["source_price"], row["currency"]), f"{float(row['price_basis_qty'] or 1):g}",
-                row["unit"] or "", _format_adjustment(row),
-                f"{float(row['weight_unit'] or 0):g} kg" if row["weight_unit"] else "",
-                f"{float(row['minimum_qty'] or 0):g}" if row["minimum_qty"] else "",
+                f"{float(row['margin_pct'] or 0):g} %",
+                _format_price(recommended, row["currency"]) if row["show_recommended_price"] else "—",
+                f"{float(row['sales_discount_pct'] or 0):g} %", _format_price(final, row["currency"]),
+                row["unit"] or "", f"{float(row['minimum_qty'] or 0):g}" if row["minimum_qty"] else "",
                 row["condition_text"] or "", M.fmt_date(row["valid_from"]), row["title"] or "",
             ),
         )
