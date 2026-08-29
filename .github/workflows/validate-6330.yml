@@ -48,6 +48,9 @@ jobs:
       - name: Product taxonomy and clean MIVO regression test
         run: python scripts/validate-6333-taxonomy.py ZakazkyApp_base_6.1
 
+      - name: Product catalogue and pricing regression test
+        run: python scripts/validate-6334-product-catalog.py ZakazkyApp_base_6.1
+
       - name: Ensure virtual display
         if: matrix.python-version == '3.14'
         run: command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
