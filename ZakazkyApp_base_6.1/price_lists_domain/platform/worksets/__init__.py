@@ -1,8 +1,8 @@
-"""Package wrapper for the SQL-first workset implementation.
+"""Stable package API for the SQL-first workset implementation.
 
-A package intentionally takes precedence over the sibling ``worksets.py`` module.
-It loads that reviewed implementation explicitly and ensures the compatibility
-classifier is installed *after* the finalization layer, regardless of import order.
+The implementation stays in the sibling ``worksets.py`` module. This package
+loads it explicitly, but no longer mutates another module's installer or changes
+global import order.
 """
 from __future__ import annotations
 
@@ -10,9 +10,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
-from .. import compat, finalize
-
-_IMPL_NAME = "price_lists_domain.platform._worksets_v630_impl"
+_IMPL_NAME = "price_lists_domain.platform._worksets_impl"
 _IMPL_PATH = Path(__file__).resolve().parent.parent / "worksets.py"
 
 if _IMPL_NAME in sys.modules:
@@ -24,16 +22,6 @@ else:
     _impl = importlib.util.module_from_spec(_spec)
     sys.modules[_IMPL_NAME] = _impl
     _spec.loader.exec_module(_impl)
-
-_original_finalize_install = finalize.install
-
-
-def _finalize_then_compat(module):
-    _original_finalize_install(module)
-    compat.install(module)
-
-
-finalize.install = _finalize_then_compat
 
 
 def install(module):

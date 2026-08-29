@@ -7,6 +7,8 @@ on:
       - release_version.txt
       - scripts/publish-update.sh
       - scripts/validate-scalability.py
+      - scripts/validate-ui-navigation.py
+      - scripts/validate-auto-update.py
       - .github/workflows/publish-update.yml
 permissions:
   contents: write
@@ -24,6 +26,14 @@ jobs:
       - name: Validate scalability platform
         shell: bash
         run: python scripts/validate-scalability.py ZakazkyApp_base_6.1
+
+      - name: Validate responsive navigation
+        shell: bash
+        run: python scripts/validate-ui-navigation.py ZakazkyApp_base_6.1
+
+      - name: Validate unattended automatic updates
+        shell: bash
+        run: python scripts/validate-auto-update.py ZakazkyApp_base_6.1
 
       - name: Build, validate and publish
         shell: bash

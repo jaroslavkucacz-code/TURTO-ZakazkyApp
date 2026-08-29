@@ -7,7 +7,7 @@ from pathlib import Path
 
 from . import categories
 from .price_dialogs import metadata_dialog
-from .price_page import build_price_lists, refresh_price_lists
+from . import price_page as price_page_module
 
 
 def _patch_save(M) -> None:
@@ -71,8 +71,10 @@ def _patch_pohlcon(M) -> None:
         if not replaced:
             rules.append(
                 {
-                    "scope_type": "product_name_prefix", "scope_value": "Kunex",
-                    "rule_type": "informational_surcharge_pct", "percent_value": 50,
+                    "scope_type": "product_name_prefix",
+                    "scope_value": "Kunex",
+                    "rule_type": "informational_surcharge_pct",
+                    "percent_value": 50,
                     "condition_text": "Pouze výrobky Kunex v provedení BV (odolné bitumenům): příplatek 50 %, není-li u konkrétní položky uvedeno jinak.",
                     "priority": 10,
                 }
@@ -131,7 +133,10 @@ def _patch_fert_parser(M) -> None:
             unit = unit_match.group(1) if unit_match else "ks"
             items.append(
                 _base_item(
-                    row_no=index, name=name, description=name, unit=unit.replace("m2", "m²"),
+                    row_no=index,
+                    name=name,
+                    description=name,
+                    unit=unit.replace("m2", "m²"),
                     source_price=price,
                     source_row_json=json.dumps({"ocr": line}, ensure_ascii=False),
                 )
@@ -144,9 +149,14 @@ def _patch_fert_parser(M) -> None:
             "supplier": "FERT a.s.",
             "title": f"FERT {number.group(1)}" if number else "Ceník FERT",
             "valid_from": _iso_date(issued.group(1)) if issued else "",
-            "valid_to": "", "product_group": "Distanční prvky", "branch": "Česká republika",
-            "currency": "CZK", "items": items, "terms_text": str(text or "")[-2500:],
-            "parse_status": "OCR – zkontrolovat položky", "source_type": "PDF/OCR",
+            "valid_to": "",
+            "product_group": "Distanční prvky",
+            "branch": "Česká republika",
+            "currency": "CZK",
+            "items": items,
+            "terms_text": str(text or "")[-2500:],
+            "parse_status": "OCR – zkontrolovat položky",
+            "source_type": "PDF/OCR",
         }
 
     pdf_fert._parse_fert_ocr = parse
@@ -154,27 +164,35 @@ def _patch_fert_parser(M) -> None:
     pdf_fert._turto_fert_fallback_v630 = True
 
 
-def _patch_page(M) -> None:
-    if getattr(M.App, "_turto_scalable_price_page_v630", False):
+def _install_page_methods(M) -> None:
+    """Register one scalable page owner without wrapping ``App.build`` again.
+
+    The original page builder calls its refresh function while the page is still
+    hidden during startup. Guard the module-level refresh as well, so both that
+    call and the Notebook event remain cheap until Ceníky are actually visible.
+    """
+    App = M.App
+    if getattr(App, "_turto_scalable_price_page_v6331", False):
         return
-    old_build = M.App.build
 
-    def build(self, *args, **kwargs):
-        result = old_build(self, *args, **kwargs)
-        try:
-            build_price_lists(M, self)
-        except Exception as exc:
-            M.messagebox.showerror("Ceníky", f"Novou stránku Ceníků se nepodařilo sestavit:\n{exc}", parent=self)
-        return result
+    original_refresh = price_page_module.refresh_price_lists
 
-    M.App.build = build
-    M.App.refresh_price_lists = lambda self: refresh_price_lists(M, self)
-    M.App.build_price_lists = lambda self: build_price_lists(M, self)
-    M.App._turto_scalable_price_page_v630 = True
+    def visible_refresh(module, app):
+        if getattr(app, "_current_page", None) != "pricelists":
+            dirty = set(getattr(app, "_turto_dirty_pages", set()))
+            dirty.add("pricelists")
+            app._turto_dirty_pages = dirty
+            return None
+        return original_refresh(module, app)
+
+    price_page_module.refresh_price_lists = visible_refresh
+    App.refresh_price_lists = lambda self: visible_refresh(M, self)
+    App.build_price_lists = lambda self: price_page_module.build_price_lists(M, self)
+    App._turto_scalable_price_page_v6331 = True
 
 
 def install(M) -> None:
     _patch_save(M)
     _patch_pohlcon(M)
     _patch_fert_parser(M)
-    _patch_page(M)
+    _install_page_methods(M)
