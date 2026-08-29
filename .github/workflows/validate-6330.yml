@@ -1,0 +1,38 @@
+name: Validate TURTO CRM 6.3.30
+
+on:
+  push:
+    branches:
+      - feature/6.3.30-scalability
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Compile canonical source
+        run: python -m compileall -q ZakazkyApp_base_6.1
+
+      - name: Scalability and compatibility smoke test
+        run: python scripts/validate-scalability.py ZakazkyApp_base_6.1
+
+      - name: Validate release script syntax
+        run: bash -n scripts/publish-update.sh
