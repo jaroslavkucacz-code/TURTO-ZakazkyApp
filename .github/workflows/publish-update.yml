@@ -6,6 +6,7 @@ on:
     paths:
       - release_version.txt
       - scripts/publish-update.sh
+      - scripts/validate-scalability.py
       - .github/workflows/publish-update.yml
 permissions:
   contents: write
@@ -19,6 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0}
+
+      - name: Validate scalability platform
+        shell: bash
+        run: python scripts/validate-scalability.py ZakazkyApp_base_6.1
+
       - name: Build, validate and publish
         shell: bash
         run: bash scripts/publish-update.sh
