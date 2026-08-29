@@ -12,10 +12,11 @@ def install(module) -> None:
     from .worksets import install as install_worksets
     from .finalize import install as install_finalize
     from .compat import install as install_compat
+    from .clarity import install as install_clarity
     from .lazy_refresh import install as install_lazy_refresh
     from .automatic_updates import install as install_automatic_updates
 
-    if getattr(module, "_turto_platform_v6331", False):
+    if getattr(module, "_turto_platform_v6332", False):
         return
 
     install_fast_db(module)
@@ -27,13 +28,16 @@ def install(module) -> None:
     install_worksets(module)
     install_finalize(module)
     install_compat(module)
+    # One dedicated presentation owner follows the data/query owners. It adds
+    # price-list validity context and MIVO ageing without rebuilding hidden tabs.
+    install_clarity(module)
     # Navigation replaces the accumulated legacy show_page wrapper chain.
     install_lazy_refresh(module)
     # The updater is installed last so no older runtime layer can restore a
     # confirmation dialog or a second competing startup check.
     install_automatic_updates(module)
 
-    module._turto_platform_v6331 = True
+    module._turto_platform_v6332 = True
 
 
 __all__ = ["install"]
