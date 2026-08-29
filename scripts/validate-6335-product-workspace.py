@@ -23,7 +23,10 @@ for needle in (
 
 platform_text = (root / "price_lists_domain/platform/__init__.py").read_text(encoding="utf-8")
 assert "install_product_workspace" in platform_text
-assert "_turto_platform_v6335" in platform_text
+# The regression protects the 6.3.35 workspace, while the platform marker is
+# intentionally advanced by every later release. Verify the marker mechanism,
+# not one obsolete release number.
+assert "_turto_platform_v" in platform_text
 
 sys.path.insert(0, str(root))
 from price_lists_domain.platform import database, product_catalog, product_workspace
