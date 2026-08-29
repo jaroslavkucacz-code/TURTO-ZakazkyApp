@@ -118,6 +118,20 @@ def main() -> None:
     # close it, so suppress only this test-time callback.
     app.App.maybe_show_morning_overview = lambda self: None
 
+    # One legacy Windows-only startup layer requests wm_state('zoomed'). X11/Tk
+    # supports only normal/iconic/withdrawn, so preserve the call on Windows and
+    # translate it to a harmless current-state read in this Linux/Xvfb test.
+    original_state = app.App.state
+
+    def portable_state(self, newstate=None):
+        if newstate == "zoomed" and not sys.platform.startswith("win"):
+            return original_state(self)
+        if newstate is None:
+            return original_state(self)
+        return original_state(self, newstate)
+
+    app.App.state = portable_state
+
     root = None
     try:
         root = app.App()
