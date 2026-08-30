@@ -54,6 +54,9 @@ jobs:
       - name: CRM product workspace regression test
         run: python scripts/validate-6335-product-workspace.py ZakazkyApp_base_6.1
 
+      - name: Commercial Ceníky and Nabídky workspace regression test
+        run: python scripts/validate-6336-commercial-workspace.py ZakazkyApp_base_6.1
+
       - name: Ensure virtual display
         if: matrix.python-version == '3.14'
         run: command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)

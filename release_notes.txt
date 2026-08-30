@@ -1,10 +1,13 @@
-• Katalog produktů byl přepracován do jednoho přehledného pracovního prostoru ve stylu CRM. Vlevo je rozbalovací strom Produktová skupina → Podskupina a vpravo produkty patřící do právě označené části katalogu.
-• Strom zobrazuje počty produktů, navázaných Ceníků a cenových Nabídek. Obsahuje také samostatné pohledy Všechny produkty, Nezařazené a Bez podskupiny.
-• Kliknutí na skupinu nebo podskupinu okamžitě vyfiltruje její produkty. Skupiny lze rozbalovat a podskupiny procházet bez otevírání dalšího skrytého dialogu.
-• Vybrané produkty lze jedním tlačítkem přesunout přímo do skupiny nebo podskupiny označené vlevo. Dostupný zůstává také výběr jiného cíle přes samostatný dialog.
-• Hromadný přesun se provádí nad stabilním interním produktem a automaticky se propíše do všech jeho již uložených Ceníků i přijatých cenových Nabídek. Historické ceny se nemění.
-• Pravá tabulka ukazuje interní kód a označení, výrobce, dodavatele, kód a označení dodavatele, skupinu, podskupinu, aktuální nákupní cenu, marži, slevu, výslednou cenu a počty cenových zdrojů.
-• Přibyl souhrn vybrané části katalogu: počet produktů, výrobců a vazeb na Ceníky a cenové Nabídky. Viditelný je také počet právě označených řádků.
-• Produkty lze upravit dvojklikem nebo z kontextové nabídky pravého tlačítka. Stejným způsobem lze otevřít jejich zdroje a ceny nebo je hromadně přesunout.
-• Otevření katalogu už synchronizuje pouze malou dávku dosud nespojených dokumentů až po vykreslení okna. Úplná synchronizace zůstává samostatná, má průběh a Storno.
-• Databázové schéma se nemění. Historické nabídky, Ceníky, ceny, fyzické archivy, Outlook import, skupiny, podskupiny, marže, slevy a uživatelská data zůstávají zachovány.
+• Ceníky a Nabídky byly přepracovány do jednotných pracovních prostorů ve stylu CRM. Obě obrazovky mají přehledové ukazatele, pracovní pohledy, kompaktní filtry, stránkování a detail vybraného záznamu v pravém panelu.
+• Ceníky nově zobrazují šest ukazatelů: platné ověřené položky, aktivní ceníky, ceníky končící do 30 dnů, ceníky ke kontrole, ceníky po platnosti a nezařazené ceny. Kliknutím na ukazatel se rovnou otevře odpovídající pohled.
+• Aktuální ceny ve výchozím stavu nezahrnují OCR nebo jiné importy označené ke kontrole. Samostatně lze zobrazit Ověřené, Nezařazené, Ke kontrole nebo Všechny včetně kontroly, aby nejistá cena nebyla omylem použita jako běžná aktuální cena.
+• Aktuální ceny mají tři volitelné sady sloupců: Přehled, Obchodní a Technické. Zvolený režim se ukládá samostatně pro uživatele. Technický pohled zahrnuje původní cenový základ, balení, paletu, minimální odběr, hmotnost, rozměry a podmínku ceny.
+• Po označení ceny se vpravo zobrazí normalizovaná nákupní cena i původní cenový základ, doporučená a výsledná cena, marže a sleva, zařazení, platnost, dodavatel, balení, hmotnost, rozměry a zdrojový ceník. Z panelu lze rovnou otevřít Ceník nebo katalog produktů.
+• Evidence ceníků má rychlé pohledy Aktuální, Končí do 30 dnů, Ke kontrole, Po platnosti a Archivované. Hlavní tabulka je zjednodušená a doplňující údaje i operace jsou soustředěné v pravém detailu.
+• Evidence ceníků počítá položky a produktové skupiny pouze pro právě zobrazenou stránku, nikoli předem pro celý archiv. Zařazení zohledňuje stabilní katalog produktu i u starších položek.
+• Nabídky mají ukazatele aktivních, nových za 30 dní, nepřiřazených, nabídek bez produktového zařazení, dokumentů evidovaných jako Ceník a archivovaných záznamů.
+• Seznam Nabídek lze přepnout mezi kompaktním a rozšířeným zobrazením a zvolit 100 až 1 000 řádků na stránku. Pravý panel ukazuje dodavatele, číslo a datum, vazbu na Poptávku/Akci, produktové skupiny, hodnotu, stav a klasifikaci Nabídka/Ceník.
+• Nabídky i Ceníky mají přehlednější kontextové a hromadné operace. Archivace zůstává nedestruktivní; mazání je nadále pouze z databáze a fyzické soubory ani historie se nemažou.
+• Obnovování Nabídek filtruje a stránkuje přímo v SQLite. Souhrny položek a produktových skupin se dopočítají jen pro právě zobrazené nabídky; položky se prohledávají pouze při skutečném hledání.
+• Běžné otevření Aktuálních cen už nespouští synchronní propojení velké dávky starších dokumentů. Úplná synchronizace katalogu zůstává samostatná s průběhem a možností Storno.
+• Nový modul commercial_workspace.py je jediným finálním prezentačním vlastníkem Ceníků a Nabídek. Datové vlastníky, parsování, Outlook import, katalog produktů ani historická data nemění; databázové schéma se touto verzí nemění.

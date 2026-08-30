@@ -15,10 +15,11 @@ def install(module) -> None:
     from .finalize import install as install_finalize
     from .compat import install as install_compat
     from .clarity import install as install_clarity
+    from .commercial_workspace import install as install_commercial_workspace
     from .lazy_refresh import install as install_lazy_refresh
     from .automatic_updates import install as install_automatic_updates
 
-    if getattr(module, "_turto_platform_v6335", False):
+    if getattr(module, "_turto_platform_v6336", False):
         return
 
     install_fast_db(module)
@@ -38,13 +39,16 @@ def install(module) -> None:
     # One dedicated presentation owner follows the data/query owners. It adds
     # price-list validity context and MIVO ageing without rebuilding hidden tabs.
     install_clarity(module)
+    # Ceníky and Nabídky share one final CRM presentation owner. It follows
+    # all data and compatibility owners and does not wrap their page builders.
+    install_commercial_workspace(module)
     # Navigation replaces the accumulated legacy show_page wrapper chain.
     install_lazy_refresh(module)
     # The updater is installed last so no older runtime layer can restore a
     # confirmation dialog or a second competing startup check.
     install_automatic_updates(module)
 
-    module._turto_platform_v6335 = True
+    module._turto_platform_v6336 = True
 
 
 __all__ = ["install"]

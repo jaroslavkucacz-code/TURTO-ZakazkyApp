@@ -108,6 +108,8 @@ grep -q "CREATE TABLE IF NOT EXISTS product_subgroups" "$DIR/_runtime/price_list
 grep -q "def choose_taxonomy" "$DIR/_runtime/price_lists_domain/platform/categories.py"
 grep -q "CREATE TABLE IF NOT EXISTS catalog_products" "$DIR/_runtime/price_lists_domain/platform/database.py"
 grep -q "def sync_price_list" "$DIR/_runtime/price_lists_domain/platform/product_catalog.py"
+grep -q "_turto_commercial_presentation_owner" "$DIR/_runtime/price_lists_domain/platform/commercial_workspace.py"
+grep -q "Detail vybrané ceny" "$DIR/_runtime/price_lists_domain/platform/commercial_workspace.py"
 grep -q "Doporučená cena" "$DIR/_runtime/price_lists_domain/platform/price_page.py"
 grep -q "Produkty ve výběru" "$DIR/_runtime/price_lists_domain/platform/categories.py"
 grep -q "Přiřadit skupinu / podskupinu" "$DIR/_runtime/price_lists_domain/platform/offers.py"
