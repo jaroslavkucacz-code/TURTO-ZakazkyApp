@@ -31,11 +31,17 @@ jobs:
           python -m compileall -q ZakazkyApp_base_6.1
           python scripts/validate-6339-catalog-price-ux.py ZakazkyApp_base_6.1
           bash -n scripts/publish-update.sh
+          git checkout HEAD -- .github/workflows/publish-update.yml .github/workflows/validate-6330.yml .github/workflows/temp-export-6339.yml
           rm -rf .github/tmp6339
-          rm -f .github/workflows/temp-export-6339.yml
+          find ZakazkyApp_base_6.1 -type d -name __pycache__ -prune -exec rm -rf {} +
+          find ZakazkyApp_base_6.1 -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
           git config user.name "TURTO Update Bot"
           git config user.email "actions@users.noreply.github.com"
           git add -A
           git diff --cached --check
+          if git diff --cached --name-only | grep -q '^.github/workflows/'; then
+            echo 'Workflow file unexpectedly staged' >&2
+            exit 1
+          fi
           git commit -m "TURTO CRM 6.3.39 — přehlednější Ceníky a drag-and-drop katalog"
           git push origin HEAD:feature/6.3.39-catalog-price-ux
