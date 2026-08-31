@@ -1,9 +1,9 @@
 """Unattended, official-channel updates for TURTO CRM.
 
-The already installed application checks the manifest shortly after startup.  This
-owner replaces the legacy confirmation dialog: a newer signed-by-hash package is
-downloaded in a worker thread, the updater is launched, and CRM restarts itself.
-No user file or database is stored inside the program directory.
+The installed application checks the manifest shortly after startup and then
+periodically during operation. A newer hash-verified package is downloaded in a
+worker thread, the updater is launched, and CRM restarts itself. Manual checks
+always bypass the silent debounce and give the user visible feedback.
 """
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ OFFICIAL_UPDATE_ROOT = (
     "jaroslavkucacz-code/TURTO-ZakazkyApp/main"
 )
 _RECENT_SILENT_CHECK_SECONDS = 60.0
+_PERIODIC_CHECK_MS = 10 * 60 * 1000
 
 
 def _exists(widget) -> bool:
@@ -68,8 +69,8 @@ def _log(M, event: str, detail: str = "") -> None:
 
 
 def _read_official_manifest() -> dict:
-    # The cache-busting query is important for raw.githubusercontent.com: after
-    # publishing a release, every workstation must see the new manifest at once.
+    # Cache busting is important for raw.githubusercontent.com: after publishing,
+    # every workstation must see the new manifest immediately.
     url = OFFICIAL_UPDATE_ROOT + "/latest.json?ts=" + str(time.time_ns())
     request = urllib.request.Request(
         url,
@@ -135,12 +136,25 @@ def _launch_updater(M, app, remote: str, package: Path) -> bool:
 
 def install(M) -> None:
     App = M.App
-    if getattr(App, "_turto_automatic_updates_v6331", False):
+    if getattr(App, "_turto_automatic_updates_v6338", False):
         return
 
-    def check_for_updates(self, silent=True):
+    def check_for_updates(self, silent=False):
+        """Check the official channel.
+
+        ``silent=True`` is reserved for startup/periodic checks. A toolbar or
+        settings button calls this method without arguments and therefore always
+        performs a real, visible check even if a silent startup check just ran.
+        """
+        silent = bool(silent)
         disabled = str(os.environ.get("TURTO_DISABLE_AUTO_UPDATE", "")).strip().casefold()
         if disabled in {"1", "true", "yes", "ano"}:
+            if not silent:
+                M.messagebox.showinfo(
+                    "Aktualizace",
+                    "Automatické aktualizace jsou v tomto spuštění vypnuté.",
+                    parent=self,
+                )
             return False
         if getattr(self, "_turto_closing", False):
             return False
@@ -152,10 +166,17 @@ def install(M) -> None:
         if silent and last > 0.0 and now - last < _RECENT_SILENT_CHECK_SECONDS:
             return False
         if getattr(self, "_turto_auto_update_running", False):
+            if not silent:
+                M.messagebox.showinfo(
+                    "Aktualizace",
+                    "Kontrola aktualizací už probíhá na pozadí.",
+                    parent=self,
+                )
             return False
 
         self._turto_auto_update_last_check = now
         self._turto_auto_update_running = True
+        _log(M, "check-start", "silent" if silent else "manual")
         try:
             M.set_setting("update_source", OFFICIAL_UPDATE_ROOT)
             M.set_setting("company_auto_updates", "1")
@@ -164,6 +185,12 @@ def install(M) -> None:
                 variable.set(OFFICIAL_UPDATE_ROOT)
         except Exception:
             pass
+        if not silent:
+            try:
+                self.title("TURTO CRM – kontroluji aktualizace…")
+                self.configure(cursor="watch")
+            except Exception:
+                pass
 
         def worker():
             outcome = ("current", "", None)
@@ -174,6 +201,7 @@ def install(M) -> None:
                     raise ValueError("Manifest neobsahuje číslo verze.")
                 current = str(getattr(M, "APP_VERSION", "0"))
                 if _version_tuple(M, remote) > _version_tuple(M, current):
+                    _log(M, "download-start", f"{current} -> {remote}")
                     package = M._download_update_package(manifest)
                     outcome = ("install", remote, Path(package))
                 else:
@@ -190,11 +218,22 @@ def install(M) -> None:
                 kind, value, extra = outcome
                 if not _exists(self) or getattr(self, "_turto_closing", False):
                     return
+                if kind != "install" and not silent:
+                    try:
+                        self.title(f"TURTO CRM {getattr(M, 'APP_VERSION', '')}")
+                        self.configure(cursor="")
+                    except Exception:
+                        pass
                 if kind == "install":
                     try:
+                        _log(M, "download-complete", value)
                         _launch_updater(M, self, value, extra)
                     except Exception as exc:
                         _log(M, "install-error", traceback.format_exc(limit=12))
+                        try:
+                            self.configure(cursor="")
+                        except Exception:
+                            pass
                         if not silent:
                             M.messagebox.showerror(
                                 "Aktualizace",
@@ -210,12 +249,14 @@ def install(M) -> None:
                             "Aplikace zůstává beze změny.\n\n" + value,
                             parent=self,
                         )
-                elif not silent:
-                    M.messagebox.showinfo(
-                        "Aktualizace",
-                        f"Používáte aktuální verzi {value}.",
-                        parent=self,
-                    )
+                else:
+                    _log(M, "check-current", value)
+                    if not silent:
+                        M.messagebox.showinfo(
+                            "Aktualizace",
+                            f"Používáte aktuální verzi {value}.",
+                            parent=self,
+                        )
 
             try:
                 self.after(0, finish)
@@ -234,8 +275,7 @@ def install(M) -> None:
     App.check_for_updates = check_for_updates
 
     # crm_runtime used to open a second modal offer five seconds after startup.
-    # The base App already schedules check_for_updates(); suppress that duplicate
-    # dialog and let this owner perform one unattended check.
+    # Suppress that duplicate and let this owner perform one unattended channel.
     runtime = sys.modules.get("crm_runtime")
     if runtime is not None:
         runtime._live_update_checks = lambda _app: None
@@ -245,15 +285,24 @@ def install(M) -> None:
     def init(self, *args, **kwargs):
         result = old_init(self, *args, **kwargs)
         try:
-            # Start sooner than the legacy five-second callback. The latter is
-            # harmless because the recent-check guard collapses it.
             self.after(900, lambda: self.check_for_updates(silent=True))
+
+            def periodic_check():
+                if getattr(self, "_turto_closing", False) or not _exists(self):
+                    return
+                self.check_for_updates(silent=True)
+                try:
+                    self._turto_periodic_update_after = self.after(_PERIODIC_CHECK_MS, periodic_check)
+                except Exception:
+                    pass
+
+            self._turto_periodic_update_after = self.after(_PERIODIC_CHECK_MS, periodic_check)
         except Exception:
             pass
         return result
 
     App.__init__ = init
-    App._turto_automatic_updates_v6331 = True
+    App._turto_automatic_updates_v6338 = True
     M.OFFICIAL_UPDATE_ROOT = OFFICIAL_UPDATE_ROOT
 
 
