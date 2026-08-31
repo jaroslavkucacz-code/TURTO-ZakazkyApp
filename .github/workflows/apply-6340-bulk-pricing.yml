@@ -1,0 +1,232 @@
+name: Optimize TURTO CRM 6.3.40 contextual pricing
+
+on:
+  push:
+    branches:
+      - feature/6.3.40-manual-products-context-pricing
+    paths:
+      - .github/workflows/apply-6340-bulk-pricing.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Replace per-product discount queries with one batch query
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          pricing_path = Path('ZakazkyApp_base_6.1/price_lists_domain/platform/pricing_profiles.py')
+          pricing = pricing_path.read_text(encoding='utf-8')
+          if 'def resolve_discounts_bulk(' in pricing:
+              raise SystemExit('bulk resolver already installed')
+
+          bulk = r'''
+          def resolve_discounts_bulk(
+              M, product_ids, *, company_id=None, action_id=None, project_id=None,
+              standard_by_product=None,
+          ) -> dict[int, dict[str, Any]]:
+              """Resolve one customer/context discount for many products using one DB connection."""
+              ids = sorted({int(value) for value in product_ids if value})
+              standards = {
+                  int(key): _number(value)
+                  for key, value in dict(standard_by_product or {}).items()
+                  if key
+              }
+              company_id = int(company_id) if company_id else None
+              action_id = int(action_id) if action_id else None
+              project_id = int(project_id) if project_id else None
+              rows = []
+              if ids:
+                  with M.db() as con:
+                      table_exists = con.execute(
+                          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='catalog_product_discount_rules'"
+                      ).fetchone()
+                      if action_id and not company_id:
+                          action_row = con.execute(
+                              "SELECT company_id FROM actions WHERE id=?", (action_id,)
+                          ).fetchone()
+                          if action_row and action_row["company_id"]:
+                              company_id = int(action_row["company_id"])
+                      if table_exists and company_id:
+                          placeholders = ",".join("?" for _ in ids)
+                          rows = con.execute(
+                              f"""SELECT r.*,{_company_name_expr('c')} company_name,
+                                         coalesce(a.name,'') action_name,coalesce(p.name,'') project_name,
+                                         CASE WHEN r.project_id IS NOT NULL THEN 1
+                                              WHEN r.action_id IS NOT NULL THEN 2 ELSE 3 END priority
+                                  FROM catalog_product_discount_rules r
+                                  JOIN companies c ON c.id=r.company_id
+                                  LEFT JOIN actions a ON a.id=r.action_id
+                                  LEFT JOIN projects p ON p.id=r.project_id
+                                  WHERE r.catalog_product_id IN ({placeholders})
+                                    AND r.company_id=? AND r.active=1
+                                    AND ((? IS NOT NULL AND r.project_id=?)
+                                      OR (? IS NOT NULL AND r.action_id=?)
+                                      OR (r.action_id IS NULL AND r.project_id IS NULL))
+                                  ORDER BY r.catalog_product_id,priority,r.updated_at DESC,r.id DESC""",
+                              (*ids, company_id, project_id, project_id, action_id, action_id),
+                          ).fetchall()
+
+              result: dict[int, dict[str, Any]] = {}
+              for product_id in ids:
+                  standard = standards.get(product_id, 0.0)
+                  result[product_id] = {
+                      "discount_pct": standard,
+                      "standard_discount_pct": standard,
+                      "source": "Standard skupiny / podskupiny",
+                      "scope": "standard",
+                      "rule_id": None,
+                      "company_id": company_id,
+                      "action_id": action_id,
+                      "project_id": project_id,
+                  }
+              for row in rows:
+                  product_id = int(row["catalog_product_id"])
+                  if product_id not in result or result[product_id]["rule_id"] is not None:
+                      continue
+                  scope = (
+                      SCOPE_PROJECT if row["project_id"]
+                      else SCOPE_ACTION if row["action_id"] else SCOPE_COMPANY
+                  )
+                  target = str(
+                      row["project_name"] or row["action_name"] or row["company_name"] or ""
+                  ).strip()
+                  source = f"{SCOPE_LABELS[scope]}: {target}" if target else SCOPE_LABELS[scope]
+                  result[product_id] = {
+                      "discount_pct": _number(row["discount_pct"]),
+                      "standard_discount_pct": standards.get(product_id, 0.0),
+                      "source": source,
+                      "scope": scope,
+                      "rule_id": int(row["id"]),
+                      "company_id": company_id,
+                      "action_id": int(row["action_id"]) if row["action_id"] else None,
+                      "project_id": int(row["project_id"]) if row["project_id"] else None,
+                  }
+              return result
+
+
+          '''
+          bulk = '\n'.join(line[10:] if line.startswith('          ') else line for line in bulk.splitlines())
+          anchor = 'def apply_context_to_item(\n'
+          if anchor not in pricing:
+              raise SystemExit('pricing insertion anchor not found')
+          pricing = pricing.replace(anchor, bulk + anchor, 1)
+          export_old = '    "delete_discount_rule", "resolve_discount", "apply_context_to_item",\n'
+          export_new = '    "delete_discount_rule", "resolve_discount", "resolve_discounts_bulk", "apply_context_to_item",\n'
+          if export_old not in pricing:
+              raise SystemExit('pricing export anchor not found')
+          pricing = pricing.replace(export_old, export_new, 1)
+          pricing_path.write_text(pricing, encoding='utf-8')
+
+          service_path = Path('ZakazkyApp_base_6.1/price_lists_domain/issued_offers/service.py')
+          service = service_path.read_text(encoding='utf-8')
+          loop_old = '''    result = []
+              for row in rows:
+                  item = dict(row)
+          '''
+          loop_old = '\n'.join(line[14:] if line.startswith('              ') else line for line in loop_old.splitlines())
+          loop_new = '''    prepared_rows = [dict(row) for row in rows]
+              standard_by_product = {
+                  int(item["id"]): number(item.get("standard_discount_pct"))
+                  for item in prepared_rows
+              }
+              resolved_by_product = pricing_profiles.resolve_discounts_bulk(
+                  M, standard_by_product, company_id=company_id, action_id=action_id,
+                  project_id=project_id, standard_by_product=standard_by_product,
+              )
+              result = []
+              for item in prepared_rows:
+          '''
+          loop_new = '\n'.join(line[14:] if line.startswith('              ') else line for line in loop_new.splitlines())
+          if loop_old not in service:
+              raise SystemExit('service result-loop anchor not found')
+          service = service.replace(loop_old, loop_new, 1)
+          resolve_old = '''        resolved = pricing_profiles.resolve_discount(
+                      M, int(item["id"]), company_id=company_id, action_id=action_id,
+                      project_id=project_id, standard_discount_pct=standard,
+                  )
+          '''
+          resolve_old = '\n'.join(line[10:] if line.startswith('          ') else line for line in resolve_old.splitlines())
+          resolve_new = '        resolved = resolved_by_product[int(item["id"])]\n'
+          if resolve_old not in service:
+              raise SystemExit('service resolver anchor not found')
+          service = service.replace(resolve_old, resolve_new, 1)
+          service_path.write_text(service, encoding='utf-8')
+
+          validator_path = Path('scripts/validate-6340-manual-products-pricing.py')
+          validator = validator_path.read_text(encoding='utf-8')
+          validator = validator.replace(
+              '            self._settings = {"active_user": "TEST", "issued_offer_default_vat_rate": "21"}\n',
+              '            self._settings = {"active_user": "TEST", "issued_offer_default_vat_rate": "21"}\n'
+              '            self.db_calls = 0\n',
+              1,
+          )
+          validator = validator.replace(
+              '        def db(self):\n            con = sqlite3.connect(self.DB)\n',
+              '        def db(self):\n            self.db_calls += 1\n            con = sqlite3.connect(self.DB)\n',
+              1,
+          )
+          validator = validator.replace(
+              '        base = service.catalog_products(Mx)\n',
+              '        Mx.db_calls = 0\n'
+              '        base = service.catalog_products(Mx)\n'
+              '        assert Mx.db_calls <= 2, f"Catalogue pricing used {Mx.db_calls} DB connections instead of a batch query"\n',
+              1,
+          )
+          validator = validator.replace(
+              '        assert "install_pricing_profiles(module)" in platform_init\n',
+              '        assert "install_pricing_profiles(module)" in platform_init\n'
+              '        assert "resolve_discounts_bulk" in (source / "price_lists_domain" / "issued_offers" / "service.py").read_text(encoding="utf-8")\n',
+              1,
+          )
+          validator_path.write_text(validator, encoding='utf-8')
+          PY
+
+      - name: Validate optimized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q ZakazkyApp_base_6.1
+          python scripts/validate-6334-product-catalog.py ZakazkyApp_base_6.1
+          python scripts/validate-6335-product-workspace.py ZakazkyApp_base_6.1
+          python scripts/validate-6336-commercial-workspace.py ZakazkyApp_base_6.1
+          python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
+          python scripts/validate-6339-catalog-price-ux.py ZakazkyApp_base_6.1
+          python scripts/validate-6340-manual-products-pricing.py ZakazkyApp_base_6.1
+          python scripts/validate-scalability.py ZakazkyApp_base_6.1
+          python scripts/validate-auto-update.py ZakazkyApp_base_6.1
+
+      - name: Commit optimized source only
+        shell: bash
+        run: |
+          set -euo pipefail
+          find ZakazkyApp_base_6.1 scripts -type d -name __pycache__ -prune -exec rm -rf {} +
+          find ZakazkyApp_base_6.1 scripts -type f -name '*.pyc' -delete
+          git checkout -- .github/workflows
+          git config user.name "TURTO Update Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add ZakazkyApp_base_6.1/price_lists_domain/platform/pricing_profiles.py
+          git add ZakazkyApp_base_6.1/price_lists_domain/issued_offers/service.py
+          git add scripts/validate-6340-manual-products-pricing.py
+          git diff --cached --check
+          git commit -m "Batch customer discount resolution for catalogue products"
+          git push origin HEAD:feature/6.3.40-manual-products-context-pricing
