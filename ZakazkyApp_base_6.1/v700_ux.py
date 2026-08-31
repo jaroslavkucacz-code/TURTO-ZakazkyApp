@@ -374,6 +374,7 @@ def apply(M):
                 for index, raw in enumerate(instance.items, 1)
             ]
             group_no = 0
+            display_no = 0
             for token in group_offer_items(normalized):
                 if token["kind"] == "group":
                     group_no += 1
@@ -388,11 +389,12 @@ def apply(M):
                     )
                     continue
                 original_index = int(token["index"])
+                display_no += 1
                 item = service.normalize_item(token["item"], original_index + 1)
                 priced = item.get("row_type") not in {"heading", "text"}
                 product = item.get("row_type") == "product"
                 values = (
-                    original_index + 1,
+                    display_no,
                     service.ROW_TYPES.get(item.get("row_type"), item.get("row_type")),
                     item.get("internal_code_snapshot") or item.get("product_code") or "",
                     issued_editor._display_name(item),
