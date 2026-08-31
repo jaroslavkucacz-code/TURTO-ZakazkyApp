@@ -1,0 +1,28 @@
+name: Temporary source export for 6.3.39
+
+on:
+  push:
+    branches:
+      - feature/6.3.39-catalog-price-ux
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: startsWith(github.event.head_commit.message, 'TEMP export source')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pack checked-out repository
+        run: tar --exclude=.git -czf turto-source-6339.tgz .
+
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: turto-source-6339
+          path: turto-source-6339.tgz
+          retention-days: 1
