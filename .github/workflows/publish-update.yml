@@ -13,6 +13,7 @@ on:
       - scripts/validate-6337-issued-offers.py
       - scripts/validate-6339-catalog-price-ux.py
       - scripts/validate-6340-manual-products-pricing.py
+      - scripts/validate-6341-offer-catalog-separation.py
       - ZakazkyApp_base_6.1/crm_price_lists.py
       - ZakazkyApp_base_6.1/price_lists_domain/issued_offers/**
       - ZakazkyApp_base_6.1/price_lists_domain/platform/categories.py
@@ -25,6 +26,7 @@ on:
       - ZakazkyApp_base_6.1/price_lists_domain/platform/automatic_updates.py
       - .github/workflows/publish-update.yml
       - .github/workflows/validate-6340-manual-pricing.yml
+      - .github/workflows/validate-6341-offer-catalog-separation.yml
 permissions:
   contents: write
 concurrency:
@@ -70,6 +72,10 @@ jobs:
       - name: Validate manual products and contextual customer pricing
         shell: bash
         run: python scripts/validate-6340-manual-products-pricing.py ZakazkyApp_base_6.1
+
+      - name: Validate received-offer and catalogue separation
+        shell: bash
+        run: python scripts/validate-6341-offer-catalog-separation.py ZakazkyApp_base_6.1
 
       - name: Build, validate and publish
         shell: bash
