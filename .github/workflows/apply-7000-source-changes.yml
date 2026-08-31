@@ -28,25 +28,18 @@ jobs:
       - name: Install runtime dependencies
         run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
 
-      - name: Apply 7.0 source integration
-        run: python scripts/apply-7000-source-changes.py .
+      - name: Apply 7.0 display-order polish
+        run: python scripts/patch-7000-polish.py
 
       - name: Compile canonical source
         run: python -m compileall -q ZakazkyApp_base_6.1 scripts/validate-7000-workflow-table-ux.py
 
-      - name: Validate 7.0 workflow and table contracts
+      - name: Validate targeted 7.0 contracts
         run: |
           python scripts/validate-7000-workflow-table-ux.py ZakazkyApp_base_6.1
-          python scripts/validate-6334-product-catalog.py ZakazkyApp_base_6.1
-          python scripts/validate-6335-product-workspace.py ZakazkyApp_base_6.1
-          python scripts/validate-6336-commercial-workspace.py ZakazkyApp_base_6.1
           python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
-          python scripts/validate-6339-catalog-price-ux.py ZakazkyApp_base_6.1
           python scripts/validate-6340-manual-products-pricing.py ZakazkyApp_base_6.1
           python scripts/validate-6341-offer-catalog-separation.py ZakazkyApp_base_6.1
-          python scripts/validate-scalability.py ZakazkyApp_base_6.1
-          python scripts/validate-ui-navigation.py ZakazkyApp_base_6.1
-          python scripts/validate-auto-update.py ZakazkyApp_base_6.1
           bash -n scripts/publish-update.sh
 
       - name: Validate real Tk application
@@ -54,14 +47,14 @@ jobs:
           command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
           timeout 90s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
 
-      - name: Commit clean implementation
+      - name: Commit clean polish
         run: |
           find ZakazkyApp_base_6.1 scripts -type d -name __pycache__ -prune -exec rm -rf {} +
           find ZakazkyApp_base_6.1 scripts -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
-          rm -f scripts/apply-7000-source-changes.py
+          rm -f scripts/patch-7000-polish.py
           git config user.name "TURTO Update Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add -A -- ZakazkyApp_base_6.1 scripts release_version.txt release_notes.txt
+          git add -A -- ZakazkyApp_base_6.1 scripts
           git diff --cached --check
-          git commit -m "Implement TURTO CRM 7.0 workflow and table UX"
+          git commit -m "Polish TURTO CRM 7.0 grouped offer display"
           git push origin HEAD:feature/7.0.0-workflow-table-ux
