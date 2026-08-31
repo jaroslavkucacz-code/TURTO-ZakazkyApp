@@ -108,16 +108,26 @@ jobs:
           python scripts/validate-auto-update.py ZakazkyApp_base_6.1
           bash -n scripts/publish-update.sh
 
-      - name: Commit implementation
+      - name: Commit validated source implementation
         shell: bash
         run: |
           set -euo pipefail
+          find ZakazkyApp_base_6.1 scripts -type d -name __pycache__ -prune -exec rm -rf {} +
+          find ZakazkyApp_base_6.1 scripts -type f -name '*.pyc' -delete
+          git checkout -- .github/workflows
           rm -f scripts/.6340_payload_00.b64 scripts/.6340_payload_01.b64
           rm -f scripts/apply-6340-manual-products-pricing.py
-          rm -f .github/workflows/apply-6340-manual-products-pricing.yml
           git config user.name "TURTO Update Bot"
           git config user.email "actions@users.noreply.github.com"
           git add -A
+          if git diff --cached --name-only | grep -E '(^|/)(__pycache__/|.*\.pyc$)'; then
+            echo 'Generated Python cache must not be committed.' >&2
+            exit 1
+          fi
+          if git diff --cached --name-only | grep '^\.github/workflows/'; then
+            echo 'Workflow changes must be committed separately.' >&2
+            exit 1
+          fi
           git diff --cached --check
           git commit -m "Add manual products and contextual customer pricing"
           git push origin HEAD:feature/6.3.40-manual-products-context-pricing
