@@ -28,7 +28,7 @@ jobs:
       - name: Install runtime dependencies
         run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
 
-      - name: Apply direct source-owner changes
+      - name: Apply corrected direct source-owner changes
         run: |
           python scripts/fix-6341-transformer.py
           python scripts/apply-6341-offer-catalog-core.py .
