@@ -6,17 +6,20 @@ on:
     paths:
       - release_version.txt
       - release_notes.txt
+      - release_request.json
       - scripts/publish-update.sh
       - scripts/validate-scalability.py
       - scripts/validate-ui-navigation.py
       - scripts/validate-auto-update.py
       - scripts/validate-6337-issued-offers.py
       - scripts/validate-6339-catalog-price-ux.py
+      - scripts/validate-6340-manual-products-pricing.py
       - ZakazkyApp_base_6.1/price_lists_domain/issued_offers/**
       - ZakazkyApp_base_6.1/price_lists_domain/platform/categories.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/product_catalog.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/product_workspace.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/commercial_workspace.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/customer_pricing.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/__init__.py
       - ZakazkyApp_base_6.1/price_lists_domain/__init__.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/automatic_updates.py
@@ -62,6 +65,10 @@ jobs:
       - name: Validate catalogue hierarchy and current-price UX
         shell: bash
         run: python scripts/validate-6339-catalog-price-ux.py ZakazkyApp_base_6.1
+
+      - name: Validate manual products and customer pricing hierarchy
+        shell: bash
+        run: python scripts/validate-6340-manual-products-pricing.py ZakazkyApp_base_6.1
 
       - name: Build, validate and publish
         shell: bash
