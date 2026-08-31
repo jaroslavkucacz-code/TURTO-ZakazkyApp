@@ -1,8 +1,15 @@
 """Canonical TURTO CRM domain for issued business documents."""
 from __future__ import annotations
 
+# The renderer remains the owner of document layout. This helper only replaces
+# its text primitive with a Unicode-aware implementation that uses local Calibri
+# on Windows and a compatible fallback in CI.
+from . import pdf_renderer as _pdf_renderer
+from .font_support import fit_text as _unicode_fit_text
 from .schema import ensure_business_documents_schema
 from .app_integration import install
+
+_pdf_renderer._fit_text = _unicode_fit_text
 
 
 def apply(module) -> None:
