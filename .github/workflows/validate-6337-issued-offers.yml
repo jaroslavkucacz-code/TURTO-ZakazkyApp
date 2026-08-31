@@ -1,0 +1,33 @@
+name: Validate TURTO CRM issued offers
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-issued-offers:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.14']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+      - name: Install runtime dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+      - name: Compile issued offers domain
+        run: python -m compileall -q ZakazkyApp_base_6.1/price_lists_domain/issued_offers ZakazkyApp_base_6.1/price_lists_domain/__init__.py
+      - name: Issued offers, numbering and PDF revision regression test
+        run: python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
