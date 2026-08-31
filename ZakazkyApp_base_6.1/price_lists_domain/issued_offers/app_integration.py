@@ -1,24 +1,14 @@
 """TURTO CRM application integration for issued offers."""
 from __future__ import annotations
 
-from . import schema
-
 
 def install(M) -> None:
+    """Register the issued-offer page, commands and navigation exactly once."""
     App = M.App
-    if getattr(App, "_turto_issued_offers_v637", False):
+    if getattr(App, "_turto_issued_offers_v638", False):
         return
 
-    old_ensure = M.ensure_schema
-
-    def ensure_schema():
-        old_ensure()
-        schema.ensure_business_documents_schema(M)
-
-    M.ensure_schema = ensure_schema
-    M.ensure_business_documents_schema = lambda: schema.ensure_business_documents_schema(M)
-
-    # Import late so the module receives the fully composed app module.
+    # Import late so every component receives the fully composed application module.
     from . import editor, page, pdf_renderer, settings, template_settings
 
     page.install(M)
@@ -26,6 +16,15 @@ def install(M) -> None:
     pdf_renderer.install(M)
     settings.install(M)
     template_settings.install(M)
+
+    # Register this page with the single responsive navigation owner before that
+    # owner is installed by price_lists_domain.platform.install().
+    try:
+        from ..platform import lazy_refresh
+        lazy_refresh.PAGE_REFRESH["issued_offers"] = "refresh_issued_offers"
+        lazy_refresh.PAGE_TREES["issued_offers"] = ("issued_offer_tree",)
+    except Exception:
+        pass
 
     old_build = App.build
 
@@ -49,14 +48,15 @@ def install(M) -> None:
                 )
                 self.nav["issued_offers"] = button
 
-            # Clarify direction without changing the existing page key or data owner.
+            # Clarify document direction without changing the existing page key or
+            # any stored received-offer data.
             offers_button = self.nav.get("offers")
             if offers_button is not None:
                 offers_button.configure(text="▥  Přijaté nabídky")
 
             order = [
-                "dash", "actions", "requests", "mivo", "offers", "issued_offers", "pricelists",
-                "companies", "projects", "tasks", "people", "help",
+                "dash", "actions", "requests", "mivo", "offers", "pricelists",
+                "issued_offers", "companies", "projects", "tasks", "people", "help",
             ]
             for key in order:
                 widget = self.nav.get(key)
@@ -87,7 +87,7 @@ def install(M) -> None:
         return result
 
     App.build = build
-    App._turto_issued_offers_v637 = True
+    App._turto_issued_offers_v638 = True
 
 
 __all__ = ["install"]
