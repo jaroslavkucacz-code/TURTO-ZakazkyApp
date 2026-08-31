@@ -58,6 +58,39 @@ jobs:
               path.write_text(text, encoding='utf-8')
           PY
 
+      - name: Keep catalog readable during additive migration
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('ZakazkyApp_base_6.1/price_lists_domain/platform/product_workspace.py')
+          text = path.read_text(encoding='utf-8')
+          select_anchor = '    select_sql = """SELECT cp.id,cp.active,cp.category_id,cp.subgroup_id,'
+          if select_anchor not in text:
+              raise SystemExit('catalog select anchor not found')
+          schema_block = '''    with M.db() as _schema_con:
+              _catalog_columns = {
+                  str(row[1]) for row in _schema_con.execute("PRAGMA table_info(catalog_products)")
+              }
+          _manual_price_sql = (
+              "nullif(cp.manual_purchase_price,0)"
+              if "manual_purchase_price" in _catalog_columns else "NULL"
+          )
+          _manual_currency_sql = (
+              "nullif(trim(cp.manual_purchase_currency),'')"
+              if "manual_purchase_currency" in _catalog_columns else "NULL"
+          )
+          select_sql = f"""SELECT cp.id,cp.active,cp.category_id,cp.subgroup_id,'''
+          text = text.replace(select_anchor, schema_block, 1)
+          price_old = 'nullif(cp.manual_purchase_price,0)) current_price,'
+          currency_old = "nullif(trim(cp.manual_purchase_currency),''),'CZK') current_currency"
+          if price_old not in text or currency_old not in text:
+              raise SystemExit('manual price fallback anchors not found')
+          text = text.replace(price_old, '{_manual_price_sql}) current_price,', 1)
+          text = text.replace(currency_old, "{_manual_currency_sql},'CZK') current_currency", 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
       - name: Validate source and compatibility
         shell: bash
         run: |
