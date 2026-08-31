@@ -71,10 +71,11 @@ def main() -> None:
                 self.delayed: list[tuple[int, object]] = []
                 self.closed = False
                 self._turto_closing = False
+                self.window_title = "TURTO CRM"
 
             def after(self, delay, callback):
                 # Tk's zero-delay worker hand-off and short close delay execute
-                # immediately; the 900 ms startup check remains inspectable.
+                # immediately; startup and periodic checks remain inspectable.
                 if int(delay) < 500:
                     callback()
                     return "immediate"
@@ -84,8 +85,10 @@ def main() -> None:
             def winfo_exists(self):
                 return True
 
-            def title(self, _value):
-                return None
+            def title(self, value=None):
+                if value is not None:
+                    self.window_title = str(value)
+                return self.window_title
 
             def configure(self, **_kwargs):
                 return None
@@ -98,7 +101,7 @@ def main() -> None:
         M.App = FakeApp
         M.ROOT = temp
         M.DATA_ROOT = temp / "data"
-        M.APP_VERSION = "6.3.30"
+        M.APP_VERSION = "6.3.37"
         M.messagebox = MessageBox
         M.set_setting = lambda key, value: settings.__setitem__(str(key), str(value))
         M.get_setting = lambda key, default="": settings.get(str(key), default)
@@ -120,19 +123,22 @@ def main() -> None:
                 types.SimpleNamespace(pid=12345),
             )[-1]
             automatic_updates._read_official_manifest = lambda: {
-                "version": "6.3.31",
-                "file": "ZakazkyApp_v6.3.31.zip",
+                "version": "6.3.38",
+                "file": "ZakazkyApp_v6.3.38.zip",
                 "sha256": "test",
                 "_base": automatic_updates.OFFICIAL_UPDATE_ROOT + "/",
             }
 
             automatic_updates.install(M)
             assert runtime._live_update_checks(None) is None
-            assert getattr(M.App, "_turto_automatic_updates_v6331", False)
+            assert getattr(M.App, "_turto_automatic_updates_v6338", False)
 
             app = M.App()
-            assert len(app.delayed) == 1 and app.delayed[0][0] == 900
-            app.delayed.pop(0)[1]()
+            delays = [delay for delay, _callback in app.delayed]
+            assert 900 in delays, delays
+            assert automatic_updates._PERIODIC_CHECK_MS in delays, delays
+            startup = next(callback for delay, callback in app.delayed if delay == 900)
+            startup()
             assert launch_event.wait(4), "Updater was not launched"
             wait_until(lambda: app.closed)
 
@@ -141,27 +147,30 @@ def main() -> None:
             assert command[1].endswith("crm_updater.pyw")
             assert command[2] == str(package)
             assert command[3] == str(temp)
-            assert settings["pending_update"] == "6.3.31"
+            assert settings["pending_update"] == "6.3.38"
             assert settings["update_source"] == automatic_updates.OFFICIAL_UPDATE_ROOT
             assert settings["company_auto_updates"] == "1"
             assert not any(title == "Aktualizace" for title, _text in messages)
 
-            # A manual check on the current version reports status, but still
-            # never presents an install/download confirmation.
+            # A settings-button call uses the default visible/manual mode. It must
+            # bypass the recent silent-check debounce and report current status.
             automatic_updates._read_official_manifest = lambda: {
-                "version": "6.3.30",
+                "version": "6.3.37",
                 "file": "same.zip",
                 "_base": automatic_updates.OFFICIAL_UPDATE_ROOT + "/",
             }
             current = M.App()
-            current.check_for_updates(silent=False)
-            wait_until(lambda: any("aktuální verzi 6.3.30" in text for _title, text in messages))
+            current._turto_auto_update_last_check = time.monotonic()
+            assert current.check_for_updates() is True
+            wait_until(lambda: any("aktuální verzi 6.3.37" in text for _title, text in messages))
             assert len(launched) == 1
 
             source = (root / "price_lists_domain" / "platform" / "automatic_updates.py").read_text(
                 encoding="utf-8"
             )
             assert "askyesno" not in source
+            assert "def check_for_updates(self, silent=False)" in source
+            assert "_PERIODIC_CHECK_MS" in source
             assert "TURTO-Automatic-Update" in source
             assert "automatic_updates.log" in source
             print("TURTO CRM unattended automatic update test: OK")

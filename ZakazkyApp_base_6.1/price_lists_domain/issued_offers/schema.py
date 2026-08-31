@@ -83,6 +83,7 @@ def ensure_business_documents_schema(M) -> None:
         for declaration in (
             "offer_subject TEXT DEFAULT ''",
             "customer_contact_id INTEGER REFERENCES people(id)",
+            "action_id INTEGER REFERENCES actions(id)",
             "customer_name_snapshot TEXT DEFAULT ''",
             "customer_address_snapshot TEXT DEFAULT ''",
             "customer_ico_snapshot TEXT DEFAULT ''",
@@ -158,6 +159,8 @@ def ensure_business_documents_schema(M) -> None:
               ON business_documents(company_id,document_type,archived,issue_date DESC,id DESC);
             CREATE INDEX IF NOT EXISTS idx_business_documents_project
               ON business_documents(project_id,document_type,archived,issue_date DESC,id DESC);
+            CREATE INDEX IF NOT EXISTS idx_business_documents_action
+              ON business_documents(action_id,document_type,archived,issue_date DESC,id DESC);
             CREATE INDEX IF NOT EXISTS idx_business_document_revisions_document
               ON business_document_revisions(document_id,revision_no DESC,id DESC);
             CREATE INDEX IF NOT EXISTS idx_business_document_history_document

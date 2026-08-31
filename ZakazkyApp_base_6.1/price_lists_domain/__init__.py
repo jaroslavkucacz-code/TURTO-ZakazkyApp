@@ -1,7 +1,8 @@
-"""Canonical TURTO CRM Ceníky domain."""
+"""Canonical TURTO CRM Ceníky and commercial-document domain."""
 from . import context
 from .app_integration import _install_app_page, _install_settings
 from .archive import price_list_archive_root
+from .issued_offers import apply as install_issued_offers
 from .offer_integration import _install_offer_integration
 from .opportunity import _install_new_project_button
 from .parser import parse_price_list_file
@@ -9,7 +10,7 @@ from .schema import ensure_price_list_schema
 
 
 def apply(module):
-    if getattr(module, "_turto_price_lists_domain_v6336", False):
+    if getattr(module, "_turto_price_lists_domain_v6338", False):
         return
     context.M = module
     old_ensure = module.ensure_schema
@@ -28,12 +29,19 @@ def apply(module):
     _install_app_page(module)
     _install_settings(module)
 
-    # Platform owners are installed once, in a deterministic order. Responsive
-    # navigation is deliberately the final UI owner.
+    # Shared platform owners create the additive business-document foundation and
+    # remain the sole owners of navigation and updates.
     from .platform import install as install_platform
     install_platform(module)
 
-    module._turto_price_lists_domain_v6336 = True
+    # Vydané nabídky extend that foundation and register their page with the
+    # already installed responsive navigation owner; they do not replace it.
+    install_issued_offers(module)
+
+    module._turto_price_lists_domain_v6338 = True
 
 
-__all__ = ["apply", "ensure_price_list_schema", "price_list_archive_root", "parse_price_list_file"]
+__all__ = [
+    "apply", "ensure_price_list_schema", "price_list_archive_root",
+    "parse_price_list_file", "install_issued_offers",
+]
