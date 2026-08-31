@@ -379,6 +379,8 @@ def update_product(
 def _invalidate(app) -> None:
     try:
         app._price_filter_cache = None
+        app._price_taxonomy_cache = None
+        app._commercial_price_summary_cache = None
     except Exception:
         pass
     try:
