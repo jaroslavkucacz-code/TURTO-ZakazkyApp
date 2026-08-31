@@ -1,0 +1,67 @@
+name: Apply TURTO CRM 7.0 workflow and table UX
+on:
+  push:
+    branches:
+      - feature/7.0.0-workflow-table-ux
+    paths:
+      - .github/workflows/apply-7000-source-changes.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Apply 7.0 source integration
+        run: python scripts/apply-7000-source-changes.py .
+
+      - name: Compile canonical source
+        run: python -m compileall -q ZakazkyApp_base_6.1 scripts/validate-7000-workflow-table-ux.py
+
+      - name: Validate 7.0 workflow and table contracts
+        run: |
+          python scripts/validate-7000-workflow-table-ux.py ZakazkyApp_base_6.1
+          python scripts/validate-6334-product-catalog.py ZakazkyApp_base_6.1
+          python scripts/validate-6335-product-workspace.py ZakazkyApp_base_6.1
+          python scripts/validate-6336-commercial-workspace.py ZakazkyApp_base_6.1
+          python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
+          python scripts/validate-6339-catalog-price-ux.py ZakazkyApp_base_6.1
+          python scripts/validate-6340-manual-products-pricing.py ZakazkyApp_base_6.1
+          python scripts/validate-6341-offer-catalog-separation.py ZakazkyApp_base_6.1
+          python scripts/validate-scalability.py ZakazkyApp_base_6.1
+          python scripts/validate-ui-navigation.py ZakazkyApp_base_6.1
+          python scripts/validate-auto-update.py ZakazkyApp_base_6.1
+          bash -n scripts/publish-update.sh
+
+      - name: Validate real Tk application
+        run: |
+          command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
+          timeout 90s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
+
+      - name: Commit clean implementation
+        run: |
+          find ZakazkyApp_base_6.1 scripts -type d -name __pycache__ -prune -exec rm -rf {} +
+          find ZakazkyApp_base_6.1 scripts -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+          rm -f scripts/apply-7000-source-changes.py
+          git config user.name "TURTO Update Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A -- ZakazkyApp_base_6.1 scripts release_version.txt release_notes.txt
+          git diff --cached --check
+          git commit -m "Implement TURTO CRM 7.0 workflow and table UX"
+          git push origin HEAD:feature/7.0.0-workflow-table-ux
