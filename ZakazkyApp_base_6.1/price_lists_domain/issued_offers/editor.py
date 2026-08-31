@@ -5,6 +5,7 @@ from datetime import date
 from typing import Any
 
 from . import service
+from ..platform import pricing_profiles
 
 
 def _fmt(value, decimals=2) -> str:
@@ -47,6 +48,11 @@ class ItemDialog:
         self.sale = M.tk.StringVar(value=_fmt(self.item.get("unit_price")))
         self.vat = M.tk.StringVar(value=_fmt(self.item.get("vat_rate")))
         self.show_recommended = M.tk.BooleanVar(value=bool(self.item.get("show_recommended_price", 1)))
+        self._initial_discount = service.number(self.item.get("discount_pct"))
+        self._initial_sale = service.number(self.item.get("unit_price"))
+        self.discount_source = M.tk.StringVar(
+            value=str(self.item.get("discount_source_snapshot") or "Ruční položka")
+        )
 
         row = 0
         fields = (
@@ -78,6 +84,13 @@ class ItemDialog:
             text="V PDF zobrazit doporučenou cenu a slevu, pokud to dovoluje produktová skupina",
             variable=self.show_recommended,
         ).grid(row=row, column=0, columnspan=2, sticky="w", pady=(7, 5))
+        row += 1
+        self.M.ttk.Label(frame, text="Zdroj použité slevy").grid(
+            row=row, column=0, sticky="w", padx=(0, 10), pady=5
+        )
+        self.M.ttk.Label(
+            frame, textvariable=self.discount_source, style="PageSubtitle.TLabel", wraplength=650
+        ).grid(row=row, column=1, sticky="w", pady=5)
         row += 1
         self.M.ttk.Label(frame, text="Popis pro zákazníka").grid(row=row, column=0, sticky="nw", padx=(0, 10), pady=5)
         self.description = self.M.tk.Text(frame, height=5, wrap="word", font=("Calibri", 11))
@@ -133,6 +146,14 @@ class ItemDialog:
         if row_type == "text" and not description:
             return self.M.messagebox.showwarning("Vydané nabídky", "Vyplňte text poznámky.", parent=self.win)
         item = dict(self.item)
+        discount_value = _parse(self.discount.get())
+        sale_value = _parse(self.sale.get())
+        manual_override = bool(item.get("discount_manual_override"))
+        if item.get("catalog_product_id") and (
+            abs(discount_value - self._initial_discount) > 1e-9
+            or abs(sale_value - self._initial_sale) > 1e-9
+        ):
+            manual_override = True
         item.update(
             row_type=row_type,
             product_code=self.code.get().strip(),
@@ -145,8 +166,14 @@ class ItemDialog:
             purchase_unit_price=_parse(self.purchase.get()),
             margin_pct=_parse(self.margin.get()),
             recommended_unit_price=_parse(self.recommended.get()),
-            discount_pct=_parse(self.discount.get()),
-            unit_price=_parse(self.sale.get()),
+            discount_pct=discount_value,
+            unit_price=sale_value,
+            discount_manual_override=1 if manual_override else 0,
+            discount_source_snapshot=(
+                "Ruční úprava řádku" if manual_override and item.get("catalog_product_id")
+                else str(item.get("discount_source_snapshot") or self.discount_source.get() or "")
+            ),
+            discount_rule_id=None if manual_override else item.get("discount_rule_id"),
             vat_rate=_parse(self.vat.get(), 21),
             show_recommended_price=1 if self.show_recommended.get() else 0,
             line_note=self.line_note.get("1.0", "end-1c").strip(),
@@ -156,8 +183,12 @@ class ItemDialog:
 
 
 class ProductPicker:
-    def __init__(self, M, parent):
+    def __init__(self, M, parent, app=None, company_id=None, action_id=None, project_id=None):
         self.M = M
+        self.app = app or pricing_profiles._root_app(parent)
+        self.company_id = company_id
+        self.action_id = action_id
+        self.project_id = project_id
         self.result = []
         self.win = M.tk.Toplevel(parent)
         self.win.title("Vybrat produkty z katalogu")
@@ -177,8 +208,12 @@ class ProductPicker:
         search.columnconfigure(0, weight=1)
         M.ttk.Entry(search, textvariable=self.query).grid(row=0, column=0, sticky="ew")
         M.ttk.Button(search, text="Hledat", command=self.refresh).grid(row=0, column=1, padx=(6, 0))
-        cols = ("Interní kód", "Interní označení", "Výrobce", "Skupina", "Podskupina", "Nákupní cena", "MJ", "Zdroj")
-        widths = (125, 300, 175, 230, 260, 120, 65, 220)
+        cols = (
+            "Interní kód", "Interní označení", "Výrobce", "Skupina", "Podskupina",
+            "Nákupní cena", "MJ", "Standardní sleva", "Použitá sleva",
+            "Zdroj slevy", "Prodejní cena", "Zdroj ceny",
+        )
+        widths = (125, 290, 165, 220, 240, 115, 60, 105, 100, 230, 115, 210)
         wrap = M.ttk.Frame(outer)
         wrap.grid(row=2, column=0, sticky="nsew")
         wrap.columnconfigure(0, weight=1)
@@ -196,6 +231,8 @@ class ProductPicker:
         self.rows = {}
         buttons = M.ttk.Frame(outer)
         buttons.grid(row=3, column=0, sticky="ew", pady=(8, 0))
+        M.ttk.Button(buttons, text="+ Nový výrobek…", command=self.new_product).pack(side="left")
+        M.ttk.Button(buttons, text="Cena a slevy…", command=self.edit_pricing).pack(side="left", padx=4)
         M.ttk.Button(buttons, text="Zrušit", command=self.win.destroy).pack(side="right")
         M.ttk.Button(buttons, text="Přidat vybrané", style="Accent.TButton", command=self.finish).pack(side="right", padx=(0, 6))
         self.query.bind("<Return>", lambda _event: self.refresh())
@@ -207,7 +244,10 @@ class ProductPicker:
         for iid in self.tree.get_children(""):
             self.tree.delete(iid)
         self.rows.clear()
-        rows = service.catalog_products(self.M, self.query.get(), 1000)
+        rows = service.catalog_products(
+            self.M, self.query.get(), 1000, company_id=self.company_id,
+            action_id=self.action_id, project_id=self.project_id,
+        )
         for row in rows:
             iid = f"cp{row['catalog_product_id']}"
             self.rows[iid] = row
@@ -221,9 +261,39 @@ class ProductPicker:
                     row.get("subgroup") or "",
                     _fmt(row.get("purchase_price")),
                     row.get("unit") or "",
+                    f"{_fmt(row.get('standard_discount_pct'))} %",
+                    f"{_fmt(row.get('discount_pct'))} %",
+                    row.get("discount_source_snapshot") or "",
+                    _fmt(row.get("unit_price")),
                     row.get("price_source_label") or "",
                 ),
             )
+
+    def _selected_product_id(self):
+        selected = [self.rows[iid] for iid in self.tree.selection() if iid in self.rows]
+        if len(selected) != 1:
+            self.M.messagebox.showinfo("Katalog produktů", "Vyberte právě jeden výrobek.", parent=self.win)
+            return None
+        return int(selected[0]["catalog_product_id"])
+
+    def new_product(self):
+        product_id = pricing_profiles.open_product_dialog(self.M, self.app, self.win)
+        if product_id:
+            self.refresh()
+            iid = f"cp{product_id}"
+            if self.tree.exists(iid):
+                self.tree.selection_set(iid)
+                self.tree.see(iid)
+
+    def edit_pricing(self):
+        product_id = self._selected_product_id()
+        if not product_id:
+            return
+        pricing_profiles.open_discount_rules_dialog(
+            self.M, self.app, self.win, product_id, company_id=self.company_id,
+            action_id=self.action_id, project_id=self.project_id,
+        )
+        self.refresh()
 
     def finish(self):
         selected = [self.rows[iid] for iid in self.tree.selection() if iid in self.rows]
@@ -361,15 +431,18 @@ class IssuedOfferEditor:
         M.ttk.Button(tools, text="+ Nadpis", command=lambda: self.add_special("heading")).pack(side="left", padx=4)
         M.ttk.Button(tools, text="+ Text", command=lambda: self.add_special("text")).pack(side="left", padx=4)
         M.ttk.Button(tools, text="Upravit", command=self.edit_item).pack(side="left", padx=(14, 4))
+        M.ttk.Button(
+            tools, text="Načíst slevy odběratele / Akce", command=self.reapply_discounts
+        ).pack(side="left", padx=4)
         M.ttk.Button(tools, text="Odebrat", command=self.remove_items).pack(side="left", padx=4)
         M.ttk.Button(tools, text="Nahoru", command=lambda: self.move_item(-1)).pack(side="left", padx=(14, 4))
         M.ttk.Button(tools, text="Dolů", command=lambda: self.move_item(1)).pack(side="left", padx=4)
 
         columns = (
             "Poz.", "Typ", "Kód", "Označení", "Množství", "MJ", "Nákupní cena", "Marže",
-            "Doporučená cena", "Sleva", "Prodejní cena", "Celkem bez DPH",
+            "Doporučená cena", "Sleva", "Zdroj slevy", "Prodejní cena", "Celkem bez DPH",
         )
-        widths = (55, 100, 120, 360, 90, 60, 115, 75, 125, 75, 115, 130)
+        widths = (55, 100, 120, 340, 90, 60, 115, 75, 125, 75, 230, 115, 130)
         wrap = M.ttk.Frame(left)
         wrap.grid(row=1, column=0, sticky="nsew")
         wrap.columnconfigure(0, weight=1)
@@ -500,6 +573,7 @@ class IssuedOfferEditor:
                 f"{_fmt(item.get('margin_pct'))} %" if priced else "",
                 _fmt(item.get("recommended_unit_price")) if priced else "",
                 f"{_fmt(item.get('discount_pct'))} %" if priced else "",
+                (item.get("discount_source_snapshot") or "") if priced else "",
                 _fmt(item.get("unit_price")) if priced else "",
                 _fmt(item.get("total_price")) if priced else "",
             )
@@ -539,10 +613,60 @@ class IssuedOfferEditor:
         ]
         self.totals_text.set("\n".join(lines))
 
+    def pricing_context(self):
+        company_id = self.company_map.get(self.company.get().strip())
+        action_info = self.action_map.get(self.action.get().strip())
+        action_id = action_info[0] if action_info else None
+        project_id = self.project_map.get(self.project.get().strip())
+        if action_info and not project_id and action_info[1]:
+            project_id = action_info[1]
+        return company_id, action_id, project_id
+
+    def reapply_discounts(self):
+        if self.locked:
+            return
+        selected = self.selected_indices()
+        indices = selected or list(range(len(self.items)))
+        candidates = [index for index in indices if self.items[index].get("catalog_product_id")]
+        if not candidates:
+            return self.M.messagebox.showinfo(
+                "Vydané nabídky", "Ve výběru nejsou žádné položky propojené s katalogem.", parent=self.win
+            )
+        scope = "vybrané položky" if selected else "všechny katalogové položky"
+        if not self.M.messagebox.askyesno(
+            "Načíst slevy",
+            f"Načíst aktuální pravidla slev pro {scope}?\n\n"
+            "Ruční úpravy jednotlivých řádků budou zachovány a přeskočeny.",
+            parent=self.win,
+        ):
+            return
+        company_id, action_id, project_id = self.pricing_context()
+        changed = 0
+        skipped = 0
+        for index in candidates:
+            updated, applied = service.apply_pricing_context(
+                self.M, self.items[index], company_id=company_id, action_id=action_id,
+                project_id=project_id, force=False,
+            )
+            if applied:
+                self.items[index] = updated
+                changed += 1
+            else:
+                skipped += 1
+        self.refresh_items()
+        self.status_hint.set(
+            f"Načteny slevy: {changed} položek" +
+            (f" · ručně upravené přeskočeny: {skipped}" if skipped else "")
+        )
+
     def add_from_catalog(self):
         if self.locked:
             return
-        picker = ProductPicker(self.M, self.win)
+        company_id, action_id, project_id = self.pricing_context()
+        picker = ProductPicker(
+            self.M, self.win, self.app, company_id=company_id,
+            action_id=action_id, project_id=project_id,
+        )
         for product in picker.result:
             self.items.append(product)
         if picker.result:

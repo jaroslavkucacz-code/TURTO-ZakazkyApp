@@ -135,6 +135,13 @@ def ensure_business_documents_schema(M) -> None:
             "source_price_list_item_id INTEGER REFERENCES price_list_items(id)",
             "source_supplier_offer_item_id INTEGER REFERENCES supplier_offer_items(id)",
             "line_note TEXT DEFAULT ''",
+            "standard_discount_pct REAL DEFAULT 0",
+            "discount_source_snapshot TEXT DEFAULT ''",
+            "discount_rule_id INTEGER",
+            "discount_manual_override INTEGER NOT NULL DEFAULT 0",
+            "pricing_company_id_snapshot INTEGER",
+            "pricing_action_id_snapshot INTEGER",
+            "pricing_project_id_snapshot INTEGER",
         ):
             _add_column(con, "business_document_items", declaration)
 

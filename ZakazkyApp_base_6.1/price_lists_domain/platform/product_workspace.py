@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from . import categories, product_catalog
+from . import categories, product_catalog, pricing_profiles
 
 _SCOPE_ALL = "all"
 _SCOPE_UNASSIGNED = "unassigned"
@@ -224,7 +224,19 @@ def _catalog_rows(
         ),
     }
     order_sql = sort_map.get(str(sort_mode or ""), sort_map["Skupina → podskupina → produkt"])
-    select_sql = """SELECT cp.id,cp.active,cp.category_id,cp.subgroup_id,
+    with M.db() as _schema_con:
+        _catalog_columns = {
+            str(row[1]) for row in _schema_con.execute("PRAGMA table_info(catalog_products)")
+        }
+    _manual_price_sql = (
+        "nullif(cp.manual_purchase_price,0)"
+        if "manual_purchase_price" in _catalog_columns else "NULL"
+    )
+    _manual_currency_sql = (
+        "nullif(trim(cp.manual_purchase_currency),'')"
+        if "manual_purchase_currency" in _catalog_columns else "NULL"
+    )
+    select_sql = f"""SELECT cp.id,cp.active,cp.category_id,cp.subgroup_id,
                           cp.manufacturer_name,cp.internal_code,cp.internal_name,
                           coalesce(c.name,'Nezařazeno') category,coalesce(sg.name,'') subgroup,
                           c.sort_order category_sort,sg.sort_order subgroup_sort,
@@ -237,16 +249,18 @@ def _catalog_rows(
                             WHERE i.catalog_product_id=cp.id) price_lists,
                           (SELECT COUNT(DISTINCT i.offer_id) FROM supplier_offer_items i
                             WHERE i.catalog_product_id=cp.id) offers,
-                          (SELECT i.normalized_unit_price FROM price_list_items i
+                          coalesce((SELECT i.normalized_unit_price FROM price_list_items i
                             JOIN price_lists p ON p.id=i.price_list_id
                             WHERE i.catalog_product_id=cp.id AND i.active=1 AND p.archived=0
                               AND p.valid_from<=? AND (trim(coalesce(p.valid_to,''))='' OR p.valid_to>=?)
-                            ORDER BY p.valid_from DESC,p.id DESC,i.id DESC LIMIT 1) current_price,
-                          (SELECT i.currency FROM price_list_items i
+                            ORDER BY p.valid_from DESC,p.id DESC,i.id DESC LIMIT 1),
+                            {_manual_price_sql}) current_price,
+                          coalesce((SELECT i.currency FROM price_list_items i
                             JOIN price_lists p ON p.id=i.price_list_id
                             WHERE i.catalog_product_id=cp.id AND i.active=1 AND p.archived=0
                               AND p.valid_from<=? AND (trim(coalesce(p.valid_to,''))='' OR p.valid_to>=?)
-                            ORDER BY p.valid_from DESC,p.id DESC,i.id DESC LIMIT 1) current_currency
+                            ORDER BY p.valid_from DESC,p.id DESC,i.id DESC LIMIT 1),
+                            {_manual_currency_sql},'CZK') current_currency
                    """ + sql_from + " WHERE " + where_sql
     with M.db() as con:
         total = int(con.execute(
@@ -578,6 +592,22 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
             return M.messagebox.showinfo("Katalog produktů", "Vyberte právě jeden produkt.", parent=parent)
         product_catalog._edit_product(M, app, parent, ids[0], lambda: refresh_all(state["scope_iid"]))
 
+    def create_product():
+        product_id = pricing_profiles.open_product_dialog(M, app, parent)
+        if product_id:
+            refresh_all(state["scope_iid"])
+            iid = f"cp{product_id}"
+            if products.exists(iid):
+                products.selection_set(iid)
+                products.see(iid)
+
+    def pricing_selected():
+        ids = _selected_product_ids(products)
+        if len(ids) != 1:
+            return M.messagebox.showinfo("Katalog produktů", "Vyberte právě jeden produkt.", parent=parent)
+        pricing_profiles.open_discount_rules_dialog(M, app, parent, ids[0])
+        refresh_all(state["scope_iid"])
+
     def snapshot_taxonomy(ids):
         if not ids:
             return []
@@ -829,13 +859,17 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
     undo_button = M.ttk.Button(actions, text="↶ Vrátit poslední přesun", command=undo_last_move)
     undo_button.pack(side="left", padx=(10, 4))
     undo_button.state(["disabled"])
+    M.ttk.Button(actions, text="+ Nový výrobek…", command=create_product).pack(side="left", padx=(10, 4))
     M.ttk.Button(actions, text="Upravit produkt…", command=edit_selected).pack(side="left", padx=4)
+    M.ttk.Button(actions, text="Cena a slevy…", command=pricing_selected).pack(side="left", padx=4)
     M.ttk.Button(actions, text="Zdroje a ceny…", command=show_sources).pack(side="left", padx=4)
     M.ttk.Button(actions, text="Dosynchronizovat katalog", command=sync_everything).pack(side="left", padx=(14, 4))
     M.ttk.Button(actions, text="Zrušit filtry", command=clear_filters).pack(side="right")
 
     context = M.tk.Menu(products, tearoff=False)
+    context.add_command(label="Nový výrobek…", command=create_product)
     context.add_command(label="Upravit produkt…", command=edit_selected)
+    context.add_command(label="Cena a slevy…", command=pricing_selected)
     context.add_command(label="Zdroje a ceny…", command=show_sources)
     context.add_separator()
     context.add_command(label="Přesunout do označené skupiny", command=move_selected_here)

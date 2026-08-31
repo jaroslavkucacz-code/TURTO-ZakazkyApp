@@ -1,11 +1,10 @@
-• Aktuální ceny mají nový třípanelový pracovní prostor: vlevo je strom produktových skupin a podskupin s počty platných cen, uprostřed tabulka cen a vpravo detail vybraného produktu a zdroje. Kliknutí na větev stromu okamžitě filtruje odpovídající ceny.
-• Jednu nebo více cen lze myší přetáhnout přímo na skupinu, podskupinu, „Bez podskupiny“ nebo „Nezařazené“. U propojeného produktu se změna provede nad stabilním katalogovým záznamem a automaticky se promítne do všech jeho Ceníků a přijatých Nabídek.
-• Poslední přesun cen i katalogových produktů lze jedním tlačítkem vrátit. Před změnou se uloží původní zařazení každého vybraného záznamu, takže lze bezpečně vrátit i společný přesun produktů z různých skupin.
-• Z Aktuálních cen lze produkt přímo upravit dvojklikem, klávesou Enter nebo F2. Nepropojenou položku lze stejným postupem rovnou ručně zařadit.
-• Řazení Aktuálních cen probíhá nad celým výsledkem přímo v SQLite, nikoli pouze nad právě zobrazenou stránkou. K dispozici je řazení podle skupiny a podskupiny, interního označení, výrobce, dodavatele, nákupní ceny, výsledné ceny a nejbližšího konce platnosti; cenové sloupce lze přepínat také kliknutím na záhlaví.
-• Katalog produktů podporuje přímé přetažení vybraných produktů do stromu vlevo, vrácení posledního přesunu a globální řazení podle struktury, interního označení, výrobce, dodavatele, nákupní ceny nebo výsledné ceny.
-• Správa Produktových skupin a podskupin byla přepracována na přehledný pracovní prostor se stromem, hledáním a živým detailem. Název, nadřazenou skupinu, marži, slevu, způsob zobrazení ceny a aktivitu lze upravit přímo bez otevírání několika navazujících dialogů.
-• Skupiny i podskupiny lze řadit pouhým přetažením, tlačítky nahoru/dolů nebo klávesami Ctrl+šipka. Podskupinu lze přetáhnout i do jiné skupiny; zachová si stabilní ID a nové zařazení se bezpečně propíše do katalogu, Ceníků, přijatých Nabídek a položek vydaných dokumentů.
-• Ruční číselné pole Pořadí už není potřeba. Po každém přesunu se pořadí automaticky zkompaktňuje a zůstává deterministické; kolize názvu podskupiny v cílové skupině se před změnou odmítne.
-• Strom cen používá krátkou vyrovnávací paměť počtů a invaliduje ji pouze při změně data, režimu nebo dat. Hledání, stránkování a přepínání zobrazení proto zůstává rychlé i u rozsáhlejší evidence.
-• Databázové schéma se nemění. Stabilní identity produktů, historické ceny, přijaté i vydané nabídky, fyzické archivy, revize PDF a ostatní uživatelská data zůstávají zachovány.
+• Katalog produktů nově umožňuje založit výrobek ručně bez importu Ceníku. Ukládá interní kód a označení, výrobce, skupinu a podskupinu, měrnou jednotku, DPH, ruční nákupní cenu, měnu, poznámku a volitelný dodavatelský kód.
+• Ruční nákupní cena je bezpečný záložní zdroj. Pokud se později objeví platný Ceník nebo Přijatá nabídka, aktuální importovaná cena má přednost; ruční produkt a jeho interní zařazení zůstávají zachované.
+• Volitelná vazba dodavatel + dodavatelský kód umožní, aby se pozdější import stejného výrobku připojil ke stávajícímu ručnímu produktu místo vytvoření duplicity.
+• Pro každý katalogový výrobek lze evidovat rozdílnou slevu pro jednotlivé společnosti a jemnější pravidlo pro konkrétní Příležitost nebo Akci.
+• Pořadí slev je jednoznačné: konkrétní Akce → konkrétní Příležitost → společnost → standard skupiny/podskupiny. Ruční úprava konkrétního řádku nabídky má vždy nejvyšší prioritu.
+• Výběr produktů ve Vydané nabídce ukazuje standardní i skutečně použitou slevu, zdroj slevy, výslednou prodejní cenu a zdroj nákupní ceny.
+• V editoru Vydané nabídky lze načíst aktuální slevy odběratele/Příležitosti/Akce pro označené nebo všechny katalogové položky. Ručně upravené řádky se nepřepisují.
+• Každý řádek Vydané nabídky ukládá historický snímek použité slevy, pravidla a kontextu. Pozdější úprava slevových pravidel tedy nemění již uložené nabídky ani PDF revize.
+• Nový výrobek i jeho slevy lze spravovat přímo z Katalogu produktů a také z výběru produktů při sestavování Vydané nabídky.
+• Databázová migrace je pouze aditivní. Historické Ceníky, Přijaté nabídky, Vydané nabídky, produktové vazby, archivy, PDF revize a uživatelská data zůstávají zachovány.

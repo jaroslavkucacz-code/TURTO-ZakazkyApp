@@ -221,6 +221,24 @@ def ensure_platform_schema(M) -> None:
               FOREIGN KEY(supplier_company_id) REFERENCES companies(id)
             );
 
+            CREATE TABLE IF NOT EXISTS catalog_product_discount_rules(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              catalog_product_id INTEGER NOT NULL,
+              company_id INTEGER NOT NULL,
+              action_id INTEGER,
+              project_id INTEGER,
+              discount_pct REAL NOT NULL DEFAULT 0,
+              note TEXT DEFAULT '',
+              active INTEGER NOT NULL DEFAULT 1,
+              created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              CHECK(NOT(action_id IS NOT NULL AND project_id IS NOT NULL)),
+              FOREIGN KEY(catalog_product_id) REFERENCES catalog_products(id) ON DELETE CASCADE,
+              FOREIGN KEY(company_id) REFERENCES companies(id) ON DELETE CASCADE,
+              FOREIGN KEY(action_id) REFERENCES actions(id) ON DELETE CASCADE,
+              FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+            );
+
             CREATE TABLE IF NOT EXISTS price_list_ocr_cache(
               source_hash TEXT NOT NULL,
               page_no INTEGER NOT NULL,
@@ -297,6 +315,13 @@ def ensure_platform_schema(M) -> None:
             """
         )
 
+        _add_column(con, "catalog_products", "manual_product INTEGER NOT NULL DEFAULT 0")
+        _add_column(con, "catalog_products", "manual_purchase_price REAL NOT NULL DEFAULT 0")
+        _add_column(con, "catalog_products", "manual_purchase_currency TEXT NOT NULL DEFAULT 'CZK'")
+        _add_column(con, "catalog_products", "manual_unit TEXT NOT NULL DEFAULT 'ks'")
+        _add_column(con, "catalog_products", "default_vat_rate REAL NOT NULL DEFAULT 21")
+        _add_column(con, "catalog_products", "manual_price_note TEXT DEFAULT ''")
+        _add_column(con, "catalog_products", "manual_price_updated_at TEXT DEFAULT ''")
         _add_column(con, "product_categories", "default_margin_pct REAL NOT NULL DEFAULT 0")
         _add_column(con, "product_categories", "default_discount_pct REAL NOT NULL DEFAULT 0")
         _add_column(con, "product_categories", "show_recommended_price INTEGER NOT NULL DEFAULT 1")
@@ -378,6 +403,17 @@ def ensure_platform_schema(M) -> None:
               ON catalog_product_sources(product_identity,supplier_company_id,supplier_name_norm,product_id);
             CREATE INDEX IF NOT EXISTS idx_catalog_sources_product
               ON catalog_product_sources(product_id,supplier_name,supplier_product_code);
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_catalog_discount_company
+              ON catalog_product_discount_rules(catalog_product_id,company_id)
+              WHERE action_id IS NULL AND project_id IS NULL;
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_catalog_discount_action
+              ON catalog_product_discount_rules(catalog_product_id,company_id,action_id)
+              WHERE action_id IS NOT NULL;
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_catalog_discount_project
+              ON catalog_product_discount_rules(catalog_product_id,company_id,project_id)
+              WHERE project_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_catalog_discount_lookup
+              ON catalog_product_discount_rules(catalog_product_id,company_id,active,project_id,action_id,id);
             CREATE INDEX IF NOT EXISTS idx_price_lists_workset
               ON price_lists(archived,valid_from,valid_to,category_id,id);
             CREATE INDEX IF NOT EXISTS idx_price_list_items_workset

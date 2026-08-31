@@ -16,6 +16,8 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable
 
+from ..platform import pricing_profiles
+
 DOCUMENT_TYPE = "issued_offer"
 DOCUMENT_DIRECTION = "issued"
 STATUSES = (
@@ -353,6 +355,9 @@ def normalize_item(raw: dict[str, Any], position: int | None = None, recalculate
     item["margin_pct"] = number(item.get("margin_pct"))
     item["recommended_unit_price"] = number(item.get("recommended_unit_price"))
     item["discount_pct"] = number(item.get("discount_pct"))
+    item["standard_discount_pct"] = number(item.get("standard_discount_pct"), item["discount_pct"])
+    item["discount_manual_override"] = 1 if item.get("discount_manual_override") else 0
+    item["discount_source_snapshot"] = str(item.get("discount_source_snapshot") or "")
     item["unit_price"] = number(item.get("unit_price"))
     item["vat_rate"] = max(0.0, number(item.get("vat_rate"), 21))
     item["show_recommended_price"] = 1 if item.get("show_recommended_price", 1) else 0
@@ -497,6 +502,9 @@ def save_document(M, values: dict[str, Any], items: Iterable[dict[str, Any]], do
             "show_recommended_price", "category_id", "subgroup_id", "catalog_product_id",
             "internal_code_snapshot", "internal_name_snapshot", "price_source_label",
             "source_price_list_item_id", "source_supplier_offer_item_id", "line_note",
+            "standard_discount_pct", "discount_source_snapshot", "discount_rule_id",
+            "discount_manual_override", "pricing_company_id_snapshot",
+            "pricing_action_id_snapshot", "pricing_project_id_snapshot",
         )
         placeholders = ",".join("?" for _ in item_fields)
         for item in normalized_items:
@@ -717,7 +725,10 @@ def list_actions(M) -> list[tuple[int, str, int | None]]:
     return [(int(row[0]), str(row[1] or ""), int(row[2]) if row[2] is not None else None) for row in rows]
 
 
-def catalog_products(M, query: str = "", limit: int = 500) -> list[dict[str, Any]]:
+def catalog_products(
+    M, query: str = "", limit: int = 500, *, company_id=None, action_id=None, project_id=None,
+) -> list[dict[str, Any]]:
+    """Return catalogue products with effective purchase price and customer-context discount."""
     today = date.today().isoformat()
     q = str(query or "").strip().casefold()
     where = ["cp.active=1"]
@@ -729,11 +740,23 @@ def catalog_products(M, query: str = "", limit: int = 500) -> list[dict[str, Any
             "coalesce(src.source_name,'')) LIKE ?"
         )
         where_params.append("%" + q + "%")
-    params: list[Any] = [today, today, today, today, today, today, today] + where_params + [int(limit)]
+    params: list[Any] = [today, today, today, today, today, today, today, today, today] + where_params + [int(limit)]
     with M.db() as con:
+        cp_columns = {str(row[1]) for row in con.execute("PRAGMA table_info(catalog_products)").fetchall()}
+        price_item_columns = {str(row[1]) for row in con.execute("PRAGMA table_info(price_list_items)").fetchall()}
+        manual_product_expr = "coalesce(cp.manual_product,0)" if "manual_product" in cp_columns else "0"
+        manual_price_expr = "coalesce(cp.manual_purchase_price,0)" if "manual_purchase_price" in cp_columns else "0"
+        manual_currency_expr = "coalesce(nullif(trim(cp.manual_purchase_currency),''),'CZK')" if "manual_purchase_currency" in cp_columns else "'CZK'"
+        manual_unit_expr = "coalesce(nullif(trim(cp.manual_unit),''),'ks')" if "manual_unit" in cp_columns else "'ks'"
+        manual_vat_expr = "coalesce(cp.default_vat_rate,21)" if "default_vat_rate" in cp_columns else "21"
+        manual_note_expr = "coalesce(cp.manual_price_note,'')" if "manual_price_note" in cp_columns else "''"
+        price_currency_expr = "nullif(trim(i.currency),'')" if "currency" in price_item_columns else "'CZK'"
         rows = con.execute(
             f"""SELECT cp.id,cp.internal_code,cp.internal_name,cp.manufacturer_name,
                        cp.category_id,cp.subgroup_id,cat.name category,sg.name subgroup,
+                       {manual_product_expr} manual_product,{manual_price_expr} manual_purchase_price,
+                       {manual_currency_expr} manual_purchase_currency,{manual_unit_expr} manual_unit,
+                       {manual_vat_expr} default_vat_rate,{manual_note_expr} manual_price_note,
                        src.supplier_product_code,src.source_name,
                        coalesce(
                          (SELECT i.normalized_unit_price FROM price_list_items i
@@ -748,23 +771,33 @@ def catalog_products(M, query: str = "", limit: int = 500) -> list[dict[str, Any
                           JOIN supplier_offers o ON o.id=i.offer_id
                           WHERE i.catalog_product_id=cp.id AND coalesce(o.archived,0)=0
                             AND trim(coalesce(o.offer_date,''))<>'' AND o.offer_date<=?
-                          ORDER BY o.offer_date DESC,o.id DESC,i.id DESC LIMIT 1),0
+                          ORDER BY o.offer_date DESC,o.id DESC,i.id DESC LIMIT 1),
+                         nullif({manual_price_expr},0),0
                        ) purchase_price,
                        coalesce(
-                         (SELECT i.unit FROM price_list_items i JOIN price_lists p ON p.id=i.price_list_id
+                         (SELECT {price_currency_expr} FROM price_list_items i JOIN price_lists p ON p.id=i.price_list_id
                           WHERE i.catalog_product_id=cp.id AND i.active=1 AND p.archived=0
-                            AND p.valid_from<=? AND (p.valid_to='' OR p.valid_to>=?)
-                          ORDER BY p.valid_from DESC,p.id DESC,i.id DESC LIMIT 1),'ks'
+                            AND p.valid_from<=? AND (trim(coalesce(p.valid_to,''))='' OR p.valid_to>=?)
+                          ORDER BY p.valid_from DESC,p.id DESC,i.id DESC LIMIT 1),
+                         {manual_currency_expr}
+                       ) purchase_currency,
+                       coalesce(
+                         (SELECT nullif(trim(i.unit),'') FROM price_list_items i JOIN price_lists p ON p.id=i.price_list_id
+                          WHERE i.catalog_product_id=cp.id AND i.active=1 AND p.archived=0
+                            AND p.valid_from<=? AND (trim(coalesce(p.valid_to,''))='' OR p.valid_to>=?)
+                          ORDER BY p.valid_from DESC,p.id DESC,i.id DESC LIMIT 1),
+                         {manual_unit_expr}
                        ) unit,
                        coalesce(sg.default_margin_pct,cat.default_margin_pct,0) margin_pct,
-                       coalesce(sg.default_discount_pct,cat.default_discount_pct,0) discount_pct,
+                       coalesce(sg.default_discount_pct,cat.default_discount_pct,0) standard_discount_pct,
                        coalesce(cat.show_recommended_price,1) show_recommended_price,
                        coalesce(
                          (SELECT p.title FROM price_list_items i JOIN price_lists p ON p.id=i.price_list_id
                           WHERE i.catalog_product_id=cp.id AND i.active=1 AND p.archived=0
-                            AND p.valid_from<=? AND (p.valid_to='' OR p.valid_to>=?)
+                            AND p.valid_from<=? AND (trim(coalesce(p.valid_to,''))='' OR p.valid_to>=?)
                           ORDER BY p.valid_from DESC,p.id DESC,i.id DESC LIMIT 1),
-                         'Poslední cenová nabídka'
+                         CASE WHEN {manual_price_expr}>0 THEN 'Ručně zadaná cena'
+                              ELSE 'Poslední cenová nabídka' END
                        ) price_source_label
                 FROM catalog_products cp
                 LEFT JOIN product_categories cat ON cat.id=cp.category_id
@@ -783,7 +816,12 @@ def catalog_products(M, query: str = "", limit: int = 500) -> list[dict[str, Any
         item = dict(row)
         purchase = number(item.get("purchase_price"))
         margin = number(item.get("margin_pct"))
-        discount = number(item.get("discount_pct"))
+        standard = number(item.get("standard_discount_pct"))
+        resolved = pricing_profiles.resolve_discount(
+            M, int(item["id"]), company_id=company_id, action_id=action_id,
+            project_id=project_id, standard_discount_pct=standard,
+        )
+        discount = number(resolved["discount_pct"])
         recommended = purchase * (1 + margin / 100)
         item.update(
             row_type="product", catalog_product_id=int(item["id"]),
@@ -791,14 +829,27 @@ def catalog_products(M, query: str = "", limit: int = 500) -> list[dict[str, Any
             item_key=str(item.get("supplier_product_code") or item.get("internal_code") or item.get("internal_name") or ""),
             name=str(item.get("internal_name") or item.get("source_name") or ""),
             description=str(item.get("source_name") or ""), quantity=1.0,
-            purchase_unit_price=purchase, purchase_currency="CZK", recommended_unit_price=recommended,
+            purchase_unit_price=purchase, purchase_currency=str(item.get("purchase_currency") or "CZK"),
+            recommended_unit_price=recommended, discount_pct=discount, standard_discount_pct=standard,
             unit_price=recommended * (1 - discount / 100),
             internal_code_snapshot=str(item.get("internal_code") or ""),
             internal_name_snapshot=str(item.get("internal_name") or ""),
-            vat_rate=number(get_setting(M, "issued_offer_default_vat_rate", "21"), 21),
+            vat_rate=number(item.get("default_vat_rate"), number(get_setting(M, "issued_offer_default_vat_rate", "21"), 21)),
+            discount_source_snapshot=resolved["source"], discount_rule_id=resolved["rule_id"],
+            discount_manual_override=0, pricing_company_id_snapshot=company_id,
+            pricing_action_id_snapshot=action_id, pricing_project_id_snapshot=project_id,
         )
         result.append(normalize_item(item))
     return result
+
+
+def apply_pricing_context(
+    M, item: dict[str, Any], *, company_id=None, action_id=None, project_id=None, force: bool = False,
+) -> tuple[dict[str, Any], bool]:
+    updated, changed = pricing_profiles.apply_context_to_item(
+        M, item, company_id=company_id, action_id=action_id, project_id=project_id, force=force,
+    )
+    return normalize_item(updated), changed
 
 
 def latest_pdf_path(M, document_id: int) -> Path | None:
@@ -827,5 +878,5 @@ __all__ = [
     "company_snapshot", "contact_snapshot", "normalize_item", "calculate_totals", "save_document",
     "load_document", "next_revision_no", "document_archive_dir", "record_revision", "set_archived",
     "delete_draft", "duplicate_document", "set_status", "list_companies", "list_people",
-    "list_projects", "list_actions", "catalog_products", "latest_pdf_path", "open_path",
+    "list_projects", "list_actions", "catalog_products", "apply_pricing_context", "latest_pdf_path", "open_path",
 ]

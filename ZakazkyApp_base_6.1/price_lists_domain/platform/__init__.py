@@ -8,6 +8,7 @@ def install(module) -> None:
     from .fast_ocr import install as install_ocr
     from .integration import install as install_price_integration
     from .product_catalog import install as install_product_catalog
+    from .pricing_profiles import install as install_pricing_profiles
     from .product_workspace import install as install_product_workspace
     from .offers import install as install_offers
     from .archive import install as install_archive
@@ -19,11 +20,12 @@ def install(module) -> None:
     from .lazy_refresh import install as install_lazy_refresh
     from .automatic_updates import install as install_automatic_updates
 
-    if getattr(module, "_turto_platform_v6339", False):
+    if getattr(module, "_turto_platform_v6340", False):
         return
 
     install_fast_db(module)
     patch_schema(module)
+    install_pricing_profiles(module)
     install_ocr(module)
     install_price_integration(module)
     install_product_catalog(module)
@@ -49,6 +51,7 @@ def install(module) -> None:
     install_automatic_updates(module)
 
     module._turto_platform_v6339 = True
+    module._turto_platform_v6340 = True
 
 
 __all__ = ["install"]
