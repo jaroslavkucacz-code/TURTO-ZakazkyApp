@@ -1,7 +1,9 @@
-• Přijaté nabídky dodavatelů už nejsou automatickým zdrojem Katalogu produktů. Jejich import nevytváří nové katalogové výrobky, nepřipojuje položky ke katalogu a nemění interní produktové údaje.
-• Automatická i ruční volba „Dosynchronizovat Ceníky“ nyní zpracovává výhradně řádné Ceníky. Počet nespojených položek v Katalogu se počítá pouze z Ceníků.
-• V Přijatých nabídkách přibylo tlačítko „Překlopit do Vydané nabídky“. Vybraná nabídka se otevře jako nový neuložený koncept Vydané nabídky se všemi položkami, množstvím, měrnou jednotkou a nákupní cenou.
-• Překlopené řádky jsou samostatné cenové snímky a mají vždy prázdnou vazbu na Katalog produktů, a to i u starších nabídek, které byly v minulosti automaticky propojené.
-• Marže a prodejní sleva se při překlopení předvyplní podle lokální skupiny nebo podskupiny položky. Odběratele, Akci, ceny i slevy lze před uložením Vydané nabídky běžně upravit.
-• Volba „Označit jako Ceník“ zůstává zachována jako vědomý způsob, jak z přijatého dokumentu vytvořit dlouhodobý Ceník. Teprve položky takto vytvořeného Ceníku se mohou synchronizovat do Katalogu.
-• Již existující katalogové záznamy ani historické vazby se automaticky nemažou. Aktualizace zastavuje další nechtěné propisování bez ztráty historie, archivů, přijatých či vydaných nabídek a PDF revizí.
+• Dialog Poptávka nyní v části „Podobné předchozí poptávky“ zobrazuje výhradně poptávky patřící ke stejné Akci. Podobnost názvu materiálu už výsledky nerozšiřuje o jiné Akce.
+• Tabulátor v dialogových formulářích přeskakuje pomocná tlačítka jako „+ Nová společnost“, „+ Nová akce“, správce číselníku nebo kalendář. V Poptávce vede pořadí přímo Dodavatel → Odběratel → Akce.
+• Výběr Akce v dialogu Příležitost má stejné rozložení jako výběr Společnosti: našeptávač a tlačítko „+ Nová akce“ jsou v jednom společném řádku a mají sjednocené zarovnání.
+• Šířky sloupců tabulek se ukládají samostatně pro každého uživatele. Po opětovném spuštění se obnoví a poslední viditelný sloupec automaticky vyplní volnou šířku, takže podbarvení řádků pokračuje až k pravému okraji bez bílého pruhu.
+• Cenové tabulky, Ceníky, Přijaté a Vydané nabídky, Katalog produktů a obdobné obchodní přehledy mají po kliknutí pravým tlačítkem na záhlaví volbu „Nastavit zobrazené sloupce…“. Sloupce lze skrývat, znovu zobrazovat a měnit jejich pořadí; nastavení se ukládá pro uživatele.
+• Archivace Poptávek nově zpracuje všechny označené řádky najednou. Před potvrzením zobrazí počet a náhled vybraných záznamů a pro každou poptávku zachová samostatný zápis v historii.
+• Položky Vydané nabídky vždy zobrazují Skupinu a Podskupinu. Produkty stejné podskupiny se v editoru i PDF seskupí pod jediný společný nadpis, i když byly původně vloženy v různých částech seznamu.
+• Název skupiny a podskupiny se ukládá jako cenový snímek řádku Vydané nabídky. Pozdější přejmenování nebo přesun výrobku v Katalogu proto nezmění starší uloženou nabídku ani její PDF revizi.
+• Databázová změna je pouze aditivní. Existující Poptávky, Ceníky, Přijaté nabídky, Vydané nabídky, PDF revize, archivy i uživatelská data zůstávají zachovány.
