@@ -104,6 +104,27 @@ text = replace_once(
 write(path, text)
 
 
+path = "scripts/validate-6341-offer-catalog-separation.py"
+text = read(path)
+text = replace_once(
+    text,
+    '''            CREATE TABLE projects(
+              id INTEGER PRIMARY KEY, name TEXT, active INTEGER DEFAULT 1
+            );
+''',
+    '''            CREATE TABLE business_document_templates(
+              id INTEGER PRIMARY KEY, document_type TEXT, active INTEGER DEFAULT 1,
+              is_default INTEGER DEFAULT 0
+            );
+            CREATE TABLE projects(
+              id INTEGER PRIMARY KEY, name TEXT, active INTEGER DEFAULT 1
+            );
+''',
+    "validate 6341 issued-offer template fixture",
+)
+write(path, text)
+
+
 path = ".github/workflows/publish-update.yml"
 text = read(path)
 text = replace_once(text, '      - scripts/validate-6340-manual-products-pricing.py\n', '      - scripts/validate-6340-manual-products-pricing.py\n      - scripts/validate-6341-offer-catalog-separation.py\n', "publish workflow test path")
