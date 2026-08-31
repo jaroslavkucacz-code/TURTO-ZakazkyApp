@@ -1842,8 +1842,7 @@ def _offer_summary_values(M):
                             AND NOT (o.project_id IS NOT NULL AND o.action_id IS NULL) THEN 1 ELSE 0 END) unassigned,
               SUM(CASE WHEN coalesce(o.archived,0)=0 AND EXISTS(
                     SELECT 1 FROM supplier_offer_items i
-                    LEFT JOIN catalog_products cp ON cp.id=i.catalog_product_id
-                    WHERE i.offer_id=o.id AND coalesce(cp.category_id,i.category_id) IS NULL
+                    WHERE i.offer_id=o.id AND i.category_id IS NULL
                   ) THEN 1 ELSE 0 END) uncategorized,
               SUM(CASE WHEN coalesce(o.archived,0)=0 AND EXISTS(
                     SELECT 1 FROM price_lists p WHERE p.source_offer_id=o.id
@@ -1897,10 +1896,11 @@ def build_offers(M, app):
     for child in page.winfo_children():
         child.destroy()
     app._offer_drop_area_ready = True
-    app.title_label(page, "Nabídky")
+    app.title_label(page, "Přijaté nabídky")
     M.ttk.Label(
         page,
-        text="Přijaté cenové nabídky dodavatelů, jejich vazby na Akce a propojení s katalogem produktů.",
+        text=("Přijaté cenové nabídky zůstávají samostatné. Vybranou nabídku lze překlopit "
+              "do Vydané nabídky nebo ji výslovně označit jako Ceník."),
         style="PageSubtitle.TLabel",
     ).pack(anchor="w", pady=(0, 7))
 
@@ -1930,7 +1930,7 @@ def build_offers(M, app):
         ("Aktivních nabídek", "active", "Aktivní"),
         ("Posledních 30 dní", "recent", "Posledních 30 dní"),
         ("Nepřiřazených", "unassigned", "Nepřiřazené"),
-        ("Bez zařazení produktů", "uncategorized", "Bez zařazení"),
+        ("Bez zařazení položek", "uncategorized", "Bez zařazení"),
         ("Evidovaných jako Ceník", "pricelists", "Ceníky"),
         ("Archivovaných", "archived", "Archivované"),
     )
@@ -2031,7 +2031,11 @@ def build_offers(M, app):
     app.offer_selection_label.pack(anchor="w", pady=(8, 4))
     actions = M.ttk.Frame(detail_side, style="Panel.TFrame")
     actions.pack(fill="x")
-    M.ttk.Button(actions, text="Otevřít detail", style="Accent.TButton", command=app.open_offer_detail).pack(fill="x")
+    M.ttk.Button(actions, text="Otevřít detail", command=app.open_offer_detail).pack(fill="x")
+    M.ttk.Button(
+        actions, text="Překlopit do Vydané nabídky", style="Accent.TButton",
+        command=lambda: _offer_to_issued_offer(M, app),
+    ).pack(fill="x", pady=(5, 0))
     if callable(getattr(app, "export_selected_offer_excel", None)):
         M.ttk.Button(actions, text="Extrakce dat", command=app.export_selected_offer_excel).pack(fill="x", pady=(5, 0))
     M.ttk.Button(actions, text="Označit jako Ceník", command=lambda: _offer_to_price_list(M, app)).pack(fill="x", pady=(5, 0))
@@ -2046,6 +2050,7 @@ def build_offers(M, app):
 
     context = M.tk.Menu(app.offer_tree, tearoff=False)
     context.add_command(label="Otevřít detail", command=app.open_offer_detail)
+    context.add_command(label="Překlopit do Vydané nabídky", command=lambda: _offer_to_issued_offer(M, app))
     context.add_command(label="Označit jako Ceník…", command=lambda: _offer_to_price_list(M, app))
     context.add_separator()
     context.add_command(label="Archivovat vybrané", command=lambda: _archive_offers(M, app, False))
@@ -2122,8 +2127,7 @@ def refresh_offers(M, app):
     )
     uncategorized_exists = (
         "EXISTS(SELECT 1 FROM supplier_offer_items ux "
-        "LEFT JOIN catalog_products cpx ON cpx.id=ux.catalog_product_id "
-        "WHERE ux.offer_id=o.id AND coalesce(cpx.category_id,ux.category_id) IS NULL)"
+        "WHERE ux.offer_id=o.id AND ux.category_id IS NULL)"
     )
     price_list_exists = "EXISTS(SELECT 1 FROM price_lists px WHERE px.source_offer_id=o.id)"
     where = []
@@ -2319,6 +2323,40 @@ def _archive_offers(M, app, restore):
     archive._archive_rows(M, "offers", ids, M.get_setting("active_user", ""), restore=restore)
     app._commercial_offer_summary_cache = None
     refresh_offers(M, app)
+
+
+def _offer_to_issued_offer(M, app):
+    """Open an unsaved issued offer populated from one received offer."""
+    ids = _selected_offer_ids(app)
+    if len(ids) != 1:
+        return M.messagebox.showinfo(
+            "Přijaté nabídky",
+            "Vyberte právě jednu přijatou nabídku.",
+            parent=app,
+        )
+    try:
+        from ..issued_offers import service as issued_service
+        document, items = issued_service.draft_from_supplier_offer(M, ids[0])
+    except Exception as exc:
+        return M.messagebox.showerror(
+            "Přijaté nabídky",
+            "Položky se nepodařilo připravit pro Vydanou nabídku:\n\n" + str(exc),
+            parent=app,
+        )
+    if not items:
+        return M.messagebox.showinfo(
+            "Přijaté nabídky",
+            "Vybraná nabídka neobsahuje žádné položky.",
+            parent=app,
+        )
+    opener = getattr(app, "open_issued_offer_editor", None)
+    if not callable(opener):
+        return M.messagebox.showerror(
+            "Přijaté nabídky",
+            "Editor Vydaných nabídek není v této instalaci dostupný.",
+            parent=app,
+        )
+    return opener(initial_document=document, initial_items=items)
 
 
 def _offer_to_price_list(M, app):

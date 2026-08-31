@@ -396,6 +396,151 @@ def calculate_totals(items: Iterable[dict[str, Any]], global_discount_pct: Any =
     )
 
 
+
+def draft_from_supplier_offer(M, offer_id: int) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Build an unsaved issued-offer draft from one received supplier offer.
+
+    The source rows are copied as immutable purchase-price snapshots. Even when
+    an older database row still has a legacy ``catalog_product_id`` linkage, the
+    new issued line deliberately stores ``catalog_product_id=None``. This action
+    therefore never creates, updates, or depends on a catalogue product.
+    """
+    offer_id = int(offer_id)
+    with M.db() as con:
+        offer_row = con.execute(
+            """SELECT o.*,
+                      coalesce(nullif(trim(c.official_name),''),nullif(trim(c.short_name),''),
+                               nullif(trim(o.supplier_name),''),'') supplier
+                 FROM supplier_offers o
+                 LEFT JOIN companies c ON c.id=o.supplier_company_id
+                WHERE o.id=?""",
+            (offer_id,),
+        ).fetchone()
+        if not offer_row:
+            raise ValueError("Přijatá nabídka už v databázi neexistuje.")
+
+        item_columns = {str(row[1]) for row in con.execute("PRAGMA table_info(supplier_offer_items)")}
+        order_sql = "position,id" if "position" in item_columns else "id"
+        item_rows = con.execute(
+            f"SELECT * FROM supplier_offer_items WHERE offer_id=? ORDER BY {order_sql}",
+            (offer_id,),
+        ).fetchall()
+
+        offer = dict(offer_row)
+        action_id = int(offer["action_id"]) if offer.get("action_id") else None
+        project_id = int(offer["project_id"]) if offer.get("project_id") else None
+        request_id = int(offer["request_id"]) if offer.get("request_id") else None
+
+        if request_id and not action_id:
+            request_columns = {str(row[1]) for row in con.execute("PRAGMA table_info(requests)")}
+            if "action_id" in request_columns:
+                request = con.execute("SELECT action_id FROM requests WHERE id=?", (request_id,)).fetchone()
+                if request and request[0]:
+                    action_id = int(request[0])
+
+        action_name = ""
+        if action_id:
+            action_columns = {str(row[1]) for row in con.execute("PRAGMA table_info(actions)")}
+            select_parts = ["name" if "name" in action_columns else "'' name"]
+            select_parts.append("project_id" if "project_id" in action_columns else "NULL project_id")
+            action = con.execute(
+                f"SELECT {','.join(select_parts)} FROM actions WHERE id=?",
+                (action_id,),
+            ).fetchone()
+            if action:
+                action_name = str(action["name"] or "")
+                if not project_id and action["project_id"]:
+                    project_id = int(action["project_id"])
+
+        project_name = ""
+        if project_id:
+            project_columns = {str(row[1]) for row in con.execute("PRAGMA table_info(projects)")}
+            if "name" in project_columns:
+                project = con.execute("SELECT name FROM projects WHERE id=?", (project_id,)).fetchone()
+                if project:
+                    project_name = str(project[0] or "")
+
+    supplier = str(offer.get("supplier") or "").strip()
+    source_reference = str(offer.get("offer_number") or offer.get("reference") or f"ID {offer_id}").strip()
+    currency = str(offer.get("currency") or "CZK").strip().upper() or "CZK"
+    source_label = f"Přijatá nabídka {source_reference}"
+
+    document = offer_defaults(M)
+    document.update(
+        company_id=None,
+        customer_contact_id=None,
+        customer_name_snapshot="",
+        customer_contact_snapshot="",
+        project_id=project_id,
+        action_id=action_id,
+        project_name=project_name,
+        action_name=action_name,
+        currency=currency,
+        offer_subject=project_name or action_name or "",
+        customer_reference="",
+        internal_note=(
+            f"Zdroj: {source_label}"
+            + (f" · dodavatel {supplier}" if supplier else "")
+            + f" · interní ID {offer_id}. Položky byly převzaty bez zápisu do Katalogu produktů."
+        ),
+    )
+
+    from ..platform import product_catalog
+
+    items: list[dict[str, Any]] = []
+    for position, source_row in enumerate(item_rows, 1):
+        row = dict(source_row)
+        purchase = number(row.get("unit_price"))
+        if purchase <= 0:
+            purchase = number(row.get("original_unit_price"))
+        quantity = number(row.get("quantity"), 1)
+        if quantity <= 0:
+            quantity = 1.0
+        category_id = int(row["category_id"]) if row.get("category_id") else None
+        subgroup_id = int(row["subgroup_id"]) if row.get("subgroup_id") else None
+        policy = product_catalog.pricing_policy(M, category_id, subgroup_id)
+        recommended, sale = product_catalog.calculate_prices(
+            purchase, policy["margin_pct"], policy["discount_pct"]
+        )
+        product_code = str(row.get("product_code") or row.get("item_key") or "").strip()
+        item_key = str(row.get("item_key") or product_code).strip()
+        name = str(row.get("original_name") or item_key or product_code or "Položka").strip()
+        description = str(row.get("details") or "").strip()
+        item = normalize_item(
+            {
+                "position": position,
+                "row_type": "product",
+                "product_code": product_code,
+                "item_key": item_key,
+                "name": name,
+                "description": description,
+                "quantity": quantity,
+                "unit": str(row.get("unit") or "ks").strip() or "ks",
+                "purchase_unit_price": purchase,
+                "purchase_currency": currency,
+                "margin_pct": policy["margin_pct"],
+                "recommended_unit_price": recommended,
+                "discount_pct": policy["discount_pct"],
+                "unit_price": sale,
+                "total_price": quantity * sale,
+                "vat_rate": 21.0,
+                "show_recommended_price": 1 if policy.get("show_recommended_price", True) else 0,
+                "category_id": category_id,
+                "subgroup_id": subgroup_id,
+                "catalog_product_id": None,
+                "internal_code_snapshot": product_code,
+                "internal_name_snapshot": name,
+                "price_source_label": source_label + (f" · {supplier}" if supplier else ""),
+                "source_price_list_item_id": None,
+                "source_supplier_offer_item_id": row.get("id"),
+                "line_note": "",
+            },
+            position,
+        )
+        items.append(item)
+    return document, items
+
+
 def _sequence_number(con, M, issue_date: str) -> str:
     parsed = iso_date(issue_date, date.today().isoformat())
     year = int(parsed[:4])
