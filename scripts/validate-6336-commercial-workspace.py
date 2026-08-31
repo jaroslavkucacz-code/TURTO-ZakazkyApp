@@ -171,6 +171,10 @@ def main() -> None:
                 """INSERT INTO catalog_products(manufacturer_name,internal_code,internal_name,category_id,subgroup_id,active)
                    VALUES('Leviat','T-001','HBB V-Box',?,?,1)""", (group_id, subgroup_id)
             ).lastrowid
+            second_product_id = con.execute(
+                """INSERT INTO catalog_products(manufacturer_name,internal_code,internal_name,category_id,subgroup_id,active)
+                   VALUES('Alfa','T-002','Levnější výrobek',?,?,1)""", (group_id, subgroup_id)
+            ).lastrowid
             con.execute(
                 """INSERT INTO price_lists(id,supplier_company_id,supplier_name,title,valid_from,valid_to,product_group,branch,
                    update_mode,archived,source_filename,imported_at,parse_status,category_id)
@@ -183,6 +187,13 @@ def main() -> None:
                    normalized_unit_price,weight_unit,minimum_qty,package_qty,package_unit,dimensions,category_id,subgroup_id,catalog_product_id
                    ) VALUES(1,1,1,'1000204611','1000204611','HALFEN HBB V-Box','ks',100,'CZK',1,100,5,10,1,'ks','161x254x151',?,?,?)""",
                 (group_id, subgroup_id, product_id),
+            )
+            con.execute(
+                """INSERT INTO price_list_items(
+                   id,price_list_id,active,product_code,item_key,name,unit,source_price,currency,price_basis_qty,
+                   normalized_unit_price,category_id,subgroup_id,catalog_product_id
+                   ) VALUES(3,1,1,'ALFA-80','ALFA-80','Levnější výrobek','ks',80,'CZK',1,80,?,?,?)""",
+                (group_id, subgroup_id, second_product_id),
             )
             con.execute(
                 """INSERT INTO price_lists(id,supplier_company_id,supplier_name,title,valid_from,valid_to,product_group,branch,
@@ -219,7 +230,7 @@ def main() -> None:
             con.commit()
 
         price_summary = workspace._price_summary_values(module)
-        assert price_summary["items"] == 1, price_summary
+        assert price_summary["items"] == 2, price_summary
         assert price_summary["active"] == 1, price_summary
         assert price_summary["review"] == 1, price_summary
         assert price_summary["expiring"] == 1, price_summary
@@ -239,7 +250,8 @@ def main() -> None:
             price_current_tree=Tree(price_columns), price_current_rows={}, price_current_row_data={},
             price_effective_date=Var(today.isoformat()), price_q=Var(""), price_supplier_filter=Var(""),
             price_category_filter=Var("Všechny"), price_subgroup_filter=Var(""), price_group_filter=Var(""),
-            price_price_scope=Var("Ověřené"), price_page_size=Var("250"), price_page=0,
+            price_price_scope=Var("Ověřené"), price_sort_mode=Var("Skupina → podskupina → produkt"),
+            price_page_size=Var("250"), price_page=0,
             price_current_status=Var(""), price_prev_button=Button(), price_next_button=Button(),
             price_current_detail_title=Var(""), price_current_detail_subtitle=Var(""),
             price_current_detail_vars={key: Var("—") for key in (
@@ -248,11 +260,22 @@ def main() -> None:
             )},
         )
         workspace._refresh_current(module, price_app)
-        assert tuple(price_app.price_current_tree.rows) == ("pc1",), price_app.price_current_tree.rows
+        assert tuple(price_app.price_current_tree.rows) == ("pc1", "pc3"), price_app.price_current_tree.rows
         values = price_app.price_current_tree.rows["pc1"]["values"]
         assert values[0] == "T-001" and "112,50" in values[13], values
         assert "100,00 CZK / 1 ks" in values[9], values[9]
         assert "končí za 10" in values[20], values[20]
+
+        price_app.price_sort_mode.set("Nákupní cena ↑")
+        workspace._refresh_current(module, price_app)
+        assert tuple(price_app.price_current_tree.rows) == ("pc3", "pc1")
+        price_app.price_sort_mode.set("Nákupní cena ↓")
+        workspace._refresh_current(module, price_app)
+        assert tuple(price_app.price_current_tree.rows) == ("pc1", "pc3")
+        price_app.price_sort_mode.set("Výrobce A–Z")
+        workspace._refresh_current(module, price_app)
+        assert tuple(price_app.price_current_tree.rows) == ("pc3", "pc1")
+        price_app.price_sort_mode.set("Skupina → podskupina → produkt")
 
         price_app.price_price_scope.set("Ke kontrole")
         workspace._refresh_current(module, price_app)

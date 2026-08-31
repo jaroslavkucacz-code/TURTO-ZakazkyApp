@@ -172,6 +172,25 @@ def main() -> None:
         assert root._current_page == "dash"
         assert not callback_errors, "\n".join(callback_errors)
 
+        # The current-price page must expose the 6.3.39 hierarchy, SQL sort and
+        # direct-edit controls in the fully composed production application.
+        root.show_page("pricelists")
+        until = time.monotonic() + 1.0
+        while time.monotonic() < until:
+            root.update()
+            time.sleep(0.01)
+        assert root._current_page == "pricelists"
+        price_taxonomy = getattr(root, "price_taxonomy_tree", None)
+        assert price_taxonomy is not None and price_taxonomy.winfo_exists()
+        assert price_taxonomy.exists("pt_all") and price_taxonomy.exists("pt_unassigned")
+        assert any(str(iid).startswith("pt_g") for iid in price_taxonomy.get_children(""))
+        assert getattr(root, "price_sort_mode", None) is not None
+        assert getattr(root, "price_undo_move_button", None) is not None
+        assert getattr(root, "price_edit_product_button", None) is not None
+        assert not callback_errors, "\n".join(callback_errors)
+        root.show_page("dash")
+        root.update()
+
         # Open the actual catalogue against the isolated additive schema. This
         # catches modal-grab, SQL-column and Treeview integration regressions.
         root.open_product_catalog()
@@ -208,7 +227,40 @@ def main() -> None:
         workspace_api = getattr(catalogue, "_turto_product_workspace", None)
         assert workspace_api and workspace_api["structure_tree"] is structure
         assert workspace_api["product_tree"] is product_trees[0]
+        assert callable(workspace_api.get("undo_last_move"))
+        assert workspace_api.get("sort_mode") is not None
         catalogue.destroy()
+        root.update()
+        assert not callback_errors, "\n".join(callback_errors)
+
+        # The hierarchy manager is modal by design. Schedule inspection and close
+        # it from inside Tk's nested event loop to verify the real split editor.
+        from price_lists_domain.platform import categories as category_manager
+        manager_result = {}
+
+        def inspect_category_manager():
+            manager = next((
+                child for child in root.winfo_children()
+                if isinstance(child, app.tk.Toplevel) and child.winfo_exists()
+                and child.title() == "Produktové skupiny a podskupiny"
+            ), None)
+            try:
+                assert manager is not None
+                manager_trees = [widget for widget in walk(manager) if isinstance(widget, app.ttk.Treeview)]
+                assert len(manager_trees) == 1
+                assert {"Typ", "Stav", "Produktů", "Ceníků", "Nabídek"}.issubset(
+                    set(manager_trees[0]["columns"])
+                )
+                manager_result["ok"] = True
+            except Exception:
+                manager_result["error"] = traceback.format_exc()
+            finally:
+                if manager is not None and manager.winfo_exists():
+                    manager.destroy()
+
+        root.after(80, inspect_category_manager)
+        category_manager.manage_categories(app, root)
+        assert manager_result.get("ok"), manager_result.get("error") or manager_result
         root.update()
         assert not callback_errors, "\n".join(callback_errors)
 
@@ -223,7 +275,7 @@ def main() -> None:
 
         # Dialog errors during startup indicate a real integration failure.
         assert not dialog_errors, dialog_errors
-        print(f"TURTO CRM 6.3.35 real Tk navigation test: OK ({click_elapsed:.3f} s / 240 clicks)")
+        print(f"TURTO CRM 6.3.39 real Tk navigation test: OK ({click_elapsed:.3f} s / 240 clicks)")
     finally:
         try:
             if root is not None and root.winfo_exists():

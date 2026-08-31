@@ -11,7 +11,13 @@ on:
       - scripts/validate-ui-navigation.py
       - scripts/validate-auto-update.py
       - scripts/validate-6337-issued-offers.py
+      - scripts/validate-6339-catalog-price-ux.py
       - ZakazkyApp_base_6.1/price_lists_domain/issued_offers/**
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/categories.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/product_catalog.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/product_workspace.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/commercial_workspace.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/__init__.py
       - ZakazkyApp_base_6.1/price_lists_domain/__init__.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/automatic_updates.py
       - .github/workflows/publish-update.yml
@@ -52,6 +58,10 @@ jobs:
       - name: Validate issued offers, numbering and PDF revisions
         shell: bash
         run: python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
+
+      - name: Validate catalogue hierarchy and current-price UX
+        shell: bash
+        run: python scripts/validate-6339-catalog-price-ux.py ZakazkyApp_base_6.1
 
       - name: Build, validate and publish
         shell: bash

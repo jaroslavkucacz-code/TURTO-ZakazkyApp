@@ -57,6 +57,9 @@ jobs:
       - name: Commercial Ceníky and Nabídky workspace regression test
         run: python scripts/validate-6336-commercial-workspace.py ZakazkyApp_base_6.1
 
+      - name: Catalogue hierarchy and current-price UX regression test
+        run: python scripts/validate-6339-catalog-price-ux.py ZakazkyApp_base_6.1
+
       - name: Issued offers, numbering and PDF revision regression test
         run: python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
 

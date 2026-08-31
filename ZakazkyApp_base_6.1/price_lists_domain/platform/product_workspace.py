@@ -168,8 +168,9 @@ def _structure_rows(M, include_inactive_products: bool = False):
 
 def _catalog_rows(
     M, scope: dict, query: str = "", manufacturer: str = "", show_inactive: bool = False,
-    limit: int = 250, offset: int = 0,
+    limit: int = 250, offset: int = 0, sort_mode: str = "Skupina → podskupina → produkt",
 ):
+    """Return one SQL-filtered page in the user-selected deterministic order."""
     where = ["1=1"]
     params: list[object] = []
     if not show_inactive:
@@ -202,35 +203,58 @@ def _catalog_rows(
           FROM catalog_product_sources GROUP BY product_id
         ) src ON src.product_id=cp.id
     """
+    sort_map = {
+        "Skupina → podskupina → produkt": (
+            "coalesce(category_sort,2147483647),category COLLATE CZECH,"
+            "coalesce(subgroup_sort,2147483647),subgroup COLLATE CZECH,"
+            "coalesce(nullif(trim(internal_name),''),source_name,'') COLLATE CZECH,id"
+        ),
+        "Interní označení A–Z": "coalesce(nullif(trim(internal_name),''),source_name,'') COLLATE CZECH,id",
+        "Výrobce A–Z": "coalesce(nullif(trim(manufacturer_name),''),suppliers,'') COLLATE CZECH,source_name COLLATE CZECH,id",
+        "Dodavatel A–Z": "suppliers COLLATE CZECH,source_name COLLATE CZECH,id",
+        "Nákupní cena ↑": "CASE WHEN current_price IS NULL THEN 1 ELSE 0 END,current_price ASC,id",
+        "Nákupní cena ↓": "CASE WHEN current_price IS NULL THEN 1 ELSE 0 END,current_price DESC,id",
+        "Výsledná cena ↑": (
+            "CASE WHEN current_price IS NULL THEN 1 ELSE 0 END,"
+            "(current_price*(1+margin_pct/100.0)*(1-discount_pct/100.0)) ASC,id"
+        ),
+        "Výsledná cena ↓": (
+            "CASE WHEN current_price IS NULL THEN 1 ELSE 0 END,"
+            "(current_price*(1+margin_pct/100.0)*(1-discount_pct/100.0)) DESC,id"
+        ),
+    }
+    order_sql = sort_map.get(str(sort_mode or ""), sort_map["Skupina → podskupina → produkt"])
+    select_sql = """SELECT cp.id,cp.active,cp.category_id,cp.subgroup_id,
+                          cp.manufacturer_name,cp.internal_code,cp.internal_name,
+                          coalesce(c.name,'Nezařazeno') category,coalesce(sg.name,'') subgroup,
+                          c.sort_order category_sort,sg.sort_order subgroup_sort,
+                          coalesce(sg.default_margin_pct,c.default_margin_pct,0) margin_pct,
+                          coalesce(sg.default_discount_pct,c.default_discount_pct,0) discount_pct,
+                          coalesce(c.show_recommended_price,1) show_recommended_price,
+                          coalesce(src.suppliers,'') suppliers,coalesce(src.source_code,'') source_code,
+                          coalesce(src.source_name,'') source_name,
+                          (SELECT COUNT(DISTINCT i.price_list_id) FROM price_list_items i
+                            WHERE i.catalog_product_id=cp.id) price_lists,
+                          (SELECT COUNT(DISTINCT i.offer_id) FROM supplier_offer_items i
+                            WHERE i.catalog_product_id=cp.id) offers,
+                          (SELECT i.normalized_unit_price FROM price_list_items i
+                            JOIN price_lists p ON p.id=i.price_list_id
+                            WHERE i.catalog_product_id=cp.id AND i.active=1 AND p.archived=0
+                              AND p.valid_from<=? AND (trim(coalesce(p.valid_to,''))='' OR p.valid_to>=?)
+                            ORDER BY p.valid_from DESC,p.id DESC,i.id DESC LIMIT 1) current_price,
+                          (SELECT i.currency FROM price_list_items i
+                            JOIN price_lists p ON p.id=i.price_list_id
+                            WHERE i.catalog_product_id=cp.id AND i.active=1 AND p.archived=0
+                              AND p.valid_from<=? AND (trim(coalesce(p.valid_to,''))='' OR p.valid_to>=?)
+                            ORDER BY p.valid_from DESC,p.id DESC,i.id DESC LIMIT 1) current_currency
+                   """ + sql_from + " WHERE " + where_sql
     with M.db() as con:
         total = int(con.execute(
             "SELECT COUNT(*) " + sql_from + " WHERE " + where_sql, params
         ).fetchone()[0] or 0)
         rows = con.execute(
-            """SELECT cp.id,cp.active,cp.category_id,cp.subgroup_id,
-                      cp.manufacturer_name,cp.internal_code,cp.internal_name,
-                      coalesce(c.name,'Nezařazeno') category,coalesce(sg.name,'') subgroup,
-                      coalesce(sg.default_margin_pct,c.default_margin_pct,0) margin_pct,
-                      coalesce(sg.default_discount_pct,c.default_discount_pct,0) discount_pct,
-                      coalesce(c.show_recommended_price,1) show_recommended_price,
-                      coalesce(src.suppliers,'') suppliers,coalesce(src.source_code,'') source_code,
-                      coalesce(src.source_name,'') source_name,
-                      (SELECT COUNT(DISTINCT i.price_list_id) FROM price_list_items i
-                        WHERE i.catalog_product_id=cp.id) price_lists,
-                      (SELECT COUNT(DISTINCT i.offer_id) FROM supplier_offer_items i
-                        WHERE i.catalog_product_id=cp.id) offers,
-                      (SELECT i.normalized_unit_price FROM price_list_items i
-                        JOIN price_lists p ON p.id=i.price_list_id
-                        WHERE i.catalog_product_id=cp.id AND i.active=1 AND p.archived=0
-                          AND p.valid_from<=? AND (trim(coalesce(p.valid_to,''))='' OR p.valid_to>=?)
-                        ORDER BY p.valid_from DESC,p.id DESC,i.id DESC LIMIT 1) current_price,
-                      (SELECT i.currency FROM price_list_items i
-                        JOIN price_lists p ON p.id=i.price_list_id
-                        WHERE i.catalog_product_id=cp.id AND i.active=1 AND p.archived=0
-                          AND p.valid_from<=? AND (trim(coalesce(p.valid_to,''))='' OR p.valid_to>=?)
-                        ORDER BY p.valid_from DESC,p.id DESC,i.id DESC LIMIT 1) current_currency
-               """ + sql_from + " WHERE " + where_sql +
-            " ORDER BY cp.manufacturer_name COLLATE CZECH,src.source_name COLLATE CZECH,cp.id LIMIT ? OFFSET ?",
+            "WITH product_rows AS (" + select_sql + ") SELECT * FROM product_rows ORDER BY " + order_sql +
+            " LIMIT ? OFFSET ?",
             [today, today, today, today] + params + [max(1, int(limit)), max(0, int(offset))],
         ).fetchall()
         summary = con.execute(
@@ -260,8 +284,8 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         )
         M.ttk.Label(
             outer,
-            text=("Vlevo vyberte skupinu nebo podskupinu. Vpravo se ihned zobrazí její produkty; "
-                  "vybrané řádky můžete přesunout přímo do označené části katalogu."),
+            text=("Vlevo vyberte skupinu nebo podskupinu. Produkty můžete upravit dvojklikem nebo je myší "
+                  "přetáhnout přímo na cílovou skupinu; poslední přesun lze jedním tlačítkem vrátit."),
             style="PageSubtitle.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(2, 8))
         workspace_row = 2
@@ -285,7 +309,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         row=0, column=0, sticky="w"
     )
     M.ttk.Label(
-        left, text="Kliknutím filtrujete produkty. Šipkou rozbalíte podskupiny.",
+        left, text="Kliknutím filtrujete. Přetažením produktu sem změníte jeho zařazení.",
         style="PageSubtitle.TLabel", wraplength=340,
     ).grid(row=1, column=0, sticky="w", pady=(1, 6))
 
@@ -302,6 +326,10 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
     structure_scroll = M.ttk.Scrollbar(left, orient="vertical", command=structure.yview)
     structure_scroll.grid(row=2, column=1, sticky="ns")
     structure.configure(yscrollcommand=structure_scroll.set)
+    try:
+        structure.tag_configure("drop_target", background="#dcecff", foreground="#17324a")
+    except Exception:
+        pass
 
     left_tools = M.ttk.Frame(left)
     left_tools.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(7, 0))
@@ -319,16 +347,33 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
     filters.grid(row=2, column=0, sticky="ew", pady=(0, 6))
     filters.columnconfigure(0, weight=3)
     filters.columnconfigure(1, weight=2)
+    filters.columnconfigure(2, weight=2)
     query = M.tk.StringVar()
     manufacturer = M.tk.StringVar()
     show_inactive = M.tk.BooleanVar(value=False)
-    for col, label in enumerate(("Hledat produkt, interní kód nebo kód dodavatele", "Výrobce / dodavatel")):
+    sort_options = (
+        "Skupina → podskupina → produkt", "Interní označení A–Z", "Výrobce A–Z", "Dodavatel A–Z",
+        "Nákupní cena ↑", "Nákupní cena ↓", "Výsledná cena ↑", "Výsledná cena ↓",
+    )
+    try:
+        active_user = M.get_setting("active_user", "")
+        stored_sort = M.get_user_setting(active_user, "catalog_product_sort_mode", sort_options[0])
+    except Exception:
+        active_user = ""
+        stored_sort = sort_options[0]
+    sort_mode = M.tk.StringVar(value=stored_sort if stored_sort in sort_options else sort_options[0])
+    for col, label in enumerate((
+        "Hledat produkt, interní kód nebo kód dodavatele", "Výrobce / dodavatel", "Řazení",
+    )):
         M.ttk.Label(filters, text=label, style="FilterLabel.TLabel").grid(row=0, column=col, sticky="w")
     M.ttk.Entry(filters, textvariable=query).grid(row=1, column=0, sticky="ew", padx=(0, 6))
     manufacturer_box = M.AutocompleteEntry(filters, textvariable=manufacturer, values=[])
     manufacturer_box.grid(row=1, column=1, sticky="ew", padx=(0, 6))
-    M.ttk.Checkbutton(filters, text="Zobrazit neaktivní produkty", variable=show_inactive).grid(
-        row=1, column=2, sticky="w"
+    M.safe_combobox(filters, textvariable=sort_mode, values=sort_options, state="readonly").grid(
+        row=1, column=2, sticky="ew", padx=(0, 8)
+    )
+    M.ttk.Checkbutton(filters, text="Zobrazit neaktivní", variable=show_inactive).grid(
+        row=1, column=3, sticky="w"
     )
 
     actions = M.ttk.Frame(right, style="Panel.TFrame", padding=8)
@@ -372,12 +417,25 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         "page": 0,
         "page_size": 250,
         "after": None,
+        "last_move": None,
+        "drag_source": None,
+        "drop_target": None,
+        "drag_started": False,
+        "inactive_scopes": set(),
     }
+
+    def scope_for_iid(iid) -> dict:
+        scope = _scope_from_iid(M, str(iid or _SCOPE_ALL))
+        if scope["iid"] in state.get("inactive_scopes", set()):
+            scope = dict(scope)
+            scope["assignable"] = False
+            scope["label"] = f"{scope['label']} (neaktivní)"
+        return scope
 
     def selected_scope() -> dict:
         selection = structure.selection()
         iid = str(selection[0]) if selection else str(state["scope_iid"])
-        return _scope_from_iid(M, iid)
+        return scope_for_iid(iid)
 
     def refresh_manufacturers():
         with M.db() as con:
@@ -395,6 +453,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         for iid in structure.get_children(""):
             structure.delete(iid)
         totals, groups, subgroups = _structure_rows(M, bool(show_inactive.get()))
+        state["inactive_scopes"] = set()
         structure.insert(
             "", "end", iid=_SCOPE_ALL, text="Všechny produkty",
             values=(totals["product_count"], totals["list_count"], totals["offer_count"]),
@@ -412,23 +471,31 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         for group_row in groups:
             group_id = int(group_row["id"])
             group_iid = f"{_SCOPE_GROUP_PREFIX}{group_id}"
+            group_active = bool(group_row["active"])
             structure.insert(
                 "", "end", iid=group_iid, text=group_row["name"],
                 values=(group_row["product_count"], group_row["list_count"], group_row["offer_count"]),
                 open=(group_iid in opened or selected_category_id == group_id),
-                tags=("status_cancel",) if not group_row["active"] else (),
+                tags=("status_cancel",) if not group_active else (),
             )
+            no_subgroup_iid = f"{_SCOPE_NO_SUBGROUP_PREFIX}{group_id}"
             structure.insert(
-                group_iid, "end", iid=f"{_SCOPE_NO_SUBGROUP_PREFIX}{group_id}",
+                group_iid, "end", iid=no_subgroup_iid,
                 text=categories.NO_SUBGROUP, values=(group_row["no_subgroup_count"], "", ""),
+                tags=("status_cancel",) if not group_active else (),
             )
+            if not group_active:
+                state["inactive_scopes"].update((group_iid, no_subgroup_iid))
             for subgroup_row in by_group.get(group_id, []):
                 subgroup_iid = f"{_SCOPE_SUBGROUP_PREFIX}{subgroup_row['id']}"
+                subgroup_active = group_active and bool(subgroup_row["active"])
                 structure.insert(
                     group_iid, "end", iid=subgroup_iid, text=subgroup_row["name"],
                     values=(subgroup_row["product_count"], subgroup_row["list_count"], subgroup_row["offer_count"]),
-                    tags=("status_cancel",) if not subgroup_row["active"] else (),
+                    tags=("status_cancel",) if not subgroup_active else (),
                 )
+                if not subgroup_active:
+                    state["inactive_scopes"].add(subgroup_iid)
         if not structure.exists(selected_iid):
             selected_iid = _SCOPE_ALL
         state["scope_iid"] = selected_iid
@@ -446,7 +513,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         offset = int(state["page"]) * int(state["page_size"])
         total, rows, summary = _catalog_rows(
             M, scope, query.get(), manufacturer.get(), bool(show_inactive.get()),
-            int(state["page_size"]), offset,
+            int(state["page_size"]), offset, sort_mode.get(),
         )
         from ..storage import _format_price
         for row in rows:
@@ -500,7 +567,10 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         refresh_products()
 
     def update_selection_status(*_):
-        selection_status.set(f"Vybráno: {len(_selected_product_ids(products))}")
+        count = len(_selected_product_ids(products))
+        selection_status.set(
+            f"Vybráno: {count}" + (" · přetáhněte na skupinu vlevo" if count else "")
+        )
 
     def edit_selected():
         ids = _selected_product_ids(products)
@@ -508,7 +578,32 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
             return M.messagebox.showinfo("Katalog produktů", "Vyberte právě jeden produkt.", parent=parent)
         product_catalog._edit_product(M, app, parent, ids[0], lambda: refresh_all(state["scope_iid"]))
 
-    def move_to_scope(target_scope: dict):
+    def snapshot_taxonomy(ids):
+        if not ids:
+            return []
+        marks = ",".join("?" for _ in ids)
+        with M.db() as con:
+            rows = con.execute(
+                f"SELECT id,category_id,subgroup_id FROM catalog_products WHERE id IN ({marks})", ids
+            ).fetchall()
+        return [
+            (int(row["id"]), int(row["category_id"]) if row["category_id"] else None,
+             int(row["subgroup_id"]) if row["subgroup_id"] else None)
+            for row in rows
+        ]
+
+    def select_moved(ids):
+        found = []
+        for product_id in ids:
+            iid = f"cp{int(product_id)}"
+            if products.exists(iid):
+                found.append(iid)
+        if found:
+            products.selection_set(found)
+            products.see(found[0])
+            update_selection_status()
+
+    def move_to_scope(target_scope: dict, confirm: bool = True, source: str = "button"):
         ids = _selected_product_ids(products)
         if not ids:
             return M.messagebox.showinfo("Katalog produktů", "Vyberte jeden nebo více produktů.", parent=parent)
@@ -518,7 +613,12 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
                 "Jako cíl vyberte vlevo konkrétní skupinu, podskupinu, „Bez podskupiny“ nebo „Nezařazené“.",
                 parent=parent,
             )
-        if not M.messagebox.askyesno(
+        before = snapshot_taxonomy(ids)
+        target = (target_scope.get("category_id"), target_scope.get("subgroup_id"))
+        if before and all((category_id, subgroup_id) == target for _pid, category_id, subgroup_id in before):
+            status.set(f"Vybrané produkty už jsou v: {target_scope['label']}")
+            return
+        if confirm and not M.messagebox.askyesno(
             "Přesunout produkty",
             f"Přesunout vybrané produkty ({len(ids)}) do:\n\n{target_scope['label']}?\n\n"
             "Změna se automaticky projeví ve všech jejich Ceníkách i cenových Nabídkách.",
@@ -528,8 +628,39 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         product_catalog.set_product_taxonomy(
             M, ids, target_scope.get("category_id"), target_scope.get("subgroup_id")
         )
+        state["last_move"] = {
+            "rows": before,
+            "label": target_scope["label"],
+            "ids": list(ids),
+        }
+        undo_button.state(["!disabled"])
         product_catalog._invalidate(app)
         refresh_all(target_scope["iid"])
+        select_moved(ids)
+        verb = "Přetaženo" if source == "drag" else "Přesunuto"
+        status.set(f"{verb} produktů: {len(ids)} → {target_scope['label']} · poslední přesun lze vrátit")
+
+    def undo_last_move():
+        move = state.get("last_move")
+        if not move:
+            return
+        grouped: dict[tuple[object, object], list[int]] = {}
+        for product_id, category_id, subgroup_id in move["rows"]:
+            grouped.setdefault((category_id, subgroup_id), []).append(product_id)
+        for (category_id, subgroup_id), ids in grouped.items():
+            product_catalog.set_product_taxonomy(M, ids, category_id, subgroup_id)
+        restored_ids = [row[0] for row in move["rows"]]
+        first = move["rows"][0] if move["rows"] else (None, None, None)
+        first_scope = (
+            f"{_SCOPE_SUBGROUP_PREFIX}{first[2]}" if first[2] else
+            f"{_SCOPE_NO_SUBGROUP_PREFIX}{first[1]}" if first[1] else _SCOPE_UNASSIGNED
+        )
+        state["last_move"] = None
+        undo_button.state(["disabled"])
+        product_catalog._invalidate(app)
+        refresh_all(first_scope)
+        select_moved(restored_ids)
+        status.set(f"Poslední přesun byl vrácen · obnoveno produktů: {len(restored_ids)}")
 
     def move_selected_here():
         move_to_scope(selected_scope())
@@ -550,9 +681,72 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
             f"{_SCOPE_SUBGROUP_PREFIX}{target_subgroup}" if target_subgroup else
             f"{_SCOPE_NO_SUBGROUP_PREFIX}{target_category}" if target_category else _SCOPE_UNASSIGNED
         )
-        product_catalog.set_product_taxonomy(M, ids, target_category, target_subgroup)
-        product_catalog._invalidate(app)
-        refresh_all(target_iid)
+        move_to_scope(_scope_from_iid(M, target_iid), confirm=False)
+
+    def clear_drop_target():
+        iid = state.get("drop_target")
+        if iid and structure.exists(iid):
+            tags = tuple(tag for tag in structure.item(iid, "tags") if tag != "drop_target")
+            structure.item(iid, tags=tags)
+        state["drop_target"] = None
+        try:
+            structure.configure(cursor="")
+            products.configure(cursor="")
+        except Exception:
+            pass
+
+    def mark_drop_target(iid):
+        if iid == state.get("drop_target"):
+            return
+        clear_drop_target()
+        scope = scope_for_iid(iid)
+        if iid and structure.exists(iid) and scope.get("assignable"):
+            tags = tuple(structure.item(iid, "tags"))
+            structure.item(iid, tags=tags + (() if "drop_target" in tags else ("drop_target",)))
+            state["drop_target"] = iid
+            try:
+                structure.configure(cursor="fleur")
+                products.configure(cursor="fleur")
+            except Exception:
+                pass
+
+    def on_product_drag_press(event):
+        iid = products.identify_row(event.y)
+        current = tuple(products.selection())
+        preserve_multi = bool(iid and iid in current and len(current) > 1)
+        if iid and iid not in current:
+            products.selection_set(iid)
+        if iid:
+            products.focus(iid)
+        state["drag_source"] = iid if iid else None
+        state["drag_started"] = False
+        clear_drop_target()
+        if preserve_multi:
+            return "break"
+
+    def on_product_drag_motion(event):
+        if not state.get("drag_source") or not _selected_product_ids(products):
+            return
+        state["drag_started"] = True
+        x = event.x_root - structure.winfo_rootx()
+        y = event.y_root - structure.winfo_rooty()
+        candidate = None
+        height = structure.winfo_height()
+        if 0 <= x < structure.winfo_width() and 0 <= y < height:
+            if y < 26:
+                structure.yview_scroll(-1, "units")
+            elif y > height - 26:
+                structure.yview_scroll(1, "units")
+            candidate = structure.identify_row(y)
+        mark_drop_target(candidate)
+
+    def on_product_drag_release(_event):
+        target_iid = state.get("drop_target")
+        started = bool(state.get("drag_started"))
+        clear_drop_target()
+        state.update(drag_source=None, drag_started=False)
+        if started and target_iid:
+            move_to_scope(scope_for_iid(target_iid), confirm=False, source="drag")
 
     def show_sources():
         ids = _selected_product_ids(products)
@@ -632,6 +826,9 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         command=move_selected_here,
     ).pack(side="left")
     M.ttk.Button(actions, text="Přesunout jinam…", command=move_selected_elsewhere).pack(side="left", padx=4)
+    undo_button = M.ttk.Button(actions, text="↶ Vrátit poslední přesun", command=undo_last_move)
+    undo_button.pack(side="left", padx=(10, 4))
+    undo_button.state(["disabled"])
     M.ttk.Button(actions, text="Upravit produkt…", command=edit_selected).pack(side="left", padx=4)
     M.ttk.Button(actions, text="Zdroje a ceny…", command=show_sources).pack(side="left", padx=4)
     M.ttk.Button(actions, text="Dosynchronizovat katalog", command=sync_everything).pack(side="left", padx=(14, 4))
@@ -643,6 +840,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
     context.add_separator()
     context.add_command(label="Přesunout do označené skupiny", command=move_selected_here)
     context.add_command(label="Přesunout jinam…", command=move_selected_elsewhere)
+    context.add_command(label="Vrátit poslední přesun", command=undo_last_move)
 
     def popup(event):
         iid = products.identify_row(event.y)
@@ -656,9 +854,23 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
     structure.bind("<<TreeviewSelect>>", on_scope_change, add="+")
     products.bind("<<TreeviewSelect>>", update_selection_status, add="+")
     products.bind("<Double-1>", lambda _event: edit_selected(), add="+")
+    products.bind("<Return>", lambda _event: edit_selected(), add="+")
+    products.bind("<F2>", lambda _event: edit_selected(), add="+")
     products.bind("<Button-3>", popup, add="+")
+    products.bind("<ButtonPress-1>", on_product_drag_press, add="+")
+    products.bind("<B1-Motion>", on_product_drag_motion, add="+")
+    products.bind("<ButtonRelease-1>", on_product_drag_release, add="+")
     query.trace_add("write", schedule_products)
     manufacturer.trace_add("write", schedule_products)
+
+    def on_sort_changed(*_):
+        try:
+            M.set_user_setting(active_user, "catalog_product_sort_mode", sort_mode.get())
+        except Exception:
+            pass
+        schedule_products()
+
+    sort_mode.trace_add("write", on_sort_changed)
     show_inactive.trace_add("write", lambda *_: refresh_all(state["scope_iid"]))
     prev_button.configure(
         command=lambda: (state.__setitem__("page", max(0, int(state["page"]) - 1)), refresh_products())
@@ -694,6 +906,8 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         "refresh": refresh_all,
         "selected_scope": selected_scope,
         "move_selected_here": move_selected_here,
+        "undo_last_move": undo_last_move,
+        "sort_mode": sort_mode,
         "state": state,
     }
     try:
@@ -720,7 +934,7 @@ def open_product_catalog(M, app, category_id=None, subgroup_id=None) -> None:
 
 def install(M) -> None:
     """Make this split workspace the one presentation owner of the catalogue."""
-    if getattr(M, "_turto_product_workspace_v635", False):
+    if getattr(M, "_turto_product_workspace_v639", False):
         return
     product_catalog.open_product_catalog = open_product_catalog
     M.open_product_catalog = lambda app, category_id=None, subgroup_id=None: open_product_catalog(
@@ -735,7 +949,7 @@ def install(M) -> None:
     M.build_product_workspace = lambda app, parent, category_id=None, subgroup_id=None, embedded=False: build_product_workspace(
         M, app, parent, category_id, subgroup_id, embedded
     )
-    M._turto_product_workspace_v635 = True
+    M._turto_product_workspace_v639 = True
 
 
 __all__ = ["build_product_workspace", "open_product_catalog", "install"]

@@ -214,6 +214,7 @@ def _run_after_invalidation(app, callback, *, prices=False, offers=False):
     if prices:
         app._commercial_price_summary_cache = None
         app._price_filter_cache = None
+        app._price_taxonomy_cache = None
     if offers:
         app._commercial_offer_summary_cache = None
     return callback()
@@ -353,6 +354,484 @@ def _price_mode_changed(M, app):
     _set_display_columns(app.price_current_tree, app.price_column_profiles, mode)
 
 
+def _price_sort_sql(app) -> str:
+    variable = getattr(app, "price_sort_mode", None)
+    mode = variable.get() if variable is not None else "Skupina → podskupina → produkt"
+    mapping = {
+        "Skupina → podskupina → produkt": (
+            "category COLLATE CZECH,subgroup COLLATE CZECH,"
+            "coalesce(nullif(trim(internal_name),''),name,description,'') COLLATE CZECH,supplier COLLATE CZECH,item_id"
+        ),
+        "Interní označení A–Z": (
+            "coalesce(nullif(trim(internal_name),''),name,description,'') COLLATE CZECH,supplier COLLATE CZECH,item_id"
+        ),
+        "Výrobce A–Z": "manufacturer COLLATE CZECH,name COLLATE CZECH,item_id",
+        "Dodavatel A–Z": "supplier COLLATE CZECH,name COLLATE CZECH,item_id",
+        "Nákupní cena ↑": (
+            "CASE WHEN normalized_unit_price IS NULL THEN 1 ELSE 0 END,normalized_unit_price ASC,"
+            "name COLLATE CZECH,item_id"
+        ),
+        "Nákupní cena ↓": (
+            "CASE WHEN normalized_unit_price IS NULL THEN 1 ELSE 0 END,normalized_unit_price DESC,"
+            "name COLLATE CZECH,item_id"
+        ),
+        "Výsledná cena ↑": (
+            "CASE WHEN normalized_unit_price IS NULL THEN 1 ELSE 0 END,"
+            "(normalized_unit_price*(1+margin_pct/100.0)*(1-sales_discount_pct/100.0)) ASC,item_id"
+        ),
+        "Výsledná cena ↓": (
+            "CASE WHEN normalized_unit_price IS NULL THEN 1 ELSE 0 END,"
+            "(normalized_unit_price*(1+margin_pct/100.0)*(1-sales_discount_pct/100.0)) DESC,item_id"
+        ),
+        "Platnost končí nejdříve": (
+            "CASE WHEN trim(coalesce(valid_to,''))='' THEN 1 ELSE 0 END,valid_to ASC,"
+            "category COLLATE CZECH,name COLLATE CZECH,item_id"
+        ),
+    }
+    return mapping.get(mode, mapping["Skupina → podskupina → produkt"])
+
+
+def _select_price_sort(app, ascending: str, descending: str | None = None) -> None:
+    """Use a global SQL sort when a meaningful price-table heading is clicked."""
+    current = app.price_sort_mode.get() if hasattr(app, "price_sort_mode") else ""
+    target = descending if descending and current == ascending else ascending
+    app.price_sort_mode.set(target)
+
+
+def _price_scope_from_iid(M, iid: str) -> dict:
+    text = str(iid or "pt_all")
+    if text == "pt_unassigned":
+        return {
+            "iid": text, "category_id": None, "subgroup_id": None,
+            "only_without_subgroup": False, "unassigned": True,
+            "assignable": True, "label": categories.UNASSIGNED,
+        }
+    for prefix, only_without in (("pt_s", False), ("pt_n", True), ("pt_g", False)):
+        value = text[len(prefix):] if text.startswith(prefix) else ""
+        if not value.isdigit():
+            continue
+        row_id = int(value)
+        if prefix == "pt_s":
+            subgroup_id = row_id
+            category_id = categories.subgroup_parent_id(M, subgroup_id)
+            label = categories.taxonomy_path(M, category_id, subgroup_id)
+        else:
+            category_id = row_id
+            subgroup_id = None
+            label = categories.category_name(M, category_id)
+            if only_without:
+                label = f"{label} › {categories.NO_SUBGROUP}"
+        return {
+            "iid": text, "category_id": category_id, "subgroup_id": subgroup_id,
+            "only_without_subgroup": only_without, "unassigned": False,
+            "assignable": True, "label": label,
+        }
+    return {
+        "iid": "pt_all", "category_id": None, "subgroup_id": None,
+        "only_without_subgroup": False, "unassigned": False,
+        "assignable": False, "label": "Všechny aktuální ceny",
+    }
+
+
+def _price_scope_iid_from_filters(M, app) -> str:
+    scope_var = getattr(app, "price_price_scope", None)
+    if scope_var is not None and scope_var.get() == "Nezařazené":
+        return "pt_unassigned"
+    category_var = getattr(app, "price_category_filter", None)
+    subgroup_var = getattr(app, "price_subgroup_filter", None)
+    group_name = category_var.get().strip() if category_var is not None else ""
+    subgroup_name = subgroup_var.get().strip() if subgroup_var is not None else ""
+    category_id = categories.category_id_by_name(M, group_name) if group_name and group_name != "Všechny" else None
+    if category_id and subgroup_name:
+        subgroup_id = categories.subgroup_id_by_name(M, subgroup_name, category_id)
+        if subgroup_id:
+            return f"pt_s{subgroup_id}"
+    no_subgroup = getattr(app, "price_taxonomy_no_subgroup", None)
+    if category_id and no_subgroup is not None and bool(no_subgroup.get()):
+        return f"pt_n{category_id}"
+    if category_id:
+        return f"pt_g{category_id}"
+    return "pt_all"
+
+
+def _refresh_price_taxonomy(M, app, force=False) -> None:
+    tree = getattr(app, "price_taxonomy_tree", None)
+    if tree is None or not _exists(tree):
+        return
+    try:
+        from ..common import _iso_date
+        effective = _iso_date(app.price_effective_date.get()) or date.today().isoformat()
+    except Exception:
+        effective = date.today().isoformat()
+    review_condition = (
+        "(lower(coalesce(p.parse_status,'')) LIKE '%ocr%' OR "
+        "lower(coalesce(p.parse_status,'')) LIKE '%kontrol%' OR "
+        "lower(coalesce(p.parse_status,'')) LIKE 'bez%')"
+    )
+    scope_var = getattr(app, "price_price_scope", None)
+    view_scope = scope_var.get() if scope_var is not None else "Ověřené"
+    review_sql = review_condition if view_scope == "Ke kontrole" else (
+        "1=1" if view_scope == "Všechny včetně kontroly" else f"NOT {review_condition}"
+    )
+    supplier_expr = "coalesce(nullif(trim(c.official_name),''),nullif(trim(p.supplier_name),''),'')"
+    cache_key = (effective, view_scope)
+    now = time.monotonic()
+    cache = getattr(app, "_price_taxonomy_cache", None)
+    if force or not cache or cache[1] != cache_key or now - cache[0] > 12:
+        with M.db() as con:
+            count_rows = con.execute(
+                f"""WITH candidates AS (
+                   SELECT coalesce(cp.category_id,i.category_id,p.category_id) category_id,
+                          coalesce(cp.subgroup_id,i.subgroup_id) subgroup_id,
+                          DENSE_RANK() OVER (
+                            PARTITION BY lower({supplier_expr}),lower(coalesce(p.branch,'')),lower(coalesce(p.product_group,'')),
+                              lower(coalesce(nullif(i.product_code,''),nullif(i.item_key,''),i.name,'')),
+                              lower(coalesce(nullif(i.name,''),i.description,'')),lower(coalesce(i.condition_text,'')),
+                              round(coalesce(i.minimum_qty,0),8),round(coalesce(i.price_basis_qty,0),8),
+                              round(coalesce(i.package_qty,0),8),lower(coalesce(i.unit,''))
+                            ORDER BY p.valid_from DESC,p.id DESC
+                          ) list_rank
+                     FROM price_list_items i JOIN price_lists p ON p.id=i.price_list_id
+                     LEFT JOIN companies c ON c.id=p.supplier_company_id
+                     LEFT JOIN catalog_products cp ON cp.id=i.catalog_product_id
+                    WHERE i.active=1 AND p.archived=0 AND trim(coalesce(p.valid_from,''))<>''
+                      AND p.valid_from<=? AND (trim(coalesce(p.valid_to,''))='' OR p.valid_to>=?)
+                      AND {review_sql}
+                 )
+                 SELECT category_id,subgroup_id,COUNT(*) price_count
+                   FROM candidates WHERE list_rank=1 GROUP BY category_id,subgroup_id""",
+                (effective, effective),
+            ).fetchall()
+        exact_counts = {
+            (int(row["category_id"]) if row["category_id"] else None,
+             int(row["subgroup_id"]) if row["subgroup_id"] else None): int(row["price_count"] or 0)
+            for row in count_rows
+        }
+        app._price_taxonomy_cache = (now, cache_key, exact_counts)
+    else:
+        exact_counts = cache[2]
+    groups = categories.list_categories(M)
+    subgroups = categories.list_subgroups(M)
+    group_counts: dict[int, int] = {}
+    for (category_id, _subgroup_id), value in exact_counts.items():
+        if category_id:
+            group_counts[category_id] = group_counts.get(category_id, 0) + value
+    total = sum(exact_counts.values())
+    unassigned = sum(value for (category_id, _subgroup_id), value in exact_counts.items() if not category_id)
+    opened = {iid for iid in tree.get_children("") if tree.item(iid, "open")}
+    selected_iid = _price_scope_iid_from_filters(M, app)
+    for iid in tree.get_children(""):
+        tree.delete(iid)
+    tree.insert("", "end", iid="pt_all", text="Všechny aktuální ceny", values=(total,), open=True)
+    tree.insert(
+        "", "end", iid="pt_unassigned", text="Nezařazené", values=(unassigned,),
+        tags=("status_wait",),
+    )
+    by_group: dict[int, list] = {}
+    for subgroup in subgroups:
+        by_group.setdefault(int(subgroup["category_id"]), []).append(subgroup)
+    selected_scope = _price_scope_from_iid(M, selected_iid)
+    selected_category = selected_scope.get("category_id")
+    for group in groups:
+        group_id = int(group["id"])
+        group_iid = f"pt_g{group_id}"
+        tree.insert(
+            "", "end", iid=group_iid, text=group["name"], values=(group_counts.get(group_id, 0),),
+            open=(group_iid in opened or selected_category == group_id),
+        )
+        tree.insert(
+            group_iid, "end", iid=f"pt_n{group_id}", text=categories.NO_SUBGROUP,
+            values=(exact_counts.get((group_id, None), 0),),
+        )
+        for subgroup in by_group.get(group_id, []):
+            subgroup_id = int(subgroup["id"])
+            tree.insert(
+                group_iid, "end", iid=f"pt_s{subgroup_id}", text=subgroup["name"],
+                values=(exact_counts.get((group_id, subgroup_id), 0),),
+            )
+    if not tree.exists(selected_iid):
+        selected_iid = "pt_all"
+    app._price_taxonomy_syncing = True
+    try:
+        tree.selection_set(selected_iid)
+        tree.see(selected_iid)
+    finally:
+        app._price_taxonomy_syncing = False
+
+
+def _apply_price_taxonomy_scope(M, app, target: dict, refresh=True) -> None:
+    app._price_taxonomy_syncing = True
+    try:
+        if target.get("unassigned"):
+            app.price_category_filter.set("Všechny")
+            app.price_subgroup_filter.set("")
+            app.price_taxonomy_no_subgroup.set(False)
+            app.price_price_scope.set("Nezařazené")
+        elif target.get("category_id"):
+            app.price_category_filter.set(categories.category_name(M, target["category_id"]) or "Všechny")
+            app.price_subgroup_filter.set(
+                categories.subgroup_name(M, target.get("subgroup_id")) if target.get("subgroup_id") else ""
+            )
+            app.price_taxonomy_no_subgroup.set(bool(target.get("only_without_subgroup")))
+            if app.price_price_scope.get() == "Nezařazené":
+                app.price_price_scope.set("Ověřené")
+        else:
+            app.price_category_filter.set("Všechny")
+            app.price_subgroup_filter.set("")
+            app.price_taxonomy_no_subgroup.set(False)
+            if app.price_price_scope.get() == "Nezařazené":
+                app.price_price_scope.set("Ověřené")
+    finally:
+        app._price_taxonomy_syncing = False
+    app.price_page = 0
+    if refresh:
+        schedule_price_refresh(M, app, 0)
+
+
+def _on_price_taxonomy_select(M, app, *_):
+    if getattr(app, "_price_taxonomy_syncing", False):
+        return
+    tree = getattr(app, "price_taxonomy_tree", None)
+    selection = tree.selection() if tree is not None else ()
+    if not selection:
+        return
+    selected_iid = str(selection[0])
+    # Tree rebuilding queues <<TreeviewSelect>> after the guard is released.
+    # Ignore it when the selected branch already represents the active filters.
+    if selected_iid == _price_scope_iid_from_filters(M, app):
+        return
+    _apply_price_taxonomy_scope(M, app, _price_scope_from_iid(M, selected_iid))
+
+
+def _selected_current_rows(app) -> list[dict]:
+    tree = getattr(app, "price_current_tree", None)
+    selection = tree.selection() if tree is not None else ()
+    rows = []
+    seen = set()
+    for iid in selection:
+        row = getattr(app, "price_current_row_data", {}).get(iid)
+        if row and int(row.get("item_id") or 0) not in seen:
+            rows.append(row)
+            seen.add(int(row.get("item_id") or 0))
+    return rows
+
+
+def _move_current_to_scope(M, app, target: dict, confirm=True, source="button") -> None:
+    rows = _selected_current_rows(app)
+    if not rows:
+        return M.messagebox.showinfo("Ceníky", "Vyberte jednu nebo více cen.", parent=app)
+    if not target.get("assignable"):
+        return M.messagebox.showinfo(
+            "Ceníky", "Jako cíl vyberte konkrétní skupinu, podskupinu nebo Nezařazené.", parent=app
+        )
+    if confirm and not M.messagebox.askyesno(
+        "Přesunout ceny",
+        f"Přesunout vybrané ceny ({len(rows)}) do:\n\n{target['label']}?\n\n"
+        "U propojených položek se změna promítne do stabilního katalogového produktu a všech jeho zdrojů.",
+        parent=app,
+    ):
+        return
+    product_ids = sorted({int(row["catalog_product_id"]) for row in rows if row.get("catalog_product_id")})
+    item_ids = sorted({int(row["item_id"]) for row in rows if not row.get("catalog_product_id")})
+    product_before = []
+    item_before = []
+    with M.db() as con:
+        if product_ids:
+            marks = ",".join("?" for _ in product_ids)
+            product_before = [
+                (int(row["id"]), int(row["category_id"]) if row["category_id"] else None,
+                 int(row["subgroup_id"]) if row["subgroup_id"] else None)
+                for row in con.execute(
+                    f"SELECT id,category_id,subgroup_id FROM catalog_products WHERE id IN ({marks})", product_ids
+                ).fetchall()
+            ]
+        if item_ids:
+            marks = ",".join("?" for _ in item_ids)
+            item_before = [
+                (int(row["id"]), int(row["category_id"]) if row["category_id"] else None,
+                 int(row["subgroup_id"]) if row["subgroup_id"] else None)
+                for row in con.execute(
+                    f"SELECT id,category_id,subgroup_id FROM price_list_items WHERE id IN ({marks})", item_ids
+                ).fetchall()
+            ]
+    destination = (target.get("category_id"), target.get("subgroup_id"))
+    if product_before and all((row[1], row[2]) == destination for row in product_before) and not item_before:
+        app.price_current_status.set(f"Vybrané ceny už jsou v: {target['label']}")
+        return
+    if product_ids:
+        product_catalog.set_product_taxonomy(M, product_ids, *destination)
+    if item_ids:
+        categories.set_item_taxonomy(M, "price_list_items", item_ids, *destination)
+    app.price_last_taxonomy_move = {
+        "products": product_before, "items": item_before,
+        "target": target, "count": len(rows),
+    }
+    undo = getattr(app, "price_undo_move_button", None)
+    if undo is not None:
+        undo.state(["!disabled"])
+    try:
+        product_catalog._invalidate(app)
+    except Exception:
+        pass
+    app._price_filter_cache = None
+    app._commercial_price_summary_cache = None
+    app._price_taxonomy_cache = None
+    _apply_price_taxonomy_scope(M, app, target, refresh=False)
+    _refresh_price_taxonomy(M, app, force=True)
+    _refresh_current(M, app)
+    verb = "Přetaženo" if source == "drag" else "Přesunuto"
+    app.price_current_status.set(f"{verb} cen: {len(rows)} → {target['label']} · poslední přesun lze vrátit")
+
+
+def _undo_current_move(M, app) -> None:
+    move = getattr(app, "price_last_taxonomy_move", None)
+    if not move:
+        return
+    product_groups: dict[tuple[object, object], list[int]] = {}
+    for product_id, category_id, subgroup_id in move.get("products", []):
+        product_groups.setdefault((category_id, subgroup_id), []).append(product_id)
+    for (category_id, subgroup_id), ids in product_groups.items():
+        product_catalog.set_product_taxonomy(M, ids, category_id, subgroup_id)
+    item_groups: dict[tuple[object, object], list[int]] = {}
+    for item_id, category_id, subgroup_id in move.get("items", []):
+        item_groups.setdefault((category_id, subgroup_id), []).append(item_id)
+    for (category_id, subgroup_id), ids in item_groups.items():
+        categories.set_item_taxonomy(M, "price_list_items", ids, category_id, subgroup_id)
+    original = None
+    if move.get("products"):
+        original = move["products"][0][1:]
+    elif move.get("items"):
+        original = move["items"][0][1:]
+    app.price_last_taxonomy_move = None
+    undo = getattr(app, "price_undo_move_button", None)
+    if undo is not None:
+        undo.state(["disabled"])
+    try:
+        product_catalog._invalidate(app)
+    except Exception:
+        pass
+    app._price_filter_cache = None
+    app._commercial_price_summary_cache = None
+    app._price_taxonomy_cache = None
+    if original:
+        category_id, subgroup_id = original
+        target_iid = f"pt_s{subgroup_id}" if subgroup_id else f"pt_n{category_id}" if category_id else "pt_unassigned"
+        _apply_price_taxonomy_scope(M, app, _price_scope_from_iid(M, target_iid), refresh=False)
+    _refresh_price_taxonomy(M, app, force=True)
+    _refresh_current(M, app)
+    app.price_current_status.set(f"Poslední přesun byl vrácen · obnoveno cen: {move.get('count', 0)}")
+
+
+def _pick_current_taxonomy(M, app) -> None:
+    rows = _selected_current_rows(app)
+    if not rows:
+        return M.messagebox.showinfo("Ceníky", "Vyberte jednu nebo více cen.", parent=app)
+    first = rows[0]
+    selected = categories.choose_taxonomy(
+        M, app, "Přiřadit nebo přesunout vybrané ceny",
+        first.get("resolved_category_id"), first.get("resolved_subgroup_id"),
+    )
+    if selected == "cancel":
+        return
+    category_id, subgroup_id = selected
+    iid = f"pt_s{subgroup_id}" if subgroup_id else f"pt_n{category_id}" if category_id else "pt_unassigned"
+    _move_current_to_scope(M, app, _price_scope_from_iid(M, iid), confirm=False)
+
+
+def _edit_current_product(M, app) -> None:
+    rows = _selected_current_rows(app)
+    if len(rows) != 1:
+        return M.messagebox.showinfo("Ceníky", "Pro přímou editaci vyberte právě jednu cenu.", parent=app)
+    row = rows[0]
+    product_id = row.get("catalog_product_id")
+    if not product_id:
+        return _pick_current_taxonomy(M, app)
+
+    def saved():
+        app._price_filter_cache = None
+        app._price_taxonomy_cache = None
+        app._commercial_price_summary_cache = None
+        _refresh_price_taxonomy(M, app, force=True)
+        _refresh_current(M, app)
+
+    product_catalog._edit_product(M, app, app, int(product_id), saved)
+
+
+def _clear_price_drop_target(app):
+    tree = getattr(app, "price_taxonomy_tree", None)
+    iid = getattr(app, "_price_drop_target", None)
+    if tree is not None and iid and tree.exists(iid):
+        tags = tuple(tag for tag in tree.item(iid, "tags") if tag != "drop_target")
+        tree.item(iid, tags=tags)
+    app._price_drop_target = None
+    try:
+        tree.configure(cursor="")
+        app.price_current_tree.configure(cursor="")
+    except Exception:
+        pass
+
+
+def _mark_price_drop_target(M, app, iid):
+    if iid == getattr(app, "_price_drop_target", None):
+        return
+    _clear_price_drop_target(app)
+    tree = getattr(app, "price_taxonomy_tree", None)
+    target = _price_scope_from_iid(M, iid)
+    if tree is not None and iid and tree.exists(iid) and target.get("assignable"):
+        tags = tuple(tree.item(iid, "tags"))
+        if "drop_target" not in tags:
+            tree.item(iid, tags=tags + ("drop_target",))
+        app._price_drop_target = iid
+        try:
+            tree.configure(cursor="fleur")
+            app.price_current_tree.configure(cursor="fleur")
+        except Exception:
+            pass
+
+
+def _on_price_drag_press(M, app, event):
+    iid = app.price_current_tree.identify_row(event.y)
+    current = tuple(app.price_current_tree.selection())
+    preserve_multi = bool(iid and iid in current and len(current) > 1)
+    if iid and iid not in current:
+        app.price_current_tree.selection_set(iid)
+    if iid:
+        app.price_current_tree.focus(iid)
+    app._price_drag_source = iid if iid else None
+    app._price_drag_started = False
+    _clear_price_drop_target(app)
+    if preserve_multi:
+        return "break"
+
+
+def _on_price_drag_motion(M, app, event):
+    tree = getattr(app, "price_taxonomy_tree", None)
+    if tree is None or not getattr(app, "_price_drag_source", None) or not _selected_current_rows(app):
+        return
+    app._price_drag_started = True
+    x = event.x_root - tree.winfo_rootx()
+    y = event.y_root - tree.winfo_rooty()
+    height = tree.winfo_height()
+    iid = None
+    if 0 <= x < tree.winfo_width() and 0 <= y < height:
+        if y < 26:
+            tree.yview_scroll(-1, "units")
+        elif y > height - 26:
+            tree.yview_scroll(1, "units")
+        iid = tree.identify_row(y)
+    _mark_price_drop_target(M, app, iid)
+
+
+def _on_price_drag_release(M, app, _event):
+    target_iid = getattr(app, "_price_drop_target", None)
+    started = bool(getattr(app, "_price_drag_started", False))
+    _clear_price_drop_target(app)
+    app._price_drag_source = None
+    app._price_drag_started = False
+    if started and target_iid:
+        _move_current_to_scope(M, app, _price_scope_from_iid(M, target_iid), confirm=False, source="drag")
+
+
 def build_price_lists(M, app) -> None:
     from ..archive import price_list_archive_root
     from . import price_page
@@ -422,21 +901,43 @@ def build_price_lists(M, app) -> None:
     app.price_effective_date = M.tk.StringVar(value=date.today().isoformat())
     app.price_page_size = M.tk.StringVar(value="250")
     app.price_price_scope = M.tk.StringVar(value="Ověřené")
+    app.price_taxonomy_no_subgroup = M.tk.BooleanVar(value=False)
     app.price_page = 0
+    app.price_last_taxonomy_move = None
+    app._price_taxonomy_syncing = False
+    app._price_drag_source = None
+    app._price_drag_started = False
+    app._price_drop_target = None
+    price_sort_options = (
+        "Skupina → podskupina → produkt", "Interní označení A–Z", "Výrobce A–Z", "Dodavatel A–Z",
+        "Nákupní cena ↑", "Nákupní cena ↓", "Výsledná cena ↑", "Výsledná cena ↓",
+        "Platnost končí nejdříve",
+    )
     try:
         user = M.get_setting("active_user", "")
         stored_mode = M.get_user_setting(user, "price_column_mode", "Přehled")
+        stored_sort = M.get_user_setting(user, "price_sort_mode", price_sort_options[0])
     except Exception:
+        user = ""
         stored_mode = "Přehled"
+        stored_sort = price_sort_options[0]
     app.price_column_mode = M.tk.StringVar(value=stored_mode if stored_mode in ("Přehled", "Obchodní", "Technické") else "Přehled")
+    app.price_sort_mode = M.tk.StringVar(value=stored_sort if stored_sort in price_sort_options else price_sort_options[0])
 
     search = M.ttk.Frame(current, style="Panel.TFrame", padding=(10, 8))
     search.pack(fill="x", pady=(0, 6))
     search.columnconfigure(0, weight=1)
+    search.columnconfigure(1, weight=0)
     M.ttk.Label(search, text="Rychlé hledání", style="FilterLabel.TLabel").grid(row=0, column=0, sticky="w")
     M.ttk.Entry(search, textvariable=app.price_q).grid(row=1, column=0, sticky="ew", padx=(0, 12))
+    sorting = M.ttk.Frame(search, style="Panel.TFrame")
+    sorting.grid(row=0, column=1, rowspan=2, sticky="e", padx=(0, 14))
+    M.ttk.Label(sorting, text="Řazení", style="FilterLabel.TLabel").pack(anchor="w")
+    M.safe_combobox(
+        sorting, textvariable=app.price_sort_mode, values=price_sort_options, state="readonly", width=31,
+    ).pack(anchor="e")
     modes = M.ttk.Frame(search, style="Panel.TFrame")
-    modes.grid(row=0, column=1, rowspan=2, sticky="e")
+    modes.grid(row=0, column=2, rowspan=2, sticky="e")
     M.ttk.Label(modes, text="Sloupce:", style="PageSubtitle.TLabel").pack(side="left", padx=(0, 4))
     for label in ("Přehled", "Obchodní", "Technické"):
         M.ttk.Radiobutton(
@@ -489,10 +990,46 @@ def build_price_lists(M, app) -> None:
 
     body = M.ttk.Panedwindow(current, orient="horizontal")
     body.pack(fill="both", expand=True)
+    taxonomy_side = M.ttk.Frame(body, style="Panel.TFrame", padding=8)
     table_side = M.ttk.Frame(body)
     detail_side = M.ttk.Frame(body, style="Panel.TFrame", padding=10)
+    body.add(taxonomy_side, weight=1)
     body.add(table_side, weight=4)
     body.add(detail_side, weight=1)
+    taxonomy_side.columnconfigure(0, weight=1)
+    taxonomy_side.rowconfigure(2, weight=1)
+    M.ttk.Label(taxonomy_side, text="Struktura cen", font=("Calibri", 13, "bold")).grid(
+        row=0, column=0, sticky="w"
+    )
+    M.ttk.Label(
+        taxonomy_side,
+        text="Kliknutím filtrujete. Vybrané ceny přetáhněte přímo na cílovou větev.",
+        style="PageSubtitle.TLabel", wraplength=300,
+    ).grid(row=1, column=0, sticky="w", pady=(1, 6))
+    app.price_taxonomy_tree = M.ttk.Treeview(
+        taxonomy_side, columns=("Cen",), show="tree headings", selectmode="browse", height=24,
+    )
+    app.price_taxonomy_tree.heading("#0", text="Skupina / podskupina")
+    app.price_taxonomy_tree.heading("Cen", text="Cen")
+    app.price_taxonomy_tree.column("#0", width=285, minwidth=190, anchor="w", stretch=True)
+    app.price_taxonomy_tree.column("Cen", width=55, minwidth=45, anchor="e", stretch=False)
+    app.price_taxonomy_tree.grid(row=2, column=0, sticky="nsew")
+    taxonomy_scroll = M.ttk.Scrollbar(taxonomy_side, orient="vertical", command=app.price_taxonomy_tree.yview)
+    taxonomy_scroll.grid(row=2, column=1, sticky="ns")
+    app.price_taxonomy_tree.configure(yscrollcommand=taxonomy_scroll.set)
+    try:
+        app.price_taxonomy_tree.tag_configure("drop_target", background="#dcecff", foreground="#17324a")
+    except Exception:
+        pass
+    taxonomy_actions = M.ttk.Frame(taxonomy_side, style="Panel.TFrame")
+    taxonomy_actions.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(7, 0))
+    M.ttk.Button(
+        taxonomy_actions, text="Spravovat skupiny…",
+        command=lambda: (categories.manage_categories(M, app), _refresh_price_taxonomy(M, app)),
+    ).pack(fill="x")
+    app.price_taxonomy_tree.bind(
+        "<<TreeviewSelect>>", lambda _event: _on_price_taxonomy_select(M, app), add="+"
+    )
 
     current_columns = (
         "Interní kód", "Interní označení", "Výrobce", "Dodavatel", "Kód dodavatele", "Produkt",
@@ -504,6 +1041,21 @@ def build_price_lists(M, app) -> None:
     anchors = {name: "e" for name in ("Nákupní cena/MJ", "Marže", "Doporučená cena", "Sleva", "Výsledná cena", "Min. odběr", "Hmotnost/MJ")}
     app.price_current_tree = _make_tree(M, app, table_side, current_columns, current_widths, anchors)
     _configure_tags(app.price_current_tree, _PRICE_TAGS)
+    for column, ascending, descending in (
+        ("Produktová skupina", "Skupina → podskupina → produkt", None),
+        ("Podskupina", "Skupina → podskupina → produkt", None),
+        ("Interní označení", "Interní označení A–Z", None),
+        ("Produkt", "Interní označení A–Z", None),
+        ("Výrobce", "Výrobce A–Z", None),
+        ("Dodavatel", "Dodavatel A–Z", None),
+        ("Nákupní cena/MJ", "Nákupní cena ↑", "Nákupní cena ↓"),
+        ("Výsledná cena", "Výsledná cena ↑", "Výsledná cena ↓"),
+        ("Platnost", "Platnost končí nejdříve", None),
+    ):
+        app.price_current_tree.heading(
+            column, text=column,
+            command=lambda up=ascending, down=descending: _select_price_sort(app, up, down),
+        )
     app.price_column_profiles = {
         "Přehled": (
             "Interní kód", "Interní označení", "Výrobce", "Dodavatel", "Produkt",
@@ -521,8 +1073,13 @@ def build_price_lists(M, app) -> None:
     _set_display_columns(app.price_current_tree, app.price_column_profiles, app.price_column_mode.get())
     app.price_current_rows = {}
     app.price_current_row_data = {}
-    M.bind_row_double_click(app.price_current_tree, lambda _event: _open_current_detail(M, app))
+    M.bind_row_double_click(app.price_current_tree, lambda _event: _edit_current_product(M, app))
     app.price_current_tree.bind("<<TreeviewSelect>>", lambda _event: _update_current_detail(M, app), add="+")
+    app.price_current_tree.bind("<Return>", lambda _event: _edit_current_product(M, app), add="+")
+    app.price_current_tree.bind("<F2>", lambda _event: _edit_current_product(M, app), add="+")
+    app.price_current_tree.bind("<ButtonPress-1>", lambda event: _on_price_drag_press(M, app, event), add="+")
+    app.price_current_tree.bind("<B1-Motion>", lambda event: _on_price_drag_motion(M, app, event), add="+")
+    app.price_current_tree.bind("<ButtonRelease-1>", lambda event: _on_price_drag_release(M, app, event), add="+")
 
     M.ttk.Label(detail_side, text="Detail vybrané ceny", font=("Calibri", 13, "bold")).pack(anchor="w")
     app.price_current_detail_title = M.tk.StringVar(value="Vyberte cenu v tabulce")
@@ -542,7 +1099,21 @@ def build_price_lists(M, app) -> None:
         M.ttk.Label(row, textvariable=variable, wraplength=330, justify="left").pack(anchor="w")
     detail_actions = M.ttk.Frame(detail_side, style="Panel.TFrame")
     detail_actions.pack(fill="x", pady=(10, 0))
-    M.ttk.Button(detail_actions, text="Otevřít Ceník", style="Accent.TButton", command=lambda: _open_current_detail(M, app)).pack(fill="x")
+    app.price_edit_product_button = M.ttk.Button(
+        detail_actions, text="Upravit produkt", style="Accent.TButton",
+        command=lambda: _edit_current_product(M, app),
+    )
+    app.price_edit_product_button.pack(fill="x")
+    app.price_assign_button = M.ttk.Button(
+        detail_actions, text="Přiřadit / přesunout…", command=lambda: _pick_current_taxonomy(M, app),
+    )
+    app.price_assign_button.pack(fill="x", pady=(5, 0))
+    app.price_undo_move_button = M.ttk.Button(
+        detail_actions, text="↶ Vrátit poslední přesun", command=lambda: _undo_current_move(M, app),
+    )
+    app.price_undo_move_button.pack(fill="x", pady=(5, 0))
+    app.price_undo_move_button.state(["disabled"])
+    M.ttk.Button(detail_actions, text="Otevřít zdrojový Ceník", command=lambda: _open_current_detail(M, app)).pack(fill="x", pady=(10, 0))
     M.ttk.Button(
         detail_actions, text="Otevřít katalog produktů",
         command=lambda: _open_catalog_for_current(M, app),
@@ -551,7 +1122,9 @@ def build_price_lists(M, app) -> None:
     current_nav = M.ttk.Frame(current)
     current_nav.pack(fill="x", pady=(6, 0))
     app.price_current_status = M.tk.StringVar(value="")
+    app.price_selection_status = M.tk.StringVar(value="Vybráno: 0")
     M.ttk.Label(current_nav, textvariable=app.price_current_status, style="PageSubtitle.TLabel").pack(side="left")
+    M.ttk.Label(current_nav, textvariable=app.price_selection_status, style="PageSubtitle.TLabel").pack(side="left", padx=(14, 0))
     app.price_prev_button = M.ttk.Button(current_nav, text="← Předchozí", command=lambda: _change_current_page(M, app, -1))
     app.price_prev_button.pack(side="right", padx=3)
     app.price_next_button = M.ttk.Button(current_nav, text="Další →", command=lambda: _change_current_page(M, app, 1))
@@ -658,19 +1231,66 @@ def build_price_lists(M, app) -> None:
     app.price_evidence_next.pack(side="right", padx=3)
 
     def schedule_current(*_):
+        if getattr(app, "_price_taxonomy_syncing", False):
+            return
         app.price_page = 0
         schedule_price_refresh(M, app)
+
+    def schedule_sort(*_):
+        try:
+            M.set_user_setting(user, "price_sort_mode", app.price_sort_mode.get())
+        except Exception:
+            pass
+        schedule_current()
 
     def schedule_evidence(*_):
         app.price_evidence_page = 0
         schedule_price_refresh(M, app)
 
+    def category_filter_changed(*_):
+        if getattr(app, "_price_taxonomy_syncing", False):
+            return
+        app._price_taxonomy_syncing = True
+        try:
+            app.price_subgroup_filter.set("")
+            app.price_taxonomy_no_subgroup.set(False)
+        finally:
+            app._price_taxonomy_syncing = False
+        schedule_current()
+
+    def subgroup_filter_changed(*_):
+        if getattr(app, "_price_taxonomy_syncing", False):
+            return
+        if app.price_subgroup_filter.get().strip():
+            app._price_taxonomy_syncing = True
+            try:
+                app.price_taxonomy_no_subgroup.set(False)
+            finally:
+                app._price_taxonomy_syncing = False
+        schedule_current()
+
+    def scope_filter_changed(*_):
+        if getattr(app, "_price_taxonomy_syncing", False):
+            return
+        if app.price_price_scope.get() == "Nezařazené":
+            app._price_taxonomy_syncing = True
+            try:
+                app.price_category_filter.set("Všechny")
+                app.price_subgroup_filter.set("")
+                app.price_taxonomy_no_subgroup.set(False)
+            finally:
+                app._price_taxonomy_syncing = False
+        schedule_current()
+
     for variable in (
-        app.price_q, app.price_supplier_filter, app.price_category_filter,
-        app.price_subgroup_filter, app.price_group_filter, app.price_effective_date,
-        app.price_page_size, app.price_price_scope,
+        app.price_q, app.price_supplier_filter, app.price_group_filter, app.price_effective_date,
+        app.price_page_size, app.price_taxonomy_no_subgroup,
     ):
         variable.trace_add("write", schedule_current)
+    app.price_category_filter.trace_add("write", category_filter_changed)
+    app.price_subgroup_filter.trace_add("write", subgroup_filter_changed)
+    app.price_price_scope.trace_add("write", scope_filter_changed)
+    app.price_sort_mode.trace_add("write", schedule_sort)
     for variable in (
         app.price_evidence_q, app.price_evidence_supplier,
         app.price_evidence_category, app.price_evidence_status,
@@ -715,6 +1335,7 @@ def refresh_price_lists(M, app):
     except Exception:
         tab_index = 0
     if tab_index == 0:
+        _refresh_price_taxonomy(M, app)
         _refresh_current(M, app)
     else:
         _refresh_evidence(M, app)
@@ -771,6 +1392,9 @@ def _refresh_current(M, app, allow_fts_retry=True):
         selected_category = categories.category_id_by_name(M, category) if category and category != "Všechny" else None
         where.append("coalesce(cp.subgroup_id,i.subgroup_id)=?")
         params.append(categories.subgroup_id_by_name(M, subgroup, selected_category) or -1)
+    no_subgroup_var = getattr(app, "price_taxonomy_no_subgroup", None)
+    if no_subgroup_var is not None and bool(no_subgroup_var.get()):
+        where.append("coalesce(cp.subgroup_id,i.subgroup_id) IS NULL")
     scope = app.price_price_scope.get() or "Ověřené"
     review_condition = (
         "(lower(coalesce(p.parse_status,'')) LIKE '%ocr%' OR "
@@ -794,6 +1418,7 @@ def _refresh_current(M, app, allow_fts_retry=True):
     except Exception:
         page_size = 250
     offset = max(0, int(app.price_page or 0)) * page_size
+    order_sql = _price_sort_sql(app)
     sql = f"""
         WITH candidates AS (
           SELECT i.id item_id,i.price_list_id,i.product_code,i.item_key,i.name,i.description,i.unit,
@@ -828,7 +1453,7 @@ def _refresh_current(M, app, allow_fts_retry=True):
           WHERE {where_sql}
         ), effective_rows AS (SELECT * FROM candidates WHERE list_rank=1)
         SELECT *,COUNT(*) OVER() total_count FROM effective_rows
-        ORDER BY category COLLATE CZECH,subgroup COLLATE CZECH,supplier COLLATE CZECH,name COLLATE CZECH,item_id
+        ORDER BY {order_sql}
         LIMIT ? OFFSET ?
     """
     try:
@@ -1039,7 +1664,17 @@ def _refresh_evidence(M, app):
 
 def _update_current_detail(M, app):
     selection = app.price_current_tree.selection() if hasattr(app, "price_current_tree") else ()
-    row = app.price_current_row_data.get(selection[0]) if selection else None
+    rows = [app.price_current_row_data.get(iid) for iid in selection if app.price_current_row_data.get(iid)]
+    status_var = getattr(app, "price_selection_status", None)
+    if status_var is not None:
+        status_var.set(f"Vybráno: {len(rows)}" + (" · přetáhněte na skupinu vlevo" if rows else ""))
+    edit_button = getattr(app, "price_edit_product_button", None)
+    assign_button = getattr(app, "price_assign_button", None)
+    if edit_button is not None:
+        edit_button.state(["!disabled"] if len(rows) == 1 else ["disabled"])
+    if assign_button is not None:
+        assign_button.state(["!disabled"] if rows else ["disabled"])
+    row = rows[0] if rows else None
     if not row:
         app.price_current_detail_title.set("Vyberte cenu v tabulce")
         app.price_current_detail_subtitle.set("")
@@ -1133,6 +1768,9 @@ def _clear_current_filters(M, app):
     app.price_category_filter.set("Všechny")
     app.price_subgroup_filter.set("")
     app.price_group_filter.set("")
+    no_subgroup = getattr(app, "price_taxonomy_no_subgroup", None)
+    if no_subgroup is not None:
+        no_subgroup.set(False)
     app.price_effective_date.set(date.today().isoformat())
     app.price_price_scope.set("Ověřené")
     app.price_page = 0
@@ -1705,7 +2343,7 @@ def _change_offer_page(M, app, delta):
 
 
 def install(M) -> None:
-    if getattr(M, "_turto_commercial_workspace_v6336", False):
+    if getattr(M, "_turto_commercial_workspace_v6339", False):
         return
     from . import price_page
 
@@ -1743,7 +2381,7 @@ def install(M) -> None:
     M.App.clear_offer_filters = app_clear_offer_filters
     M.App._update_offer_selection = app_update_offer_selection
     M._turto_commercial_presentation_owner = "price_lists_domain.platform.commercial_workspace"
-    M._turto_commercial_workspace_v6336 = True
+    M._turto_commercial_workspace_v6339 = True
 
 
 __all__ = [
