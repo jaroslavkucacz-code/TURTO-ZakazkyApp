@@ -1,0 +1,72 @@
+name: Apply TURTO CRM 6.3.40 source update
+
+on:
+  push:
+    branches:
+      - feature/6.3.40-manual-products-context-pricing
+    paths:
+      - .github/workflows/apply-6340-manual-products-pricing.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Reconstruct implementation payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/turto6340
+          cat scripts/.6340_payload_00.b64 scripts/.6340_payload_01.b64 | base64 -d > /tmp/turto6340/payload.tar.gz
+          tar -xzf /tmp/turto6340/payload.tar.gz -C /tmp/turto6340
+          install -m 0644 /tmp/turto6340/pricing_profiles.py ZakazkyApp_base_6.1/price_lists_domain/platform/pricing_profiles.py
+          install -m 0644 /tmp/turto6340/apply_6340_local.py scripts/apply-6340-manual-products-pricing.py
+          install -m 0644 /tmp/turto6340/scripts/validate-6340-manual-products-pricing.py scripts/validate-6340-manual-products-pricing.py
+
+      - name: Apply source changes
+        run: python scripts/apply-6340-manual-products-pricing.py .
+
+      - name: Validate source and compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q ZakazkyApp_base_6.1
+          python scripts/validate-6334-product-catalog.py ZakazkyApp_base_6.1
+          python scripts/validate-6335-product-workspace.py ZakazkyApp_base_6.1
+          python scripts/validate-6336-commercial-workspace.py ZakazkyApp_base_6.1
+          python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
+          python scripts/validate-6339-catalog-price-ux.py ZakazkyApp_base_6.1
+          python scripts/validate-6340-manual-products-pricing.py ZakazkyApp_base_6.1
+          python scripts/validate-scalability.py ZakazkyApp_base_6.1
+          python scripts/validate-auto-update.py ZakazkyApp_base_6.1
+          bash -n scripts/publish-update.sh
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f scripts/.6340_payload_00.b64 scripts/.6340_payload_01.b64
+          rm -f scripts/apply-6340-manual-products-pricing.py
+          rm -f .github/workflows/apply-6340-manual-products-pricing.yml
+          git config user.name "TURTO Update Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Add manual products and contextual customer pricing"
+          git push origin HEAD:feature/6.3.40-manual-products-context-pricing
