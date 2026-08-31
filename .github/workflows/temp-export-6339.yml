@@ -18,11 +18,11 @@ jobs:
           fetch-depth: 0
 
       - name: Pack checked-out repository
-        run: tar --exclude=.git -czf turto-source-6339.tgz .
+        run: tar --exclude=.git -czf /tmp/turto-source-6339.tgz .
 
       - name: Upload source snapshot
         uses: actions/upload-artifact@v4
         with:
           name: turto-source-6339
-          path: turto-source-6339.tgz
+          path: /tmp/turto-source-6339.tgz
           retention-days: 1
