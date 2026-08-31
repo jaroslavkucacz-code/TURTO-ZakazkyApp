@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Correct retained end markers in the temporary 6.3.41 transformer."""
+"""Correct retained markers in the temporary 6.3.41 transformer."""
 from pathlib import Path
 
 path = Path("scripts/apply-6341-offer-catalog-core.py")
@@ -40,5 +40,11 @@ if text.count(old) != 1:
     raise SystemExit("install replacement transformer marker mismatch")
 text = text.replace(old, new, 1)
 
+old = '''                  "nebo podskupinu; produkty lze upravit dvojklikem nebo přetáhnout na cílovou skupinu."),'''
+new = '''                  "nebo podskupinu; produkty lze upravit dvojklikem nebo je myší přetáhnout přímo na cílovou skupinu."),'''
+if text.count(old) != 1:
+    raise SystemExit("workspace wording transformer marker mismatch")
+text = text.replace(old, new, 1)
+
 path.write_text(text, encoding="utf-8")
-print("Corrected temporary 6.3.41 transformer boundaries")
+print("Corrected temporary 6.3.41 transformer markers")
