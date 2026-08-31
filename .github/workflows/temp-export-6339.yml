@@ -1,4 +1,4 @@
-name: Temporary source export for 6.3.39
+name: Apply TURTO CRM 6.3.39 source
 
 on:
   push:
@@ -6,23 +6,36 @@ on:
       - feature/6.3.39-catalog-price-ux
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: turto-6339-apply
+  cancel-in-progress: false
 
 jobs:
-  export:
-    if: startsWith(github.event.head_commit.message, 'TEMP export source')
+  apply:
+    if: startsWith(github.event.head_commit.message, 'TEMP apply 6.3.39')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Pack checked-out repository
-        run: tar --exclude=.git -czf /tmp/turto-source-6339.tgz .
-
-      - name: Upload source snapshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: turto-source-6339
-          path: /tmp/turto-source-6339.tgz
-          retention-days: 1
+      - name: Apply and verify validated source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/tmp6339/part-* | base64 -d > /tmp/turto6339-changes.tgz
+          echo "7e936b08891e44cd70c08451ed98c08cd3331332664f47e3d04c9e0268932ffb  /tmp/turto6339-changes.tgz" | sha256sum -c -
+          tar -xzf /tmp/turto6339-changes.tgz -C .
+          python -m compileall -q ZakazkyApp_base_6.1
+          python scripts/validate-6339-catalog-price-ux.py ZakazkyApp_base_6.1
+          bash -n scripts/publish-update.sh
+          rm -rf .github/tmp6339
+          rm -f .github/workflows/temp-export-6339.yml
+          git config user.name "TURTO Update Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "TURTO CRM 6.3.39 — přehlednější Ceníky a drag-and-drop katalog"
+          git push origin HEAD:feature/6.3.39-catalog-price-ux
