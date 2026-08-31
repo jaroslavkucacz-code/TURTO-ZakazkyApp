@@ -70,14 +70,16 @@ with tempfile.TemporaryDirectory() as tmp:
         """)
     database.ensure_platform_schema(m)
     assert product_catalog.sync_price_list(m, 1) == 1
-    assert product_catalog.sync_supplier_offer(m, 1) == 1
+    assert product_catalog.sync_supplier_offer(m, 1) == 0
+    assert product_catalog.count_unlinked(m) == 0
     with m.db() as con:
         products = con.execute("SELECT * FROM catalog_products").fetchall()
         assert len(products) == 1
         product_id = int(products[0]["id"])
         linked = con.execute("SELECT catalog_product_id FROM price_list_items WHERE id=1").fetchone()[0]
         linked_offer = con.execute("SELECT catalog_product_id FROM supplier_offer_items WHERE id=1").fetchone()[0]
-        assert linked == product_id == linked_offer
+        assert linked == product_id
+        assert linked_offer is None
         group = con.execute("SELECT id FROM product_categories WHERE name='AKUSTICKÁ IZOLACE SCHODIŠŤ'").fetchone()[0]
         subgroup = con.execute("SELECT id FROM product_subgroups WHERE category_id=? ORDER BY id LIMIT 1", (group,)).fetchone()[0]
         con.execute("UPDATE product_subgroups SET default_margin_pct=25,default_discount_pct=10 WHERE id=?", (subgroup,))
@@ -87,7 +89,9 @@ with tempfile.TemporaryDirectory() as tmp:
     assert round(defaults["final_unit_price"], 4) == 112.5
     with m.db() as con:
         row = con.execute("SELECT category_id,subgroup_id FROM price_list_items WHERE id=1").fetchone()
+        offer_row = con.execute("SELECT category_id,subgroup_id FROM supplier_offer_items WHERE id=1").fetchone()
         assert row[0] == group and row[1] == subgroup
+        assert tuple(offer_row) == (None, None)
         assert con.execute("SELECT internal_code FROM catalog_products WHERE id=?", (product_id,)).fetchone()[0] == "T-001"
         cols = {row[1] for row in con.execute("PRAGMA table_info(business_document_items)")}
         for col in ("catalog_product_id", "internal_code_snapshot", "purchase_unit_price", "margin_pct", "recommended_unit_price", "show_recommended_price"):

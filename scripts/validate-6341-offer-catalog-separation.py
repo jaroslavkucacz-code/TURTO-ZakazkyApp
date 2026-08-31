@@ -82,6 +82,10 @@ def seed(M):
               supplier_item_code TEXT, item_key TEXT, name TEXT, description TEXT,
               normalized_unit_price REAL, currency TEXT, unit TEXT
             );
+            CREATE TABLE business_document_templates(
+              id INTEGER PRIMARY KEY, document_type TEXT, active INTEGER DEFAULT 1,
+              is_default INTEGER DEFAULT 0
+            );
             CREATE TABLE projects(
               id INTEGER PRIMARY KEY, name TEXT, active INTEGER DEFAULT 1
             );

@@ -234,7 +234,7 @@ class ProductPicker:
 
 
 class IssuedOfferEditor:
-    def __init__(self, M, app, document_id=None):
+    def __init__(self, M, app, document_id=None, initial_document=None, initial_items=None):
         self.M = M
         self.app = app
         self.document_id = int(document_id) if document_id else None
@@ -251,8 +251,15 @@ class IssuedOfferEditor:
         self.outer.rowconfigure(2, weight=1)
 
         document = service.offer_defaults(M)
+        if initial_document and not self.document_id:
+            document.update(dict(initial_document))
         if self.document_id:
             document, self.items = service.load_document(M, self.document_id)
+        elif initial_items:
+            self.items = [
+                service.normalize_item(dict(item), index)
+                for index, item in enumerate(initial_items, 1)
+            ]
         self.document = document
         self.locked = bool(document.get("locked"))
 
@@ -689,14 +696,20 @@ class IssuedOfferEditor:
             self.win.destroy()
 
 
-def open_editor(M, app, document_id=None):
-    return IssuedOfferEditor(M, app, document_id)
+def open_editor(M, app, document_id=None, initial_document=None, initial_items=None):
+    return IssuedOfferEditor(M, app, document_id, initial_document, initial_items)
 
 
 def install(M) -> None:
     M.IssuedOfferEditor = IssuedOfferEditor
-    M.open_issued_offer_editor = lambda app, document_id=None: open_editor(M, app, document_id)
-    M.App.open_issued_offer_editor = lambda self, document_id=None: open_editor(M, self, document_id)
+    M.open_issued_offer_editor = (
+        lambda app, document_id=None, initial_document=None, initial_items=None:
+        open_editor(M, app, document_id, initial_document, initial_items)
+    )
+    M.App.open_issued_offer_editor = (
+        lambda self, document_id=None, initial_document=None, initial_items=None:
+        open_editor(M, self, document_id, initial_document, initial_items)
+    )
 
 
 __all__ = ["IssuedOfferEditor", "ItemDialog", "ProductPicker", "open_editor", "install"]

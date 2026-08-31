@@ -1,9 +1,9 @@
 """Stable product catalogue and sales-pricing defaults for TURTO CRM.
 
-Products are linked to supplier price-list and offer rows by a deterministic
-supplier/product identity.  Taxonomy, internal codes and internal designations
-therefore survive later price-list updates without copying commercial metadata
-into every imported row.
+Products are linked only to supplier price-list rows by a deterministic
+supplier/product identity. Received supplier offers deliberately stay outside
+the persistent catalogue; they can be copied directly to an issued offer without
+creating or modifying a catalogue product.
 """
 from __future__ import annotations
 
@@ -213,20 +213,18 @@ def _resolve_product(
 
 
 def _sync_rows(M, table: str, parent_column: str, parent_id: int, source_kind: str) -> int:
-    if table == "price_list_items":
-        header_sql = """SELECT p.supplier_company_id,
-              coalesce(nullif(trim(c.official_name),''),nullif(trim(p.supplier_name),''),'') supplier
-              FROM price_lists p LEFT JOIN companies c ON c.id=p.supplier_company_id WHERE p.id=?"""
-        item_sql = """SELECT id,product_code,supplier_item_code,item_key,name,description,
-                      category_id,subgroup_id FROM price_list_items WHERE price_list_id=?"""
-    else:
-        header_sql = """SELECT o.supplier_company_id,
-              coalesce(nullif(trim(c.official_name),''),nullif(trim(c.short_name),''),
-                       nullif(trim(o.supplier_name),''),'') supplier
-              FROM supplier_offers o LEFT JOIN companies c ON c.id=o.supplier_company_id WHERE o.id=?"""
-        item_sql = """SELECT id,product_code,'' supplier_item_code,item_key,
-                      original_name name,details description,category_id,subgroup_id
-                      FROM supplier_offer_items WHERE offer_id=?"""
+    """Synchronize price-list rows into the persistent catalogue.
+
+    The generic signature is retained for compatibility with earlier modules,
+    but received supplier offers are intentionally rejected here.
+    """
+    if table != "price_list_items":
+        return 0
+    header_sql = """SELECT p.supplier_company_id,
+          coalesce(nullif(trim(c.official_name),''),nullif(trim(p.supplier_name),''),'') supplier
+          FROM price_lists p LEFT JOIN companies c ON c.id=p.supplier_company_id WHERE p.id=?"""
+    item_sql = """SELECT id,product_code,supplier_item_code,item_key,name,description,
+                  category_id,subgroup_id FROM price_list_items WHERE price_list_id=?"""
     with M.db() as con:
         header = con.execute(header_sql, (parent_id,)).fetchone()
         if not header:
@@ -250,7 +248,7 @@ def _sync_rows(M, table: str, parent_column: str, parent_id: int, source_kind: s
                 continue
             product_id, category_id, subgroup_id = resolved
             con.execute(
-                f"""UPDATE {table}
+                """UPDATE price_list_items
                     SET catalog_product_id=?,category_id=coalesce(?,category_id),
                         subgroup_id=coalesce(?,subgroup_id)
                     WHERE id=?""",
@@ -265,27 +263,30 @@ def sync_price_list(M, price_list_id: int) -> int:
 
 
 def sync_supplier_offer(M, offer_id: int) -> int:
-    return _sync_rows(M, "supplier_offer_items", "offer_id", int(offer_id), "Cenová nabídka")
+    """Compatibility no-op.
+
+    Přijaté nabídky are independent commercial documents. Importing or opening
+    one must never create a product, source, or catalogue linkage.
+    """
+    return 0
 
 
 def count_unlinked(M) -> int:
+    """Count only Ceník rows still waiting for catalogue synchronization."""
     with M.db() as con:
         return int(con.execute(
-            """SELECT
-                 (SELECT COUNT(*) FROM price_list_items WHERE catalog_product_id IS NULL) +
-                 (SELECT COUNT(*) FROM supplier_offer_items WHERE catalog_product_id IS NULL)"""
+            "SELECT COUNT(*) FROM price_list_items WHERE catalog_product_id IS NULL"
         ).fetchone()[0] or 0)
 
 
 def sync_all_unlinked(M, max_documents: int | None = 250, progress=None) -> dict:
+    """Synchronize unlinked Ceníky; received supplier offers are intentionally ignored."""
     with M.db() as con:
-        sql = """SELECT source_kind,parent_id FROM (
-                   SELECT 0 source_order,'Ceník' source_kind,price_list_id parent_id
-                   FROM price_list_items WHERE catalog_product_id IS NULL GROUP BY price_list_id
-                   UNION ALL
-                   SELECT 1,'Cenová nabídka',offer_id
-                   FROM supplier_offer_items WHERE catalog_product_id IS NULL GROUP BY offer_id
-                 ) ORDER BY source_order,parent_id"""
+        sql = """SELECT price_list_id parent_id
+                   FROM price_list_items
+                  WHERE catalog_product_id IS NULL
+                  GROUP BY price_list_id
+                  ORDER BY price_list_id"""
         params = []
         if max_documents is not None:
             sql += " LIMIT ?"
@@ -294,12 +295,10 @@ def sync_all_unlinked(M, max_documents: int | None = 250, progress=None) -> dict
     total = len(documents)
     linked = 0
     for done, row in enumerate(documents, 1):
-        if row["source_kind"] == "Ceník":
-            linked += sync_price_list(M, int(row["parent_id"]))
-        else:
-            linked += sync_supplier_offer(M, int(row["parent_id"]))
+        parent_id = int(row["parent_id"])
+        linked += sync_price_list(M, parent_id)
         if progress:
-            progress(done, total, f"{row['source_kind']} {row['parent_id']}")
+            progress(done, total, f"Ceník {parent_id}")
     return {"documents": total, "items": linked, "remaining": count_unlinked(M)}
 
 
@@ -319,15 +318,11 @@ def set_product_taxonomy(M, product_ids, category_id=None, subgroup_id=None) -> 
                 "UPDATE price_list_items SET category_id=?,subgroup_id=? WHERE catalog_product_id=?",
                 (category_id, subgroup_id, product_id),
             )
-            con.execute(
-                "UPDATE supplier_offer_items SET category_id=?,subgroup_id=? WHERE catalog_product_id=?",
-                (category_id, subgroup_id, product_id),
-            )
     return len(ids)
 
 
 def propagate_taxonomy_from_items(M, table: str, item_ids) -> int:
-    if table not in {"price_list_items", "supplier_offer_items"}:
+    if table != "price_list_items":
         return 0
     ids = [int(value) for value in item_ids if value]
     if not ids:
@@ -518,16 +513,8 @@ def _open_sources(M, parent, product_id: int) -> None:
                FROM price_list_items i JOIN price_lists p ON p.id=i.price_list_id
                LEFT JOIN companies c ON c.id=p.supplier_company_id
                WHERE i.catalog_product_id=?
-               UNION ALL
-               SELECT 'Cenová nabídka',o.offer_date,
-                      coalesce(nullif(trim(c.official_name),''),nullif(trim(o.supplier_name),''),''),
-                      i.product_code,i.original_name,i.unit_price,coalesce(o.currency,'CZK'),
-                      coalesce(o.offer_number,o.reference,'')
-               FROM supplier_offer_items i JOIN supplier_offers o ON o.id=i.offer_id
-               LEFT JOIN companies c ON c.id=o.supplier_company_id
-               WHERE i.catalog_product_id=?
                ORDER BY source_date DESC,source_type,document_name""",
-            (product_id, product_id),
+            (product_id,),
         ).fetchall()
     win = M.tk.Toplevel(parent)
     win.title("Zdroje produktu")
@@ -854,22 +841,9 @@ def open_product_catalog(M, app, category_id=None, subgroup_id=None) -> None:
 def install(M) -> None:
     if getattr(M, "_turto_product_catalog_v634", False):
         return
-    old_save_offer = getattr(M, "save_offer_import", None)
-    if callable(old_save_offer):
-        def save_offer_import(*args, **kwargs):
-            result = old_save_offer(*args, **kwargs)
-            offer_id = None
-            if isinstance(result, (tuple, list)) and result:
-                offer_id = result[0]
-            elif isinstance(result, int):
-                offer_id = result
-            try:
-                if offer_id:
-                    sync_supplier_offer(M, int(offer_id))
-            except Exception:
-                pass
-            return result
-        M.save_offer_import = save_offer_import
+    # Přijaté nabídky are deliberately not wrapped here. Their import must stay
+    # independent from the catalogue; only Ceníky and explicit manual products
+    # are catalogue sources.
     M.open_product_catalog = lambda app, category_id=None, subgroup_id=None: open_product_catalog(
         M, app, category_id, subgroup_id
     )

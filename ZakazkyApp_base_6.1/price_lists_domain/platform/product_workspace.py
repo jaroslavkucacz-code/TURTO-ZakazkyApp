@@ -3,8 +3,8 @@
 The stable catalogue data owner remains :mod:`product_catalog`. This module is
 its single presentation owner: product groups form a navigation tree on the
 left and the products belonging to the selected group/subgroup are shown on the
-right. Moving a catalogue product uses the existing service so every linked
-price-list and supplier-offer row follows the same stable product.
+right. Only Ceníky and explicit manual products feed this catalogue; received
+supplier offers remain independent commercial documents.
 """
 from __future__ import annotations
 
@@ -284,8 +284,8 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         )
         M.ttk.Label(
             outer,
-            text=("Vlevo vyberte skupinu nebo podskupinu. Produkty můžete upravit dvojklikem nebo je myší "
-                  "přetáhnout přímo na cílovou skupinu; poslední přesun lze jedním tlačítkem vrátit."),
+            text=("Katalog se plní pouze z Ceníků nebo ručně založených výrobků. Vlevo vyberte skupinu "
+                  "nebo podskupinu; produkty lze upravit dvojklikem nebo je myší přetáhnout přímo na cílovou skupinu."),
             style="PageSubtitle.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(2, 8))
         workspace_row = 2
@@ -313,13 +313,13 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         style="PageSubtitle.TLabel", wraplength=340,
     ).grid(row=1, column=0, sticky="w", pady=(1, 6))
 
-    structure_cols = ("Produktů", "Ceníků", "Nabídek")
+    structure_cols = ("Produktů", "Ceníků")
     structure = M.ttk.Treeview(
         left, columns=structure_cols, show="tree headings", selectmode="browse", height=24
     )
     structure.heading("#0", text="Skupina / podskupina")
     structure.column("#0", width=340, minwidth=220, anchor="w", stretch=True)
-    for col, width in (("Produktů", 72), ("Ceníků", 62), ("Nabídek", 65)):
+    for col, width in (("Produktů", 72), ("Ceníků", 62)):
         structure.heading(col, text=col)
         structure.column(col, width=width, minwidth=55, anchor="e", stretch=False)
     structure.grid(row=2, column=0, sticky="nsew")
@@ -386,9 +386,9 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
     cols = (
         "Interní kód", "Interní označení", "Výrobce", "Dodavatel", "Kód dodavatele",
         "Označení dodavatele", "Produktová skupina", "Podskupina", "Nákupní cena",
-        "Marže", "Sleva", "Výsledná cena", "Ceníků", "Nabídek",
+        "Marže", "Sleva", "Výsledná cena", "Ceníků",
     )
-    widths = (120, 230, 165, 175, 135, 290, 230, 250, 125, 68, 68, 125, 65, 65)
+    widths = (120, 230, 165, 175, 135, 290, 230, 250, 125, 68, 68, 125, 65)
     products = M.ttk.Treeview(table_wrap, columns=cols, show="headings", selectmode="extended")
     for col, width in zip(cols, widths):
         products.heading(col, text=col)
@@ -456,7 +456,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         state["inactive_scopes"] = set()
         structure.insert(
             "", "end", iid=_SCOPE_ALL, text="Všechny produkty",
-            values=(totals["product_count"], totals["list_count"], totals["offer_count"]),
+            values=(totals["product_count"], totals["list_count"]),
             open=True,
         )
         structure.insert(
@@ -474,7 +474,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
             group_active = bool(group_row["active"])
             structure.insert(
                 "", "end", iid=group_iid, text=group_row["name"],
-                values=(group_row["product_count"], group_row["list_count"], group_row["offer_count"]),
+                values=(group_row["product_count"], group_row["list_count"]),
                 open=(group_iid in opened or selected_category_id == group_id),
                 tags=("status_cancel",) if not group_active else (),
             )
@@ -491,7 +491,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
                 subgroup_active = group_active and bool(subgroup_row["active"])
                 structure.insert(
                     group_iid, "end", iid=subgroup_iid, text=subgroup_row["name"],
-                    values=(subgroup_row["product_count"], subgroup_row["list_count"], subgroup_row["offer_count"]),
+                    values=(subgroup_row["product_count"], subgroup_row["list_count"]),
                     tags=("status_cancel",) if not subgroup_active else (),
                 )
                 if not subgroup_active:
@@ -532,18 +532,18 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
                     _format_price(row["current_price"], row["current_currency"] or "CZK"),
                     f"{_number(row['margin_pct']):g} %", f"{_number(row['discount_pct']):g} %",
                     _format_price(final if row["current_price"] is not None else None, row["current_currency"] or "CZK"),
-                    row["price_lists"], row["offers"],
+                    row["price_lists"],
                 ),
                 tags=("status_cancel",) if not row["active"] else (),
             )
         start = offset + 1 if total else 0
         end = min(total, offset + len(rows))
         remaining = product_catalog.count_unlinked(M)
-        extra = f" · {remaining} dosud nespojených položek" if remaining else ""
+        extra = f" · {remaining} dosud nespojených položek Ceníků" if remaining else ""
         status.set(f"Zobrazeno {start}–{end} z {total}{extra}")
         scope_summary.set(
             f"Produktů: {summary['products']} · Výrobců: {summary['manufacturers']} · "
-            f"Vazeb na Ceníky: {summary['list_links']} · Vazeb na cenové Nabídky: {summary['offer_links']}"
+            f"Vazeb na Ceníky: {summary['list_links']}"
         )
         prev_button.state(["!disabled"] if state["page"] > 0 else ["disabled"])
         next_button.state(["!disabled"] if end < total else ["disabled"])
@@ -621,7 +621,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         if confirm and not M.messagebox.askyesno(
             "Přesunout produkty",
             f"Přesunout vybrané produkty ({len(ids)}) do:\n\n{target_scope['label']}?\n\n"
-            "Změna se automaticky projeví ve všech jejich Ceníkách i cenových Nabídkách.",
+            "Změna se automaticky projeví ve všech propojených Ceníkách. Přijaté nabídky zůstanou beze změny.",
             parent=parent,
         ):
             return
@@ -767,7 +767,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
 
     def sync_everything():
         progress_win = M.tk.Toplevel(parent)
-        progress_win.title("Synchronizace katalogu")
+        progress_win.title("Synchronizace Ceníků do katalogu")
         progress_win.transient(parent)
         progress_win.grab_set()
         frame = M.ttk.Frame(progress_win, padding=16)
@@ -806,8 +806,8 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         refresh_all(state["scope_iid"])
         M.messagebox.showinfo(
             "Katalog produktů",
-            f"Synchronizováno dokumentů: {result['documents']}\n"
-            f"Propojeno položek: {result['items']}\nZbývá: {result['remaining']}",
+            f"Synchronizováno Ceníků: {result['documents']}\n"
+            f"Propojeno položek Ceníků: {result['items']}\nZbývá: {result['remaining']}",
             parent=parent,
         )
 
@@ -831,7 +831,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
     undo_button.state(["disabled"])
     M.ttk.Button(actions, text="Upravit produkt…", command=edit_selected).pack(side="left", padx=4)
     M.ttk.Button(actions, text="Zdroje a ceny…", command=show_sources).pack(side="left", padx=4)
-    M.ttk.Button(actions, text="Dosynchronizovat katalog", command=sync_everything).pack(side="left", padx=(14, 4))
+    M.ttk.Button(actions, text="Dosynchronizovat Ceníky", command=sync_everything).pack(side="left", padx=(14, 4))
     M.ttk.Button(actions, text="Zrušit filtry", command=clear_filters).pack(side="right")
 
     context = M.tk.Menu(products, tearoff=False)
@@ -892,7 +892,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
             return
         if result.get("items"):
             refresh_all(state["scope_iid"])
-            status.set(status.get() + f" · při otevření propojeno {result['items']} položek")
+            status.set(status.get() + f" · při otevření propojeno {result['items']} položek Ceníků")
 
     try:
         parent.after(80, initial_sync)

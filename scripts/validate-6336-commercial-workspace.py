@@ -107,7 +107,8 @@ def main() -> None:
     text = (root / "price_lists_domain/platform/commercial_workspace.py").read_text(encoding="utf-8")
     for needle in (
         "single final presentation owner", "Detail vybrané ceny", "Detail nabídky",
-        "Pracovní pohled", "Cenový základ", "Nezařazených cen", "Bez zařazení produktů",
+        "Pracovní pohled", "Cenový základ", "Nezařazených cen", "Bez zařazení položek",
+        "Překlopit do Vydané nabídky",
         "M.App.build_price_lists = app_build_price_lists", "M.App.build_offers = app_build_offers",
     ):
         assert needle in text, needle

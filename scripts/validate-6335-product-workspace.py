@@ -14,7 +14,7 @@ for needle in (
     "Nezařazené",
     "Bez podskupiny",
     "Přesunout vybrané do označené skupiny",
-    "Změna se automaticky projeví ve všech jejich Ceníkách i cenových Nabídkách",
+    "Přijaté nabídky zůstanou beze změny",
     "structure_tree",
     "product_tree",
     "def build_product_workspace",
@@ -73,7 +73,7 @@ with tempfile.TemporaryDirectory() as tmp:
         )
     database.ensure_platform_schema(m)
     assert product_catalog.sync_price_list(m, 1) == 1
-    assert product_catalog.sync_supplier_offer(m, 1) == 1
+    assert product_catalog.sync_supplier_offer(m, 1) == 0
 
     with m.db() as con:
         product_id = int(con.execute("SELECT id FROM catalog_products").fetchone()[0])
@@ -99,13 +99,15 @@ with tempfile.TemporaryDirectory() as tmp:
     assert total == 1 and len(rows) == 1 and int(summary["products"]) == 1
     assert int(rows[0]["id"]) == product_id
 
-    # Moving the stable product must immediately propagate to both source domains.
+    # Moving the stable product propagates to Ceníky only. A received offer
+    # keeps its own local classification and remains outside the catalogue.
     product_catalog.set_product_taxonomy(m, [product_id], group_b, None)
     with m.db() as con:
         master = con.execute("SELECT category_id,subgroup_id FROM catalog_products WHERE id=?", (product_id,)).fetchone()
         price_row = con.execute("SELECT category_id,subgroup_id FROM price_list_items WHERE id=1").fetchone()
         offer_row = con.execute("SELECT category_id,subgroup_id FROM supplier_offer_items WHERE id=1").fetchone()
-        assert tuple(master) == tuple(price_row) == tuple(offer_row) == (group_b, None)
+        assert tuple(master) == tuple(price_row) == (group_b, None)
+        assert tuple(offer_row) == (None, None)
 
     group_scope = product_workspace._scope_from_iid(m, f"g{group_b}")
     assert product_workspace._catalog_rows(m, group_scope)[0] == 1
