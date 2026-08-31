@@ -27,7 +27,9 @@ jobs:
           cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
       - name: Install runtime dependencies
         run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
-      - name: Compile issued offers domain
-        run: python -m compileall -q ZakazkyApp_base_6.1/price_lists_domain/issued_offers ZakazkyApp_base_6.1/price_lists_domain/__init__.py
+      - name: Compile issued offers and pricing domains
+        run: python -m compileall -q ZakazkyApp_base_6.1/price_lists_domain/issued_offers ZakazkyApp_base_6.1/price_lists_domain/platform/pricing_profiles.py ZakazkyApp_base_6.1/price_lists_domain/__init__.py
       - name: Issued offers, numbering and PDF revision regression test
         run: python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
+      - name: Manual products and contextual customer pricing regression test
+        run: python scripts/validate-6340-manual-products-pricing.py ZakazkyApp_base_6.1
