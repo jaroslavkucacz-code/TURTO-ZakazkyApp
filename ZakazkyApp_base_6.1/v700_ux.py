@@ -79,6 +79,7 @@ def group_offer_items(items: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
 def apply(M):
     import hashlib
     import json
+    import re
     import threading
     from datetime import date
 
@@ -723,6 +724,7 @@ def apply(M):
             title = _text(tree.winfo_toplevel().title(), "TURTO")
         except Exception:
             title = "TURTO"
+        title = re.sub(r"\d+(?:\.\d+)+", "", title).strip() or "TURTO"
         columns = tree_columns(tree)
         raw = title + "|" + "|".join(columns)
         digest = hashlib.sha1(raw.encode("utf-8", "replace")).hexdigest()[:20]
@@ -772,8 +774,11 @@ def apply(M):
         try:
             with M.db() as con:
                 con.execute(
-                    """INSERT INTO user_settings(user_name,key,value) VALUES(?,?,?)
-                       ON CONFLICT(user_name,key) DO UPDATE SET value=excluded.value""",
+                    "DELETE FROM user_settings WHERE user_name=? AND key=?",
+                    (user, key),
+                )
+                con.execute(
+                    "INSERT INTO user_settings(user_name,key,value) VALUES(?,?,?)",
                     (user, key, json.dumps(state, ensure_ascii=False)),
                 )
         except Exception:

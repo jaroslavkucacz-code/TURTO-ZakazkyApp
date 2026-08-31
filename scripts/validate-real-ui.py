@@ -54,6 +54,7 @@ def main() -> None:
     import v640_warning_cleanup
     import v644_default_date_sort
     import post_baseline
+    import v700_ux
 
     callback_errors = []
     dialog_errors = []
@@ -104,6 +105,7 @@ def main() -> None:
     v644_default_date_sort.apply(app)
     crm_features.install_offer_ui(app)
     crm_price_lists.apply(app)
+    v700_ux.apply(app)
 
     # Run the fully wrapped schema owner once more for additive platform tables.
     app.ensure_schema()
