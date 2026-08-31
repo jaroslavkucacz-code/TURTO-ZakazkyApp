@@ -1,10 +1,7 @@
-• Katalog produktů nově umožňuje založit výrobek ručně bez importu Ceníku. Ukládá se stabilní interní kód, označení, výrobce, skupina a podskupina, měrná jednotka, popis, ruční nákupní cena, měna a poznámka.
-• Ruční nákupní cena není vedena jako falešný Ceník. Použije se pouze jako záložní cena, pokud pro výrobek neexistuje platná ověřená cena z importovaného Ceníku; platný Ceník má vždy přednost.
-• U konkrétního výrobku lze nastavit vlastní standardní marži a standardní slevu. Prázdná hodnota bezpečně dědí nastavení podskupiny nebo skupiny.
-• Přidána jsou pravidla slev pro konkrétní kombinaci výrobek + společnost. Volitelně lze stejné společnosti nastavit odlišnou výjimku pro konkrétní Akci.
-• Pořadí cenové politiky je jednoznačné: ruční změna přímo na řádku vydané nabídky → výjimka pro Akci → sleva společnosti → standard výrobku → standard podskupiny/skupiny.
-• V Katalogu produktů přibylo tlačítko Nový ruční výrobek a společný správce Ruční ceny a zákaznické slevy. Z něj lze upravovat i ruční cenové doplnění již existujících katalogových výrobků.
-• Ručně založené výrobky se nabízejí také při výběru položek do Vydané nabídky. Při uložení se použije zákaznická nebo akční sleva a nákupní, doporučená i výsledná cena se znovu konzistentně dopočítají.
-• Ručně nastavená sleva na konkrétním řádku nabídky se automatickým pravidlem nepřepíše.
-• Vydaná nabídka ukládá cenový snímek položky. Pozdější změna ruční ceny, Ceníku nebo zákaznického pravidla proto nemění starší PDF revize ani již uložené řádky.
-• Databázové změny jsou pouze aditivní. Historické Ceníky, přijaté nabídky, vydané nabídky, PDF revize, fyzické archivy a ostatní uživatelská data zůstávají zachovány.
+• Přijaté nabídky dodavatelů už nejsou automatickým zdrojem Katalogu produktů. Jejich import nevytváří nové katalogové výrobky, nepřipojuje položky ke katalogu a nemění interní produktové údaje.
+• Automatická i ruční volba „Dosynchronizovat Ceníky“ nyní zpracovává výhradně řádné Ceníky. Počet nespojených položek v Katalogu se počítá pouze z Ceníků.
+• V Přijatých nabídkách přibylo tlačítko „Překlopit do Vydané nabídky“. Vybraná nabídka se otevře jako nový neuložený koncept Vydané nabídky se všemi položkami, množstvím, měrnou jednotkou a nákupní cenou.
+• Překlopené řádky jsou samostatné cenové snímky a mají vždy prázdnou vazbu na Katalog produktů, a to i u starších nabídek, které byly v minulosti automaticky propojené.
+• Marže a prodejní sleva se při překlopení předvyplní podle lokální skupiny nebo podskupiny položky. Odběratele, Akci, ceny i slevy lze před uložením Vydané nabídky běžně upravit.
+• Volba „Označit jako Ceník“ zůstává zachována jako vědomý způsob, jak z přijatého dokumentu vytvořit dlouhodobý Ceník. Teprve položky takto vytvořeného Ceníku se mohou synchronizovat do Katalogu.
+• Již existující katalogové záznamy ani historické vazby se automaticky nemažou. Aktualizace zastavuje další nechtěné propisování bez ztráty historie, archivů, přijatých či vydaných nabídek a PDF revizí.
