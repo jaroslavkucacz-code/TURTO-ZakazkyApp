@@ -29,14 +29,14 @@ def apply(module):
     _install_app_page(module)
     _install_settings(module)
 
-    # Vydané nabídky are a separate canonical sub-domain. Install them before
-    # the platform navigation owner so the page can register its refresh method.
-    install_issued_offers(module)
-
-    # Platform owners are installed once, in a deterministic order. Responsive
-    # navigation remains the final UI owner.
+    # Shared platform owners create the additive business-document foundation and
+    # remain the sole owners of navigation and updates.
     from .platform import install as install_platform
     install_platform(module)
+
+    # Vydané nabídky extend that foundation and register their page with the
+    # already installed responsive navigation owner; they do not replace it.
+    install_issued_offers(module)
 
     module._turto_price_lists_domain_v6338 = True
 
