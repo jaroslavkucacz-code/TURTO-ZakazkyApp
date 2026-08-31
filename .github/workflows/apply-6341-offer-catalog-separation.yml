@@ -30,6 +30,7 @@ jobs:
 
       - name: Apply direct source-owner changes
         run: |
+          python scripts/fix-6341-transformer.py
           python scripts/apply-6341-offer-catalog-core.py .
           python scripts/apply-6341-offer-catalog-tests.py .
 
@@ -55,6 +56,7 @@ jobs:
 
       - name: Commit implementation
         run: |
+          rm -f scripts/fix-6341-transformer.py
           rm -f scripts/apply-6341-offer-catalog-core.py
           rm -f scripts/apply-6341-offer-catalog-tests.py
           rm -f .github/workflows/apply-6341-offer-catalog-separation.yml
