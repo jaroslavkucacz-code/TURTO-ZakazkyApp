@@ -216,7 +216,8 @@ def main() -> None:
         product_trees = [tree for tree in catalogue_trees if required_product_columns.issubset(set(tree["columns"]))]
         structure_trees = [
             tree for tree in catalogue_trees
-            if {"Produktů", "Ceníků", "Nabídek"}.issubset(set(tree["columns"]))
+            if {"Produktů", "Ceníků"}.issubset(set(tree["columns"]))
+            and "Nabídek" not in set(tree["columns"])
             and not required_product_columns.issubset(set(tree["columns"]))
         ]
         assert len(product_trees) == 1, [set(tree["columns"]) for tree in catalogue_trees]
