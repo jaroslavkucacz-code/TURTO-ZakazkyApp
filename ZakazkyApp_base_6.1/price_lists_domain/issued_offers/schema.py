@@ -131,6 +131,8 @@ def ensure_business_documents_schema(M) -> None:
             "purchase_currency TEXT DEFAULT 'CZK'",
             "vat_rate REAL NOT NULL DEFAULT 21",
             "internal_name_snapshot TEXT DEFAULT ''",
+            "category_name_snapshot TEXT DEFAULT ''",
+            "subgroup_name_snapshot TEXT DEFAULT ''",
             "price_source_label TEXT DEFAULT ''",
             "source_price_list_item_id INTEGER REFERENCES price_list_items(id)",
             "source_supplier_offer_item_id INTEGER REFERENCES supplier_offer_items(id)",
