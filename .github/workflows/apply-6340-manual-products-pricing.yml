@@ -42,6 +42,22 @@ jobs:
       - name: Apply source changes
         run: python scripts/apply-6340-manual-products-pricing.py .
 
+      - name: Preserve previous platform compatibility marker
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('ZakazkyApp_base_6.1/price_lists_domain/platform/__init__.py')
+          text = path.read_text(encoding='utf-8')
+          current = '    module._turto_platform_v6340 = True'
+          previous = '    module._turto_platform_v6339 = True'
+          if previous not in text:
+              if current not in text:
+                  raise SystemExit('6.3.40 platform marker not found')
+              text = text.replace(current, previous + '\n' + current, 1)
+              path.write_text(text, encoding='utf-8')
+          PY
+
       - name: Validate source and compatibility
         shell: bash
         run: |
