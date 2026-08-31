@@ -19,3 +19,4 @@ new = '''        structure_trees = [
 if text.count(old) != 1:
     raise SystemExit("real UI catalogue structure marker mismatch")
 path.write_text(text.replace(old, new, 1), encoding="utf-8")
+print("Updated real UI validation for separated received offers")
