@@ -33,12 +33,13 @@ jobs:
       - name: Apply 7.1 cleanup
         run: python scripts/apply-7100-cleanup.py
 
-      - name: Normalize generated dialog literals
+      - name: Normalize generated sources
         run: |
           python - <<'PY'
           from pathlib import Path
-          path = Path('ZakazkyApp_base_6.1/v710_cleanup.py')
-          text = path.read_text(encoding='utf-8')
+
+          layer_path = Path('ZakazkyApp_base_6.1/v710_cleanup.py')
+          text = layer_path.read_text(encoding='utf-8')
           text = text.replace(
               'podskupiny?\n\n"\n                "Ano = přepočítat ceny podle zařazení.\n"',
               'podskupiny?\\n\\n"\n                "Ano = přepočítat ceny podle zařazení.\\n"',
@@ -47,7 +48,19 @@ jobs:
               'Vydanou nabídku:\n{exc}"',
               'Vydanou nabídku:\\n{exc}"',
           )
-          path.write_text(text, encoding='utf-8')
+          layer_path.write_text(text, encoding='utf-8')
+
+          test_path = Path('scripts/validate-7100-commercial-cleanup.py')
+          test = test_path.read_text(encoding='utf-8')
+          test = test.replace(
+              '        import app\n        import crm_price_lists\n',
+              '        import app\n        import crm_features\n        import crm_price_lists\n',
+          )
+          test = test.replace(
+              '        app.ensure_schema()\n        crm_price_lists.apply(app)\n',
+              '        app.ensure_schema()\n        crm_features.apply(app)\n        crm_price_lists.apply(app)\n',
+          )
+          test_path.write_text(test, encoding='utf-8')
           PY
 
       - name: Compile canonical source
