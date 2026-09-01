@@ -1,9 +1,9 @@
-• Opraveno trvalé ukládání šířek sloupců, zejména na záložce Poptávky. Starší opožděná vazba už nemaže nový obslužný kód po uvolnění myši a ručně nastavená šířka se při překliku ani obnovení tabulky nevrací.
-• V dialogu Nastavení sloupců lze nyní šířku vybraného sloupce zadat přímo v pixelech. Tažení oddělovače v záhlaví zůstává zachováno a obě cesty používají stejné uživatelské uložení.
-• Vydaná nabídka se nově otevírá primárně jako živý vizuální náhled výsledného PDF. Náhled používá stejný produkční renderer, šablonu, stránkování, skupiny, součty, záhlaví a zápatí jako finální PDF.
-• Dvojklikem na zákaznický řádek přímo v náhledu lze upravit kód, označení, množství, měrnou jednotku a prodejní cenu; nadpisy a zákaznické texty lze upravovat stejným způsobem. Datová tabulka zůstává dostupná přepínačem.
-• Nákupní cena, marže, doporučená cena, sleva a DPH jsou oddělené v interní boční kartě „Cena položky“ a v generovaném PDF se nezobrazují.
-• Živý náhled rozpracované nabídky nevytváří databázový dokument, nečerpá číslo z číselné řady a nezapisuje PDF revizi.
-• Nové cenové nabídky dostávají pevný formát CNrr-00000, například CN26-00001. Již vydaná čísla se nemění a pořadí plynule pokračuje podle dosavadní roční sekvence.
-• Proveden další bezpečný technický úklid: odstraněno plošné rušení myších vazeb ve starší vrstvě a deaktivován druhý soupeřící mechanismus automatického roztahování tabulek. Jeden vlastník nyní spravuje šířky, skrytí, pořadí i vyplnění pravého okraje.
-• Databázová migrace je nedestruktivní. Existující Poptávky, Přijaté nabídky, Vydané nabídky, jejich původní čísla, Katalog, Ceníky, archivy a PDF revize zůstávají zachované.
+• Opraveno mizení živého náhledu Vydané nabídky po přiblížení nebo automatickém překreslení. Registrace písma je nyní svázaná se skutečným PDF dokumentem a nemůže použít neplatný font z již zavřeného náhledu.
+• Nový náhled nahradí předchozí obraz až po úplném úspěšném vykreslení všech stran. Při výjimečné chybě proto zůstane poslední platný náhled viditelný a program zobrazí srozumitelné upozornění místo technické hlášky.
+• Ovládání náhledu je klidnější: přibylo 100 %, přesnější Na šířku, zachování pozice při zoomu a Ctrl + kolečko myši. Opakované změny velikosti okna jsou sloučené do jednoho překreslení.
+• Přijaté nabídky mají přímo nad tabulkou tlačítko Sloupce… pro změnu šířek, pořadí a viditelnosti. Nastavení se ukládá samostatně pro každého uživatele a přežije obnovení, přepnutí záložky i restart.
+• Nad Přijatými nabídkami je nově vysvětlen význam barev: žlutá = chybějící vazba, oranžová = nezařazené položky, modrá = nabídka evidovaná také jako Ceník, šedá = archiv. Barva nevyjadřuje obchodní výsledek.
+• Ve Společnostech lze označit dva záznamy a použít Sloučit společnosti…. Zvolíte záznam, který zůstane; jeho vyplněné ARES údaje mají přednost a prázdná pole se doplní z druhé společnosti.
+• Při sloučení se přesunou kontakty, Příležitosti, Poptávky, Přijaté a Vydané nabídky, Ceníky, katalogové zdroje a zákaznické slevy. Kontakty se stejným e-mailem se spojí a chybějící telefon, funkce nebo poznámka se doplní.
+• Sloučení probíhá v jedné databázové transakci a před potvrzením se vytvoří záloha. Zdrojová společnost se nemaže, pouze se označí jako neaktivní a sloučená; auditní záznam uchová oba původní snímky a souhrn přesunů.
+• Historické názvy odběratelů v již uložených nabídkách a existující PDF revize se zpětně nemění. Aktualizace je nedestruktivní pro Poptávky, Ceníky, Katalog produktů, Přijaté i Vydané nabídky.
