@@ -103,9 +103,9 @@ replace_once(
 validate = ".github/workflows/validate-6330.yml"
 replace_once(
     validate,
-    "      - name: Preview resilience, received-offer columns and company merge test\n        run: python scripts/validate-7300-polish.py ZakazkyApp_base_6.1\n",
-    "      - name: Preview resilience, received-offer columns and company merge test\n"
-    "        run: python scripts/validate-7300-polish.py ZakazkyApp_base_6.1\n\n"
+    "      - name: Issued pricing defaults and uniform table controls test\n        run: python scripts/validate-7400-issued-pricing-columns.py ZakazkyApp_base_6.1\n",
+    "      - name: Issued pricing defaults and uniform table controls test\n"
+    "        run: python scripts/validate-7400-issued-pricing-columns.py ZakazkyApp_base_6.1\n\n"
     "      - name: Context menus, filter synchronization and A4 offer format test\n"
     "        run: python scripts/validate-7500-context-filters-offer-format.py ZakazkyApp_base_6.1\n",
 )
@@ -113,14 +113,19 @@ replace_once(
 publish_workflow = ".github/workflows/publish-update.yml"
 replace_once(
     publish_workflow,
-    "      - scripts/validate-7300-polish.py\n      - scripts/validate-real-ui.py",
     "      - scripts/validate-7300-polish.py\n"
+    "      - scripts/validate-7400-issued-pricing-columns.py\n"
+    "      - scripts/validate-real-ui.py",
+    "      - scripts/validate-7300-polish.py\n"
+    "      - scripts/validate-7400-issued-pricing-columns.py\n"
     "      - scripts/validate-7500-context-filters-offer-format.py\n"
     "      - scripts/validate-real-ui.py",
 )
 replace_once(
     publish_workflow,
-    "      - ZakazkyApp_base_6.1/v730_polish.py\n      - ZakazkyApp_base_6.1/price_lists_domain/issued_offers/**",
+    "      - ZakazkyApp_base_6.1/v730_polish.py\n"
+    "      - ZakazkyApp_base_6.1/v740_offer_defaults.py\n"
+    "      - ZakazkyApp_base_6.1/price_lists_domain/issued_offers/**",
     "      - ZakazkyApp_base_6.1/v730_polish.py\n"
     "      - ZakazkyApp_base_6.1/v740_offer_defaults.py\n"
     "      - ZakazkyApp_base_6.1/v750_context_filters_offer_format.py\n"
@@ -128,17 +133,23 @@ replace_once(
 )
 replace_once(
     publish_workflow,
-    "      - .github/workflows/validate-7300-polish.yml\npermissions:",
     "      - .github/workflows/validate-7300-polish.yml\n"
+    "      - .github/workflows/validate-7400-issued-pricing-columns.yml\n"
+    "permissions:",
+    "      - .github/workflows/validate-7300-polish.yml\n"
+    "      - .github/workflows/validate-7400-issued-pricing-columns.yml\n"
     "      - .github/workflows/validate-7500-context-filters-offer-format.yml\n"
     "permissions:",
 )
 replace_once(
     publish_workflow,
-    "      - name: Validate 7.3 preview resilience, received offers and company merge\n        shell: bash\n        run: python scripts/validate-7300-polish.py ZakazkyApp_base_6.1\n\n      - name: Build, validate and publish",
-    "      - name: Validate 7.3 preview resilience, received offers and company merge\n"
+    "      - name: Validate 7.4 pricing defaults and uniform table controls\n"
     "        shell: bash\n"
-    "        run: python scripts/validate-7300-polish.py ZakazkyApp_base_6.1\n\n"
+    "        run: python scripts/validate-7400-issued-pricing-columns.py ZakazkyApp_base_6.1\n\n"
+    "      - name: Build, validate and publish",
+    "      - name: Validate 7.4 pricing defaults and uniform table controls\n"
+    "        shell: bash\n"
+    "        run: python scripts/validate-7400-issued-pricing-columns.py ZakazkyApp_base_6.1\n\n"
     "      - name: Validate 7.5 context menus, filters and A4 offer format\n"
     "        shell: bash\n"
     "        run: python scripts/validate-7500-context-filters-offer-format.py ZakazkyApp_base_6.1\n\n"
