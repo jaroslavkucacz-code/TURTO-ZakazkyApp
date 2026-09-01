@@ -87,3 +87,5 @@ jobs:
           git diff --cached --check
           git commit -m "TURTO CRM 7.4.0 — pricing defaults and uniform table controls"
           git push origin HEAD:feature/7.4.0-issued-pricing-columns-ui-consistency
+
+# retry with corrected staged payload
