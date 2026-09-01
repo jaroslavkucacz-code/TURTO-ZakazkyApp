@@ -14,10 +14,10 @@ on:
       - scripts/validate-6339-catalog-price-ux.py
       - scripts/validate-6340-manual-products-pricing.py
       - scripts/validate-6341-offer-catalog-separation.py
-      - scripts/validate-7000-workflow-table-ux.py
+      - scripts/validate-7100-commercial-cleanup.py
       - scripts/validate-real-ui.py
       - ZakazkyApp_base_6.1/crm_price_lists.py
-      - ZakazkyApp_base_6.1/v700_ux.py
+      - ZakazkyApp_base_6.1/v710_cleanup.py
       - ZakazkyApp_base_6.1/price_lists_domain/issued_offers/**
       - ZakazkyApp_base_6.1/price_lists_domain/platform/categories.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/product_catalog.py
@@ -30,7 +30,7 @@ on:
       - .github/workflows/publish-update.yml
       - .github/workflows/validate-6340-manual-pricing.yml
       - .github/workflows/validate-6341-offer-catalog-separation.yml
-      - .github/workflows/validate-7000-workflow-table-ux.yml
+      - .github/workflows/validate-7100-commercial-cleanup.yml
 permissions:
   contents: write
 concurrency:
@@ -81,9 +81,9 @@ jobs:
         shell: bash
         run: python scripts/validate-6341-offer-catalog-separation.py ZakazkyApp_base_6.1
 
-      - name: Validate 7.0 request workflow and configurable tables
+      - name: Validate 7.1 commercial cleanup
         shell: bash
-        run: python scripts/validate-7000-workflow-table-ux.py ZakazkyApp_base_6.1
+        run: python scripts/validate-7100-commercial-cleanup.py ZakazkyApp_base_6.1
 
       - name: Build, validate and publish
         shell: bash
