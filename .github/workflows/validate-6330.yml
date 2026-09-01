@@ -78,13 +78,16 @@ jobs:
       - name: Context menus, filter synchronization and A4 offer format test
         run: python scripts/validate-7500-context-filters-offer-format.py ZakazkyApp_base_6.1
 
+      - name: Table alignment, archive activity and performance test
+        run: python scripts/validate-7600-table-activity-performance.py ZakazkyApp_base_6.1
+
       - name: Ensure virtual display
         if: matrix.python-version == '3.14'
         run: command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
 
       - name: Real Tk application navigation and visual-editor test
         if: matrix.python-version == '3.14'
-        run: timeout 150s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
+        run: timeout 180s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
 
       - name: Validate release script syntax
         run: bash -n scripts/publish-update.sh
