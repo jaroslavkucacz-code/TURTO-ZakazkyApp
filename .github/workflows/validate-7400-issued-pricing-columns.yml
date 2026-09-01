@@ -1,19 +1,23 @@
-name: Validate TURTO CRM 7.2 visual issued offers
+name: Validate TURTO CRM 7.4 issued pricing and table controls
 
 on:
   pull_request:
     branches:
       - main
     paths:
-      - post_baseline.py
-      - ZakazkyApp_base_6.1/v638_table_updatefix.py
+      - ZakazkyApp_base_6.1/ZakazkyCRM.pyw
+      - ZakazkyApp_base_6.1/v621_prices.py
       - ZakazkyApp_base_6.1/v710_cleanup.py
       - ZakazkyApp_base_6.1/v720_visual_offer.py
       - ZakazkyApp_base_6.1/v730_polish.py
       - ZakazkyApp_base_6.1/v740_offer_defaults.py
-      - ZakazkyApp_base_6.1/ZakazkyCRM.pyw
       - ZakazkyApp_base_6.1/price_lists_domain/issued_offers/**
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/commercial_workspace.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/product_catalog.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/customer_pricing.py
       - scripts/validate-6337-issued-offers.py
+      - scripts/validate-6340-manual-products-pricing.py
+      - scripts/validate-6341-offer-catalog-separation.py
       - scripts/validate-7100-commercial-cleanup.py
       - scripts/validate-7200-visual-issued-offers.py
       - scripts/validate-7300-polish.py
@@ -22,7 +26,6 @@ on:
       - scripts/publish-update.sh
       - release_version.txt
       - release_notes.txt
-      - .github/workflows/validate-7200-visual-issued-offers.yml
       - .github/workflows/validate-7400-issued-pricing-columns.yml
       - .github/workflows/publish-update.yml
   workflow_dispatch:
@@ -51,25 +54,25 @@ jobs:
       - name: Install runtime dependencies
         run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
 
-      - name: Compile issued-offer source and validation
+      - name: Compile source and validations
         run: python -m compileall -q ZakazkyApp_base_6.1 scripts post_baseline.py
 
-      - name: Validate persistent columns and 7.1 compatibility
-        run: python scripts/validate-7100-commercial-cleanup.py ZakazkyApp_base_6.1
+      - name: Validate internal identity, pricing defaults and taxonomy order
+        run: python scripts/validate-7400-issued-pricing-columns.py ZakazkyApp_base_6.1
 
-      - name: Validate visual PDF editor and fixed numbering
-        run: python scripts/validate-7200-visual-issued-offers.py ZakazkyApp_base_6.1
-
-      - name: Validate preview resilience and 7.3 compatibility
+      - name: Validate 7.3 preview and received-offer compatibility
         run: python scripts/validate-7300-polish.py ZakazkyApp_base_6.1
 
-      - name: Validate pricing defaults and internal product identity
-        run: python scripts/validate-7400-issued-pricing-columns.py ZakazkyApp_base_6.1
+      - name: Validate visual issued offers and numbering
+        run: python scripts/validate-7200-visual-issued-offers.py ZakazkyApp_base_6.1
+
+      - name: Validate persistent commercial table compatibility
+        run: python scripts/validate-7100-commercial-cleanup.py ZakazkyApp_base_6.1
 
       - name: Validate issued offers and immutable PDF revisions
         run: python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
 
-      - name: Validate manual product and customer pricing
+      - name: Validate manual products and contextual pricing
         run: python scripts/validate-6340-manual-products-pricing.py ZakazkyApp_base_6.1
 
       - name: Validate received-offer catalogue separation
@@ -79,7 +82,7 @@ jobs:
         if: matrix.python-version == '3.14'
         run: command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
 
-      - name: Validate the real Tk visual editor and column persistence
+      - name: Validate the composed Tk application
         if: matrix.python-version == '3.14'
         run: timeout 150s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
 
