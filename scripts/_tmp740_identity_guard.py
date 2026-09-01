@@ -21,12 +21,8 @@ new = '''        for key in (
             if key in source:
                 item[key] = source[key]
         if _text(item.get("row_type"), "product").casefold() == "product":
-            internal_code = _text(
-                item.get("internal_code_snapshot") or item.get("product_code")
-            )
-            internal_name = _text(
-                item.get("internal_name_snapshot") or item.get("name")
-            )
+            internal_code = _text(item.get("internal_code_snapshot"))
+            internal_name = _text(item.get("internal_name_snapshot"))
             item["_v740_missing_internal_identity"] = not bool(
                 internal_code and internal_name
             )
@@ -50,12 +46,8 @@ guard = '''    Editor.__init__ = editor_init
             item = service.normalize_item(raw, index + 1)
             if _text(item.get("row_type"), "product").casefold() != "product":
                 continue
-            code = _text(
-                item.get("internal_code_snapshot") or item.get("product_code")
-            )
-            name = _text(
-                item.get("internal_name_snapshot") or item.get("name")
-            )
+            code = _text(item.get("internal_code_snapshot"))
+            name = _text(item.get("internal_name_snapshot"))
             if not code or not name:
                 missing.append(index)
         return missing
