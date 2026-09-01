@@ -1,9 +1,9 @@
-• Dialog Poptávka nyní v části „Podobné předchozí poptávky“ zobrazuje výhradně poptávky patřící ke stejné Akci. Podobnost názvu materiálu už výsledky nerozšiřuje o jiné Akce.
-• Tabulátor v dialogových formulářích přeskakuje pomocná tlačítka jako „+ Nová společnost“, „+ Nová akce“, správce číselníku nebo kalendář. V Poptávce vede pořadí přímo Dodavatel → Odběratel → Akce.
-• Výběr Akce v dialogu Příležitost má stejné rozložení jako výběr Společnosti: našeptávač a tlačítko „+ Nová akce“ jsou v jednom společném řádku a mají sjednocené zarovnání.
-• Šířky sloupců tabulek se ukládají samostatně pro každého uživatele. Po opětovném spuštění se obnoví a poslední viditelný sloupec automaticky vyplní volnou šířku, takže podbarvení řádků pokračuje až k pravému okraji bez bílého pruhu.
-• Cenové tabulky, Ceníky, Přijaté a Vydané nabídky, Katalog produktů a obdobné obchodní přehledy mají po kliknutí pravým tlačítkem na záhlaví volbu „Nastavit zobrazené sloupce…“. Sloupce lze skrývat, znovu zobrazovat a měnit jejich pořadí; nastavení se ukládá pro uživatele.
-• Archivace Poptávek nově zpracuje všechny označené řádky najednou. Před potvrzením zobrazí počet a náhled vybraných záznamů a pro každou poptávku zachová samostatný zápis v historii.
-• Položky Vydané nabídky vždy zobrazují Skupinu a Podskupinu. Produkty stejné podskupiny se v editoru i PDF seskupí pod jediný společný nadpis, i když byly původně vloženy v různých částech seznamu.
-• Název skupiny a podskupiny se ukládá jako cenový snímek řádku Vydané nabídky. Pozdější přejmenování nebo přesun výrobku v Katalogu proto nezmění starší uloženou nabídku ani její PDF revizi.
-• Databázová změna je pouze aditivní. Existující Poptávky, Ceníky, Přijaté nabídky, Vydané nabídky, PDF revize, archivy i uživatelská data zůstávají zachovány.
+• MIVO nyní používá stejnou správu sloupců jako ostatní hlavní tabulky. Přibylo viditelné tlačítko „Sloupce…“ a pravým tlačítkem na záhlaví lze sloupce skrývat, zobrazovat a měnit jejich pořadí.
+• Opraveny chybějící názvy sloupců v cenových nabídkách a souvisejících dialozích. Program si uchovává kanonické popisy záhlaví a obnoví je okamžitě, nikoli až po změně pořadí.
+• Překlopení Přijaté nabídky do Vydané nabídky nově otevře bezpečný mezikrok se seznamem položek. Vybrané řádky lze před pokračováním přiřadit ke skupině a podskupině, aniž by se změnila zdrojová Přijatá nabídka nebo Katalog produktů.
+• Stejná hromadná volba „Zařadit skupinu / podskupinu…“ je dostupná přímo v editoru Vydané nabídky. Volitelně převezme marži a slevu vybrané skupiny a přepočítá prodejní cenu.
+• Podskupina je nyní vždy autoritativní pro svou nadřazenou skupinu. Po výběru podskupiny se již nemůže zobrazit nesouvisející skupina „Ostatní“.
+• Přijaté nabídky používají vlastní ručně zvolené zařazení položek. Historická vazba na Katalog už nepřebíjí skupinu ani podskupinu nabídky.
+• Skupina a podskupina se při překlopení spolehlivě přenesou do konceptu Vydané nabídky a uloží se jako neměnný snímek řádku pro budoucí PDF revize.
+• Proveden větší technický úklid: vrstva 7.0 byla sloučena do jediného vlastníka 7.1, sjednotila se evidence záhlaví, role tabulek a taxonomie a odstranily se dočasné migrační workflow a staré duplicitní validační názvy.
+• Databázová migrace je pouze aditivní. Existující Poptávky, Ceníky, Přijaté a Vydané nabídky, Katalog, archivy a PDF revize zůstávají zachované.

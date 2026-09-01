@@ -54,7 +54,7 @@ def main() -> None:
     import v640_warning_cleanup
     import v644_default_date_sort
     import post_baseline
-    import v700_ux
+    import v710_cleanup
 
     callback_errors = []
     dialog_errors = []
@@ -105,7 +105,7 @@ def main() -> None:
     v644_default_date_sort.apply(app)
     crm_features.install_offer_ui(app)
     crm_price_lists.apply(app)
-    v700_ux.apply(app)
+    v710_cleanup.apply(app)
 
     # Run the fully wrapped schema owner once more for additive platform tables.
     app.ensure_schema()
@@ -152,6 +152,13 @@ def main() -> None:
             time.sleep(0.01)
 
         assert getattr(root, "_turto_navigation_owner", "") == "price_lists_domain.platform.lazy_refresh"
+        mivo_tree = getattr(root, "mivo_tree", None)
+        assert mivo_tree is not None and mivo_tree.winfo_exists()
+        assert bool(getattr(mivo_tree, "_turto_configurable_columns", False))
+        assert bool(getattr(mivo_tree, "_v700_columns_menu", False))
+        assert getattr(root, "_v710_mivo_columns_button", None) is not None
+        for column in mivo_tree["columns"]:
+            assert str(mivo_tree.heading(column, "text") or "").strip(), column
         keys = [key for key in (
             "dash", "actions", "requests", "mivo", "offers", "pricelists",
             "companies", "projects", "tasks", "people", "help", "settings",

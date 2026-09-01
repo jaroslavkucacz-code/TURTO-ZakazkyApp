@@ -355,6 +355,8 @@ def choose_taxonomy(
     M, parent, title: str = "Přiřadit produktovou skupinu a podskupinu",
     current_category_id=None, current_subgroup_id=None,
 ):
+    if current_subgroup_id:
+        current_category_id = subgroup_parent_id(M, current_subgroup_id) or current_category_id
     groups = list_categories(M)
     group_mapping = {UNASSIGNED: None, **{str(row["name"]): int(row["id"]) for row in groups}}
     dialog = M.tk.Toplevel(parent)

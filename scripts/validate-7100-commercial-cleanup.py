@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression checks for TURTO CRM 7.0 workflow and table UX."""
+"""Regression checks for TURTO CRM 7.1 commercial cleanup."""
 from __future__ import annotations
 
 import os
@@ -12,7 +12,7 @@ ROOT = Path(sys.argv[1] if len(sys.argv) > 1 else "ZakazkyApp_base_6.1").resolve
 REPOSITORY = ROOT.parent
 sys.path.insert(0, str(ROOT))
 
-from v700_ux import group_offer_items  # noqa: E402
+from v710_cleanup import group_offer_items  # noqa: E402
 
 
 def read(path: Path) -> str:
@@ -21,7 +21,7 @@ def read(path: Path) -> str:
 
 def functional_request_checks() -> None:
     """Exercise the patched methods against an isolated real SQLite schema."""
-    home = Path(tempfile.mkdtemp(prefix="turto7000_requests_"))
+    home = Path(tempfile.mkdtemp(prefix="turto7100_requests_"))
     original_home = os.environ.get("HOME")
     original_profile = os.environ.get("USERPROFILE")
     original_cwd = Path.cwd()
@@ -32,11 +32,15 @@ def functional_request_checks() -> None:
         os.chdir(ROOT)
 
         import app
-        import v700_ux
+        import crm_features
+        import crm_price_lists
+        import v710_cleanup
 
         app.cleanup_stale_test_session()
         app.ensure_schema()
-        v700_ux.apply(app)
+        crm_features.apply(app)
+        crm_price_lists.apply(app)
+        v710_cleanup.apply(app)
         app.ensure_schema()
         app.set_setting("active_user", "TEST")
 
@@ -157,6 +161,57 @@ def functional_request_checks() -> None:
         assert history_count == 2, history_count
         assert fake_app.refreshed == 1
         assert fake_app.req_show_archived.value is False
+
+        from price_lists_domain.issued_offers import service
+        with app.db() as con:
+            other_id = int(con.execute(
+                "INSERT INTO product_categories(name,sort_order,active) VALUES(?,10,1)",
+                ("Ostatní test",),
+            ).lastrowid)
+            correct_id = int(con.execute(
+                "INSERT INTO product_categories(name,sort_order,active) VALUES(?,20,1)",
+                ("Správná skupina",),
+            ).lastrowid)
+            subgroup_id = int(con.execute(
+                "INSERT INTO product_subgroups(category_id,name,sort_order,active) VALUES(?,?,10,1)",
+                (correct_id, "Správná podskupina"),
+            ).lastrowid)
+            product_id = int(con.execute(
+                "INSERT INTO catalog_products(manufacturer_name,category_id,active) VALUES(?,?,1)",
+                ("Historický katalog", other_id),
+            ).lastrowid)
+            offer_id = int(con.execute(
+                "INSERT INTO supplier_offers(offer_date,supplier_name,currency) VALUES(?,?,?)",
+                ("2026-08-31", "Dodavatel test", "CZK"),
+            ).lastrowid)
+            item_id = int(con.execute(
+                """INSERT INTO supplier_offer_items(
+                       offer_id,position,original_name,item_key,quantity,unit,unit_price,
+                       category_id,subgroup_id,catalog_product_id
+                   ) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                (offer_id, 1, "Výrobek test", "TEST-1", 2, "ks", 100,
+                 correct_id, subgroup_id, product_id),
+            ).lastrowid)
+
+        document, items = service.draft_from_supplier_offer(app, offer_id)
+        assert len(items) == 1
+        transferred = items[0]
+        assert int(transferred["category_id"]) == correct_id
+        assert int(transferred["subgroup_id"]) == subgroup_id
+        assert transferred["category_name_snapshot"] == "Správná skupina"
+        assert transferred["subgroup_name_snapshot"] == "Správná podskupina"
+        assert transferred.get("_taxonomy_authoritative_ids") is True
+        document["customer_name_snapshot"] = "Testovací odběratel"
+        document_id = service.save_document(app, document, items)
+        _saved_document, saved_items = service.load_document(app, document_id)
+        assert saved_items[0]["category_name_snapshot"] == "Správná skupina"
+        assert saved_items[0]["subgroup_name_snapshot"] == "Správná podskupina"
+        with app.db() as con:
+            source = con.execute(
+                "SELECT category_id,subgroup_id FROM supplier_offer_items WHERE id=?", (item_id,)
+            ).fetchone()
+        assert int(source["category_id"]) == correct_id
+        assert int(source["subgroup_id"]) == subgroup_id
     finally:
         os.chdir(original_cwd)
         if original_home is None:
@@ -171,7 +226,7 @@ def functional_request_checks() -> None:
 
 
 def main() -> None:
-    layer = read(ROOT / "v700_ux.py")
+    layer = read(ROOT / "v710_cleanup.py")
     request_section = layer.split("def request_refresh_similar", 1)[1].split(
         "def selected_request_ids", 1
     )[0]
@@ -235,28 +290,44 @@ def main() -> None:
     item_indices = [token["index"] for token in plan if token["kind"] == "item"]
     assert item_indices == [0, 3, 1, 2, 4], item_indices
 
+    assert "ensure_heading_labels" in layer
+    assert "_turto_configurable_columns" in layer
+    assert "register_configurable_tables" in layer
+    assert "Sloupce…" in layer
+    assert "class TransferTaxonomyDialog" in layer
+    assert "Přiřadit skupinu / podskupinu…" in layer
+    assert "assign_selected_taxonomy" in layer
+    assert "_taxonomy_authoritative_ids" in layer
+    assert "prefer_snapshot=False" in layer
+
+    categories_source = read(ROOT / "price_lists_domain" / "platform" / "categories.py")
+    assert "current_category_id = subgroup_parent_id(M, current_subgroup_id)" in categories_source
+    offers_source = read(ROOT / "price_lists_domain" / "platform" / "offers.py")
+    assert "product_categories c ON c.id=coalesce(s.category_id,i.category_id)" in offers_source
+    assert "product_categories c ON c.id=coalesce(cp.category_id,i.category_id)" not in offers_source
+
     schema = read(ROOT / "price_lists_domain" / "issued_offers" / "schema.py")
     assert '"category_name_snapshot TEXT DEFAULT \'\'"' in schema
     assert '"subgroup_name_snapshot TEXT DEFAULT \'\'"' in schema
 
     launcher = read(ROOT / "ZakazkyCRM.pyw")
-    assert "import v700_ux" in launcher or ",v700_ux" in launcher
-    assert "v700_ux.apply(app)" in launcher
+    assert "import v710_cleanup" in launcher or ",v710_cleanup" in launcher
+    assert "v710_cleanup.apply(app)" in launcher
 
     publish = read(REPOSITORY / "scripts" / "publish-update.sh")
-    assert "v700_ux.py" in publish
-    assert "v700_ux.apply(app)" in publish
-    assert "validate-7000-workflow-table-ux.py" in publish
+    assert "v710_cleanup.py" in publish
+    assert "v710_cleanup.apply(app)" in publish
+    assert "validate-7100-commercial-cleanup.py" in publish
 
     real_ui = read(REPOSITORY / "scripts" / "validate-real-ui.py")
-    assert "import v700_ux" in real_ui
-    assert "v700_ux.apply(app)" in real_ui
+    assert "import v710_cleanup" in real_ui
+    assert "v710_cleanup.apply(app)" in real_ui
 
     version = read(REPOSITORY / "release_version.txt").strip()
-    assert version == "7.0.0", version
+    assert version == "7.1.0", version
 
     functional_request_checks()
-    print("OK 7.0.0: request workflow, persistent columns and grouped issued offers")
+    print("OK 7.1.0: cleaned tables, MIVO columns and authoritative offer taxonomy")
 
 
 if __name__ == "__main__":

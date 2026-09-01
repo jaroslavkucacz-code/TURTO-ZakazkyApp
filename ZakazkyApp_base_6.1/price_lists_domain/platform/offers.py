@@ -83,8 +83,8 @@ def _patch_offer_detail(M) -> None:
                                       coalesce(cp.internal_name,'') internal_name
                                FROM supplier_offer_items i
                                LEFT JOIN catalog_products cp ON cp.id=i.catalog_product_id
-                               LEFT JOIN product_categories c ON c.id=coalesce(cp.category_id,i.category_id)
-                               LEFT JOIN product_subgroups s ON s.id=coalesce(cp.subgroup_id,i.subgroup_id)
+                               LEFT JOIN product_subgroups s ON s.id=i.subgroup_id
+                               LEFT JOIN product_categories c ON c.id=coalesce(s.category_id,i.category_id)
                                WHERE i.offer_id=?""", (self.oid,)
                         ).fetchall()
                     for row in taxonomy_rows:

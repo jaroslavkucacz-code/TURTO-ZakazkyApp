@@ -1,19 +1,21 @@
-name: Validate TURTO CRM 7.0 workflow and table UX
+name: Validate TURTO CRM 7.1 commercial and table cleanup
 
 on:
   pull_request:
     branches:
       - main
     paths:
-      - ZakazkyApp_base_6.1/v700_ux.py
+      - ZakazkyApp_base_6.1/v710_cleanup.py
       - ZakazkyApp_base_6.1/ZakazkyCRM.pyw
       - ZakazkyApp_base_6.1/price_lists_domain/issued_offers/**
-      - scripts/validate-7000-workflow-table-ux.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/categories.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/offers.py
+      - scripts/validate-7100-commercial-cleanup.py
       - scripts/validate-real-ui.py
       - scripts/publish-update.sh
       - release_version.txt
       - release_notes.txt
-      - .github/workflows/validate-7000-workflow-table-ux.yml
+      - .github/workflows/validate-7100-commercial-cleanup.yml
       - .github/workflows/publish-update.yml
   workflow_dispatch:
 
@@ -41,11 +43,11 @@ jobs:
       - name: Install runtime dependencies
         run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
 
-      - name: Compile 7.0 source and validation
-        run: python -m compileall -q ZakazkyApp_base_6.1 scripts/validate-7000-workflow-table-ux.py
+      - name: Compile 7.1 source and validation
+        run: python -m compileall -q ZakazkyApp_base_6.1 scripts/validate-7100-commercial-cleanup.py
 
-      - name: Validate request workflow, layouts and issued-offer grouping
-        run: python scripts/validate-7000-workflow-table-ux.py ZakazkyApp_base_6.1
+      - name: Validate cleaned tables, MIVO columns and issued-offer taxonomy
+        run: python scripts/validate-7100-commercial-cleanup.py ZakazkyApp_base_6.1
 
       - name: Validate issued offers and immutable PDF revisions
         run: python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
