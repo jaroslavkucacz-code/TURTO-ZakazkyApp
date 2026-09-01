@@ -1,0 +1,92 @@
+name: Apply TURTO CRM 7.3 integration v2
+
+on:
+  push:
+    branches:
+      - feature/7.3.0-preview-offers-company-merge
+    paths:
+      - .github/workflows/apply-7300-integration-v2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Reuse and apply the reviewed 7.3 patch
+        run: |
+          python - <<'PY'
+          import base64
+          import pathlib
+          import zlib
+
+          workflow = pathlib.Path('.github/workflows/apply-7300-integration.yml')
+          lines = workflow.read_text(encoding='utf-8').splitlines()
+          marker = '          TURTO_PATCH_B64: |-'
+          start = lines.index(marker) + 1
+          encoded = []
+          for line in lines[start:]:
+              if line.startswith('        run: |'):
+                  break
+              if line.strip():
+                  encoded.append(line.strip())
+          if not encoded:
+              raise SystemExit('Embedded 7.3 patch was not found')
+          payload = base64.b64decode(''.join(encoded))
+          pathlib.Path('/tmp/apply_7300.py').write_bytes(zlib.decompress(payload))
+          PY
+          python /tmp/apply_7300.py
+
+      - name: Compile source
+        run: python -m compileall -q ZakazkyApp_base_6.1 scripts post_baseline.py
+
+      - name: Validate 7.3 and key regressions
+        run: |
+          python scripts/validate-7300-polish.py ZakazkyApp_base_6.1
+          python scripts/validate-7200-visual-issued-offers.py ZakazkyApp_base_6.1
+          python scripts/validate-7100-commercial-cleanup.py ZakazkyApp_base_6.1
+          python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
+          python scripts/validate-6339-catalog-price-ux.py ZakazkyApp_base_6.1
+          python scripts/validate-6340-manual-products-pricing.py ZakazkyApp_base_6.1
+          python scripts/validate-6341-offer-catalog-separation.py ZakazkyApp_base_6.1
+          python scripts/validate-scalability.py ZakazkyApp_base_6.1
+          python scripts/validate-ui-navigation.py ZakazkyApp_base_6.1
+          python scripts/validate-auto-update.py ZakazkyApp_base_6.1
+          bash -n scripts/publish-update.sh
+
+      - name: Validate composed Tk application
+        run: |
+          command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
+          timeout 150s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
+
+      - name: Commit integration
+        run: |
+          git config user.name "TURTO Update Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add ZakazkyApp_base_6.1/ZakazkyCRM.pyw \
+                  ZakazkyApp_base_6.1/v730_polish.py \
+                  scripts/publish-update.sh scripts/validate-real-ui.py \
+                  scripts/validate-7300-polish.py \
+                  .github/workflows/publish-update.yml \
+                  .github/workflows/validate-6330.yml \
+                  .github/workflows/validate-7300-polish.yml \
+                  release_version.txt release_notes.txt
+          git diff --cached --check
+          git commit -m "TURTO CRM 7.3.0 — stable preview, offer columns and company merge"
+          git push origin HEAD:feature/7.3.0-preview-offers-company-merge
