@@ -117,12 +117,10 @@ def apply(M):
     def _remove_problematic_request_bindings(app):
         t=getattr(app,'request_tree',None)
         if t is None or getattr(t,'_v638_clean_bindings',False):return
-        # v633/v637 added floating redraw hooks here. Remove only the obsolete
-        # input/redraw hooks. <Configure> now belongs to post_baseline's unified
-        # Treeview fitter and must remain bound.
-        for seq in ('<MouseWheel>','<ButtonRelease-1>'):
-            try:t.unbind(seq)
-            except Exception:pass
+        # Do not unbind a whole generic mouse sequence here. Newer table
+        # owners use ButtonRelease-1 to persist user-resized columns and other
+        # modules legitimately own MouseWheel. Removing the sequence would erase
+        # every handler registered by those modules.
         t._v638_clean_bindings=True
 
     def _stabilize(app,sort_projects=False):

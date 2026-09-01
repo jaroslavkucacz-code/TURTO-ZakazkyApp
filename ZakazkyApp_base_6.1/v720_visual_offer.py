@@ -523,7 +523,7 @@ def apply(M) -> None:
                         pix = page.get_pixmap(
                             matrix=fitz.Matrix(scale, scale), alpha=False
                         )
-                        encoded = base64.b64encode(pix.tobytes("png"))
+                        encoded = base64.b64encode(pix.tobytes("png")).decode("ascii")
                         image = M.tk.PhotoImage(data=encoded)
                         self.images.append(image)
                         width = int(image.width())
@@ -777,7 +777,6 @@ def apply(M) -> None:
         previous_init = Editor.__init__
         previous_refresh_items = Editor.refresh_items
         previous_save = Editor.save
-        previous_close = Editor.close
 
         def refresh_items(self, *args, **kwargs):
             result = previous_refresh_items(self, *args, **kwargs)
@@ -885,6 +884,12 @@ def apply(M) -> None:
                     "<F5>", lambda _event: (preview.refresh(), "break")[1],
                     add="+",
                 )
+
+                def destroy_preview(event, current=self, view=preview):
+                    if event.widget is current.win:
+                        view.destroy()
+
+                self.win.bind("<Destroy>", destroy_preview, add="+")
                 preview.fit_width()
             except Exception:
                 pass
@@ -897,16 +902,9 @@ def apply(M) -> None:
                     preview.schedule(20)
             return result
 
-        def close(self, *args, **kwargs):
-            preview = getattr(self, "_v720_preview", None)
-            if preview is not None:
-                preview.destroy()
-            return previous_close(self, *args, **kwargs)
-
         Editor.refresh_items = refresh_items
         Editor.__init__ = init
         Editor.save = save
-        Editor.close = close
         Editor._turto_v720_visual_editor = True
 
     M._turto_v720_visual_offer_installed = True

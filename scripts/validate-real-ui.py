@@ -55,6 +55,7 @@ def main() -> None:
     import v644_default_date_sort
     import post_baseline
     import v710_cleanup
+    import v720_visual_offer
 
     callback_errors = []
     dialog_errors = []
@@ -106,6 +107,7 @@ def main() -> None:
     crm_features.install_offer_ui(app)
     crm_price_lists.apply(app)
     v710_cleanup.apply(app)
+    v720_visual_offer.apply(app)
 
     # Run the fully wrapped schema owner once more for additive platform tables.
     app.ensure_schema()
@@ -271,6 +273,78 @@ def main() -> None:
         root.after(80, inspect_category_manager)
         category_manager.manage_categories(app, root)
         assert manager_result.get("ok"), manager_result.get("error") or manager_result
+        root.update()
+        assert not callback_errors, "\n".join(callback_errors)
+
+        # Poptávky: a manually chosen width must survive refresh/page switches,
+        # and the release handler that persists a real separator drag must still
+        # be registered after all delayed legacy startup work has completed.
+        request_tree = getattr(root, "request_tree", None)
+        assert request_tree is not None and request_tree.winfo_exists()
+        assert request_tree.bind("<ButtonRelease-1>"), "Chybí ukládání šířky po tažení"
+        width_column = "Dodavatel"
+        request_tree._turto_design_widths[width_column] = 347
+        request_tree.column(width_column, width=347)
+        app.save_persistent_tree_layout(request_tree)
+        root.refresh_requests()
+        root.show_page("requests")
+        until = time.monotonic() + 0.8
+        while time.monotonic() < until:
+            root.update()
+            time.sleep(0.01)
+        assert int(request_tree._turto_design_widths[width_column]) == 347
+        assert int(request_tree.column(width_column, "width")) == 347
+
+        # Open the real visual issued-offer editor without saving. Its canvas is
+        # rendered by the production PDF renderer and therefore must not reserve
+        # a CN number, create a document or record a PDF revision.
+        from price_lists_domain.issued_offers import service as issued_service
+        preview_number = issued_service.preview_document_number(app, "2026-09-01")
+        editor = root.open_issued_offer_editor(
+            initial_document={
+                "customer_name_snapshot": "TEST ODBĚRATEL",
+                "offer_subject": "Vizuální kontrola",
+                "issue_date": "2026-09-01",
+            },
+            initial_items=[
+                issued_service.normalize_item(
+                    {
+                        "row_type": "product",
+                        "name": "Testovací výrobek",
+                        "product_code": "T-001",
+                        "quantity": 2,
+                        "unit": "ks",
+                        "purchase_unit_price": 100,
+                        "margin_pct": 25,
+                        "discount_pct": 10,
+                        "vat_rate": 21,
+                    },
+                    recalculate_sale=True,
+                )
+            ],
+        )
+        assert getattr(editor, "_v720_preview", None) is not None
+        assert getattr(editor, "_v720_internal_panel", None) is not None
+        assert getattr(editor, "_v720_mode_button", None) is not None
+        until = time.monotonic() + 1.8
+        while time.monotonic() < until:
+            root.update()
+            time.sleep(0.01)
+        visual = editor._v720_preview
+        assert visual.images, "Vizuální editor nevykreslil produkční PDF"
+        assert visual.canvas.find_all()
+        visual.select(0)
+        panel = editor._v720_internal_panel
+        panel.margin.set("30")
+        panel.discount.set("5")
+        panel.apply(True)
+        assert abs(float(editor.items[0]["margin_pct"]) - 30.0) < 1e-9
+        assert abs(float(editor.items[0]["discount_pct"]) - 5.0) < 1e-9
+        with app.db() as con:
+            assert int(con.execute("SELECT COUNT(*) FROM business_documents").fetchone()[0]) == 0
+            assert int(con.execute("SELECT COUNT(*) FROM business_document_revisions").fetchone()[0]) == 0
+        assert issued_service.preview_document_number(app, "2026-09-01") == preview_number
+        editor.win.destroy()
         root.update()
         assert not callback_errors, "\n".join(callback_errors)
 

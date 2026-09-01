@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 import sqlite3
 import sys
 import tempfile
@@ -161,9 +162,13 @@ def main() -> None:
                 "discount_pct": 5, "vat_rate": 21,
             }, recalculate_sale=True))
 
+        preview_number = service.preview_document_number(Mx, values["issue_date"])
+        expected_pattern = rf"CN{date.today().year % 100:02d}-\d{{5}}"
+        assert re.fullmatch(expected_pattern, preview_number), preview_number
         document_id = service.save_document(Mx, values, items)
         document, stored_items = service.load_document(Mx, document_id)
-        assert document["document_number"].startswith(f"CN-{date.today().year}-")
+        assert document["document_number"] == preview_number
+        assert re.fullmatch(expected_pattern, document["document_number"])
         assert document["customer_name_snapshot"] == "Hinton, a.s."
         assert document["customer_email_snapshot"] == "jan.novak@example.cz"
         assert len(stored_items) == len(items)
@@ -172,6 +177,7 @@ def main() -> None:
         copy_id = service.duplicate_document(Mx, document_id)
         copy_doc, copy_items = service.load_document(Mx, copy_id)
         assert copy_doc["document_number"] != document["document_number"]
+        assert re.fullmatch(expected_pattern, copy_doc["document_number"])
         assert copy_doc["status"] == "Rozpracováno"
         assert len(copy_items) == len(stored_items)
 
