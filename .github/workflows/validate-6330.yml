@@ -63,8 +63,8 @@ jobs:
       - name: Issued offers, numbering and PDF revision regression test
         run: python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
 
-      - name: Request workflow and configurable table regression test
-        run: python scripts/validate-7000-workflow-table-ux.py ZakazkyApp_base_6.1
+      - name: Commercial cleanup and MIVO table regression test
+        run: python scripts/validate-7100-commercial-cleanup.py ZakazkyApp_base_6.1
 
       - name: Ensure virtual display
         if: matrix.python-version == '3.14'
