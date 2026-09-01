@@ -121,9 +121,13 @@ def main() -> None:
     assert "Vizuální editor nevykreslil produkční PDF" in real_ui
 
     version = read(REPOSITORY / "release_version.txt").strip()
-    assert version == "7.2.0", version
+    try:
+        version_tuple = tuple(int(part) for part in version.split("."))
+    except ValueError as exc:
+        raise AssertionError(version) from exc
+    assert version_tuple >= (7, 2, 0), version
     numbering_check()
-    print("OK 7.2.0: persistent widths, fixed numbering and exact visual PDF editor")
+    print(f"OK {version}: persistent widths, fixed numbering and exact visual PDF editor")
 
 
 if __name__ == "__main__":

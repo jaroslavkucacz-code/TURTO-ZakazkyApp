@@ -56,6 +56,7 @@ def main() -> None:
     import post_baseline
     import v710_cleanup
     import v720_visual_offer
+    import v730_polish
 
     callback_errors = []
     dialog_errors = []
@@ -108,6 +109,7 @@ def main() -> None:
     crm_price_lists.apply(app)
     v710_cleanup.apply(app)
     v720_visual_offer.apply(app)
+    v730_polish.apply(app)
 
     # Run the fully wrapped schema owner once more for additive platform tables.
     app.ensure_schema()
@@ -276,6 +278,23 @@ def main() -> None:
         root.update()
         assert not callback_errors, "\n".join(callback_errors)
 
+        # Received offers expose the same persistent column manager as other
+        # commercial tables, and company records support deliberate two-row merge.
+        offer_tree = getattr(root, "offer_tree", None)
+        assert offer_tree is not None and offer_tree.winfo_exists()
+        assert bool(getattr(offer_tree, "_turto_configurable_columns", False))
+        assert getattr(root, "_v730_offer_table_tools", None) is not None
+        company_tree = getattr(root, "company_tree", None)
+        assert company_tree is not None and company_tree.winfo_exists()
+        assert str(company_tree.cget("selectmode")) == "extended"
+        assert getattr(root, "_v730_company_merge_button", None) is not None
+        with app.db() as con:
+            columns = {str(row[1]) for row in con.execute("PRAGMA table_info(companies)")}
+            assert {"merged_into_company_id", "merged_at", "merged_by"} <= columns
+            assert con.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='company_merge_history'"
+            ).fetchone()
+
         # Poptávky: a manually chosen width must survive refresh/page switches,
         # and the release handler that persists a real separator drag must still
         # be registered after all delayed legacy startup work has completed.
@@ -333,6 +352,25 @@ def main() -> None:
         visual = editor._v720_preview
         assert visual.images, "Vizuální editor nevykreslil produkční PDF"
         assert visual.canvas.find_all()
+        assert getattr(visual, "_turto_v730_preview", False)
+        # Repeated zoom and redraw used to reuse a stale PyMuPDF font resource.
+        # Every cycle must keep an actual page image and report no render error.
+        for delta in (10, -10, 20, -20, 10, -10):
+            visual.change_zoom(delta)
+            until = time.monotonic() + 0.65
+            while time.monotonic() < until:
+                root.update()
+                time.sleep(0.01)
+            assert visual.images and visual.canvas.find_all()
+            assert not getattr(visual, "_v730_last_error", ""), visual._v730_last_error
+        visual.set_zoom_100()
+        until = time.monotonic() + 0.7
+        while time.monotonic() < until:
+            root.update()
+            time.sleep(0.01)
+        assert visual.zoom == 100
+        assert visual.images and visual.canvas.find_all()
+        assert not getattr(visual, "_v730_last_error", ""), visual._v730_last_error
         visual.select(0)
         panel = editor._v720_internal_panel
         panel.margin.set("30")
