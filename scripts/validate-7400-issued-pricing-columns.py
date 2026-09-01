@@ -189,6 +189,28 @@ def main() -> None:
         assert normalized["margin_pct"] == 35
         assert normalized["discount_pct"] == 4
 
+        unresolved = service.normalize_item(
+            {
+                "row_type": "product",
+                "product_code": "DOD-1",
+                "name": "Dodavatelský název",
+                "internal_code_snapshot": "",
+                "internal_name_snapshot": "",
+                "_v740_missing_internal_identity": True,
+            }
+        )
+        assert unresolved["_v740_missing_internal_identity"]
+        resolved = service.normalize_item(
+            {
+                **unresolved,
+                "product_code": "TUR-001",
+                "name": "Interní produkt TURTO",
+                "internal_code_snapshot": "TUR-001",
+                "internal_name_snapshot": "Interní produkt TURTO",
+            }
+        )
+        assert not resolved["_v740_missing_internal_identity"]
+
     layer = (source / "v740_offer_defaults.py").read_text(encoding="utf-8")
     assert "Zákl. marže" in layer and "Zákl. sleva" in layer
     assert "pricing_rule_source_snapshot" in layer
@@ -198,6 +220,8 @@ def main() -> None:
     assert "Všichni dodavatelé" in layer
     assert "self.help_button" in layer
     assert "remove_columns_buttons(mivo)" in layer
+    assert "_turto_v740_internal_identity_guard" in layer
+    assert "vytvořit zákaznické PDF" in layer
 
     launcher = (source / "ZakazkyCRM.pyw").read_text(encoding="utf-8")
     assert "v740_offer_defaults" in launcher

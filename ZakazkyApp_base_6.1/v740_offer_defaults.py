@@ -336,6 +336,12 @@ def apply(M) -> None:
         ):
             if key in source:
                 item[key] = source[key]
+        if _text(item.get("row_type"), "product").casefold() == "product":
+            internal_code = _text(item.get("internal_code_snapshot"))
+            internal_name = _text(item.get("internal_name_snapshot"))
+            item["_v740_missing_internal_identity"] = not bool(
+                internal_code and internal_name
+            )
         return item
 
     service.normalize_item = normalize_item
@@ -1428,6 +1434,57 @@ def apply(M) -> None:
 
     Editor.__init__ = editor_init
     Editor._turto_v740_pricing_basis = True
+
+    def missing_internal_identity_indices(instance):
+        missing = []
+        for index, raw in enumerate(instance.items):
+            item = service.normalize_item(raw, index + 1)
+            if _text(item.get("row_type"), "product").casefold() != "product":
+                continue
+            code = _text(item.get("internal_code_snapshot"))
+            name = _text(item.get("internal_name_snapshot"))
+            if not code or not name:
+                missing.append(index)
+        return missing
+
+    def require_internal_identity(instance, action_text):
+        missing = missing_internal_identity_indices(instance)
+        if not missing:
+            return True
+        first = missing[0]
+        try:
+            instance.tree.selection_set(f"r{first}")
+            instance.tree.see(f"r{first}")
+        except Exception:
+            pass
+        M.messagebox.showwarning(
+            "Interní kódy a názvy",
+            f"Nelze {action_text}.\n\n"
+            f"{len(missing)} produktových položek nemá vyplněný interní "
+            "kód nebo interní název TURTO. Doplňte označené řádky a "
+            "akci zopakujte.",
+            parent=instance.win,
+        )
+        return False
+
+    previous_generate_pdf = Editor.generate_pdf
+
+    def generate_pdf(self, *args, **kwargs):
+        if not require_internal_identity(self, "vytvořit zákaznické PDF"):
+            return None
+        return previous_generate_pdf(self, *args, **kwargs)
+
+    Editor.generate_pdf = generate_pdf
+
+    previous_outlook_draft = Editor.outlook_draft
+
+    def outlook_draft(self, *args, **kwargs):
+        if not require_internal_identity(self, "vytvořit Outlook koncept"):
+            return None
+        return previous_outlook_draft(self, *args, **kwargs)
+
+    Editor.outlook_draft = outlook_draft
+    Editor._turto_v740_internal_identity_guard = True
 
     # Warn visibly when a received offer could not be resolved to TURTO identity.
     TransferDialog = getattr(M, "TransferTaxonomyDialog", None)
