@@ -1,10 +1,9 @@
-• Ve Vydaných nabídkách jsou vedle skutečné marže a slevy nově vidět také základní hodnoty, ze kterých řádek vychází. Základ se zobrazuje samostatně pro produktovou skupinu, podskupinu i jednotlivý výrobek včetně zdroje pravidla.
-• Výběr z Katalogu produktů má vlevo databázovou strukturu skupin a podskupin se základní marží a slevou. U každého produktu jsou stejné údaje viditelné přímo v tabulce.
-• Vydané nabídky používají interní kódy a interní názvy TURTO. Produkty bez vyplněného interního kódu nebo názvu nelze z Katalogu vložit, dokud nejsou údaje doplněné.
-• Při překlopení Přijaté nabídky program pouze čte existující katalogové vazby a podle dodavatele a kódu se pokusí dohledat interní produkt. Nespárované položky jsou označené žlutě a program na ně upozorní před pokračováním.
-• Automatické řazení skupin a podskupin ve Vydané nabídce i ve výsledném PDF se řídí hodnotou pořadí uloženou v databázi. Ručně vložené nadpisy a textové řádky si zachovávají své místo.
-• U Přijatých nabídek se nastavení šířky, pořadí a viditelnosti sloupců otevírá pravým tlačítkem na záhlaví. Kliknutí na záhlaví už neotevře nabídku určenou pro datové řádky.
-• Samostatné tlačítko Sloupce… bylo odstraněno z Přijatých nabídek i z MIVO. Ovládání tabulek je tak ve všech sekcích stejné.
-• Dialog Produkty / ceny má nový filtr Dodavatel, který lze kombinovat s textovým hledáním.
-• Nápověda byla přesunuta z hlavní navigace do pravého horního rohu vedle Nastavení.
-• Aktualizace je aditivní. Existující Vydané nabídky si zachovávají uložené ceny a historické PDF revize; nové pomocné sloupce pouze ukládají snímek základního cenového pravidla.
+• Filtrovací buňky nad tabulkami se nově řídí skutečným pořadím zobrazených sloupců. Po přesunutí sloupce se přesune i jeho filtr a při skrytí sloupce se skryje také příslušný filtr.
+• V záložkách Příležitosti, Poptávky a MIVO byla odstraněna tlačítka Editovat. Úprava se nadále otevírá dvojklikem na příslušný řádek.
+• Běžné operace s řádkem, například vytvoření poptávky, připomínka, vytvoření e-mailu, Obdrženo dnes, Bez odezvy nebo smazání, jsou nyní dostupné po kliknutí pravým tlačítkem na řádek.
+• Pravé tlačítko na záhlaví tabulky nadále otevírá pouze nastavení pořadí, šířky a viditelnosti sloupců. Nabídka řádkových operací se zobrazí pouze nad konkrétním datovým řádkem.
+• Ovládání archivu je v Příležitostech, Poptávkách a MIVO sjednocené: vlevo je volba Zobrazit archivované a vpravo tlačítka Archivovat vybrané a Obnovit vybrané. Stejné volby jsou také v nabídce pravého tlačítka.
+• Příležitosti nově podporují skutečnou archivaci bez změny obchodního stavu. Archivované příležitosti lze znovu zobrazit a obnovit.
+• Produkty překlopené z Přijaté nabídky do Vydané nabídky nemají zákaznický kód a zachovávají původní název dodavatele. K názvu lze pravým tlačítkem nebo při úpravě položky doplnit vlastní text, aniž by se původní název přepsal.
+• V editoru Vydané nabídky je nově viditelně uvedeno „Formát výstupu: A4 · 210 × 297 mm“. Výsledné PDF zůstává standardně ve formátu A4.
+• Aktualizace je aditivní. Doplňuje pouze archivní údaje Příležitostí a snímek dodavatelského názvu a jeho doplnění u položek Vydaných nabídek; existující nabídky a PDF revize se nepřepisují.
