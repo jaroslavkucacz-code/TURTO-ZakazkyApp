@@ -1,0 +1,90 @@
+name: Validate TURTO CRM changes
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.14']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Compile canonical source
+        run: python -m compileall -q ZakazkyApp_base_6.1 scripts post_baseline.py
+
+      - name: Scalability and compatibility smoke test
+        run: python scripts/validate-scalability.py ZakazkyApp_base_6.1
+
+      - name: Navigation stress and stale-widget regression test
+        run: python scripts/validate-ui-navigation.py ZakazkyApp_base_6.1
+
+      - name: Unattended automatic update regression test
+        run: python scripts/validate-auto-update.py ZakazkyApp_base_6.1
+
+      - name: MIVO and price-list clarity regression test
+        run: python scripts/validate-6332-clarity.py ZakazkyApp_base_6.1
+
+      - name: Product taxonomy and clean MIVO regression test
+        run: python scripts/validate-6333-taxonomy.py ZakazkyApp_base_6.1
+
+      - name: Product catalogue and pricing regression test
+        run: python scripts/validate-6334-product-catalog.py ZakazkyApp_base_6.1
+
+      - name: CRM product workspace regression test
+        run: python scripts/validate-6335-product-workspace.py ZakazkyApp_base_6.1
+
+      - name: Commercial Ceníky and Nabídky workspace regression test
+        run: python scripts/validate-6336-commercial-workspace.py ZakazkyApp_base_6.1
+
+      - name: Catalogue hierarchy and current-price UX regression test
+        run: python scripts/validate-6339-catalog-price-ux.py ZakazkyApp_base_6.1
+
+      - name: Issued offers, numbering and PDF revision regression test
+        run: python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
+
+      - name: Commercial cleanup and MIVO table regression test
+        run: python scripts/validate-7100-commercial-cleanup.py ZakazkyApp_base_6.1
+
+      - name: Visual issued-offer editor and persistent-width regression test
+        run: python scripts/validate-7200-visual-issued-offers.py ZakazkyApp_base_6.1
+
+      - name: Preview resilience, received-offer columns and company merge test
+        run: python scripts/validate-7300-polish.py ZakazkyApp_base_6.1
+
+      - name: Issued pricing defaults and uniform table controls test
+        run: python scripts/validate-7400-issued-pricing-columns.py ZakazkyApp_base_6.1
+
+      - name: Context menus, filter synchronization and A4 offer format test
+        run: python scripts/validate-7500-context-filters-offer-format.py ZakazkyApp_base_6.1
+
+      - name: Ensure virtual display
+        if: matrix.python-version == '3.14'
+        run: command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
+
+      - name: Real Tk application navigation and visual-editor test
+        if: matrix.python-version == '3.14'
+        run: timeout 150s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
+
+      - name: Validate release script syntax
+        run: bash -n scripts/publish-update.sh

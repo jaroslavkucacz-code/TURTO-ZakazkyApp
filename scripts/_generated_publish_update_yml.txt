@@ -1,0 +1,119 @@
+name: Publish ZakazkyApp update
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - release_version.txt
+      - release_notes.txt
+      - scripts/publish-update.sh
+      - scripts/validate-scalability.py
+      - scripts/validate-ui-navigation.py
+      - scripts/validate-auto-update.py
+      - scripts/validate-6337-issued-offers.py
+      - scripts/validate-6339-catalog-price-ux.py
+      - scripts/validate-6340-manual-products-pricing.py
+      - scripts/validate-6341-offer-catalog-separation.py
+      - scripts/validate-7100-commercial-cleanup.py
+      - scripts/validate-7200-visual-issued-offers.py
+      - scripts/validate-7300-polish.py
+      - scripts/validate-7400-issued-pricing-columns.py
+      - scripts/validate-7500-context-filters-offer-format.py
+      - scripts/validate-real-ui.py
+      - post_baseline.py
+      - ZakazkyApp_base_6.1/crm_price_lists.py
+      - ZakazkyApp_base_6.1/v638_table_updatefix.py
+      - ZakazkyApp_base_6.1/v710_cleanup.py
+      - ZakazkyApp_base_6.1/v720_visual_offer.py
+      - ZakazkyApp_base_6.1/v730_polish.py
+      - ZakazkyApp_base_6.1/v740_offer_defaults.py
+      - ZakazkyApp_base_6.1/v750_context_filters_offer_format.py
+      - ZakazkyApp_base_6.1/price_lists_domain/issued_offers/**
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/categories.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/product_catalog.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/product_workspace.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/commercial_workspace.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/customer_pricing.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/__init__.py
+      - ZakazkyApp_base_6.1/price_lists_domain/__init__.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/automatic_updates.py
+      - .github/workflows/publish-update.yml
+      - .github/workflows/validate-6340-manual-pricing.yml
+      - .github/workflows/validate-6341-offer-catalog-separation.yml
+      - .github/workflows/validate-7200-visual-issued-offers.yml
+      - .github/workflows/validate-7300-polish.yml
+      - .github/workflows/validate-7400-issued-pricing-columns.yml
+      - .github/workflows/validate-7500-context-filters-offer-format.yml
+permissions:
+  contents: write
+concurrency:
+  group: zakazkyapp-publish
+  cancel-in-progress: false
+
+jobs:
+  build-update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Validate scalability platform
+        shell: bash
+        run: python scripts/validate-scalability.py ZakazkyApp_base_6.1
+
+      - name: Validate responsive navigation
+        shell: bash
+        run: python scripts/validate-ui-navigation.py ZakazkyApp_base_6.1
+
+      - name: Validate unattended automatic updates
+        shell: bash
+        run: python scripts/validate-auto-update.py ZakazkyApp_base_6.1
+
+      - name: Validate issued offers, numbering and PDF revisions
+        shell: bash
+        run: python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
+
+      - name: Validate catalogue hierarchy and current-price UX
+        shell: bash
+        run: python scripts/validate-6339-catalog-price-ux.py ZakazkyApp_base_6.1
+
+      - name: Validate manual products and contextual customer pricing
+        shell: bash
+        run: python scripts/validate-6340-manual-products-pricing.py ZakazkyApp_base_6.1
+
+      - name: Validate received-offer and catalogue separation
+        shell: bash
+        run: python scripts/validate-6341-offer-catalog-separation.py ZakazkyApp_base_6.1
+
+      - name: Validate 7.1 commercial cleanup compatibility
+        shell: bash
+        run: python scripts/validate-7100-commercial-cleanup.py ZakazkyApp_base_6.1
+
+      - name: Validate 7.2 visual editor and persistent widths
+        shell: bash
+        run: python scripts/validate-7200-visual-issued-offers.py ZakazkyApp_base_6.1
+
+      - name: Validate 7.3 preview resilience, received offers and company merge
+        shell: bash
+        run: python scripts/validate-7300-polish.py ZakazkyApp_base_6.1
+
+      - name: Validate 7.4 pricing defaults and uniform table controls
+        shell: bash
+        run: python scripts/validate-7400-issued-pricing-columns.py ZakazkyApp_base_6.1
+
+      - name: Validate 7.5 context menus, filters and A4 offer format
+        shell: bash
+        run: python scripts/validate-7500-context-filters-offer-format.py ZakazkyApp_base_6.1
+
+      - name: Build, validate and publish
+        shell: bash
+        run: bash scripts/publish-update.sh
