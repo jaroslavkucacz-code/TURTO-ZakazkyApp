@@ -58,6 +58,7 @@ def main() -> None:
     import v720_visual_offer
     import v730_polish
     import v740_offer_defaults
+    import v750_context_filters_offer_format
 
     callback_errors = []
     dialog_errors = []
@@ -112,6 +113,7 @@ def main() -> None:
     v720_visual_offer.apply(app)
     v730_polish.apply(app)
     v740_offer_defaults.apply(app)
+    v750_context_filters_offer_format.apply(app)
 
     # Run the fully wrapped schema owner once more for additive platform tables.
     app.ensure_schema()
@@ -166,6 +168,43 @@ def main() -> None:
         assert "help" not in root.nav
         assert getattr(root, "help_button", None) is not None
         assert root.help_button.winfo_exists()
+
+        def control_labels(widget):
+            labels = []
+            for child in widget.winfo_children():
+                try:
+                    if child.winfo_class().endswith(("Button", "Checkbutton")):
+                        labels.append(str(child.cget("text") or "").strip())
+                except Exception:
+                    pass
+                labels.extend(control_labels(child))
+            return labels
+
+        forbidden_by_tab = {
+            "actions": {"🗑 Smazat", "🔔 Připomínka", "✉ Poptat", "✎ Editovat"},
+            "requests": {
+                "🗑 Smazat", "✎ Editovat", "Vytvořit e-mail",
+                "Obdrženo dnes", "Bez odezvy",
+            },
+            "mivo": {
+                "🗑 Smazat", "✎ Editovat", "Vytvořit e-mail",
+                "Obdrženo dnes", "Bez odezvy",
+            },
+        }
+        for tab_key, forbidden in forbidden_by_tab.items():
+            labels = set(control_labels(root.tabs[tab_key]))
+            assert not labels.intersection(forbidden), (tab_key, labels)
+            assert "Zobrazit archivované" in labels
+            assert "📦 Archivovat vybrané" in labels
+            assert "↩ Obnovit vybrané" in labels
+        assert getattr(root.action_tree, "_v750_context_owner", None) == "actions"
+        assert getattr(root.request_tree, "_v750_context_owner", None) == "requests"
+        assert getattr(root.mivo_tree, "_v750_context_owner", None) == "mivo"
+        with app.db() as con:
+            action_columns = {
+                str(row[1]) for row in con.execute("PRAGMA table_info(actions)")
+            }
+            assert {"archived", "archived_at", "archived_by"} <= action_columns
 
         def button_labels(widget):
             labels = []
@@ -334,6 +373,26 @@ def main() -> None:
         assert int(request_tree._turto_design_widths[width_column]) == 347
         assert int(request_tree.column(width_column, "width")) == 347
 
+        # Filter cells must follow displaycolumns and hidden columns.
+        filter_map = dict(zip(
+            getattr(request_tree, "_filter_cell_columns", ()),
+            getattr(request_tree, "_filter_cells", ()),
+        ))
+        candidates = [column for column in request_tree["columns"] if column in filter_map]
+        assert len(candidates) >= 3, candidates
+        first, hidden, second = candidates[:3]
+        request_tree.configure(displaycolumns=(second, first))
+        request_tree._sync_filter_bar()
+        root.update()
+        assert not filter_map[hidden].place_info(), hidden
+        assert int(filter_map[second].place_info()["x"]) < int(
+            filter_map[first].place_info()["x"]
+        )
+        request_tree.configure(displaycolumns="#all")
+        request_tree._sync_filter_bar()
+        root.update()
+        assert filter_map[hidden].place_info(), hidden
+
         # Open the real visual issued-offer editor without saving. Its canvas is
         # rendered by the production PDF renderer and therefore must not reserve
         # a CN number, create a document or record a PDF revision.
@@ -369,6 +428,9 @@ def main() -> None:
             set(editor.tree["columns"])
         )
         assert getattr(editor._v720_internal_panel, "_v740_basis", None) is not None
+        assert getattr(editor, "page_format_label", None) is not None
+        assert "A4" in str(editor.page_format_label.cget("text"))
+        assert bool(getattr(editor.tree, "_v750_context_owner", False))
         until = time.monotonic() + 1.8
         while time.monotonic() < until:
             root.update()
@@ -428,7 +490,7 @@ def main() -> None:
 
         # Dialog errors during startup indicate a real integration failure.
         assert not dialog_errors, dialog_errors
-        print(f"TURTO CRM 7.4 real Tk navigation test: OK ({click_elapsed:.3f} s / 240 clicks)")
+        print(f"TURTO CRM 7.5 real Tk navigation test: OK ({click_elapsed:.3f} s / 240 clicks)")
     finally:
         try:
             if root is not None and root.winfo_exists():

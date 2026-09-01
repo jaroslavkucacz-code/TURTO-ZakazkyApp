@@ -236,9 +236,13 @@ def main() -> None:
     version = (repository / "release_version.txt").read_text(
         encoding="utf-8"
     ).strip()
-    assert version == "7.4.0", version
+    try:
+        version_tuple = tuple(int(part) for part in version.split("."))
+    except ValueError as exc:
+        raise AssertionError(version) from exc
+    assert version_tuple >= (7, 4, 0), version
     print(
-        "OK 7.4.0: internal issued-offer identity, pricing defaults, "
+        f"OK {version}: internal issued-offer identity, pricing defaults, "
         "database ordering and uniform column controls"
     )
 
