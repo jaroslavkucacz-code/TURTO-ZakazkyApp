@@ -1,9 +1,10 @@
-• Opraveno mizení živého náhledu Vydané nabídky po přiblížení nebo automatickém překreslení. Registrace písma je nyní svázaná se skutečným PDF dokumentem a nemůže použít neplatný font z již zavřeného náhledu.
-• Nový náhled nahradí předchozí obraz až po úplném úspěšném vykreslení všech stran. Při výjimečné chybě proto zůstane poslední platný náhled viditelný a program zobrazí srozumitelné upozornění místo technické hlášky.
-• Ovládání náhledu je klidnější: přibylo 100 %, přesnější Na šířku, zachování pozice při zoomu a Ctrl + kolečko myši. Opakované změny velikosti okna jsou sloučené do jednoho překreslení.
-• Přijaté nabídky mají přímo nad tabulkou tlačítko Sloupce… pro změnu šířek, pořadí a viditelnosti. Nastavení se ukládá samostatně pro každého uživatele a přežije obnovení, přepnutí záložky i restart.
-• Nad Přijatými nabídkami je nově vysvětlen význam barev: žlutá = chybějící vazba, oranžová = nezařazené položky, modrá = nabídka evidovaná také jako Ceník, šedá = archiv. Barva nevyjadřuje obchodní výsledek.
-• Ve Společnostech lze označit dva záznamy a použít Sloučit společnosti…. Zvolíte záznam, který zůstane; jeho vyplněné ARES údaje mají přednost a prázdná pole se doplní z druhé společnosti.
-• Při sloučení se přesunou kontakty, Příležitosti, Poptávky, Přijaté a Vydané nabídky, Ceníky, katalogové zdroje a zákaznické slevy. Kontakty se stejným e-mailem se spojí a chybějící telefon, funkce nebo poznámka se doplní.
-• Sloučení probíhá v jedné databázové transakci a před potvrzením se vytvoří záloha. Zdrojová společnost se nemaže, pouze se označí jako neaktivní a sloučená; auditní záznam uchová oba původní snímky a souhrn přesunů.
-• Historické názvy odběratelů v již uložených nabídkách a existující PDF revize se zpětně nemění. Aktualizace je nedestruktivní pro Poptávky, Ceníky, Katalog produktů, Přijaté i Vydané nabídky.
+• Ve Vydaných nabídkách jsou vedle skutečné marže a slevy nově vidět také základní hodnoty, ze kterých řádek vychází. Základ se zobrazuje samostatně pro produktovou skupinu, podskupinu i jednotlivý výrobek včetně zdroje pravidla.
+• Výběr z Katalogu produktů má vlevo databázovou strukturu skupin a podskupin se základní marží a slevou. U každého produktu jsou stejné údaje viditelné přímo v tabulce.
+• Vydané nabídky používají interní kódy a interní názvy TURTO. Produkty bez vyplněného interního kódu nebo názvu nelze z Katalogu vložit, dokud nejsou údaje doplněné.
+• Při překlopení Přijaté nabídky program pouze čte existující katalogové vazby a podle dodavatele a kódu se pokusí dohledat interní produkt. Nespárované položky jsou označené žlutě a program na ně upozorní před pokračováním.
+• Automatické řazení skupin a podskupin ve Vydané nabídce i ve výsledném PDF se řídí hodnotou pořadí uloženou v databázi. Ručně vložené nadpisy a textové řádky si zachovávají své místo.
+• U Přijatých nabídek se nastavení šířky, pořadí a viditelnosti sloupců otevírá pravým tlačítkem na záhlaví. Kliknutí na záhlaví už neotevře nabídku určenou pro datové řádky.
+• Samostatné tlačítko Sloupce… bylo odstraněno z Přijatých nabídek i z MIVO. Ovládání tabulek je tak ve všech sekcích stejné.
+• Dialog Produkty / ceny má nový filtr Dodavatel, který lze kombinovat s textovým hledáním.
+• Nápověda byla přesunuta z hlavní navigace do pravého horního rohu vedle Nastavení.
+• Aktualizace je aditivní. Existující Vydané nabídky si zachovávají uložené ceny a historické PDF revize; nové pomocné sloupce pouze ukládají snímek základního cenového pravidla.

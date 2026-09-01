@@ -334,8 +334,12 @@ def main() -> None:
             "v730_polish.apply(app)"
         )
         version = (repository / "release_version.txt").read_text(encoding="utf-8").strip()
-        assert version == "7.3.0", version
-        print("TURTO CRM 7.3 preview, offers and company-merge checks passed")
+        try:
+            version_tuple = tuple(int(part) for part in version.split("."))
+        except ValueError as exc:
+            raise AssertionError(version) from exc
+        assert version_tuple >= (7, 3, 0), version
+        print(f"TURTO CRM {version} preview, offers and company-merge checks passed")
 
 
 if __name__ == "__main__":

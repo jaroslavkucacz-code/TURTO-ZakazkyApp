@@ -57,6 +57,7 @@ def main() -> None:
     import v710_cleanup
     import v720_visual_offer
     import v730_polish
+    import v740_offer_defaults
 
     callback_errors = []
     dialog_errors = []
@@ -110,6 +111,7 @@ def main() -> None:
     v710_cleanup.apply(app)
     v720_visual_offer.apply(app)
     v730_polish.apply(app)
+    v740_offer_defaults.apply(app)
 
     # Run the fully wrapped schema owner once more for additive platform tables.
     app.ensure_schema()
@@ -160,7 +162,23 @@ def main() -> None:
         assert mivo_tree is not None and mivo_tree.winfo_exists()
         assert bool(getattr(mivo_tree, "_turto_configurable_columns", False))
         assert bool(getattr(mivo_tree, "_v700_columns_menu", False))
-        assert getattr(root, "_v710_mivo_columns_button", None) is not None
+        assert getattr(root, "_v710_mivo_columns_button", None) is None
+        assert "help" not in root.nav
+        assert getattr(root, "help_button", None) is not None
+        assert root.help_button.winfo_exists()
+
+        def button_labels(widget):
+            labels = []
+            for child in widget.winfo_children():
+                try:
+                    if child.winfo_class().endswith("Button"):
+                        labels.append(str(child.cget("text") or "").strip())
+                except Exception:
+                    pass
+                labels.extend(button_labels(child))
+            return labels
+
+        assert "Sloupce…" not in button_labels(root.tabs["mivo"])
         for column in mivo_tree["columns"]:
             assert str(mivo_tree.heading(column, "text") or "").strip(), column
         keys = [key for key in (
@@ -284,6 +302,8 @@ def main() -> None:
         assert offer_tree is not None and offer_tree.winfo_exists()
         assert bool(getattr(offer_tree, "_turto_configurable_columns", False))
         assert getattr(root, "_v730_offer_table_tools", None) is not None
+        assert bool(getattr(offer_tree, "_v740_context_owner", False))
+        assert "Sloupce…" not in button_labels(root.tabs["offers"])
         company_tree = getattr(root, "company_tree", None)
         assert company_tree is not None and company_tree.winfo_exists()
         assert str(company_tree.cget("selectmode")) == "extended"
@@ -345,6 +365,10 @@ def main() -> None:
         assert getattr(editor, "_v720_preview", None) is not None
         assert getattr(editor, "_v720_internal_panel", None) is not None
         assert getattr(editor, "_v720_mode_button", None) is not None
+        assert {"Zákl. marže", "Zákl. sleva", "Zdroj základu"}.issubset(
+            set(editor.tree["columns"])
+        )
+        assert getattr(editor._v720_internal_panel, "_v740_basis", None) is not None
         until = time.monotonic() + 1.8
         while time.monotonic() < until:
             root.update()
@@ -386,6 +410,13 @@ def main() -> None:
         root.update()
         assert not callback_errors, "\n".join(callback_errors)
 
+        price_browser = root.open_product_prices()
+        root.update()
+        assert getattr(price_browser, "supplier_filter", None) is not None
+        assert price_browser.supplier_filter.get() == "Všichni dodavatelé"
+        price_browser.destroy()
+        root.update()
+
         # Reproduce the attached-log failure path: a delayed notification
         # refresh must ignore an already destroyed button.
         bell = getattr(root, "bell_button", None)
@@ -397,7 +428,7 @@ def main() -> None:
 
         # Dialog errors during startup indicate a real integration failure.
         assert not dialog_errors, dialog_errors
-        print(f"TURTO CRM 6.3.39 real Tk navigation test: OK ({click_elapsed:.3f} s / 240 clicks)")
+        print(f"TURTO CRM 7.4 real Tk navigation test: OK ({click_elapsed:.3f} s / 240 clicks)")
     finally:
         try:
             if root is not None and root.winfo_exists():
