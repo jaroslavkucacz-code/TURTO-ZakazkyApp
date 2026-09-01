@@ -55,18 +55,18 @@ jobs:
       - name: Validate composed Tk application
         run: timeout 180s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
 
-      - name: Commit integration
+      - name: Commit non-workflow integration and export workflow text
         shell: bash
         run: |
+          cp .github/workflows/publish-update.yml scripts/_generated_publish_update_yml.txt
+          cp .github/workflows/validate-6330.yml scripts/_generated_validate_6330_yml.txt
           git config user.name "TURTO Update Bot"
           git config user.email "actions@users.noreply.github.com"
           git add \
             scripts/publish-update.sh \
             scripts/validate-real-ui.py \
-            .github/workflows/publish-update.yml \
-            .github/workflows/validate-6330.yml
+            scripts/_generated_publish_update_yml.txt \
+            scripts/_generated_validate_6330_yml.txt
           git diff --cached --check
           git commit -m "Integrate TURTO CRM 7.5 runtime and validation"
           git push origin HEAD:feature/7.5.0-context-menus-filter-sync-supplier-names-a4
-
-# retry after allowing the 7.4 regression suite on newer release versions
