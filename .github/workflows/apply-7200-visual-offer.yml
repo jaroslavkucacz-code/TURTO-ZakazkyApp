@@ -1,0 +1,183 @@
+name: Apply TURTO CRM 7.2 visual issued offers
+
+on:
+  push:
+    branches:
+      - feature/7.2.0-visual-issued-offers
+    paths:
+      - .github/workflows/apply-7200-visual-offer.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Materialize and apply 7.2 source patch
+        env:
+          TURTO_PATCH_B64: |-
+            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
+            /wceDB55
+        run: |
+          python - <<'PY'
+          import base64, os, pathlib, zlib
+          payload = base64.b64decode(''.join(os.environ['TURTO_PATCH_B64'].split()))
+          path = pathlib.Path('scripts/apply-7200-visual-offer.py')
+          path.write_bytes(zlib.decompress(payload))
+          PY
+          python scripts/apply-7200-visual-offer.py
+          rm -f scripts/apply-7200-visual-offer.py
+
+      - name: Compile canonical source
+        run: python -m compileall -q ZakazkyApp_base_6.1 scripts post_baseline.py
+
+      - name: Validate 7.2 and regressions
+        run: |
+          python scripts/validate-7200-visual-issued-offers.py ZakazkyApp_base_6.1
+          python scripts/validate-7100-commercial-cleanup.py ZakazkyApp_base_6.1
+          python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
+          python scripts/validate-6339-catalog-price-ux.py ZakazkyApp_base_6.1
+          python scripts/validate-6340-manual-products-pricing.py ZakazkyApp_base_6.1
+          python scripts/validate-6341-offer-catalog-separation.py ZakazkyApp_base_6.1
+          python scripts/validate-scalability.py ZakazkyApp_base_6.1
+          python scripts/validate-ui-navigation.py ZakazkyApp_base_6.1
+          python scripts/validate-auto-update.py ZakazkyApp_base_6.1
+          bash -n scripts/publish-update.sh
+
+      - name: Validate real Tk application
+        run: |
+          command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
+          timeout 120s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
+
+      - name: Commit implementation
+        run: |
+          find . -type d -name __pycache__ -prune -exec rm -rf {} +
+          find . -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+          git config user.name "TURTO Update Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            ZakazkyApp_base_6.1/ZakazkyCRM.pyw \
+            ZakazkyApp_base_6.1/v638_table_updatefix.py \
+            ZakazkyApp_base_6.1/v710_cleanup.py \
+            ZakazkyApp_base_6.1/v720_visual_offer.py \
+            ZakazkyApp_base_6.1/price_lists_domain/issued_offers/service.py \
+            ZakazkyApp_base_6.1/price_lists_domain/issued_offers/settings.py \
+            post_baseline.py release_version.txt release_notes.txt \
+            scripts/publish-update.sh \
+            scripts/validate-6337-issued-offers.py \
+            scripts/validate-7200-visual-issued-offers.py \
+            scripts/validate-real-ui.py
+          git diff --cached --check
+          git commit -m "Implement TURTO CRM 7.2 visual issued offers"
+          git push origin HEAD:feature/7.2.0-visual-issued-offers
