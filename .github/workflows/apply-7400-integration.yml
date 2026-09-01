@@ -40,9 +40,12 @@ jobs:
           if not parts:
               raise SystemExit('Staged 7.4 patch payload was not found')
           encoded = ''.join(part.read_text(encoding='utf-8').strip() for part in parts)
-          pathlib.Path('/tmp/apply_7400.py').write_bytes(
-              zlib.decompress(base64.b64decode(encoded))
+          source = zlib.decompress(base64.b64decode(encoded)).decode('utf-8')
+          source = source.replace(
+              'assert not callback_errors, "\\n".join(callback_errors)',
+              'assert not callback_errors, "\\\\n".join(callback_errors)',
           )
+          pathlib.Path('/tmp/apply_7400.py').write_text(source, encoding='utf-8')
           PY
           python /tmp/apply_7400.py
 
@@ -88,4 +91,4 @@ jobs:
           git commit -m "TURTO CRM 7.4.0 — pricing defaults and uniform table controls"
           git push origin HEAD:feature/7.4.0-issued-pricing-columns-ui-consistency
 
-# retry with corrected staged payload
+# retry with escaped source pattern
