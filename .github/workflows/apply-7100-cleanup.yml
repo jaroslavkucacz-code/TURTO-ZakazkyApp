@@ -33,6 +33,23 @@ jobs:
       - name: Apply 7.1 cleanup
         run: python scripts/apply-7100-cleanup.py
 
+      - name: Normalize generated dialog literals
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('ZakazkyApp_base_6.1/v710_cleanup.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              'podskupiny?\n\n"\n                "Ano = přepočítat ceny podle zařazení.\n"',
+              'podskupiny?\\n\\n"\n                "Ano = přepočítat ceny podle zařazení.\\n"',
+          )
+          text = text.replace(
+              'Vydanou nabídku:\n{exc}"',
+              'Vydanou nabídku:\\n{exc}"',
+          )
+          path.write_text(text, encoding='utf-8')
+          PY
+
       - name: Compile canonical source
         run: python -m compileall -q ZakazkyApp_base_6.1 scripts
 
