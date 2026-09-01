@@ -30,9 +30,48 @@ jobs:
       - name: Reconstruct and apply 7.6 integration
         shell: bash
         run: |
-          cat scripts/_tmp760_payload/module_*.b64 | base64 --decode | gzip --decompress > ZakazkyApp_base_6.1/v760_table_activity_performance.py
-          cat scripts/_tmp760_payload/validator_*.b64 | base64 --decode | gzip --decompress > scripts/validate-7600-table-activity-performance.py
-          cat scripts/_tmp760_payload/integrate_*.b64 | base64 --decode | gzip --decompress > scripts/_tmp760_integrate.py
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+          import gzip
+          import hashlib
+
+          payload = Path("scripts/_tmp760_payload")
+          specifications = (
+              (
+                  "module_*.b64",
+                  Path("ZakazkyApp_base_6.1/v760_table_activity_performance.py"),
+                  "96eb4f0253ff5c1317fddc85e83de2c1fb045b8f0311e2ee38b38b08b4f87e3f",
+              ),
+              (
+                  "validator_*.b64",
+                  Path("scripts/validate-7600-table-activity-performance.py"),
+                  "884d87708bd73f58b55d4ed3a519a18680de0dd54a6099cd5687ea63f181171d",
+              ),
+              (
+                  "integrate_*.b64",
+                  Path("scripts/_tmp760_integrate.py"),
+                  "03e20dd842786bffb9a6ef3801b288ea888dd69d039557bc88dda9ad443d8682",
+              ),
+          )
+          for pattern, output, expected in specifications:
+              parts = sorted(payload.glob(pattern))
+              if not parts:
+                  raise SystemExit(f"Missing payload: {pattern}")
+              encoded = "".join(
+                  "".join(part.read_text(encoding="ascii").split())
+                  for part in parts
+              )
+              compressed = base64.b64decode(encoded, validate=True)
+              data = gzip.decompress(compressed)
+              digest = hashlib.sha256(data).hexdigest()
+              if digest != expected:
+                  raise SystemExit(
+                      f"Payload checksum mismatch for {output}: {digest} != {expected}"
+                  )
+              output.write_bytes(data)
+              print(f"Reconstructed {output}: {len(data)} bytes, sha256={digest}")
+          PY
           python scripts/_tmp760_integrate.py
           rm -rf scripts/_tmp760_payload scripts/_tmp760_integrate.py
 
@@ -82,4 +121,4 @@ jobs:
           git commit -m "Integrate TURTO CRM 7.6 tables, activity and performance"
           git push origin HEAD:feature/7.6.0-table-activity-performance
 
-# retry after repairing payload integrity
+# retry with whitespace-safe payload reconstruction and checksums
