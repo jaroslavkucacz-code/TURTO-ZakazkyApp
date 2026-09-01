@@ -8,7 +8,7 @@ STAGE="ZakazkyApp_v${VERSION}"
 BASE_DIR="ZakazkyApp_base_6.1"
 test -d "$BASE_DIR"
 python scripts/validate-6339-catalog-price-ux.py "$BASE_DIR"
-python scripts/validate-7000-workflow-table-ux.py "$BASE_DIR"
+python scripts/validate-7100-commercial-cleanup.py "$BASE_DIR"
 rm -rf "$STAGE"
 cp -a "$BASE_DIR" "$STAGE"
 cp post_baseline.py "$STAGE/post_baseline.py"
@@ -24,7 +24,7 @@ for f in \
   v632_offerlinks.py v633_offerassign_deadlines.py \
   v636_action_offers_stabletable.py v637_project_offer_model.py \
   v638_table_updatefix.py v640_warning_cleanup.py \
-  v644_default_date_sort.py v700_ux.py post_baseline.py
+  v644_default_date_sort.py v710_cleanup.py post_baseline.py
 do
   [ -f "$STAGE/$f" ] && mv "$STAGE/$f" "$RUNTIME/$f"
 done
@@ -60,8 +60,8 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 RUNTIME=ROOT/'_runtime'
 if str(RUNTIME) not in sys.path:sys.path.insert(0,str(RUNTIME))
-import app,crm_features,crm_runtime,crm_v605,crm_price_lists,v606_features,v608_stability,v611_audit,v613_ui,v614_next,v615_input,v616_stability,v617_offerhub,v618_inputfix,v619_fixes,v620_outlookdrop,v621_prices,v623_exports,v624_legacy_exports,v625_stability,v628_modernui_resize,v631_diskdrop,v632_offerlinks,v633_offerassign_deadlines,v636_action_offers_stabletable,v637_project_offer_model,v638_table_updatefix,v640_warning_cleanup,v644_default_date_sort,post_baseline,v700_ux
-crm_features.apply(app);crm_runtime.apply(app);crm_v605.apply(app);v606_features.apply(app);v608_stability.apply(app);v611_audit.apply(app);v613_ui.apply(app);v614_next.apply(app);v615_input.apply(app);v616_stability.apply(app);v617_offerhub.apply(app);v618_inputfix.apply(app);v619_fixes.apply(app);v620_outlookdrop.apply(app);v621_prices.apply(app);v623_exports.apply(app);v625_stability.apply(app);v628_modernui_resize.apply(app);v632_offerlinks.apply(app);v633_offerassign_deadlines.apply(app);v636_action_offers_stabletable.apply(app);v637_project_offer_model.apply(app);v638_table_updatefix.apply(app);v640_warning_cleanup.apply(app);post_baseline.apply(app);v631_diskdrop.apply(app);v644_default_date_sort.apply(app);crm_features.install_offer_ui(app);crm_price_lists.apply(app);v700_ux.apply(app)
+import app,crm_features,crm_runtime,crm_v605,crm_price_lists,v606_features,v608_stability,v611_audit,v613_ui,v614_next,v615_input,v616_stability,v617_offerhub,v618_inputfix,v619_fixes,v620_outlookdrop,v621_prices,v623_exports,v624_legacy_exports,v625_stability,v628_modernui_resize,v631_diskdrop,v632_offerlinks,v633_offerassign_deadlines,v636_action_offers_stabletable,v637_project_offer_model,v638_table_updatefix,v640_warning_cleanup,v644_default_date_sort,post_baseline,v710_cleanup
+crm_features.apply(app);crm_runtime.apply(app);crm_v605.apply(app);v606_features.apply(app);v608_stability.apply(app);v611_audit.apply(app);v613_ui.apply(app);v614_next.apply(app);v615_input.apply(app);v616_stability.apply(app);v617_offerhub.apply(app);v618_inputfix.apply(app);v619_fixes.apply(app);v620_outlookdrop.apply(app);v621_prices.apply(app);v623_exports.apply(app);v625_stability.apply(app);v628_modernui_resize.apply(app);v632_offerlinks.apply(app);v633_offerassign_deadlines.apply(app);v636_action_offers_stabletable.apply(app);v637_project_offer_model.apply(app);v638_table_updatefix.apply(app);v640_warning_cleanup.apply(app);post_baseline.apply(app);v631_diskdrop.apply(app);v644_default_date_sort.apply(app);crm_features.install_offer_ui(app);crm_price_lists.apply(app);v710_cleanup.apply(app)
 app.cleanup_stale_test_session();app.ensure_schema();app.ensure_test_user();app.migrate_v41_visual_once();app.import_mail_contacts_v220_once();app.import_mail_contacts_v221_once();app.restore_people_from_v280_backup_once();app.post_import_cleanup_v222_once();app.App().mainloop()
 PYW
 
@@ -81,7 +81,7 @@ set -euo pipefail
 DIR="$STAGE"
 test -d "$DIR/_runtime"
 test -e "$DIR/_runtime/v644_default_date_sort.py"
-test -e "$DIR/_runtime/v700_ux.py"
+test -e "$DIR/_runtime/v710_cleanup.py"
 test -e "$DIR/_runtime/v631_diskdrop.py"
 test -e "$DIR/_runtime/crm_price_lists.py"
 test -d "$DIR/_runtime/price_lists_domain"
@@ -103,8 +103,8 @@ grep -q "ZakazkyCRM.pyw" "$DIR/Spustit_Zakazky.bat"
 ! grep -q "pyw app.py" "$DIR/Spustit_Zakazky.bat"
 ! grep -q "pythonw app.py" "$DIR/Spustit_Zakazky.bat"
 grep -q "post_baseline.apply(app);v631_diskdrop.apply(app);v644_default_date_sort.apply(app)" "$DIR/ZakazkyCRM.pyw"
-grep -q "crm_features.install_offer_ui(app);crm_price_lists.apply(app);v700_ux.apply(app)" "$DIR/ZakazkyCRM.pyw"
-grep -q "def group_offer_items" "$DIR/_runtime/v700_ux.py"
+grep -q "crm_features.install_offer_ui(app);crm_price_lists.apply(app);v710_cleanup.apply(app)" "$DIR/ZakazkyCRM.pyw"
+grep -q "def group_offer_items" "$DIR/_runtime/v710_cleanup.py"
 grep -q "def install_offer_ui" "$DIR/_runtime/crm_features.py"
 grep -q "Zpracovat nabídku" "$DIR/_runtime/crm_features.py"
 grep -q "def ensure_price_list_schema" "$DIR/_runtime/price_lists_domain/schema.py"
@@ -133,7 +133,7 @@ import pathlib,sys
 text=pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
 assert text.index('v644_default_date_sort.apply(app)') < text.index('crm_features.install_offer_ui(app)')
 assert text.index('crm_features.install_offer_ui(app)') < text.index('crm_price_lists.apply(app)')
-assert text.index('crm_price_lists.apply(app)') < text.index('v700_ux.apply(app)')
+assert text.index('crm_price_lists.apply(app)') < text.index('v710_cleanup.apply(app)')
 PY
 python - "$DIR" <<'PY'
 import pathlib,sys

@@ -1,4 +1,4 @@
-"""TURTO CRM 7.0 – workflow, table-layout and issued-offer UX.
+"""TURTO CRM 7.1 – consolidated workflow, table and commercial cleanup.
 
 This layer is intentionally additive.  It keeps the 6.1 baseline readable while
 owning the cross-cutting behaviour requested for 7.0: keyboard traversal,
@@ -83,7 +83,7 @@ def apply(M):
     import threading
     from datetime import date
 
-    if getattr(M, "_turto_v700_installed", False):
+    if getattr(M, "_turto_v710_installed", False):
         return
 
     # ------------------------------------------------------------------
@@ -216,7 +216,13 @@ def apply(M):
             pass
         return categories, subgroups
 
-    def enrich_taxonomy(items):
+    def enrich_taxonomy(items, prefer_snapshot=True):
+        """Resolve category/subgroup consistently without rewriting old snapshots.
+
+        Existing saved documents keep their immutable text snapshots. New rows
+        carrying ``_taxonomy_authoritative_ids`` or ``_taxonomy_dirty`` use the
+        current stable IDs, with the subgroup parent always owning the category.
+        """
         values = [dict(raw or {}) for raw in items]
         categories, subgroups = taxonomy_maps(values)
         for item in values:
@@ -235,25 +241,43 @@ def apply(M):
             except Exception:
                 pass
             subgroup_info = subgroups.get(subgroup_id) if subgroup_id else None
-            if not category_id and subgroup_info and subgroup_info[1]:
+            if subgroup_info and subgroup_info[1]:
                 category_id = subgroup_info[1]
-            category_name = _text(
-                item.get("category_name_snapshot")
-                or item.get("category")
-                or categories.get(category_id),
-                "Nezařazeno",
+            item["category_id"] = category_id
+            item["subgroup_id"] = subgroup_id
+
+            authoritative = bool(
+                item.get("_taxonomy_authoritative_ids") or item.get("_taxonomy_dirty")
             )
-            subgroup_name = _text(
-                item.get("subgroup_name_snapshot")
-                or item.get("subgroup")
-                or (subgroup_info[0] if subgroup_info else ""),
-                "Bez podskupiny",
-            )
+            keep_snapshot = bool(prefer_snapshot and not authoritative)
+            category_snapshot = _text(item.get("category_name_snapshot"))
+            subgroup_snapshot = _text(item.get("subgroup_name_snapshot"))
+            category_current = _text(categories.get(category_id)) if category_id else ""
+            subgroup_current = _text(subgroup_info[0]) if subgroup_info else ""
+
+            if keep_snapshot:
+                category_name = _text(
+                    category_snapshot or item.get("category") or category_current,
+                    "Nezařazeno",
+                )
+                subgroup_name = _text(
+                    subgroup_snapshot or item.get("subgroup") or subgroup_current,
+                    "Bez podskupiny",
+                )
+            else:
+                category_name = _text(
+                    category_current or item.get("category") or category_snapshot,
+                    "Nezařazeno",
+                )
+                subgroup_name = _text(
+                    subgroup_current or item.get("subgroup") or subgroup_snapshot,
+                    "Bez podskupiny",
+                )
             item["category_name_snapshot"] = category_name
             item["subgroup_name_snapshot"] = subgroup_name
         return values
 
-    if service is not None and not getattr(service, "_turto_v700_taxonomy", False):
+    if service is not None and not getattr(service, "_turto_v710_taxonomy", False):
         original_normalize_item = service.normalize_item
         original_catalog_products = service.catalog_products
         original_save_document = service.save_document
@@ -261,16 +285,33 @@ def apply(M):
         original_draft_from_supplier_offer = service.draft_from_supplier_offer
 
         def normalize_item(raw, position=None, recalculate_sale=False):
-            item = original_normalize_item(raw, position, recalculate_sale)
+            source = dict(raw or {})
+            item = original_normalize_item(source, position, recalculate_sale)
             if _text(item.get("row_type"), "product").lower() == "product":
-                item["category_name_snapshot"] = _text(
-                    item.get("category_name_snapshot") or item.get("category"),
-                    "Nezařazeno",
+                authoritative = bool(
+                    source.get("_taxonomy_authoritative_ids") or source.get("_taxonomy_dirty")
                 )
-                item["subgroup_name_snapshot"] = _text(
-                    item.get("subgroup_name_snapshot") or item.get("subgroup"),
-                    "Bez podskupiny",
+                has_ids = bool(item.get("category_id") or item.get("subgroup_id"))
+                has_snapshot = bool(
+                    _text(item.get("category_name_snapshot"))
+                    or _text(item.get("subgroup_name_snapshot"))
                 )
+                if authoritative or (has_ids and not has_snapshot):
+                    item.update({
+                        key: source.get(key)
+                        for key in ("_taxonomy_authoritative_ids", "_taxonomy_dirty")
+                        if source.get(key)
+                    })
+                    item = enrich_taxonomy([item], prefer_snapshot=not authoritative)[0]
+                else:
+                    item["category_name_snapshot"] = _text(
+                        item.get("category_name_snapshot") or item.get("category"),
+                        "Nezařazeno",
+                    )
+                    item["subgroup_name_snapshot"] = _text(
+                        item.get("subgroup_name_snapshot") or item.get("subgroup"),
+                        "Bez podskupiny",
+                    )
             return item
 
         def catalog_products(module, query="", limit=500):
@@ -318,7 +359,12 @@ def apply(M):
 
         def draft_from_supplier_offer(module, offer_id):
             document, items = original_draft_from_supplier_offer(module, offer_id)
-            return document, enrich_taxonomy(items)
+            prepared = []
+            for raw in items:
+                item = dict(raw or {})
+                item["_taxonomy_authoritative_ids"] = True
+                prepared.append(item)
+            return document, enrich_taxonomy(prepared, prefer_snapshot=False)
 
         service.normalize_item = normalize_item
         service.catalog_products = catalog_products
@@ -326,10 +372,196 @@ def apply(M):
         service.load_document = load_document
         service.draft_from_supplier_offer = draft_from_supplier_offer
         service.group_offer_items = group_offer_items
-        service._turto_v700_taxonomy = True
+        service._turto_v710_taxonomy = True
+
+    def assign_taxonomy_to_items(parent, items, indices, ask_pricing=True):
+        if service is None:
+            return False
+        try:
+            from price_lists_domain.platform import categories as taxonomy_categories
+            from price_lists_domain.platform import product_catalog as catalogue_service
+        except Exception as exc:
+            M.messagebox.showerror("Zařazení produktů", str(exc), parent=parent)
+            return False
+        product_indices = [
+            int(index) for index in indices
+            if 0 <= int(index) < len(items)
+            and _text(items[int(index)].get("row_type"), "product").lower() == "product"
+        ]
+        if not product_indices:
+            M.messagebox.showinfo(
+                "Zařazení produktů", "Vyberte jednu nebo více produktových položek.", parent=parent
+            )
+            return False
+        first = items[product_indices[0]]
+        current_category = first.get("category_id")
+        current_subgroup = first.get("subgroup_id")
+        if current_subgroup:
+            current_category = taxonomy_categories.subgroup_parent_id(M, current_subgroup) or current_category
+        selected = taxonomy_categories.choose_taxonomy(
+            M, parent, "Přiřadit produktovou skupinu a podskupinu",
+            current_category, current_subgroup,
+        )
+        if selected == "cancel":
+            return False
+        category_id, subgroup_id = selected
+        if subgroup_id:
+            category_id = taxonomy_categories.subgroup_parent_id(M, subgroup_id) or category_id
+        recalculate = False
+        if ask_pricing:
+            decision = M.messagebox.askyesnocancel(
+                "Cenová pravidla",
+                "Převzít zároveň výchozí marži a slevu vybrané skupiny nebo podskupiny?\n\n"
+                "Ano = přepočítat ceny podle zařazení.\n"
+                "Ne = změnit pouze skupinu a podskupinu.",
+                parent=parent,
+            )
+            if decision is None:
+                return False
+            recalculate = bool(decision)
+        category_label = taxonomy_categories.category_name(M, category_id) or "Nezařazeno"
+        subgroup_label = taxonomy_categories.subgroup_name(M, subgroup_id) or "Bez podskupiny"
+        for index in product_indices:
+            item = dict(items[index] or {})
+            item.update(
+                category_id=category_id,
+                subgroup_id=subgroup_id,
+                category_name_snapshot=category_label,
+                subgroup_name_snapshot=subgroup_label,
+                _taxonomy_dirty=True,
+                _taxonomy_authoritative_ids=True,
+            )
+            if recalculate:
+                policy = catalogue_service.pricing_policy(M, category_id, subgroup_id)
+                recommended, sale = catalogue_service.calculate_prices(
+                    item.get("purchase_unit_price", 0),
+                    policy.get("margin_pct", 0),
+                    policy.get("discount_pct", 0),
+                )
+                item.update(
+                    margin_pct=policy.get("margin_pct", 0),
+                    discount_pct=policy.get("discount_pct", 0),
+                    show_recommended_price=1 if policy.get("show_recommended_price", True) else 0,
+                    recommended_unit_price=recommended,
+                    unit_price=sale,
+                    total_price=service.number(item.get("quantity"), 1) * sale,
+                )
+            items[index] = service.normalize_item(item, index + 1)
+        return True
+
+    class TransferTaxonomyDialog:
+        """Edit only the outgoing draft; never writes back to the received offer."""
+        def __init__(self, parent, items):
+            self.items = [dict(item or {}) for item in items]
+            self.result = None
+            self.win = M.tk.Toplevel(parent)
+            self.win.title("Překlopit do Vydané nabídky")
+            self.win.transient(parent)
+            self.win.grab_set()
+            M.enable_dialog_maximize(self.win, 1320, 720)
+            frame = M.ttk.Frame(self.win, padding=14)
+            frame.pack(fill="both", expand=True)
+            frame.columnconfigure(0, weight=1)
+            frame.rowconfigure(2, weight=1)
+            M.ttk.Label(
+                frame, text="Položky překlopené do Vydané nabídky",
+                font=("Calibri", 16, "bold"),
+            ).grid(row=0, column=0, sticky="w")
+            M.ttk.Label(
+                frame,
+                text=(
+                    "Zařazení se použije pouze v novém konceptu Vydané nabídky. "
+                    "Zdrojová Přijatá nabídka ani Katalog produktů se tím nezmění."
+                ),
+                style="PageSubtitle.TLabel",
+            ).grid(row=1, column=0, sticky="w", pady=(2, 8))
+            columns = (
+                "Kód", "Položka", "Množství", "MJ", "Nákupní cena",
+                "Skupina", "Podskupina",
+            )
+            widths = (120, 360, 90, 65, 120, 250, 290)
+            wrap = M.ttk.Frame(frame)
+            wrap.grid(row=2, column=0, sticky="nsew")
+            wrap.columnconfigure(0, weight=1)
+            wrap.rowconfigure(0, weight=1)
+            self.tree = M.ttk.Treeview(
+                wrap, columns=columns, show="headings", selectmode="extended"
+            )
+            for column, width in zip(columns, widths):
+                self.tree.heading(column, text=column)
+                self.tree.column(column, width=width, minwidth=45, anchor="w", stretch=False)
+            self.tree.grid(row=0, column=0, sticky="nsew")
+            ys = M.ttk.Scrollbar(wrap, orient="vertical", command=self.tree.yview)
+            xs = M.ttk.Scrollbar(wrap, orient="horizontal", command=self.tree.xview)
+            ys.grid(row=0, column=1, sticky="ns")
+            xs.grid(row=1, column=0, sticky="ew")
+            self.tree.configure(yscrollcommand=ys.set, xscrollcommand=xs.set)
+            self.tree.bind("<Double-1>", lambda _event: self.assign())
+            tools = M.ttk.Frame(frame)
+            tools.grid(row=3, column=0, sticky="ew", pady=(9, 0))
+            M.ttk.Button(tools, text="Vybrat vše", command=self.select_all).pack(side="left")
+            M.ttk.Button(
+                tools, text="Přiřadit skupinu / podskupinu…", command=self.assign
+            ).pack(side="left", padx=5)
+            M.ttk.Button(tools, text="Zrušit", command=self.win.destroy).pack(side="right")
+            M.ttk.Button(
+                tools, text="Pokračovat do Vydané nabídky", style="Accent.TButton",
+                command=self.finish,
+            ).pack(side="right", padx=5)
+            self.refresh()
+            self.select_all()
+            try:
+                installer = getattr(M, "install_persistent_tree_layout", None)
+                if callable(installer):
+                    installer(self.tree, force=True)
+            except Exception:
+                pass
+            self.win.wait_window()
+
+        def refresh(self):
+            selected = set(self.tree.selection())
+            for iid in self.tree.get_children(""):
+                self.tree.delete(iid)
+            for index, raw in enumerate(self.items):
+                item = service.normalize_item(raw, index + 1)
+                self.items[index] = item
+                if _text(item.get("row_type"), "product").lower() != "product":
+                    continue
+                iid = f"r{index}"
+                self.tree.insert(
+                    "", "end", iid=iid,
+                    values=(
+                        item.get("internal_code_snapshot") or item.get("product_code") or "",
+                        item.get("name") or item.get("internal_name_snapshot") or item.get("description") or "",
+                        str(item.get("quantity") or ""), item.get("unit") or "",
+                        f"{service.number(item.get('purchase_unit_price')):.2f}",
+                        item.get("category_name_snapshot") or "Nezařazeno",
+                        item.get("subgroup_name_snapshot") or "Bez podskupiny",
+                    ),
+                )
+            for iid in selected:
+                if self.tree.exists(iid):
+                    self.tree.selection_add(iid)
+
+        def select_all(self):
+            rows = self.tree.get_children("")
+            if rows:
+                self.tree.selection_set(rows)
+
+        def assign(self):
+            indices = [
+                int(str(iid)[1:]) for iid in self.tree.selection()
+                if str(iid).startswith("r") and str(iid)[1:].isdigit()
+            ]
+            if assign_taxonomy_to_items(self.win, self.items, indices, ask_pricing=True):
+                self.refresh()
+
+        def finish(self):
+            self.result = [dict(item or {}) for item in self.items]
+            self.win.destroy()
 
     # Issued-offer editor: show taxonomy on every product and one group row only.
-    if issued_editor is not None and not getattr(issued_editor, "_turto_v700_grouped_items", False):
+    if issued_editor is not None and not getattr(issued_editor, "_turto_v710_grouped_items", False):
         Editor = issued_editor.IssuedOfferEditor
         editor_columns = (
             "Poz.", "Typ", "Kód", "Označení", "Skupina", "Podskupina",
@@ -421,10 +653,107 @@ def apply(M):
             instance.refresh_totals()
 
         Editor.refresh_items = refresh_items
-        issued_editor._turto_v700_grouped_items = True
+
+        def assign_selected_taxonomy(instance):
+            if getattr(instance, "locked", False):
+                return
+            indices = instance.selected_indices()
+            if assign_taxonomy_to_items(instance.win, instance.items, indices, ask_pricing=True):
+                instance.refresh_items()
+                for index in indices:
+                    iid = f"r{index}"
+                    if instance.tree.exists(iid):
+                        instance.tree.selection_add(iid)
+
+        previous_editor_init = Editor.__init__
+
+        def editor_init(instance, *args, **kwargs):
+            previous_editor_init(instance, *args, **kwargs)
+            try:
+                toolbar = None
+                for widget in walk(instance.win):
+                    try:
+                        if widget.winfo_class().endswith("Button") and _text(widget.cget("text")) == "+ Z katalogu":
+                            toolbar = widget.master
+                            break
+                    except Exception:
+                        pass
+                if toolbar is not None:
+                    button = M.ttk.Button(
+                        toolbar,
+                        text="Zařadit skupinu / podskupinu…",
+                        command=lambda: instance.assign_selected_taxonomy(),
+                    )
+                    button.pack(side="left", padx=(14, 4))
+                    instance._v710_taxonomy_button = button
+                    if getattr(instance, "locked", False):
+                        button.state(["disabled"])
+                instance.tree.bind(
+                    "<Control-g>", lambda _event: instance.assign_selected_taxonomy(), add="+"
+                )
+                transferred = [
+                    index for index, item in enumerate(instance.items)
+                    if item.get("source_supplier_offer_item_id")
+                ]
+                if transferred:
+                    def select_transferred():
+                        for index in transferred:
+                            iid = f"r{index}"
+                            if instance.tree.exists(iid):
+                                instance.tree.selection_add(iid)
+                        hint = _text(instance.status_hint.get())
+                        extra = "Převzaté položky lze před uložením společně zařadit do skupiny a podskupiny."
+                        if extra not in hint:
+                            instance.status_hint.set((hint + " " + extra).strip())
+                    instance.win.after_idle(select_transferred)
+            except Exception:
+                pass
+
+        Editor.assign_selected_taxonomy = assign_selected_taxonomy
+        Editor.__init__ = editor_init
+        issued_editor._turto_v710_grouped_items = True
+
+    # Transfer from a received offer always passes through a non-destructive
+    # taxonomy staging dialog before the issued-offer editor is opened.
+    if service is not None:
+        try:
+            from price_lists_domain.platform import commercial_workspace as commercial_workspace
+
+            def offer_to_issued_offer(module, app):
+                ids = commercial_workspace._selected_offer_ids(app)
+                if len(ids) != 1:
+                    return M.messagebox.showinfo(
+                        "Přijaté nabídky", "Vyberte právě jednu přijatou nabídku.", parent=app
+                    )
+                try:
+                    document, items = service.draft_from_supplier_offer(module, ids[0])
+                except Exception as exc:
+                    return M.messagebox.showerror(
+                        "Přijaté nabídky",
+                        f"Položky se nepodařilo připravit pro Vydanou nabídku:\n{exc}",
+                        parent=app,
+                    )
+                dialog = TransferTaxonomyDialog(app, items)
+                if dialog.result is None:
+                    return None
+                opener = getattr(module, "open_issued_offer_editor", None)
+                if not callable(opener):
+                    return M.messagebox.showerror(
+                        "Přijaté nabídky",
+                        "Editor Vydaných nabídek není v této instalaci dostupný.",
+                        parent=app,
+                    )
+                return opener(
+                    app, initial_document=document, initial_items=dialog.result
+                )
+
+            commercial_workspace._offer_to_issued_offer = offer_to_issued_offer
+            M.TransferTaxonomyDialog = TransferTaxonomyDialog
+        except Exception:
+            pass
 
     # PDF renderer receives synthetic taxonomy headings only for rendering.
-    if pdf_renderer is not None and service is not None and not getattr(pdf_renderer, "_turto_v700_grouped_pdf", False):
+    if pdf_renderer is not None and service is not None and not getattr(pdf_renderer, "_turto_v710_grouped_pdf", False):
         original_render_offer_pdf = pdf_renderer.render_offer_pdf
         pdf_lock = threading.RLock()
 
@@ -465,7 +794,7 @@ def apply(M):
             lambda document_id, output_path=None, open_after=False:
             render_offer_pdf(M, document_id, output_path, open_after)
         )
-        pdf_renderer._turto_v700_grouped_pdf = True
+        pdf_renderer._turto_v710_grouped_pdf = True
 
     # ------------------------------------------------------------------
     # Request history, logical Tab order and batch archiving.
@@ -701,6 +1030,26 @@ def apply(M):
         except Exception:
             return []
 
+    def ensure_heading_labels(tree):
+        labels = dict(getattr(tree, "_turto_heading_labels", {}) or {})
+        for column in tree_columns(tree):
+            try:
+                actual = _text(tree.heading(column, "text"))
+            except Exception:
+                actual = ""
+            clean = actual.rstrip(" ▲▼").strip()
+            if clean:
+                labels[column] = clean
+            else:
+                fallback = _text(labels.get(column), column)
+                labels[column] = fallback
+                try:
+                    tree.heading(column, text=fallback)
+                except Exception:
+                    pass
+        tree._turto_heading_labels = labels
+        return labels
+
     def displayed_columns(tree):
         columns = tree_columns(tree)
         try:
@@ -857,6 +1206,8 @@ def apply(M):
     )
 
     def is_commercial_tree(tree):
+        if bool(getattr(tree, "_turto_configurable_columns", False)):
+            return True
         columns = tree_columns(tree)
         if len(columns) < 4:
             return False
@@ -924,9 +1275,11 @@ def apply(M):
         scroll.grid(row=2, column=1, sticky="ns")
         listing.configure(yscrollcommand=scroll.set)
 
+        heading_labels = ensure_heading_labels(tree)
+
         def heading_text(column):
             try:
-                value = _text(tree.heading(column, "text"), column)
+                value = _text(heading_labels.get(column), column)
                 return value.rstrip(" ▲▼")
             except Exception:
                 return column
@@ -1030,6 +1383,7 @@ def apply(M):
             columns = tree_columns(tree)
             if not columns:
                 return
+            ensure_heading_labels(tree)
             user = active_user(tree)
             first = not getattr(tree, "_v700_layout_installed", False)
             user_changed = getattr(tree, "_v700_layout_user", None) != user
@@ -1249,20 +1603,70 @@ def apply(M):
             return result
         M.App.on_user_changed = on_user_changed
 
+    def register_configurable_tables(app):
+        attributes = (
+            "dash_tree", "dash_tasks_tree", "action_tree", "request_tree", "mivo_tree",
+            "project_tree", "offer_tree", "issued_offer_tree", "price_current_tree",
+            "price_evidence_tree", "price_list_tree", "task_tree", "company_tree",
+            "people_tree", "person_tree",
+        )
+        for attribute in attributes:
+            tree = getattr(app, attribute, None)
+            if tree is None:
+                continue
+            try:
+                tree._turto_configurable_columns = True
+                ensure_heading_labels(tree)
+                install_tree(tree, force=True)
+            except Exception:
+                pass
+        tree = getattr(app, "mivo_tree", None)
+        page = getattr(app, "tabs", {}).get("mivo") if hasattr(app, "tabs") else None
+        if tree is None or page is None or getattr(app, "_v710_mivo_columns_button", None):
+            return
+        try:
+            toolbar = None
+            for child in page.winfo_children():
+                texts = []
+                for button in child.winfo_children():
+                    try:
+                        if button.winfo_class().endswith("Button"):
+                            texts.append(_text(button.cget("text")))
+                    except Exception:
+                        pass
+                if any("Archivovat" in text for text in texts):
+                    toolbar = child
+                    break
+            if toolbar is not None:
+                button = M.ttk.Button(
+                    toolbar, text="Sloupce…", takefocus=False,
+                    command=lambda: open_columns_dialog(tree),
+                )
+                button.pack(side="right", padx=4)
+                app._v710_mivo_columns_button = button
+        except Exception:
+            pass
+
     old_app_init = M.App.__init__
 
     def app_init(self, *args, **kwargs):
         result = old_app_init(self, *args, **kwargs)
         M._active_app = self
+        register_configurable_tables(self)
         for delay in (0, 180, 650, 1500):
             try:
-                self.after(delay, lambda current=self: normalize_window(current))
+                self.after(
+                    delay,
+                    lambda current=self: (
+                        register_configurable_tables(current), normalize_window(current)
+                    ),
+                )
             except Exception:
                 pass
         return result
 
     M.App.__init__ = app_init
-    M._turto_v700_installed = True
+    M._turto_v710_installed = True
 
 
 __all__ = ["apply", "group_offer_items"]
