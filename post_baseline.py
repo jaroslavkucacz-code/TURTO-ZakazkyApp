@@ -39,6 +39,8 @@ def apply(M):
             return []
 
     def fit_tree(tree, available=None):
+        if getattr(M, '_turto_v720_width_owner', False):
+            return
         try:
             cols = display_columns(tree)
             if not cols:
@@ -101,6 +103,9 @@ def apply(M):
             pass
 
     def install_tree(tree):
+        if getattr(M, '_turto_v720_width_owner', False):
+            schedule_auxiliary_redraw(tree)
+            return
         try:
             if tree is None or not tree.winfo_exists():
                 return
@@ -146,7 +151,17 @@ def apply(M):
         )
 
     def reclaim_tree_layout(app):
-        """Remove legacy Configure handlers, then install one final fitter."""
+        """Keep the legacy fitter only when no newer persistent-width owner exists."""
+        if getattr(M, '_turto_v720_width_owner', False):
+            def redraw_only(widget):
+                try:
+                    if widget.winfo_class() == 'Treeview':
+                        schedule_auxiliary_redraw(widget)
+                except Exception:
+                    pass
+            walk(app, redraw_only)
+            return
+
         def reclaim(widget):
             try:
                 if widget.winfo_class() != 'Treeview':

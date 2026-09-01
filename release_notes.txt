@@ -1,9 +1,9 @@
-• MIVO nyní používá stejnou správu sloupců jako ostatní hlavní tabulky. Přibylo viditelné tlačítko „Sloupce…“ a pravým tlačítkem na záhlaví lze sloupce skrývat, zobrazovat a měnit jejich pořadí.
-• Opraveny chybějící názvy sloupců v cenových nabídkách a souvisejících dialozích. Program si uchovává kanonické popisy záhlaví a obnoví je okamžitě, nikoli až po změně pořadí.
-• Překlopení Přijaté nabídky do Vydané nabídky nově otevře bezpečný mezikrok se seznamem položek. Vybrané řádky lze před pokračováním přiřadit ke skupině a podskupině, aniž by se změnila zdrojová Přijatá nabídka nebo Katalog produktů.
-• Stejná hromadná volba „Zařadit skupinu / podskupinu…“ je dostupná přímo v editoru Vydané nabídky. Volitelně převezme marži a slevu vybrané skupiny a přepočítá prodejní cenu.
-• Podskupina je nyní vždy autoritativní pro svou nadřazenou skupinu. Po výběru podskupiny se již nemůže zobrazit nesouvisející skupina „Ostatní“.
-• Přijaté nabídky používají vlastní ručně zvolené zařazení položek. Historická vazba na Katalog už nepřebíjí skupinu ani podskupinu nabídky.
-• Skupina a podskupina se při překlopení spolehlivě přenesou do konceptu Vydané nabídky a uloží se jako neměnný snímek řádku pro budoucí PDF revize.
-• Proveden větší technický úklid: vrstva 7.0 byla sloučena do jediného vlastníka 7.1, sjednotila se evidence záhlaví, role tabulek a taxonomie a odstranily se dočasné migrační workflow a staré duplicitní validační názvy.
-• Databázová migrace je pouze aditivní. Existující Poptávky, Ceníky, Přijaté a Vydané nabídky, Katalog, archivy a PDF revize zůstávají zachované.
+• Opraveno trvalé ukládání šířek sloupců, zejména na záložce Poptávky. Starší opožděná vazba už nemaže nový obslužný kód po uvolnění myši a ručně nastavená šířka se při překliku ani obnovení tabulky nevrací.
+• V dialogu Nastavení sloupců lze nyní šířku vybraného sloupce zadat přímo v pixelech. Tažení oddělovače v záhlaví zůstává zachováno a obě cesty používají stejné uživatelské uložení.
+• Vydaná nabídka se nově otevírá primárně jako živý vizuální náhled výsledného PDF. Náhled používá stejný produkční renderer, šablonu, stránkování, skupiny, součty, záhlaví a zápatí jako finální PDF.
+• Dvojklikem na zákaznický řádek přímo v náhledu lze upravit kód, označení, množství, měrnou jednotku a prodejní cenu; nadpisy a zákaznické texty lze upravovat stejným způsobem. Datová tabulka zůstává dostupná přepínačem.
+• Nákupní cena, marže, doporučená cena, sleva a DPH jsou oddělené v interní boční kartě „Cena položky“ a v generovaném PDF se nezobrazují.
+• Živý náhled rozpracované nabídky nevytváří databázový dokument, nečerpá číslo z číselné řady a nezapisuje PDF revizi.
+• Nové cenové nabídky dostávají pevný formát CNrr-00000, například CN26-00001. Již vydaná čísla se nemění a pořadí plynule pokračuje podle dosavadní roční sekvence.
+• Proveden další bezpečný technický úklid: odstraněno plošné rušení myších vazeb ve starší vrstvě a deaktivován druhý soupeřící mechanismus automatického roztahování tabulek. Jeden vlastník nyní spravuje šířky, skrytí, pořadí i vyplnění pravého okraje.
+• Databázová migrace je nedestruktivní. Existující Poptávky, Přijaté nabídky, Vydané nabídky, jejich původní čísla, Katalog, Ceníky, archivy a PDF revize zůstávají zachované.

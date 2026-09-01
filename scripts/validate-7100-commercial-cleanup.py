@@ -324,7 +324,7 @@ def main() -> None:
     assert "v710_cleanup.apply(app)" in real_ui
 
     version = read(REPOSITORY / "release_version.txt").strip()
-    assert version == "7.1.0", version
+    assert tuple(int(part) for part in version.split(".")) >= (7, 1, 0), version
 
     functional_request_checks()
     print("OK 7.1.0: cleaned tables, MIVO columns and authoritative offer taxonomy")

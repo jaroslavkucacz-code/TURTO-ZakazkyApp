@@ -541,16 +541,50 @@ def draft_from_supplier_offer(M, offer_id: int) -> tuple[dict[str, Any], list[di
     return document, items
 
 
-def _sequence_number(con, M, issue_date: str) -> str:
+def format_document_number(year: int, sequence: int) -> str:
+    """Return the fixed commercial format CNrr-00000."""
+    return f"CN{int(year) % 100:02d}-{int(sequence):05d}"
+
+
+def _next_sequence_state(con, issue_date: str) -> tuple[int, int]:
     parsed = iso_date(issue_date, date.today().isoformat())
     year = int(parsed[:4])
-    prefix = get_setting(M, "issued_offer_number_prefix", "CN").strip() or "CN"
-    width = max(3, min(8, int(number(get_setting(M, "issued_offer_number_width", "4"), 4))))
     row = con.execute(
         "SELECT last_number FROM document_sequences WHERE document_type=? AND calendar_year=?",
         (DOCUMENT_TYPE, year),
     ).fetchone()
-    next_value = int(row[0] if row else 0) + 1
+    used = int(row[0] if row else 0)
+
+    # Preserve continuity even if an older installation has documents but its
+    # sequence row was lost. Old CN-YYYY-NNNN and new CNrr-NNNNN numbers both
+    # contribute through their trailing numeric part; existing document numbers
+    # themselves are never rewritten.
+    try:
+        rows = con.execute(
+            """SELECT document_number FROM business_documents
+               WHERE document_type=? AND substr(coalesce(issue_date,''),1,4)=?""",
+            (DOCUMENT_TYPE, str(year)),
+        ).fetchall()
+        for number_row in rows:
+            match = re.search(r"(\d+)$", str(number_row[0] or "").strip())
+            if match:
+                used = max(used, int(match.group(1)))
+    except Exception:
+        pass
+    return year, used + 1
+
+
+def preview_document_number(M, issue_date: str | None = None) -> str:
+    """Show the next number without reserving it or changing the database."""
+    with M.db() as con:
+        year, next_value = _next_sequence_state(
+            con, issue_date or date.today().isoformat()
+        )
+    return format_document_number(year, next_value)
+
+
+def _sequence_number(con, M, issue_date: str) -> str:
+    year, next_value = _next_sequence_state(con, issue_date)
     con.execute(
         """INSERT INTO document_sequences(document_type,calendar_year,last_number,updated_at)
            VALUES(?,?,?,CURRENT_TIMESTAMP)
@@ -558,7 +592,7 @@ def _sequence_number(con, M, issue_date: str) -> str:
              last_number=excluded.last_number,updated_at=CURRENT_TIMESTAMP""",
         (DOCUMENT_TYPE, year, next_value),
     )
-    return f"{prefix}-{year}-{next_value:0{width}d}"
+    return format_document_number(year, next_value)
 
 
 def save_document(M, values: dict[str, Any], items: Iterable[dict[str, Any]], document_id: int | None = None) -> int:

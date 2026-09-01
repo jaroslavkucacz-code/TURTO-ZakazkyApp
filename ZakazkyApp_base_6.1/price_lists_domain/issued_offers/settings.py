@@ -15,8 +15,6 @@ _FIELDS = (
     ("E-mail", "issued_offer_issuer_email", "info@turto.cz"),
     ("Telefon", "issued_offer_issuer_phone", ""),
     ("Bankovní spojení", "issued_offer_issuer_bank", ""),
-    ("Prefix číselné řady", "issued_offer_number_prefix", "CN"),
-    ("Počet číslic pořadí", "issued_offer_number_width", "4"),
     ("Výchozí platnost [dní]", "issued_offer_default_validity_days", "14"),
     ("Výchozí DPH [%]", "issued_offer_default_vat_rate", "21"),
     ("Výchozí měna", "issued_offer_default_currency", "CZK"),
@@ -32,10 +30,15 @@ def open_settings(M, app):
     outer = M.scrollable_dialog_frame(win, 16)
     outer.columnconfigure(1, weight=1)
     M.ttk.Label(outer, text="Vydané nabídky", font=("Calibri", 16, "bold")).grid(
-        row=0, column=0, columnspan=3, sticky="w", pady=(0, 10)
+        row=0, column=0, columnspan=3, sticky="w", pady=(0, 4)
     )
+    M.ttk.Label(
+        outer,
+        text="Číslování je pevné: CNrr-00000 (např. CN26-00001). Rok i pořadí doplní program.",
+        style="PageSubtitle.TLabel",
+    ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(0, 10))
     variables = {}
-    row = 1
+    row = 2
     for label, key, default in _FIELDS:
         variable = M.tk.StringVar(value=service.get_setting(M, key, default))
         variables[key] = variable
@@ -79,11 +82,10 @@ def open_settings(M, app):
 
     def save():
         try:
-            width = int(service.number(variables["issued_offer_number_width"].get(), 4))
             validity = int(service.number(variables["issued_offer_default_validity_days"].get(), 14))
             vat = service.number(variables["issued_offer_default_vat_rate"].get(), 21)
-            if width < 3 or width > 8 or validity < 1 or validity > 3650 or vat < 0 or vat > 100:
-                raise ValueError("Zkontrolujte počet číslic, platnost a sazbu DPH.")
+            if validity < 1 or validity > 3650 or vat < 0 or vat > 100:
+                raise ValueError("Zkontrolujte výchozí platnost a sazbu DPH.")
             for _label, key, _default in _FIELDS:
                 service.set_setting(M, key, variables[key].get().strip())
             root = Path(archive.get().strip())

@@ -1,21 +1,24 @@
-name: Validate TURTO CRM 7.1 commercial and table cleanup
+name: Validate TURTO CRM 7.2 visual issued offers
 
 on:
   pull_request:
     branches:
       - main
     paths:
+      - post_baseline.py
+      - ZakazkyApp_base_6.1/v638_table_updatefix.py
       - ZakazkyApp_base_6.1/v710_cleanup.py
+      - ZakazkyApp_base_6.1/v720_visual_offer.py
       - ZakazkyApp_base_6.1/ZakazkyCRM.pyw
       - ZakazkyApp_base_6.1/price_lists_domain/issued_offers/**
-      - ZakazkyApp_base_6.1/price_lists_domain/platform/categories.py
-      - ZakazkyApp_base_6.1/price_lists_domain/platform/offers.py
+      - scripts/validate-6337-issued-offers.py
       - scripts/validate-7100-commercial-cleanup.py
+      - scripts/validate-7200-visual-issued-offers.py
       - scripts/validate-real-ui.py
       - scripts/publish-update.sh
       - release_version.txt
       - release_notes.txt
-      - .github/workflows/validate-7100-commercial-cleanup.yml
+      - .github/workflows/validate-7200-visual-issued-offers.yml
       - .github/workflows/publish-update.yml
   workflow_dispatch:
 
@@ -43,11 +46,14 @@ jobs:
       - name: Install runtime dependencies
         run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
 
-      - name: Compile 7.1 source and validation
-        run: python -m compileall -q ZakazkyApp_base_6.1 scripts/validate-7100-commercial-cleanup.py
+      - name: Compile 7.2 source and validation
+        run: python -m compileall -q ZakazkyApp_base_6.1 scripts post_baseline.py
 
-      - name: Validate cleaned tables, MIVO columns and issued-offer taxonomy
+      - name: Validate persistent columns and 7.1 compatibility
         run: python scripts/validate-7100-commercial-cleanup.py ZakazkyApp_base_6.1
+
+      - name: Validate visual PDF editor and fixed numbering
+        run: python scripts/validate-7200-visual-issued-offers.py ZakazkyApp_base_6.1
 
       - name: Validate issued offers and immutable PDF revisions
         run: python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
@@ -62,9 +68,9 @@ jobs:
         if: matrix.python-version == '3.14'
         run: command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
 
-      - name: Validate the real Tk application
+      - name: Validate the real Tk visual editor and column persistence
         if: matrix.python-version == '3.14'
-        run: timeout 90s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
+        run: timeout 120s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
 
       - name: Validate release script syntax
         run: bash -n scripts/publish-update.sh

@@ -15,9 +15,13 @@ on:
       - scripts/validate-6340-manual-products-pricing.py
       - scripts/validate-6341-offer-catalog-separation.py
       - scripts/validate-7100-commercial-cleanup.py
+      - scripts/validate-7200-visual-issued-offers.py
       - scripts/validate-real-ui.py
+      - post_baseline.py
       - ZakazkyApp_base_6.1/crm_price_lists.py
+      - ZakazkyApp_base_6.1/v638_table_updatefix.py
       - ZakazkyApp_base_6.1/v710_cleanup.py
+      - ZakazkyApp_base_6.1/v720_visual_offer.py
       - ZakazkyApp_base_6.1/price_lists_domain/issued_offers/**
       - ZakazkyApp_base_6.1/price_lists_domain/platform/categories.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/product_catalog.py
@@ -30,7 +34,7 @@ on:
       - .github/workflows/publish-update.yml
       - .github/workflows/validate-6340-manual-pricing.yml
       - .github/workflows/validate-6341-offer-catalog-separation.yml
-      - .github/workflows/validate-7100-commercial-cleanup.yml
+      - .github/workflows/validate-7200-visual-issued-offers.yml
 permissions:
   contents: write
 concurrency:
@@ -81,9 +85,13 @@ jobs:
         shell: bash
         run: python scripts/validate-6341-offer-catalog-separation.py ZakazkyApp_base_6.1
 
-      - name: Validate 7.1 commercial cleanup
+      - name: Validate 7.1 commercial cleanup compatibility
         shell: bash
         run: python scripts/validate-7100-commercial-cleanup.py ZakazkyApp_base_6.1
+
+      - name: Validate 7.2 visual editor and persistent widths
+        shell: bash
+        run: python scripts/validate-7200-visual-issued-offers.py ZakazkyApp_base_6.1
 
       - name: Build, validate and publish
         shell: bash

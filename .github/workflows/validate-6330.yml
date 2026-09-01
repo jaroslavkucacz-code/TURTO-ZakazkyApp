@@ -31,7 +31,7 @@ jobs:
         run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
 
       - name: Compile canonical source
-        run: python -m compileall -q ZakazkyApp_base_6.1
+        run: python -m compileall -q ZakazkyApp_base_6.1 scripts post_baseline.py
 
       - name: Scalability and compatibility smoke test
         run: python scripts/validate-scalability.py ZakazkyApp_base_6.1
@@ -66,13 +66,16 @@ jobs:
       - name: Commercial cleanup and MIVO table regression test
         run: python scripts/validate-7100-commercial-cleanup.py ZakazkyApp_base_6.1
 
+      - name: Visual issued-offer editor and persistent-width regression test
+        run: python scripts/validate-7200-visual-issued-offers.py ZakazkyApp_base_6.1
+
       - name: Ensure virtual display
         if: matrix.python-version == '3.14'
         run: command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
 
-      - name: Real Tk application navigation stress test
+      - name: Real Tk application navigation and visual-editor test
         if: matrix.python-version == '3.14'
-        run: timeout 75s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
+        run: timeout 120s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
 
       - name: Validate release script syntax
         run: bash -n scripts/publish-update.sh

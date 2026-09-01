@@ -1148,6 +1148,8 @@ def apply(M):
             pass
 
     def fit_tree(tree, available=None):
+        if bool(getattr(tree, "_v720_resize_active", False)):
+            return
         try:
             visible = displayed_columns(tree)
             if not visible:
@@ -1256,8 +1258,8 @@ def apply(M):
         M.ttk.Label(
             frame,
             text=(
-                "Dvojklikem sloupec zobrazíte nebo skryjete. Šířku lze dál "
-                "měnit přímo tažením v záhlaví tabulky."
+                "Dvojklikem sloupec zobrazíte nebo skryjete. Šířku lze zadat "
+                "číselně níže nebo změnit tažením přímo v záhlaví tabulky."
             ),
             style="PageSubtitle.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(2, 8))
@@ -1274,6 +1276,13 @@ def apply(M):
         scroll = M.ttk.Scrollbar(frame, orient="vertical", command=listing.yview)
         scroll.grid(row=2, column=1, sticky="ns")
         listing.configure(yscrollcommand=scroll.set)
+
+        width_bar = M.ttk.Frame(frame)
+        width_bar.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        M.ttk.Label(width_bar, text="Šířka vybraného sloupce [px]").pack(side="left")
+        width_value = M.tk.StringVar(value="")
+        width_entry = M.ttk.Entry(width_bar, textvariable=width_value, width=10)
+        width_entry.pack(side="left", padx=6)
 
         heading_labels = ensure_heading_labels(tree)
 
@@ -1310,6 +1319,54 @@ def apply(M):
             except Exception:
                 return None
 
+        def sync_width_value(*_):
+            index = selected_index()
+            if index is None or not 0 <= index < len(rows):
+                width_value.set("")
+                return
+            column = rows[index]["column"]
+            design = getattr(tree, "_turto_design_widths", {})
+            try:
+                width_value.set(str(int(design.get(column, tree.column(column, "width")))))
+            except Exception:
+                width_value.set("")
+
+        def apply_width(show_warning=True):
+            index = selected_index()
+            if index is None or not 0 <= index < len(rows):
+                return True
+            raw = width_value.get().strip().replace(",", ".")
+            try:
+                value = int(round(float(raw)))
+            except Exception:
+                if show_warning:
+                    M.messagebox.showwarning(
+                        "Nastavení sloupců",
+                        "Šířku zadejte jako celé číslo v pixelech.",
+                        parent=dialog,
+                    )
+                return False
+            if not 30 <= value <= 2000:
+                if show_warning:
+                    M.messagebox.showwarning(
+                        "Nastavení sloupců",
+                        "Povolená šířka sloupce je 30 až 2 000 px.",
+                        parent=dialog,
+                    )
+                return False
+            column = rows[index]["column"]
+            design = getattr(tree, "_turto_design_widths", {})
+            design[column] = value
+            tree._turto_design_widths = design
+            try:
+                tree.column(column, width=value, minwidth=30)
+            except Exception:
+                pass
+            save_layout(tree)
+            render(index)
+            schedule_tree_fit(tree, 20)
+            return True
+
         def toggle(*_):
             index = selected_index()
             if index is None:
@@ -1338,6 +1395,8 @@ def apply(M):
             render(0)
 
         def apply_changes(close=False):
+            if not apply_width(show_warning=True):
+                return
             selected = [row["column"] for row in rows if row["visible"]]
             if not selected:
                 return M.messagebox.showwarning(
@@ -1352,8 +1411,13 @@ def apply(M):
                 dialog.destroy()
 
         listing.bind("<Double-1>", toggle)
+        listing.bind("<<TreeviewSelect>>", sync_width_value, add="+")
+        width_entry.bind("<Return>", lambda _event: apply_width(True))
+        M.ttk.Button(
+            width_bar, text="Použít šířku", command=lambda: apply_width(True)
+        ).pack(side="left")
         tools = M.ttk.Frame(frame)
-        tools.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(9, 0))
+        tools.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(9, 0))
         M.ttk.Button(tools, text="Zobrazit / skrýt", command=toggle).pack(side="left")
         M.ttk.Button(tools, text="↑ Nahoru", command=lambda: move(-1)).pack(side="left", padx=4)
         M.ttk.Button(tools, text="↓ Dolů", command=lambda: move(1)).pack(side="left")
@@ -1364,6 +1428,7 @@ def apply(M):
             command=lambda: apply_changes(True),
         ).pack(side="right", padx=5)
         render(0)
+        sync_width_value()
 
     def reset_tree_layout(tree):
         delete_layout(tree)
@@ -1426,6 +1491,7 @@ def apply(M):
                     try:
                         if current.identify_region(event.x, event.y) != "separator":
                             current._v700_resize_column = None
+                            current._v720_resize_active = False
                             return
                         token = str(current.identify_column(event.x))
                         index = int(token.lstrip("#")) - 1
@@ -1433,13 +1499,18 @@ def apply(M):
                         current._v700_resize_column = (
                             visible[index] if 0 <= index < len(visible) else None
                         )
+                        current._v720_resize_active = bool(
+                            current._v700_resize_column
+                        )
                     except Exception:
                         current._v700_resize_column = None
+                        current._v720_resize_active = False
 
                 def release(_event, current=tree):
                     column = getattr(current, "_v700_resize_column", None)
                     current._v700_resize_column = None
                     if not column:
+                        current._v720_resize_active = False
                         return
 
                     def finish_resize():
@@ -1448,9 +1519,11 @@ def apply(M):
                                 30, int(current.column(column, "width"))
                             )
                             save_layout(current)
-                            fit_tree(current)
                         except Exception:
                             pass
+                        finally:
+                            current._v720_resize_active = False
+                        schedule_tree_fit(current, 20)
 
                     current.after_idle(finish_resize)
 
