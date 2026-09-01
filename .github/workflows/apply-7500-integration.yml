@@ -69,4 +69,4 @@ jobs:
           git commit -m "Integrate TURTO CRM 7.5 runtime and validation"
           git push origin HEAD:feature/7.5.0-context-menus-filter-sync-supplier-names-a4
 
-# retry with corrected v7.4-aware workflow insertion points
+# retry after allowing the 7.4 regression suite on newer release versions
