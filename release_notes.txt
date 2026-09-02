@@ -1,5 +1,4 @@
-• Opravena kritická chyba verze 7.6.1, při které TURTO CRM ve Windows s Pythonem 3.14 po spuštění skončilo nativní chybou přístupu do paměti.
-• Odstraněno procesní přepisování metod ttk.Treeview, které se při souběhu s odloženým obnovováním záhlaví dostávalo do konfliktu s Tk.
-• Opakované rekurzivní procházení všech oken a ovládacích prvků bylo nahrazeno bezpečnou aktualizací pouze známých živých tabulek.
-• Zachovány jsou uživatelské šířky a pořadí sloupců, filtry, oddělovací linky, archivace Akcí a Úkolů, sloupec Poslední pohyb, import nabídek i automatické aktualizace.
-• Oprava nemění databázové schéma ani uživatelská data, nabídky, ceny, vazby nebo historické PDF revize.
+• Opraveno chybějící záhlaví tabulky Akce po spuštění. Záhlaví se nyní obnoví přímo při sestavení a každém obnovení této konkrétní tabulky, bez globálního procházení oken.
+• Opravena chyba Nastavení sloupců „Invalid column index \"Poslední pohyb\"“. Editor šířek a pořadí nyní používá bezpečný poziční identifikátor sloupce, pokud Windows/Tk odmítne symbolický název.
+• Změna zachovává uživatelské šířky, viditelnost a pořadí sloupců a nevrací rizikové procesní přepisování ttk.Treeview odstraněné ve verzi 7.6.2.
+• Databázové schéma ani uživatelská data, nabídky, ceny, vazby a historické PDF revize se nemění.
