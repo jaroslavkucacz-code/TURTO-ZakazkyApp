@@ -83,17 +83,18 @@ jobs:
 
           path = Path("ZakazkyApp_base_6.1/app.py")
           text = path.read_text(encoding="utf-8")
-          old = '''        for c,w in zip(cols,widths):
-            t.heading(c,text=c,command=lambda col=c,tree=t:self.sort_tree(tree,col))
-            t.column(c,width=w,anchor="w")
-'''
-          new = '''        for c,w in zip(cols,widths):
-            # Configure the data cell first, then mirror its alignment in the
-            # heading. This guarantees the same alignment from the first paint.
-            t.column(c,width=w,anchor="w")
-            t.heading(c,text=c,anchor=t.column(c,"anchor"),
-                      command=lambda col=c,tree=t:self.sort_tree(tree,col))
-'''
+          old = (
+              '        for c,w in zip(cols,widths):\n'
+              '            t.heading(c,text=c,command=lambda col=c,tree=t:self.sort_tree(tree,col))\n'
+              '            t.column(c,width=w,anchor="w")\n'
+          )
+          new = (
+              '        for c,w in zip(cols,widths):\n'
+              '            # Configure the data cell first, then mirror its alignment in the heading.\n'
+              '            t.column(c,width=w,anchor="w")\n'
+              '            t.heading(c,text=c,anchor=t.column(c,"anchor"),\n'
+              '                      command=lambda col=c,tree=t:self.sort_tree(tree,col))\n'
+          )
           if old not in text:
               raise SystemExit("Canonical App.tree block was not found")
           path.write_text(text.replace(old, new, 1), encoding="utf-8")
