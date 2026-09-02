@@ -4300,8 +4300,10 @@ class App(tk.Tk):
         t=ttk.Treeview(wrap,columns=cols,show="headings")
         t._sort_state={}
         for c,w in zip(cols,widths):
-            t.heading(c,text=c,command=lambda col=c,tree=t:self.sort_tree(tree,col))
+            # The heading follows the alignment of its data cells immediately.
             t.column(c,width=w,anchor="w")
+            t.heading(c,text=c,anchor=t.column(c,"anchor"),
+                      command=lambda col=c,tree=t:self.sort_tree(tree,col))
         y=ttk.Scrollbar(wrap,orient="vertical",command=t.yview);y.pack(side="right",fill="y")
         def _xscroll(*args):
             t.xview(*args)

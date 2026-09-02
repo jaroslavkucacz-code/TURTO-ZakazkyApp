@@ -235,7 +235,11 @@ def main() -> None:
     version = (repository / "release_version.txt").read_text(
         encoding="utf-8"
     ).strip()
-    assert version == "7.5.0", version
+    try:
+        version_tuple = tuple(int(part) for part in version.split("."))
+    except ValueError as exc:
+        raise AssertionError(version) from exc
+    assert version_tuple >= (7, 5, 0), version
     publish = (repository / "scripts" / "publish-update.sh").read_text(
         encoding="utf-8"
     )

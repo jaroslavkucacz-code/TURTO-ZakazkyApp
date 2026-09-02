@@ -59,6 +59,7 @@ def main() -> None:
     import v730_polish
     import v740_offer_defaults
     import v750_context_filters_offer_format
+    import v760_table_activity_performance
 
     callback_errors = []
     dialog_errors = []
@@ -114,6 +115,7 @@ def main() -> None:
     v730_polish.apply(app)
     v740_offer_defaults.apply(app)
     v750_context_filters_offer_format.apply(app)
+    v760_table_activity_performance.apply(app)
 
     # Run the fully wrapped schema owner once more for additive platform tables.
     app.ensure_schema()
@@ -158,6 +160,90 @@ def main() -> None:
         while time.monotonic() < until:
             root.update()
             time.sleep(0.01)
+
+
+        # TURTO CRM 7.6: verify the composed, visible tables rather than only
+        # checking static source. Mapping the window briefly lets the one-pixel
+        # separators calculate their true body height under Xvfb.
+        root.deiconify()
+        root.geometry("1420x900")
+        until = time.monotonic() + 0.7
+        while time.monotonic() < until:
+            root.update()
+            time.sleep(0.01)
+
+        def walk_v760(widget):
+            yield widget
+            for child in widget.winfo_children():
+                yield from walk_v760(child)
+
+        all_trees = [
+            widget for widget in walk_v760(root)
+            if isinstance(widget, app.ttk.Treeview) and widget.winfo_exists()
+        ]
+        assert len(all_trees) >= 10, len(all_trees)
+        for tree in all_trees:
+            for column in tree["columns"]:
+                assert tree.heading(column, "anchor") == tree.column(column, "anchor"), (
+                    str(tree), column, tree.heading(column, "anchor"), tree.column(column, "anchor")
+                )
+        assert any(
+            int(getattr(tree, "_v760_separator_count", 0) or 0) > 0
+            for tree in all_trees
+            if len(tree["columns"]) > 1 and tree.winfo_ismapped()
+        ), "V žádné viditelné tabulce nebyly vykresleny oddělovací linky"
+
+        nav_parent = root.nav["people"].master
+        packed_nav = []
+        for widget in nav_parent.pack_slaves():
+            key = next((name for name, button in root.nav.items() if button is widget), None)
+            if key:
+                packed_nav.append(key)
+        assert "people" in packed_nav and "companies" in packed_nav and "tasks" in packed_nav
+        people_at = packed_nav.index("people")
+        assert packed_nav[people_at:people_at + 3] == ["people", "companies", "tasks"], packed_nav
+
+        for page_key in ("offers", "pricelists", "issued_offers"):
+            promoted = getattr(root, f"_v760_{page_key}_title_action", None)
+            original = getattr(root, f"_v760_{page_key}_original_action", None)
+            assert promoted is not None and promoted.winfo_exists(), page_key
+            assert str(promoted.cget("style")) == "Accent.TButton", page_key
+            assert original is not None and original.winfo_exists(), page_key
+            assert not original.winfo_ismapped(), page_key
+            assert any(
+                child.winfo_class().endswith("Label")
+                and str(child.cget("style") or "") == "Title.TLabel"
+                for child in promoted.master.winfo_children()
+            ), page_key
+
+        assert "Poslední pohyb" in root.project_tree["columns"]
+        assert len(getattr(root, "_v760_project_archive_controls", ())) == 3
+        assert len(getattr(root, "_v760_task_archive_controls", ())) == 3
+        assert getattr(root.project_tree, "_v760_context_owner", None) == "projects"
+        assert getattr(root.task_tree, "_v760_context_owner", None) == "tasks"
+        assert bool(getattr(root.request_tree, "_v760_requests_resize_guard", False))
+        assert bool(getattr(root.mivo_tree, "_v760_mivo_resize_guard", False))
+        assert app.V760_PERFORMANCE_CHANGES["action_waiting_query"] == "grouped_cte"
+        assert app.V760_PERFORMANCE_CHANGES["project_activity"] == "single_union_query"
+
+        with app.db() as con:
+            project_columns = {str(row[1]) for row in con.execute("PRAGMA table_info(projects)")}
+            task_columns = {str(row[1]) for row in con.execute("PRAGMA table_info(tasks)")}
+            index_names = {
+                str(row[0]) for row in con.execute(
+                    "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_v760_%'"
+                )
+            }
+        assert {"updated_at", "archived_at", "archived_by"} <= project_columns
+        assert {"updated_at", "archived", "archived_at", "archived_by"} <= task_columns
+        assert {
+            "idx_v760_actions_project_archived_updated",
+            "idx_v760_requests_action_archived_dates",
+            "idx_v760_tasks_action_archived_due",
+            "idx_v760_projects_active_updated",
+        } <= index_names
+        root.withdraw()
+        root.update()
 
         assert getattr(root, "_turto_navigation_owner", "") == "price_lists_domain.platform.lazy_refresh"
         mivo_tree = getattr(root, "mivo_tree", None)

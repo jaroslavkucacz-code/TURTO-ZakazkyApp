@@ -37,7 +37,15 @@ def build_issued_offers(M, app):
     page = app.tabs["issued_offers"]
     for child in page.winfo_children():
         child.destroy()
-    app.title_label(page, "Vydané nabídky")
+    title_row = M.ttk.Frame(page, style="App.TFrame")
+    title_row.pack(fill="x", pady=(0, 12))
+    M.ttk.Label(
+        title_row, text="Vydané nabídky", style="Title.TLabel"
+    ).pack(side="left", anchor="n")
+    M.ttk.Button(
+        title_row, text="+ Nová nabídka", style="Accent.TButton",
+        command=lambda: app.open_issued_offer_editor(),
+    ).pack(side="right", anchor="n", pady=(2, 0))
     M.ttk.Label(
         page,
         text="Cenové nabídky vystavené zákazníkům · položky z Katalogu · PDF revize · Outlook koncept",
@@ -46,7 +54,6 @@ def build_issued_offers(M, app):
 
     toolbar = M.ttk.Frame(page, style="Panel.TFrame", padding=(10, 8))
     toolbar.pack(fill="x", pady=(0, 7))
-    M.ttk.Button(toolbar, text="+ Nová nabídka", style="Accent.TButton", command=lambda: app.open_issued_offer_editor()).pack(side="left")
     M.ttk.Button(toolbar, text="Upravit / otevřít", command=lambda: _open_selected(M, app)).pack(side="left", padx=4)
     M.ttk.Button(toolbar, text="Duplikovat", command=lambda: _duplicate_selected(M, app)).pack(side="left", padx=4)
     M.ttk.Button(toolbar, text="Vytvořit PDF", command=lambda: _render_selected(M, app, True)).pack(side="left", padx=(14, 4))
