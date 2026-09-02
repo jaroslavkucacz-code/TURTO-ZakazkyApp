@@ -83,6 +83,7 @@ jobs:
 
           app_path = Path("ZakazkyApp_base_6.1/app.py")
           app_text = app_path.read_text(encoding="utf-8")
+
           old_tree = (
               '        for c,w in zip(cols,widths):\n'
               '            t.heading(c,text=c,command=lambda col=c,tree=t:self.sort_tree(tree,col))\n'
@@ -97,7 +98,45 @@ jobs:
           )
           if old_tree not in app_text:
               raise SystemExit("Canonical App.tree block was not found")
-          app_path.write_text(app_text.replace(old_tree, new_tree, 1), encoding="utf-8")
+          app_text = app_text.replace(old_tree, new_tree, 1)
+
+          old_widths = '        widths=(300,300,220,220,100,100,90)\n'
+          new_widths = '        widths=(300,300,220,220,100,100,90,150)\n'
+          if old_widths not in app_text:
+              raise SystemExit("Project table widths were not found")
+          app_text = app_text.replace(old_widths, new_widths, 1)
+
+          old_project_tree = (
+              '        self.project_tree=self.tree(p,("Název Akce","Adresa","Investor",'
+              '"Generální dodavatel","Zahájení","Dokončení","Příležitostí"),list(widths))\n'
+          )
+          new_project_tree = (
+              '        self.project_tree=self.tree(p,("Název Akce","Adresa","Investor",'
+              '"Generální dodavatel","Zahájení","Dokončení","Příležitostí",'
+              '"Poslední pohyb"),list(widths))\n'
+          )
+          if old_project_tree not in app_text:
+              raise SystemExit("Canonical project Treeview definition was not found")
+          app_text = app_text.replace(old_project_tree, new_project_tree, 1)
+          app_path.write_text(app_text, encoding="utf-8")
+
+          module_path = Path("ZakazkyApp_base_6.1/v760_table_activity_performance.py")
+          module_text = module_path.read_text(encoding="utf-8")
+          start = module_text.index("    def add_project_activity_column(app: Any) -> None:\n")
+          end = module_text.index("\n    def refresh_projects(self: Any) -> None:\n", start)
+          block = module_text[start:end]
+          polish = "        install_tree_polish(tree)\n"
+          visible_guard = (
+              "        # Existing user layouts from 7.5 may not yet contain the new column.\n"
+              "        visible_now = _displayed_columns(tree)\n"
+              "        if LAST_ACTIVITY_COLUMN not in visible_now:\n"
+              "            tree.configure(displaycolumns=tuple(visible_now + [LAST_ACTIVITY_COLUMN]))\n"
+              "        install_tree_polish(tree)\n"
+          )
+          if block.count(polish) != 1:
+              raise SystemExit("Project activity polish point was not found exactly once")
+          module_text = module_text[:start] + block.replace(polish, visible_guard, 1) + module_text[end:]
+          module_path.write_text(module_text, encoding="utf-8")
 
           commercial_path = Path(
               "ZakazkyApp_base_6.1/price_lists_domain/platform/commercial_workspace.py"
@@ -185,4 +224,4 @@ jobs:
           git commit -m "Integrate TURTO CRM 7.6 tables, activity and performance"
           git push origin HEAD:feature/7.6.0-table-activity-performance
 
-# retry with direct title-label and action-button siblings before the real UI test
+# retry with the project activity column present from initial Treeview construction
