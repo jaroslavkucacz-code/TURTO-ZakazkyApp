@@ -1,4 +1,4 @@
-name: Debug TURTO CRM 7.6 generated source
+name: Debug TURTO CRM 7.6 Treeview columns
 
 on:
   push:
@@ -15,13 +15,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
           cache: pip
           cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+
       - name: Install runtime dependencies
         run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+
       - name: Reconstruct and apply generated 7.6 sources
         shell: bash
         run: |
@@ -37,9 +40,12 @@ jobs:
               ("integrate_*.b64", Path("/tmp/integrate.py"), "03e20dd842786bffb9a6ef3801b288ea888dd69d039557bc88dda9ad443d8682"),
           )
           for pattern, output, expected in specifications:
+              parts = sorted(payload.glob(pattern))
+              if not parts:
+                  raise SystemExit(f"Missing payload {pattern}")
               encoded = "".join(
                   "".join(part.read_text(encoding="ascii").split())
-                  for part in sorted(payload.glob(pattern))
+                  for part in parts
               )
               data = gzip.decompress(base64.b64decode(encoded, validate=True))
               digest = hashlib.sha256(data).hexdigest()
@@ -48,7 +54,8 @@ jobs:
               output.write_bytes(data)
           PY
           python /tmp/integrate.py
-      - name: Apply the final heading and title-row fixes
+
+      - name: Apply current integration fixes
         shell: bash
         run: |
           python - <<'PY'
@@ -67,10 +74,40 @@ jobs:
               '            t.heading(c,text=c,anchor=t.column(c,"anchor"),\n'
               '                      command=lambda col=c,tree=t:self.sort_tree(tree,col))\n'
           )
-          app_path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          if old not in text:
+              raise SystemExit("App.tree block missing")
+          text = text.replace(old, new, 1)
+          text = text.replace(
+              '        widths=(300,300,220,220,100,100,90)\n',
+              '        widths=(300,300,220,220,100,100,90,150)\n',
+              1,
+          )
+          text = text.replace(
+              '        self.project_tree=self.tree(p,("Název Akce","Adresa","Investor","Generální dodavatel","Zahájení","Dokončení","Příležitostí"),list(widths))\n',
+              '        self.project_tree=self.tree(p,("Název Akce","Adresa","Investor","Generální dodavatel","Zahájení","Dokončení","Příležitostí","Poslední pohyb"),list(widths))\n',
+              1,
+          )
+          app_path.write_text(text, encoding="utf-8")
 
-          path = Path("ZakazkyApp_base_6.1/price_lists_domain/platform/commercial_workspace.py")
-          text = path.read_text(encoding="utf-8")
+          module_path = Path("ZakazkyApp_base_6.1/v760_table_activity_performance.py")
+          module = module_path.read_text(encoding="utf-8")
+          start = module.index("    def add_project_activity_column(app: Any) -> None:\n")
+          end = module.index("\n    def refresh_projects(self: Any) -> None:\n", start)
+          block = module[start:end]
+          needle = "        install_tree_polish(tree)\n"
+          replacement = (
+              "        visible_now = _displayed_columns(tree)\n"
+              "        if LAST_ACTIVITY_COLUMN not in visible_now:\n"
+              "            tree.configure(displaycolumns=tuple(visible_now + [LAST_ACTIVITY_COLUMN]))\n"
+              "        install_tree_polish(tree)\n"
+          )
+          if block.count(needle) != 1:
+              raise SystemExit("Project activity insertion point missing")
+          module = module[:start] + block.replace(needle, replacement, 1) + module[end:]
+          module_path.write_text(module, encoding="utf-8")
+
+          commercial_path = Path("ZakazkyApp_base_6.1/price_lists_domain/platform/commercial_workspace.py")
+          commercial = commercial_path.read_text(encoding="utf-8")
           old_title = (
               '    app._offer_drop_area_ready = True\n'
               '    app.title_label(page, "Přijaté nabídky")\n'
@@ -94,10 +131,14 @@ jobs:
               '            command=lambda: _run_after_invalidation(app, app.import_offer_sources, offers=True),\n'
               '        ).pack(side="left")\n'
           )
-          text = text.replace(old_title, new_title, 1).replace(old_button, "", 1)
-          path.write_text(text, encoding="utf-8")
+          if old_title not in commercial or old_button not in commercial:
+              raise SystemExit("Received-offer title/button blocks missing")
+          commercial = commercial.replace(old_title, new_title, 1)
+          commercial = commercial.replace(old_button, "", 1)
+          commercial_path.write_text(commercial, encoding="utf-8")
           PY
-      - name: Instrument real UI validation
+
+      - name: Instrument the Treeview alignment loop
         shell: bash
         run: |
           python - <<'PY'
@@ -105,33 +146,25 @@ jobs:
 
           path = Path("scripts/validate-real-ui.py")
           text = path.read_text(encoding="utf-8")
-          old = '''        for tree in all_trees:
-            for column in tree["columns"]:
-                assert tree.heading(column, "anchor") == tree.column(column, "anchor"), (
-                    str(tree), column, tree.heading(column, "anchor"), tree.column(column, "anchor")
-                )
-'''
-          new = '''        broken_columns = []
-        for tree in all_trees:
-            snapshot = tuple(tree["columns"])
-            print("V760-TREE", str(tree), "parent=", str(tree.master), "mapped=", tree.winfo_ismapped(), "columns=", snapshot, flush=True)
-            for column in snapshot:
-                try:
-                    heading_anchor = tree.heading(column, "anchor")
-                    column_anchor = tree.column(column, "anchor")
-                except Exception as exc:
-                    current = tuple(tree["columns"]) if tree.winfo_exists() else ()
-                    print("V760-BROKEN", str(tree), repr(column), type(exc).__name__, str(exc), "exists=", tree.winfo_exists(), "current=", current, flush=True)
-                    broken_columns.append((str(tree), str(column), type(exc).__name__, str(exc), current))
-                    continue
-                assert heading_anchor == column_anchor, (str(tree), column, heading_anchor, column_anchor)
-        print("V760-BROKEN-SUMMARY", broken_columns, flush=True)
-'''
+          old = (
+              '        for tree in all_trees:\n'
+              '            for column in tree["columns"]:\n'
+              '                assert tree.heading(column, "anchor") == tree.column(column, "anchor"), (\n'
+          )
+          new = (
+              '        for tree in all_trees:\n'
+              '            print("V760-TREE", str(tree), "parent=", str(tree.master), "exists=", tree.winfo_exists(), "mapped=", tree.winfo_ismapped(), "columns=", tuple(tree["columns"]), flush=True)\n'
+              '            for column in tree["columns"]:\n'
+              '                print("V760-COLUMN", str(tree), repr(column), "current=", tuple(tree["columns"]), flush=True)\n'
+              '                assert tree.heading(column, "anchor") == tree.column(column, "anchor"), (\n'
+          )
           if old not in text:
-              raise SystemExit("real UI heading loop not found")
+              raise SystemExit("Alignment loop missing")
           path.write_text(text.replace(old, new, 1), encoding="utf-8")
           PY
+
       - name: Ensure virtual display
         run: command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
+
       - name: Run instrumented real UI
         run: timeout 180s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
