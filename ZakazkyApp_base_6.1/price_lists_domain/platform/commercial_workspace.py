@@ -839,7 +839,19 @@ def build_price_lists(M, app) -> None:
     page = app.tabs["pricelists"]
     for child in page.winfo_children():
         child.destroy()
-    app.title_label(page, "Ceníky")
+    price_import = getattr(app, "import_price_list", None)
+    title_row = M.ttk.Frame(page, style="App.TFrame")
+    title_row.pack(fill="x", pady=(0, 12))
+    M.ttk.Label(
+        title_row, text="Ceníky", style="Title.TLabel"
+    ).pack(side="left", anchor="n")
+    if callable(price_import):
+        M.ttk.Button(
+            title_row, text="+ Importovat Ceník", style="Accent.TButton",
+            command=lambda: _run_after_invalidation(
+                app, price_import, prices=True
+            ),
+        ).pack(side="right", anchor="n", pady=(2, 0))
     M.ttk.Label(
         page,
         text="Aktuální nákupní ceny, platnost zdrojových dokumentů a obchodní pravidla na jednom místě.",
@@ -848,10 +860,6 @@ def build_price_lists(M, app) -> None:
 
     command = M.ttk.Frame(page, style="Panel.TFrame", padding=(10, 8))
     command.pack(fill="x", pady=(0, 7))
-    M.ttk.Button(
-        command, text="+ Importovat Ceník", style="Accent.TButton",
-        command=lambda: _run_after_invalidation(app, app.import_price_list, prices=True),
-    ).pack(side="left")
 
     def open_archive():
         root = price_list_archive_root()
@@ -1896,7 +1904,19 @@ def build_offers(M, app):
     for child in page.winfo_children():
         child.destroy()
     app._offer_drop_area_ready = True
-    app.title_label(page, "Přijaté nabídky")
+    offer_import = getattr(app, "import_offer_sources", None)
+    title_row = M.ttk.Frame(page, style="App.TFrame")
+    title_row.pack(fill="x", pady=(0, 12))
+    M.ttk.Label(
+        title_row, text="Přijaté nabídky", style="Title.TLabel"
+    ).pack(side="left", anchor="n")
+    if callable(offer_import):
+        M.ttk.Button(
+            title_row, text="📥 Zpracovat nabídku", style="Accent.TButton",
+            command=lambda: _run_after_invalidation(
+                app, offer_import, offers=True
+            ),
+        ).pack(side="right", anchor="n", pady=(2, 0))
     M.ttk.Label(
         page,
         text=("Přijaté cenové nabídky zůstávají samostatné. Vybranou nabídku lze překlopit "
@@ -1906,11 +1926,6 @@ def build_offers(M, app):
 
     command = M.ttk.Frame(page, style="Panel.TFrame", padding=(10, 8))
     command.pack(fill="x", pady=(0, 7))
-    if callable(getattr(app, "import_offer_sources", None)):
-        M.ttk.Button(
-            command, text="📥 Zpracovat nabídku", style="Accent.TButton",
-            command=lambda: _run_after_invalidation(app, app.import_offer_sources, offers=True),
-        ).pack(side="left")
     if callable(getattr(app, "import_selected_outlook_offer", None)):
         M.ttk.Button(
             command, text="✉ Načíst z Outlooku",

@@ -13,6 +13,7 @@ python scripts/validate-7200-visual-issued-offers.py "$BASE_DIR"
 python scripts/validate-7300-polish.py "$BASE_DIR"
 python scripts/validate-7400-issued-pricing-columns.py "$BASE_DIR"
 python scripts/validate-7500-context-filters-offer-format.py "$BASE_DIR"
+python scripts/validate-7600-table-activity-performance.py "$BASE_DIR"
 rm -rf "$STAGE"
 cp -a "$BASE_DIR" "$STAGE"
 cp post_baseline.py "$STAGE/post_baseline.py"
@@ -28,7 +29,7 @@ for f in \
   v632_offerlinks.py v633_offerassign_deadlines.py \
   v636_action_offers_stabletable.py v637_project_offer_model.py \
   v638_table_updatefix.py v640_warning_cleanup.py \
-  v644_default_date_sort.py v710_cleanup.py v720_visual_offer.py v730_polish.py v740_offer_defaults.py v750_context_filters_offer_format.py post_baseline.py
+  v644_default_date_sort.py v710_cleanup.py v720_visual_offer.py v730_polish.py v740_offer_defaults.py v750_context_filters_offer_format.py v760_table_activity_performance.py post_baseline.py
 do
   [ -f "$STAGE/$f" ] && mv "$STAGE/$f" "$RUNTIME/$f"
 done
@@ -64,8 +65,8 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 RUNTIME=ROOT/'_runtime'
 if str(RUNTIME) not in sys.path:sys.path.insert(0,str(RUNTIME))
-import app,crm_features,crm_runtime,crm_v605,crm_price_lists,v606_features,v608_stability,v611_audit,v613_ui,v614_next,v615_input,v616_stability,v617_offerhub,v618_inputfix,v619_fixes,v620_outlookdrop,v621_prices,v623_exports,v624_legacy_exports,v625_stability,v628_modernui_resize,v631_diskdrop,v632_offerlinks,v633_offerassign_deadlines,v636_action_offers_stabletable,v637_project_offer_model,v638_table_updatefix,v640_warning_cleanup,v644_default_date_sort,post_baseline,v710_cleanup,v720_visual_offer,v730_polish,v740_offer_defaults,v750_context_filters_offer_format
-crm_features.apply(app);crm_runtime.apply(app);crm_v605.apply(app);v606_features.apply(app);v608_stability.apply(app);v611_audit.apply(app);v613_ui.apply(app);v614_next.apply(app);v615_input.apply(app);v616_stability.apply(app);v617_offerhub.apply(app);v618_inputfix.apply(app);v619_fixes.apply(app);v620_outlookdrop.apply(app);v621_prices.apply(app);v623_exports.apply(app);v625_stability.apply(app);v628_modernui_resize.apply(app);v632_offerlinks.apply(app);v633_offerassign_deadlines.apply(app);v636_action_offers_stabletable.apply(app);v637_project_offer_model.apply(app);v638_table_updatefix.apply(app);v640_warning_cleanup.apply(app);post_baseline.apply(app);v631_diskdrop.apply(app);v644_default_date_sort.apply(app);crm_features.install_offer_ui(app);crm_price_lists.apply(app);v710_cleanup.apply(app);v720_visual_offer.apply(app);v730_polish.apply(app);v740_offer_defaults.apply(app);v750_context_filters_offer_format.apply(app)
+import app,crm_features,crm_runtime,crm_v605,crm_price_lists,v606_features,v608_stability,v611_audit,v613_ui,v614_next,v615_input,v616_stability,v617_offerhub,v618_inputfix,v619_fixes,v620_outlookdrop,v621_prices,v623_exports,v624_legacy_exports,v625_stability,v628_modernui_resize,v631_diskdrop,v632_offerlinks,v633_offerassign_deadlines,v636_action_offers_stabletable,v637_project_offer_model,v638_table_updatefix,v640_warning_cleanup,v644_default_date_sort,post_baseline,v710_cleanup,v720_visual_offer,v730_polish,v740_offer_defaults,v750_context_filters_offer_format,v760_table_activity_performance
+crm_features.apply(app);crm_runtime.apply(app);crm_v605.apply(app);v606_features.apply(app);v608_stability.apply(app);v611_audit.apply(app);v613_ui.apply(app);v614_next.apply(app);v615_input.apply(app);v616_stability.apply(app);v617_offerhub.apply(app);v618_inputfix.apply(app);v619_fixes.apply(app);v620_outlookdrop.apply(app);v621_prices.apply(app);v623_exports.apply(app);v625_stability.apply(app);v628_modernui_resize.apply(app);v632_offerlinks.apply(app);v633_offerassign_deadlines.apply(app);v636_action_offers_stabletable.apply(app);v637_project_offer_model.apply(app);v638_table_updatefix.apply(app);v640_warning_cleanup.apply(app);post_baseline.apply(app);v631_diskdrop.apply(app);v644_default_date_sort.apply(app);crm_features.install_offer_ui(app);crm_price_lists.apply(app);v710_cleanup.apply(app);v720_visual_offer.apply(app);v730_polish.apply(app);v740_offer_defaults.apply(app);v750_context_filters_offer_format.apply(app);v760_table_activity_performance.apply(app)
 app.cleanup_stale_test_session();app.ensure_schema();app.ensure_test_user();app.migrate_v41_visual_once();app.import_mail_contacts_v220_once();app.import_mail_contacts_v221_once();app.restore_people_from_v280_backup_once();app.post_import_cleanup_v222_once();app.App().mainloop()
 PYW
 
@@ -90,6 +91,7 @@ test -e "$DIR/_runtime/v720_visual_offer.py"
 test -e "$DIR/_runtime/v730_polish.py"
 test -e "$DIR/_runtime/v740_offer_defaults.py"
 test -e "$DIR/_runtime/v750_context_filters_offer_format.py"
+test -e "$DIR/_runtime/v760_table_activity_performance.py"
 test -e "$DIR/_runtime/v631_diskdrop.py"
 test -e "$DIR/_runtime/crm_price_lists.py"
 test -d "$DIR/_runtime/price_lists_domain"
@@ -111,7 +113,7 @@ grep -q "ZakazkyCRM.pyw" "$DIR/Spustit_Zakazky.bat"
 ! grep -q "pyw app.py" "$DIR/Spustit_Zakazky.bat"
 ! grep -q "pythonw app.py" "$DIR/Spustit_Zakazky.bat"
 grep -q "post_baseline.apply(app);v631_diskdrop.apply(app);v644_default_date_sort.apply(app)" "$DIR/ZakazkyCRM.pyw"
-grep -q "crm_features.install_offer_ui(app);crm_price_lists.apply(app);v710_cleanup.apply(app);v720_visual_offer.apply(app);v730_polish.apply(app);v740_offer_defaults.apply(app);v750_context_filters_offer_format.apply(app)" "$DIR/ZakazkyCRM.pyw"
+grep -q "crm_features.install_offer_ui(app);crm_price_lists.apply(app);v710_cleanup.apply(app);v720_visual_offer.apply(app);v730_polish.apply(app);v740_offer_defaults.apply(app);v750_context_filters_offer_format.apply(app);v760_table_activity_performance.apply(app)" "$DIR/ZakazkyCRM.pyw"
 grep -q "def group_offer_items" "$DIR/_runtime/v710_cleanup.py"
 grep -q "class OfferPreview" "$DIR/_runtime/v720_visual_offer.py"
 grep -q "pdf_renderer.render_offer_pdf" "$DIR/_runtime/v720_visual_offer.py"
@@ -125,6 +127,9 @@ grep -q "Formát výstupu: A4" "$DIR/_runtime/v750_context_filters_offer_format.
 grep -q "supplier_presentation_snapshot" "$DIR/_runtime/v750_context_filters_offer_format.py"
 grep -q "displayed_columns(tree)" "$DIR/_runtime/v750_context_filters_offer_format.py"
 grep -q "Přidat připomínku" "$DIR/_runtime/v750_context_filters_offer_format.py"
+grep -q "Poslední pohyb" "$DIR/_runtime/v760_table_activity_performance.py"
+grep -q "sync_heading_anchors" "$DIR/_runtime/v760_table_activity_performance.py"
+grep -q "single_union_query" "$DIR/_runtime/v760_table_activity_performance.py"
 grep -q "Barvy jsou upozornění" "$DIR/_runtime/v730_polish.py"
 grep -q "def install_offer_ui" "$DIR/_runtime/crm_features.py"
 grep -q "Zpracovat nabídku" "$DIR/_runtime/crm_features.py"
@@ -159,6 +164,7 @@ assert text.index('v710_cleanup.apply(app)') < text.index('v720_visual_offer.app
 assert text.index('v720_visual_offer.apply(app)') < text.index('v730_polish.apply(app)')
 assert text.index('v730_polish.apply(app)') < text.index('v740_offer_defaults.apply(app)')
 assert text.index('v740_offer_defaults.apply(app)') < text.index('v750_context_filters_offer_format.apply(app)')
+assert text.index('v750_context_filters_offer_format.apply(app)') < text.index('v760_table_activity_performance.apply(app)')
 PY
 python - "$DIR" <<'PY'
 import pathlib,sys

@@ -1,9 +1,9 @@
-• Filtrovací buňky nad tabulkami se nově řídí skutečným pořadím zobrazených sloupců. Po přesunutí sloupce se přesune i jeho filtr a při skrytí sloupce se skryje také příslušný filtr.
-• V záložkách Příležitosti, Poptávky a MIVO byla odstraněna tlačítka Editovat. Úprava se nadále otevírá dvojklikem na příslušný řádek.
-• Běžné operace s řádkem, například vytvoření poptávky, připomínka, vytvoření e-mailu, Obdrženo dnes, Bez odezvy nebo smazání, jsou nyní dostupné po kliknutí pravým tlačítkem na řádek.
-• Pravé tlačítko na záhlaví tabulky nadále otevírá pouze nastavení pořadí, šířky a viditelnosti sloupců. Nabídka řádkových operací se zobrazí pouze nad konkrétním datovým řádkem.
-• Ovládání archivu je v Příležitostech, Poptávkách a MIVO sjednocené: vlevo je volba Zobrazit archivované a vpravo tlačítka Archivovat vybrané a Obnovit vybrané. Stejné volby jsou také v nabídce pravého tlačítka.
-• Příležitosti nově podporují skutečnou archivaci bez změny obchodního stavu. Archivované příležitosti lze znovu zobrazit a obnovit.
-• Produkty překlopené z Přijaté nabídky do Vydané nabídky nemají zákaznický kód a zachovávají původní název dodavatele. K názvu lze pravým tlačítkem nebo při úpravě položky doplnit vlastní text, aniž by se původní název přepsal.
-• V editoru Vydané nabídky je nově viditelně uvedeno „Formát výstupu: A4 · 210 × 297 mm“. Výsledné PDF zůstává standardně ve formátu A4.
-• Aktualizace je aditivní. Doplňuje pouze archivní údaje Příležitostí a snímek dodavatelského názvu a jeho doplnění u položek Vydaných nabídek; existující nabídky a PDF revize se nepřepisují.
+• Záhlaví všech tabulek se nyní zarovnává stejně jako buňky v příslušném sloupci. Číselné sloupce tak zůstávají vpravo, textové vlevo a středové sloupce uprostřed.
+• Jednotlivé sloupce odděluje jemná jednobodová svislá linka. Linky sledují přesunutí, skrytí, změnu šířky i vodorovný posun sloupců.
+• Zlatá tlačítka Zpracovat nabídku, Importovat Ceník a Nová nabídka jsou přesunuta do pravé části titulního řádku stejně jako hlavní tlačítka ostatních záložek.
+• Navigace je sjednocena tak, že záložka Společnosti je umístěna mezi Osoby a Úkoly.
+• Úkoly a připomínky mají stejné ovládání archivu jako ostatní přehledy: vlevo Zobrazit archivované a vpravo Archivovat vybrané a Obnovit vybrané. Archiv je dostupný také pravým tlačítkem na řádek.
+• Akce nyní podporují archivaci a obnovení bez mazání navázaných Příležitostí, Poptávek, nabídek, úkolů nebo historie.
+• Do Akcí byl doplněn sloupec Poslední pohyb. Zohledňuje změny Akce a Příležitostí, historii, Poptávky, Úkoly, Přijaté nabídky i Vydané nabídky.
+• Výkon byl upraven bez změny funkčního chování: čekající Poptávky se počítají jedním seskupeným SQL dotazem, přepočty při změně velikosti tabulek jsou sloučené, počty upozornění vznikají agregačními dotazy a byly doplněny bezpečné databázové indexy.
+• Aktualizace je aditivní. Doplňuje pouze archivní a časové údaje Akcí a Úkolů a nové indexy; existující záznamy, ceny, nabídky ani historické PDF revize se nepřepisují.
