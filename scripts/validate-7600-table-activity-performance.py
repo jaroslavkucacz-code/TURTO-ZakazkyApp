@@ -286,8 +286,6 @@ def main() -> None:
             con.execute(
                 "INSERT INTO companies(id,official_name,short_name) VALUES(2,'MIVO','MIVO')"
             )
-            # Exactly one normal request is waiting. Received, archived and MIVO
-            # records must not inflate the grouped CTE result.
             request_rows = (
                 (1, 1, 1, '', '2026-03-01', '', 0, 0),
                 (2, 1, 1, '2026-03-02', '2026-03-01', '', 0, 0),
@@ -311,8 +309,6 @@ def main() -> None:
             con.execute(
                 "INSERT INTO supplier_offers(id,action_id,offer_date,updated_at) VALUES(1,1,'2026-06-01','2026-06-02 08:00:00')"
             )
-            # updated_at is intentionally older than sent_at. The activity helper
-            # must select the latest field, not merely the first non-empty field.
             con.execute(
                 """INSERT INTO business_documents(
                        id,project_id,action_id,updated_at,sent_at,created_at,issue_date
@@ -381,14 +377,14 @@ def main() -> None:
         "v760_table_activity_performance.apply(app)"
     )
     version = (repository / "release_version.txt").read_text(encoding="utf-8").strip()
-    assert version == "7.6.1", version
+    assert version in {"7.6.1", "7.6.2"}, version
     publish = (repository / "scripts" / "publish-update.sh").read_text(encoding="utf-8")
     assert "validate-7600-table-activity-performance.py" in publish
     assert "v760_table_activity_performance.py" in publish
     real_ui = (repository / "scripts" / "validate-real-ui.py").read_text(encoding="utf-8")
     assert "v760_table_activity_performance.apply(app)" in real_ui
     print(
-        "OK 7.6.1: Akce opens with a canonical last-activity column, "
+        "OK 7.6.x: Akce opens with a canonical last-activity column, "
         "legacy layouts use a safe full-view fallback and all 7.6 contracts remain valid"
     )
 

@@ -166,9 +166,18 @@ def main() -> None:
     from price_lists_domain.platform import lazy_refresh
 
     sort_source = (root / "v644_default_date_sort.py").read_text(encoding="utf-8")
-    assert "old_show" not in sort_source
-    assert "old_init" not in sort_source
-    assert '"refresh_all"' not in sort_source and "'refresh_all'" not in sort_source
+    startup_bridge = "_turto_v762_startup_stability_bridge" in sort_source
+    if startup_bridge:
+        # 7.6.2 intentionally recognizes and unwraps the old closure names. The
+        # dedicated startup regression verifies that this recognition removes,
+        # rather than reintroduces, the obsolete whole-window callback chains.
+        assert "_stabilize_legacy_owner" in sort_source
+        assert "_wrap_v710" in sort_source
+        assert "_wrap_v760" in sort_source
+    else:
+        assert "old_show" not in sort_source
+        assert "old_init" not in sort_source
+        assert '"refresh_all"' not in sort_source and "'refresh_all'" not in sort_source
     assert "M.apply_default_table_sort = apply_default" in sort_source
 
     class Module:

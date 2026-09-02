@@ -6,11 +6,13 @@ on:
       - main
     paths:
       - ZakazkyApp_base_6.1/ZakazkyCRM.pyw
+      - ZakazkyApp_base_6.1/v644_default_date_sort.py
       - ZakazkyApp_base_6.1/v750_context_filters_offer_format.py
       - ZakazkyApp_base_6.1/v760_table_activity_performance.py
       - ZakazkyApp_base_6.1/price_lists_domain/**
       - scripts/validate-7500-context-filters-offer-format.py
       - scripts/validate-7600-table-activity-performance.py
+      - scripts/validate-762-startup-stability.py
       - scripts/validate-real-ui.py
       - scripts/publish-update.sh
       - release_version.txt
@@ -46,6 +48,9 @@ jobs:
 
       - name: Compile source and validations
         run: python -m compileall -q ZakazkyApp_base_6.1 scripts post_baseline.py
+
+      - name: Validate 7.6.2 native Tk startup stability
+        run: python scripts/validate-762-startup-stability.py ZakazkyApp_base_6.1
 
       - name: Validate table alignment, archives, activity and performance
         run: python scripts/validate-7600-table-activity-performance.py ZakazkyApp_base_6.1

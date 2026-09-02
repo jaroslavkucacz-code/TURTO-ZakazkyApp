@@ -20,10 +20,12 @@ on:
       - scripts/validate-7400-issued-pricing-columns.py
       - scripts/validate-7500-context-filters-offer-format.py
       - scripts/validate-7600-table-activity-performance.py
+      - scripts/validate-762-startup-stability.py
       - scripts/validate-real-ui.py
       - post_baseline.py
       - ZakazkyApp_base_6.1/crm_price_lists.py
       - ZakazkyApp_base_6.1/v638_table_updatefix.py
+      - ZakazkyApp_base_6.1/v644_default_date_sort.py
       - ZakazkyApp_base_6.1/v710_cleanup.py
       - ZakazkyApp_base_6.1/v720_visual_offer.py
       - ZakazkyApp_base_6.1/v730_polish.py
@@ -120,6 +122,10 @@ jobs:
       - name: Validate 7.6 table alignment, archive activity and performance
         shell: bash
         run: python scripts/validate-7600-table-activity-performance.py ZakazkyApp_base_6.1
+
+      - name: Validate 7.6.2 native Tk startup stability
+        shell: bash
+        run: python scripts/validate-762-startup-stability.py ZakazkyApp_base_6.1
 
       - name: Build, validate and publish
         shell: bash
