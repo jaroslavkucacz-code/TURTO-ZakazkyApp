@@ -1,0 +1,60 @@
+name: Debug TURTO CRM 7.6 generated source
+
+on:
+  push:
+    branches:
+      - feature/7.6.0-table-activity-performance
+    paths:
+      - .github/workflows/debug-760-source.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct generated module and validator
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+          import gzip
+          import hashlib
+
+          payload = Path("scripts/_tmp760_payload")
+          specifications = (
+              ("module_*.b64", Path("/tmp/v760.py"), "96eb4f0253ff5c1317fddc85e83de2c1fb045b8f0311e2ee38b38b08b4f87e3f"),
+              ("integrate_*.b64", Path("/tmp/integrate.py"), "03e20dd842786bffb9a6ef3801b288ea888dd69d039557bc88dda9ad443d8682"),
+              ("validator_*.b64", Path("/tmp/validate760.py"), "884d87708bd73f58b55d4ed3a519a18680de0dd54a6099cd5687ea63f181171d"),
+          )
+          for pattern, output, expected in specifications:
+              encoded = "".join(
+                  "".join(part.read_text(encoding="ascii").split())
+                  for part in sorted(payload.glob(pattern))
+              )
+              data = gzip.decompress(base64.b64decode(encoded, validate=True))
+              digest = hashlib.sha256(data).hexdigest()
+              if digest != expected:
+                  raise SystemExit((output, digest, expected))
+              output.write_bytes(data)
+          PY
+      - name: Show Treeview wrapper and project logic
+        shell: bash
+        run: |
+          echo '--- v760 lines 500-650 ---'
+          nl -ba /tmp/v760.py | sed -n '500,650p'
+          echo '--- v760 project references ---'
+          grep -n -C 8 'Poslední pohyb\|project_tree\|build_projects\|refresh_projects' /tmp/v760.py | head -n 420
+          echo '--- integration script project/test edits ---'
+          grep -n -C 8 'Poslední pohyb\|validate-real-ui\|heading' /tmp/integrate.py | head -n 420
+          echo '--- validator lines 160-230 after integration ---'
+          cp scripts/validate-real-ui.py /tmp/real-ui.py
+          cp ZakazkyApp_base_6.1/ZakazkyCRM.pyw /tmp/launcher.pyw
+          cp scripts/publish-update.sh /tmp/publish.sh
+          cp release_version.txt /tmp/release_version.txt
+          cp release_notes.txt /tmp/release_notes.txt
+          python /tmp/integrate.py
+          nl -ba scripts/validate-real-ui.py | sed -n '150,235p'
