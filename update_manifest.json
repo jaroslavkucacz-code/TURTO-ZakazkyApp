@@ -1,0 +1,27 @@
+{
+  "schema": 3,
+  "version": "0.6.1",
+  "published_at": "2026-09-02",
+  "bundle_sha256": "2acb5970a837b7e64efb7e5d728003ce250fbaf523f1962a9083b7af769f1547",
+  "bundle_size": 1662021,
+  "payload_files": 38,
+  "bundle_parts": [
+    {"name":"TURTO_update_bundle.b85.part01","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part01","sha256":"a9a2f908398a8a97a31b9d6a1091c29dff31fe70e0e382959f4c442390e49fe4","size":100000},
+    {"name":"TURTO_update_bundle.b85.part02","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part02","sha256":"5125f8dcdc3b25dc66cf839474e8d0c49bbc8f6b58ace5a99cc03e4bec4d5172","size":100000},
+    {"name":"TURTO_update_bundle.b85.part03","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part03","sha256":"8dfe5f07ca6b327bcd3d15ae681658f9563932cd0aacf14ec196acc4f9e2797f","size":100000},
+    {"name":"TURTO_update_bundle.b85.part04","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part04","sha256":"2bf2f5cd121cb58108b99bc741762997f2cb3d3fcfc7a651887bcfc540b08668","size":100000},
+    {"name":"TURTO_update_bundle.b85.part05","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part05","sha256":"9c887277eb3f897c4cdd8a6b388bd99d3eae9a3df2abeccce014df0e07d87943","size":100000},
+    {"name":"TURTO_update_bundle.b85.part06","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part06","sha256":"a2710735e77b5dc2334a72e4d4acd82e583cbd7008782633b87ac163dfb3c142","size":100000},
+    {"name":"TURTO_update_bundle.b85.part07","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part07","sha256":"ed0c1207c5e7dfc59a1c430ab514ba69aee77207af17e827ea99ae01fe9b953f","size":100000},
+    {"name":"TURTO_update_bundle.b85.part08","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part08","sha256":"ef2d9ecf7d52d81fdd31c3147ceecdf0aa0f7c7c51d5e9d46065f9c59b5e1ca8","size":100000},
+    {"name":"TURTO_update_bundle.b85.part09","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part09","sha256":"a01f4ceb2b00e55054a6977f7ec13dfcc24e7da6fdd291095ceda9b78e1a5eec","size":100000},
+    {"name":"TURTO_update_bundle.b85.part10","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part10","sha256":"24fe8df72f0c25760471d9e19455a4e41d6e8006b844aeea1ba1d8b95ecae12a","size":100000},
+    {"name":"TURTO_update_bundle.b85.part11","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part11","sha256":"b667c4e143fa1ba72ab8850c85e4c91c1f7f017df31a7a972025c50bc1ec4467","size":100000},
+    {"name":"TURTO_update_bundle.b85.part12","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part12","sha256":"8007dbcab553e9a5f1c20de251aff760ac48088b2a3b0f06bdae13bcaa51bc38","size":100000},
+    {"name":"TURTO_update_bundle.b85.part13","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part13","sha256":"f8ba7d4cc7fb2d8297b61dd26394c452d9156f6ea62b9f2493b85bedaf8ced30","size":100000},
+    {"name":"TURTO_update_bundle.b85.part14","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part14","sha256":"1e23aa76b019304136e5a8ebbda87e70a65d70a24f3b4f5b8381ff1212dec438","size":100000},
+    {"name":"TURTO_update_bundle.b85.part15","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part15","sha256":"294ff6ce7aaf7a5d64ff73fd659fd54596eb9a57524c7548f1c13cfcb9d01a25","size":100000},
+    {"name":"TURTO_update_bundle.b85.part16","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part16","sha256":"ac2bea88d04ec200c994b35bb832e0d9dcef658c5c22eb1bd72d8bc6493e4170","size":100000},
+    {"name":"TURTO_update_bundle.b85.part17","url":"https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/izolacni-nosniky/TURTO_update_bundle.b85.part17","sha256":"708755d054da259fd9f81560fad41282043f734f41118a381253711e441747b9","size":62021}
+  ]
+}
