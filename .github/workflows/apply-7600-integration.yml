@@ -75,6 +75,30 @@ jobs:
           python scripts/_tmp760_integrate.py
           rm -rf scripts/_tmp760_payload scripts/_tmp760_integrate.py
 
+      - name: Fix canonical Treeview heading alignment
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("ZakazkyApp_base_6.1/app.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''        for c,w in zip(cols,widths):
+            t.heading(c,text=c,command=lambda col=c,tree=t:self.sort_tree(tree,col))
+            t.column(c,width=w,anchor="w")
+'''
+          new = '''        for c,w in zip(cols,widths):
+            # Configure the data cell first, then mirror its alignment in the
+            # heading. This guarantees the same alignment from the first paint.
+            t.column(c,width=w,anchor="w")
+            t.heading(c,text=c,anchor=t.column(c,"anchor"),
+                      command=lambda col=c,tree=t:self.sort_tree(tree,col))
+'''
+          if old not in text:
+              raise SystemExit("Canonical App.tree block was not found")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
       - name: Compile source
         run: python -m compileall -q ZakazkyApp_base_6.1 scripts post_baseline.py
 
@@ -108,6 +132,7 @@ jobs:
           git config user.name "TURTO Update Bot"
           git config user.email "actions@users.noreply.github.com"
           git add \
+            ZakazkyApp_base_6.1/app.py \
             ZakazkyApp_base_6.1/ZakazkyCRM.pyw \
             ZakazkyApp_base_6.1/v760_table_activity_performance.py \
             release_version.txt \
@@ -121,4 +146,4 @@ jobs:
           git commit -m "Integrate TURTO CRM 7.6 tables, activity and performance"
           git push origin HEAD:feature/7.6.0-table-activity-performance
 
-# retry with whitespace-safe payload reconstruction and checksums
+# retry with canonical heading alignment applied before the real UI test
