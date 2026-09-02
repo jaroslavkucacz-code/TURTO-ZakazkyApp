@@ -1,6 +1,6 @@
 {
   "version": "7.6.2",
   "file": "ZakazkyApp_v7.6.2.zip",
-  "sha256": "5691faec77816ba3725aa36f7b209455df745db562ea47ac2f57a43dc97d5074",
+  "sha256": "8b5e21243158a80d6cf668651e5386a59dd5d4050b742cb969ac1ee5dce5b400",
   "notes": "• Opravena kritická chyba verze 7.6.1, při které TURTO CRM ve Windows s Pythonem 3.14 po spuštění skončilo nativní chybou přístupu do paměti.\n• Odstraněno procesní přepisování metod ttk.Treeview, které se při souběhu s odloženým obnovováním záhlaví dostávalo do konfliktu s Tk.\n• Opakované rekurzivní procházení všech oken a ovládacích prvků bylo nahrazeno bezpečnou aktualizací pouze známých živých tabulek.\n• Zachovány jsou uživatelské šířky a pořadí sloupců, filtry, oddělovací linky, archivace Akcí a Úkolů, sloupec Poslední pohyb, import nabídek i automatické aktualizace.\n• Oprava nemění databázové schéma ani uživatelská data, nabídky, ceny, vazby nebo historické PDF revize."
 }
