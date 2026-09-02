@@ -1,6 +1,6 @@
 {
-  "version": "7.6.2",
-  "file": "ZakazkyApp_v7.6.2.zip",
-  "sha256": "8b5e21243158a80d6cf668651e5386a59dd5d4050b742cb969ac1ee5dce5b400",
-  "notes": "• Opravena kritická chyba verze 7.6.1, při které TURTO CRM ve Windows s Pythonem 3.14 po spuštění skončilo nativní chybou přístupu do paměti.\n• Odstraněno procesní přepisování metod ttk.Treeview, které se při souběhu s odloženým obnovováním záhlaví dostávalo do konfliktu s Tk.\n• Opakované rekurzivní procházení všech oken a ovládacích prvků bylo nahrazeno bezpečnou aktualizací pouze známých živých tabulek.\n• Zachovány jsou uživatelské šířky a pořadí sloupců, filtry, oddělovací linky, archivace Akcí a Úkolů, sloupec Poslední pohyb, import nabídek i automatické aktualizace.\n• Oprava nemění databázové schéma ani uživatelská data, nabídky, ceny, vazby nebo historické PDF revize."
+  "version": "7.6.3",
+  "file": "ZakazkyApp_v7.6.3.zip",
+  "sha256": "153233155dd09ba3bd02ea411d812a61434035a6940a357d2e322a966475eee5",
+  "notes": "• Opraveno chybějící záhlaví tabulky Akce po spuštění. Záhlaví se nyní obnoví přímo při sestavení a každém obnovení této konkrétní tabulky, bez globálního procházení oken.\n• Opravena chyba Nastavení sloupců „Invalid column index \\\"Poslední pohyb\\\"“. Editor šířek a pořadí nyní používá bezpečný poziční identifikátor sloupce, pokud Windows/Tk odmítne symbolický název.\n• Změna zachovává uživatelské šířky, viditelnost a pořadí sloupců a nevrací rizikové procesní přepisování ttk.Treeview odstraněné ve verzi 7.6.2.\n• Databázové schéma ani uživatelská data, nabídky, ceny, vazby a historické PDF revize se nemění."
 }
