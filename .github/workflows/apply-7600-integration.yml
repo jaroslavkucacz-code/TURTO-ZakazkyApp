@@ -110,13 +110,16 @@ jobs:
           new_title = (
               '    app._offer_drop_area_ready = True\n'
               '    offer_import = getattr(app, "import_offer_sources", None)\n'
+              '    title_row = M.ttk.Frame(page, style="App.TFrame")\n'
+              '    title_row.pack(fill="x", pady=(0, 12))\n'
+              '    M.ttk.Label(\n'
+              '        title_row, text="Přijaté nabídky", style="Title.TLabel"\n'
+              '    ).pack(side="left", anchor="n")\n'
               '    if callable(offer_import):\n'
-              '        app.title_label(\n'
-              '            page, "Přijaté nabídky", "📥 Zpracovat nabídku",\n'
-              '            lambda: _run_after_invalidation(app, offer_import, offers=True),\n'
-              '        )\n'
-              '    else:\n'
-              '        app.title_label(page, "Přijaté nabídky")\n'
+              '        M.ttk.Button(\n'
+              '            title_row, text="📥 Zpracovat nabídku", style="Accent.TButton",\n'
+              '            command=lambda: _run_after_invalidation(app, offer_import, offers=True),\n'
+              '        ).pack(side="right", anchor="n", pady=(2, 0))\n'
           )
           old_button = (
               '    if callable(getattr(app, "import_offer_sources", None)):\n'
@@ -182,4 +185,4 @@ jobs:
           git commit -m "Integrate TURTO CRM 7.6 tables, activity and performance"
           git push origin HEAD:feature/7.6.0-table-activity-performance
 
-# retry with canonical heading and title-row actions applied before the real UI test
+# retry with direct title-label and action-button siblings before the real UI test
