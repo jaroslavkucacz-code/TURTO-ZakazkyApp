@@ -17,6 +17,7 @@ def install(module) -> None:
     from .clarity import install as install_clarity
     from .commercial_workspace import install as install_commercial_workspace
     from .lazy_refresh import install as install_lazy_refresh
+    from .project_table_stability import install as install_project_table_stability
     from .automatic_updates import install as install_automatic_updates
 
     if getattr(module, "_turto_platform_v6339", False):
@@ -44,6 +45,9 @@ def install(module) -> None:
     install_commercial_workspace(module)
     # Navigation replaces the accumulated legacy show_page wrapper chain.
     install_lazy_refresh(module)
+    # Register the Akce table stabilizer before v760.apply() runs. The hook
+    # installs its final owner only after v760 has finished composing the table.
+    install_project_table_stability(module)
     # The updater is installed last so no older runtime layer can restore a
     # confirmation dialog or a second competing startup check.
     install_automatic_updates(module)
