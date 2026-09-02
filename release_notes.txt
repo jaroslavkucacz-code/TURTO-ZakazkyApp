@@ -1,4 +1,5 @@
-• Opravena chyba, při které po aktualizaci z verze 7.5.0 mohla záložka Akce skončit hlášením „Invalid column index Poslední pohyb“.
-• Sloupec Poslední pohyb je nyní součástí tabulky Akce už při jejím vytvoření, nikoli až při prvním otevření záložky.
-• Pokud starší uložené rozložení odmítne nový název sloupce, tabulka bezpečně obnoví úplné výchozí zobrazení všech sloupců.
-• Oprava nemění databázi, ceny, nabídky, vazby ani historické PDF revize.
+• Opravena kritická chyba verze 7.6.1, při které TURTO CRM ve Windows s Pythonem 3.14 po spuštění skončilo nativní chybou přístupu do paměti.
+• Odstraněno procesní přepisování metod ttk.Treeview, které se při souběhu s odloženým obnovováním záhlaví dostávalo do konfliktu s Tk.
+• Opakované rekurzivní procházení všech oken a ovládacích prvků bylo nahrazeno bezpečnou aktualizací pouze známých živých tabulek.
+• Zachovány jsou uživatelské šířky a pořadí sloupců, filtry, oddělovací linky, archivace Akcí a Úkolů, sloupec Poslední pohyb, import nabídek i automatické aktualizace.
+• Oprava nemění databázové schéma ani uživatelská data, nabídky, ceny, vazby nebo historické PDF revize.
