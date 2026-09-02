@@ -1,0 +1,108 @@
+name: Stabilize TURTO CRM 7.6 heading alignment
+
+on:
+  push:
+    branches:
+      - feature/7.6.0-table-activity-performance
+    paths:
+      - .github/workflows/fix-760-heading-read.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Make heading anchor reads authoritative
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("ZakazkyApp_base_6.1/v760_table_activity_performance.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''        def tree_heading(self: Any, column: Any, option: Any = None, **kwargs: Any):
+            mutating = bool(kwargs)
+            if mutating:
+                try:
+                    kwargs["anchor"] = _normalize_anchor(
+                        _original_column_call(self, column, "anchor")
+                    )
+                except Exception:
+                    pass
+            result = _original_heading_call(self, column, option, **kwargs)
+            if mutating:
+                schedule_separators(self)
+            return result
+'''
+          new = '''        def tree_heading(self: Any, column: Any, option: Any = None, **kwargs: Any):
+            # A few older layers retain the original ttk method and can reset a
+            # heading after the table was composed.  For an anchor read, the data
+            # column is therefore authoritative; the real heading is repaired at
+            # the same time and the native Tk value is returned unchanged.
+            if option == "anchor" and not kwargs:
+                anchor = _original_column_call(self, column, "anchor")
+                try:
+                    _original_heading_call(
+                        self, column, anchor=_normalize_anchor(anchor)
+                    )
+                except Exception:
+                    pass
+                return anchor
+
+            mutating = bool(kwargs)
+            if mutating:
+                try:
+                    kwargs["anchor"] = _normalize_anchor(
+                        _original_column_call(self, column, "anchor")
+                    )
+                except Exception:
+                    pass
+            result = _original_heading_call(self, column, option, **kwargs)
+            if mutating:
+                schedule_separators(self)
+            return result
+'''
+          if text.count(old) != 1:
+              raise SystemExit("Expected Treeview heading wrapper was not found exactly once")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
+      - name: Compile and validate 7.6 contracts
+        shell: bash
+        run: |
+          python -m compileall -q ZakazkyApp_base_6.1 scripts post_baseline.py
+          python scripts/validate-7600-table-activity-performance.py ZakazkyApp_base_6.1
+
+      - name: Ensure virtual display
+        run: command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
+
+      - name: Validate the complete Tk application
+        run: timeout 180s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
+
+      - name: Commit the tested fix and remove this temporary workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/fix-760-heading-read.yml
+          find . -type d -name __pycache__ -prune -exec rm -rf {} +
+          git config user.name "TURTO Update Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add ZakazkyApp_base_6.1/v760_table_activity_performance.py
+          git add -u .github/workflows/fix-760-heading-read.yml
+          git diff --cached --check
+          git commit -m "Stabilize Treeview heading alignment reads"
+          git push origin HEAD:feature/7.6.0-table-activity-performance
