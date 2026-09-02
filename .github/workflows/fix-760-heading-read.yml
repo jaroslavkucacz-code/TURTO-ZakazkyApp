@@ -35,51 +35,39 @@ jobs:
 
           path = Path("ZakazkyApp_base_6.1/v760_table_activity_performance.py")
           text = path.read_text(encoding="utf-8")
-          old = '''        def tree_heading(self: Any, column: Any, option: Any = None, **kwargs: Any):
-            mutating = bool(kwargs)
-            if mutating:
-                try:
-                    kwargs["anchor"] = _normalize_anchor(
-                        _original_column_call(self, column, "anchor")
-                    )
-                except Exception:
-                    pass
-            result = _original_heading_call(self, column, option, **kwargs)
-            if mutating:
-                schedule_separators(self)
-            return result
-'''
-          new = '''        def tree_heading(self: Any, column: Any, option: Any = None, **kwargs: Any):
-            # A few older layers retain the original ttk method and can reset a
-            # heading after the table was composed.  For an anchor read, the data
-            # column is therefore authoritative; the real heading is repaired at
-            # the same time and the native Tk value is returned unchanged.
-            if option == "anchor" and not kwargs:
-                anchor = _original_column_call(self, column, "anchor")
-                try:
-                    _original_heading_call(
-                        self, column, anchor=_normalize_anchor(anchor)
-                    )
-                except Exception:
-                    pass
-                return anchor
-
-            mutating = bool(kwargs)
-            if mutating:
-                try:
-                    kwargs["anchor"] = _normalize_anchor(
-                        _original_column_call(self, column, "anchor")
-                    )
-                except Exception:
-                    pass
-            result = _original_heading_call(self, column, option, **kwargs)
-            if mutating:
-                schedule_separators(self)
-            return result
-'''
-          if text.count(old) != 1:
-              raise SystemExit("Expected Treeview heading wrapper was not found exactly once")
-          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          start = text.index(
+              "        def tree_heading(self: Any, column: Any, option: Any = None, **kwargs: Any):\n"
+          )
+          end = text.index("\n\n        def tree_column(", start)
+          lines = [
+              "        def tree_heading(self: Any, column: Any, option: Any = None, **kwargs: Any):",
+              "            # Some older layers retain the original ttk method and can reset",
+              "            # a heading after composition. The data column is authoritative.",
+              "            if option == \"anchor\" and not kwargs:",
+              "                anchor = _original_column_call(self, column, \"anchor\")",
+              "                try:",
+              "                    _original_heading_call(",
+              "                        self, column, anchor=_normalize_anchor(anchor)",
+              "                    )",
+              "                except Exception:",
+              "                    pass",
+              "                return anchor",
+              "",
+              "            mutating = bool(kwargs)",
+              "            if mutating:",
+              "                try:",
+              "                    kwargs[\"anchor\"] = _normalize_anchor(",
+              "                        _original_column_call(self, column, \"anchor\")",
+              "                    )",
+              "                except Exception:",
+              "                    pass",
+              "            result = _original_heading_call(self, column, option, **kwargs)",
+              "            if mutating:",
+              "                schedule_separators(self)",
+              "            return result",
+          ]
+          replacement = "\n".join(lines)
+          path.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
           PY
 
       - name: Compile and validate 7.6 contracts
