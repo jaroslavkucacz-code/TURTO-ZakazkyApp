@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Reconstruct generated module and validator
+      - name: Reconstruct generated sources
         shell: bash
         run: |
           python - <<'PY'
@@ -41,20 +41,18 @@ jobs:
                   raise SystemExit((output, digest, expected))
               output.write_bytes(data)
           PY
-      - name: Show Treeview wrapper and project logic
+      - name: Show project and delayed callback implementation
         shell: bash
         run: |
-          echo '--- v760 lines 500-650 ---'
-          nl -ba /tmp/v760.py | sed -n '500,650p'
-          echo '--- v760 project references ---'
-          grep -n -C 8 'Poslední pohyb\|project_tree\|build_projects\|refresh_projects' /tmp/v760.py | head -n 420
-          echo '--- integration script project/test edits ---'
-          grep -n -C 8 'Poslední pohyb\|validate-real-ui\|heading' /tmp/integrate.py | head -n 420
-          echo '--- validator lines 160-230 after integration ---'
-          cp scripts/validate-real-ui.py /tmp/real-ui.py
-          cp ZakazkyApp_base_6.1/ZakazkyCRM.pyw /tmp/launcher.pyw
-          cp scripts/publish-update.sh /tmp/publish.sh
-          cp release_version.txt /tmp/release_version.txt
-          cp release_notes.txt /tmp/release_notes.txt
-          python /tmp/integrate.py
-          nl -ba scripts/validate-real-ui.py | sed -n '150,235p'
+          echo '--- project activity column ---'
+          nl -ba /tmp/v760.py | sed -n '810,955p'
+          echo '--- project toolbar/build/timestamp ---'
+          nl -ba /tmp/v760.py | sed -n '1030,1225p'
+          echo '--- task workspace ---'
+          nl -ba /tmp/v760.py | sed -n '1220,1450p'
+          echo '--- app initialization and delayed callbacks ---'
+          tail -n 360 /tmp/v760.py | nl -ba
+          echo '--- all after(...) calls ---'
+          grep -n -C 3 '\.after(' /tmp/v760.py
+          echo '--- build wrappers ---'
+          grep -n -C 5 'def build_' /tmp/v760.py
