@@ -39,19 +39,21 @@ app_path.write_text(app_text, encoding="utf-8")
 
 
 # 2) Make displaycolumns tolerant of the Windows/Tk symbolic-column failure.
-# Symbolic names remain the preferred readable form; when Tk rejects one, the
-# same order is applied through stable zero-based numeric column indices.
+# Symbolic names remain the preferred readable form.  When Tk rejects one, the
+# page falls back to its complete native column view instead of becoming unusable.
 layer_path = SOURCE / "v760_table_activity_performance.py"
 layer_text = layer_path.read_text(encoding="utf-8")
 if "def _set_displayed_columns(" not in layer_text:
     anchor = "\n\ndef _table_exists(con: Any, table: str) -> bool:\n"
     helper = '''\n\ndef _set_displayed_columns(tree: Any, ordered: Iterable[Any]) -> bool:
-    """Apply visible columns with a numeric fallback for Windows/Tk.
+    """Apply visible columns without allowing a layout error to break Akce.
 
     Some upgraded 7.5 layouts can report the new symbolic column but reject the
-    same name when it is written back to ``displaycolumns``.  Numeric indices are
-    part of the native Treeview contract and preserve the exact requested order.
-    A failed cosmetic layout update must never make the whole Akce page unusable.
+    same name when it is written back to ``displaycolumns`` on Windows/Tk.  The
+    native ``#all`` view is therefore the first compatibility fallback.  It can
+    reset a stale custom order, but it keeps every column visible and, most
+    importantly, leaves the project page fully usable.  Numeric indices remain a
+    last-resort fallback for unusual Tk builds.
     """
     columns = _all_columns(tree)
     desired: list[str] = []
@@ -66,11 +68,15 @@ if "def _set_displayed_columns(" not in layer_text:
         return True
     except Exception:
         try:
-            numeric = tuple(columns.index(column) for column in desired)
-            tree.configure(displaycolumns=numeric)
+            tree.configure(displaycolumns="#all")
             return True
         except Exception:
-            return False
+            try:
+                numeric = tuple(columns.index(column) for column in desired)
+                tree.configure(displaycolumns=numeric)
+                return True
+            except Exception:
+                return False
 '''
     if anchor not in layer_text:
         raise SystemExit("v760 helper insertion point not found")
@@ -144,8 +150,8 @@ layer_text = layer_text[:function_start] + new_function + layer_text[function_en
 layer_path.write_text(layer_text, encoding="utf-8")
 
 
-# 3) Extend the static/unit validator with the exact numeric-fallback contract
-# and verify that the canonical app now owns all eight Akce columns.
+# 3) Extend the static/unit validator with the exact compatibility contract and
+# verify that the canonical app now owns all eight core Akce columns.
 validator_path = ROOT / "scripts" / "validate-7600-table-activity-performance.py"
 validator = validator_path.read_text(encoding="utf-8")
 parse_anchor = '    assert layer._parse_activity_datetime("—") is None\n\n'
@@ -165,7 +171,7 @@ fallback_test = '''    assert layer._parse_activity_datetime("—") is None
             display = kwargs.get("displaycolumns")
             if display is None:
                 return None
-            values = tuple(display)
+            values = (display,) if isinstance(display, str) else tuple(display)
             if any(str(value) == layer.LAST_ACTIVITY_COLUMN for value in values):
                 self.symbolic_attempts += 1
                 raise RuntimeError('Invalid column index "Poslední pohyb"')
@@ -177,11 +183,11 @@ fallback_test = '''    assert layer._parse_activity_datetime("—") is None
         fallback_tree, ["Název Akce", layer.LAST_ACTIVITY_COLUMN]
     )
     assert fallback_tree.symbolic_attempts == 1
-    assert fallback_tree.displaycolumns == (0, 1), fallback_tree.displaycolumns
+    assert fallback_tree.displaycolumns == ("#all",), fallback_tree.displaycolumns
 
 '''
 validator = replace_once(
-    validator, parse_anchor, fallback_test, "numeric display-column regression test"
+    validator, parse_anchor, fallback_test, "safe display-column regression test"
 )
 validator = replace_once(
     validator,
@@ -211,7 +217,7 @@ validator = replace_once(
 validator = replace_once(
     validator,
     '        "OK 7.6.0: headings follow cells, commercial actions share title rows, "\n        "projects/tasks archive consistently and activity/performance queries are lean"\n',
-    '        "OK 7.6.1: Akce opens with a canonical last-activity column, "\n        "legacy layouts use a numeric fallback and all 7.6 contracts remain valid"\n',
+    '        "OK 7.6.1: Akce opens with a canonical last-activity column, "\n        "legacy layouts use a safe full-view fallback and all 7.6 contracts remain valid"\n',
     "validator success message",
 )
 validator_path.write_text(validator, encoding="utf-8")
@@ -219,8 +225,8 @@ validator_path.write_text(validator, encoding="utf-8")
 
 # 4) Reproduce the user's Windows error in the complete Tk application.  The
 # test hides the additive column like a saved 7.5 layout and deliberately makes
-# symbolic displaycolumns fail once.  The refresh must transparently retry with
-# numeric indices and leave the page usable.
+# symbolic displaycolumns fail once.  The refresh must restore a usable complete
+# view instead of propagating a TclError from the Akce tab.
 real_ui_path = ROOT / "scripts" / "validate-real-ui.py"
 real_ui = real_ui_path.read_text(encoding="utf-8")
 project_assert = '        assert "Poslední pohyb" in root.project_tree["columns"]\n'
@@ -288,7 +294,7 @@ real_ui_path.write_text(real_ui, encoding="utf-8")
 (ROOT / "release_notes.txt").write_text(
     "• Opravena chyba, při které po aktualizaci z verze 7.5.0 mohla záložka Akce skončit hlášením „Invalid column index Poslední pohyb“.\n"
     "• Sloupec Poslední pohyb je nyní součástí tabulky Akce už při jejím vytvoření, nikoli až při prvním otevření záložky.\n"
-    "• U starších uložených rozložení tabulek se při nekompatibilitě symbolického názvu automaticky použije bezpečný číselný index sloupce.\n"
+    "• Pokud starší uložené rozložení odmítne nový název sloupce, tabulka bezpečně obnoví úplné výchozí zobrazení všech sloupců.\n"
     "• Oprava nemění databázi, ceny, nabídky, vazby ani historické PDF revize.\n",
     encoding="utf-8",
 )
