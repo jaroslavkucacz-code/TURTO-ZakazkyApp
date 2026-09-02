@@ -217,6 +217,56 @@ def main() -> None:
             ), page_key
 
         assert "Poslední pohyb" in root.project_tree["columns"]
+
+        project_tree = root.project_tree
+        project_columns = tuple(str(column) for column in project_tree.cget("columns"))
+        legacy_project_columns = tuple(
+            column for column in project_columns if column != "Poslední pohyb"
+        )
+        original_project_configure = project_tree.configure
+        original_project_configure(displaycolumns=legacy_project_columns)
+        symbolic_failures = {"count": 0}
+
+        def windows_like_project_configure(cnf=None, **kwargs):
+            options = {}
+            if isinstance(cnf, dict):
+                options.update(cnf)
+            options.update(kwargs)
+            display = options.get("displaycolumns")
+            if display is not None:
+                if isinstance(display, str):
+                    values = project_tree.tk.splitlist(display)
+                else:
+                    values = tuple(display)
+                if any(str(value) == "Poslední pohyb" for value in values):
+                    symbolic_failures["count"] += 1
+                    raise app.tk.TclError('Invalid column index "Poslední pohyb"')
+            return original_project_configure(cnf, **kwargs)
+
+        project_tree.configure = windows_like_project_configure
+        project_tree.config = windows_like_project_configure
+        try:
+            root.refresh_projects()
+        finally:
+            del project_tree.configure
+            del project_tree.config
+        assert symbolic_failures["count"] == 1, symbolic_failures
+        raw_display = project_tree.cget("displaycolumns")
+        if isinstance(raw_display, str):
+            raw_display = project_tree.tk.splitlist(raw_display)
+        display_tokens = [str(value) for value in raw_display]
+        if not display_tokens or display_tokens == ["#all"]:
+            visible_project_columns = list(project_columns)
+        else:
+            visible_project_columns = []
+            for value in display_tokens:
+                if value.lstrip("-").isdigit():
+                    index = int(value)
+                    if 0 <= index < len(project_columns):
+                        visible_project_columns.append(project_columns[index])
+                elif value in project_columns:
+                    visible_project_columns.append(value)
+        assert "Poslední pohyb" in visible_project_columns, visible_project_columns
         assert len(getattr(root, "_v760_project_archive_controls", ())) == 3
         assert len(getattr(root, "_v760_task_archive_controls", ())) == 3
         assert getattr(root.project_tree, "_v760_context_owner", None) == "projects"

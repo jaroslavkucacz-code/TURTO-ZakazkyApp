@@ -73,6 +73,40 @@ def _displayed_columns(tree: Any) -> list[str]:
     return result
 
 
+def _set_displayed_columns(tree: Any, ordered: Iterable[Any]) -> bool:
+    """Apply visible columns without allowing a layout error to break Akce.
+
+    Some upgraded 7.5 layouts can report the new symbolic column but reject the
+    same name when it is written back to ``displaycolumns`` on Windows/Tk.  The
+    native ``#all`` view is therefore the first compatibility fallback.  It can
+    reset a stale custom order, but it keeps every column visible and, most
+    importantly, leaves the project page fully usable.  Numeric indices remain a
+    last-resort fallback for unusual Tk builds.
+    """
+    columns = _all_columns(tree)
+    desired: list[str] = []
+    for raw in ordered:
+        column = str(raw)
+        if column in columns and column not in desired:
+            desired.append(column)
+    if not desired:
+        return False
+    try:
+        tree.configure(displaycolumns=tuple(desired))
+        return True
+    except Exception:
+        try:
+            tree.configure(displaycolumns="#all")
+            return True
+        except Exception:
+            try:
+                numeric = tuple(columns.index(column) for column in desired)
+                tree.configure(displaycolumns=numeric)
+                return True
+            except Exception:
+                return False
+
+
 def _table_exists(con: Any, table: str) -> bool:
     try:
         return bool(
@@ -882,19 +916,34 @@ def apply(M: Any) -> None:
         if LAST_ACTIVITY_COLUMN not in columns:
             visible_before = _displayed_columns(tree)
             columns.append(LAST_ACTIVITY_COLUMN)
-            tree.configure(columns=tuple(columns))
-            tree.heading(
-                LAST_ACTIVITY_COLUMN,
-                text=LAST_ACTIVITY_COLUMN,
-                command=lambda current=tree: app.sort_tree(current, LAST_ACTIVITY_COLUMN),
-            )
-            tree.column(
-                LAST_ACTIVITY_COLUMN,
-                width=150,
-                minwidth=105,
-                stretch=False,
-                anchor="w",
-            )
+            try:
+                tree.configure(columns=tuple(columns))
+            except Exception:
+                return
+            # Re-read Tk's authoritative structure before addressing the column.
+            columns = _all_columns(tree)
+            if LAST_ACTIVITY_COLUMN not in columns:
+                return
+            try:
+                tree.heading(
+                    LAST_ACTIVITY_COLUMN,
+                    text=LAST_ACTIVITY_COLUMN,
+                    command=lambda current=tree: app.sort_tree(
+                        current, LAST_ACTIVITY_COLUMN
+                    ),
+                )
+            except Exception:
+                pass
+            try:
+                tree.column(
+                    LAST_ACTIVITY_COLUMN,
+                    width=150,
+                    minwidth=105,
+                    stretch=False,
+                    anchor="w",
+                )
+            except Exception:
+                pass
             try:
                 defaults = dict(getattr(tree, "_v700_default_widths", {}) or {})
                 defaults[LAST_ACTIVITY_COLUMN] = 150
@@ -905,19 +954,20 @@ def apply(M: Any) -> None:
             except Exception:
                 pass
             if LAST_ACTIVITY_COLUMN not in visible_before:
-                tree.configure(displaycolumns=tuple(visible_before + [LAST_ACTIVITY_COLUMN]))
+                _set_displayed_columns(
+                    tree, visible_before + [LAST_ACTIVITY_COLUMN]
+                )
             saver = getattr(M, "save_persistent_tree_layout", None)
             if callable(saver):
                 try:
                     saver(tree)
                 except Exception:
                     pass
-        # Old 7.5 layouts do not know this additive column yet.
+        # Existing 7.5 layouts may explicitly list only the original columns.
+        # Never send an unguarded symbolic identifier back to Tk here.
         visible_now = _displayed_columns(tree)
         if LAST_ACTIVITY_COLUMN not in visible_now:
-            tree.configure(
-                displaycolumns=tuple(visible_now + [LAST_ACTIVITY_COLUMN])
-            )
+            _set_displayed_columns(tree, visible_now + [LAST_ACTIVITY_COLUMN])
         install_tree_polish(tree)
 
     def refresh_projects(self: Any) -> None:
