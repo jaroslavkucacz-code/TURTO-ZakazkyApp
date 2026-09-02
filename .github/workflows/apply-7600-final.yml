@@ -6,6 +6,7 @@ on:
       - feature/7.6.0-table-activity-performance
     paths:
       - .github/workflows/apply-7600-final.yml
+      - scripts/_tmp760_finalize.py
 
 permissions:
   contents: write
@@ -117,6 +118,7 @@ jobs:
             ZakazkyApp_base_6.1/ZakazkyCRM.pyw \
             ZakazkyApp_base_6.1/v760_table_activity_performance.py \
             ZakazkyApp_base_6.1/price_lists_domain/platform/commercial_workspace.py \
+            ZakazkyApp_base_6.1/price_lists_domain/issued_offers/page.py \
             release_version.txt \
             release_notes.txt \
             scripts/publish-update.sh \
