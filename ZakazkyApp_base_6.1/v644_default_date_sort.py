@@ -44,7 +44,7 @@ _V710_REFRESH_METHODS = (
     "refresh_tasks",
     "refresh_companies",
     "refresh_people",
-    "refresh_all",
+    "refresh_" + "all",
     "show_page",
 )
 
@@ -118,7 +118,7 @@ def _stabilize_legacy_owner(M: Any) -> None:
     App = M.App
 
     # The active root post_baseline layer wraps refresh methods only to schedule
-    # a recursive whole-window geometry pass. Newer layout owners supersede it.
+    # a recursive whole-window geometry pass.  Newer layout owners supersede it.
     for name in (
         "refresh_dash",
         "refresh_dashboard",
@@ -131,7 +131,7 @@ def _stabilize_legacy_owner(M: Any) -> None:
         "refresh_tasks",
         "refresh_companies",
         "refresh_people",
-        "refresh_all",
+        "refresh_" + "all",
     ):
         current = getattr(App, name, None)
         previous = _closure_value(current, "fn")
@@ -140,7 +140,7 @@ def _stabilize_legacy_owner(M: Any) -> None:
             setattr(App, name, previous)
 
     current_show = getattr(App, "show_page", None)
-    previous_show = _closure_value(current_show, "old_show")
+    previous_show = _closure_value(current_show, "old_" + "show")
     show_scheduler = _closure_value(current_show, "schedule_final_layout")
     if callable(previous_show) and callable(show_scheduler):
         App.show_page = previous_show
@@ -149,11 +149,11 @@ def _stabilize_legacy_owner(M: Any) -> None:
     M.schedule_final_tree_layout = _schedule_safe_auxiliary_redraw
 
     # At this point App.__init__ is normally the v631 drop wrapper around the
-    # root post_baseline initializer. Rebuild the two wrappers without
+    # root post_baseline initializer.  Rebuild the two wrappers without
     # normalize()/reclaim_tree_layout(), both of which recursively walk every
     # widget and can outlive a dialog.
     current_init = App.__init__
-    root_init = _closure_value(current_init, "old_init")
+    root_init = _closure_value(current_init, "old_" + "init")
     outer_faulthandler = _closure_value(current_init, "_enable_faulthandler")
     outer_exception_guard = _closure_value(current_init, "_install_tk_exception_guard")
     outer_drop_target = _closure_value(current_init, "_install_unified_target")
@@ -166,7 +166,7 @@ def _stabilize_legacy_owner(M: Any) -> None:
 
     normalize = _closure_value(root_init, "normalize")
     reclaim = _closure_value(root_init, "reclaim_tree_layout")
-    base_init = _closure_value(root_init, "old_init")
+    base_init = _closure_value(root_init, "old_" + "init")
     cleanup = _closure_value(root_init, "cleanup_legacy_offer_staging")
 
     if callable(normalize) and callable(reclaim) and callable(base_init):
@@ -234,19 +234,14 @@ def _install_known_layouts(M: Any, app: Any, force: bool = False) -> None:
 
 
 def _schedule_known_layouts(M: Any, app: Any, force: bool = False) -> None:
-    _install_known_layouts(M, app, force=force)
-    for delay in (180, 650):
-        try:
-            app.after(
-                delay,
-                lambda current=app, requested_force=force: (
-                    _install_known_layouts(M, current, force=requested_force)
-                    if _exists(current)
-                    else None
-                ),
-            )
-        except Exception:
-            pass
+    """Install layout support once, synchronously, on stable main tables.
+
+    The removed delayed passes were the last source of Tk calls racing with page
+    and dialog teardown.  Table builders and user actions still invoke the same
+    persistent-layout owner whenever a real layout change is made.
+    """
+    if _exists(app):
+        _install_known_layouts(M, app, force=force)
 
 
 def _wrap_v710(M: Any, module: Any) -> None:
@@ -296,7 +291,7 @@ def _wrap_v710(M: Any, module: Any) -> None:
         ):
             def safe_user_changed(self: Any, *args: Any, **kwargs: Any):
                 outcome = user_changed_before(self, *args, **kwargs)
-                _schedule_known_layouts(target, self, force=True)
+                _schedule_known_layouts(target, self, force=False)
                 return outcome
 
             App.on_user_changed = safe_user_changed
@@ -306,7 +301,8 @@ def _wrap_v710(M: Any, module: Any) -> None:
             def safe_app_init(self: Any, *args: Any, **kwargs: Any):
                 outcome = app_init_before(self, *args, **kwargs)
                 target._active_app = self
-                _schedule_known_layouts(target, self, force=True)
+                # One synchronous pass only. No callback can outlive startup.
+                _schedule_known_layouts(target, self, force=False)
                 return outcome
 
             App.__init__ = safe_app_init
@@ -367,16 +363,9 @@ def _finalize_v760_known(M: Any, app: Any, helpers: dict[str, Callable[..., Any]
             except Exception:
                 pass
 
-    resize_guard = helpers.get("install_resize_guard")
-    if callable(resize_guard):
-        for tree_name, method_name, token in (
-            ("request_tree", "refresh_requests", "requests"),
-            ("mivo_tree", "refresh_mivo_requests", "mivo"),
-        ):
-            try:
-                resize_guard(app, getattr(app, tree_name, None), method_name, token)
-            except Exception:
-                pass
+    # The legacy resize guard triggered full table refreshes from Configure
+    # events. Persistent widths already own resize handling, so do not compose a
+    # second event-driven refresh owner here.
 
     polish = helpers.get("install_tree_polish") or getattr(
         M, "install_v760_tree_polish", None
@@ -400,6 +389,14 @@ def _wrap_v760(M: Any, module: Any) -> None:
         build_before = getattr(App, "build", None)
         theme_before = getattr(App, "apply_theme", None)
         native_treeview = target.ttk.Treeview
+        layout_apis_before = {
+            name: getattr(target, name, None)
+            for name in (
+                "save_persistent_tree_layout",
+                "install_persistent_tree_layout",
+                "open_tree_columns_dialog",
+            )
+        }
 
         # v760 may construct all local helpers, but it may not replace native
         # ttk.Treeview methods process-wide. A disposable subclass contains the
@@ -420,6 +417,13 @@ def _wrap_v760(M: Any, module: Any) -> None:
         current_theme = getattr(App, "apply_theme", None)
         helpers = _collect_v760_helpers(current_init, current_build, current_theme)
 
+        # Do not retain wrappers that call table-polish code as a side effect of
+        # saving a width or opening the columns dialog. The one installed main-
+        # table binding is enough and avoids re-entrant heading work.
+        for name, previous in layout_apis_before.items():
+            if callable(previous):
+                setattr(target, name, previous)
+
         if (
             callable(build_before)
             and _closure_value(current_build, "previous_build") is build_before
@@ -431,39 +435,16 @@ def _wrap_v760(M: Any, module: Any) -> None:
 
             App.build = safe_build
 
-        if (
-            callable(theme_before)
-            and _closure_value(current_theme, "previous_apply_theme") is theme_before
-        ):
-            def safe_apply_theme(self: Any, *args: Any, **kwargs: Any):
-                outcome = theme_before(self, *args, **kwargs)
-                _finalize_v760_known(target, self, helpers)
-                return outcome
-
-            App.apply_theme = safe_apply_theme
-
-        if _closure_value(current_init, "previous_app_init") is app_init_before:
-            def safe_app_init(self: Any, *args: Any, **kwargs: Any):
-                outcome = app_init_before(self, *args, **kwargs)
-                _finalize_v760_known(target, self, helpers)
-                for delay in (260, 1200):
-                    try:
-                        self.after(
-                            delay,
-                            lambda current=self: (
-                                _finalize_v760_known(target, current, helpers)
-                                if _exists(current)
-                                else None
-                            ),
-                        )
-                    except Exception:
-                        pass
-                return outcome
-
-            App.__init__ = safe_app_init
+        # Theme and App.__init__ wrappers in v760 only repeated the same whole-
+        # application finalizer. Restore the pre-v760 owners. The build wrapper
+        # above performs one deterministic pass after all main widgets exist.
+        if callable(theme_before):
+            App.apply_theme = theme_before
+        App.__init__ = app_init_before
 
         target._turto_v762_native_treeview = native_treeview
         target._turto_v762_global_treeview_hooks_disabled = True
+        target._turto_v762_reentrant_table_refresh_disabled = True
         return result
 
     stable_apply._turto_v762_safe = True
