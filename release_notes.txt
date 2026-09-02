@@ -1,4 +1,5 @@
 • Záhlaví všech tabulek se nyní zarovnává stejně jako buňky v příslušném sloupci. Číselné sloupce tak zůstávají vpravo, textové vlevo a středové sloupce uprostřed.
+• Zarovnání záhlaví zůstává stabilní také po načtení uloženého rozložení, změně pořadí sloupců a odloženém překreslení celé záložky.
 • Jednotlivé sloupce odděluje jemná jednobodová svislá linka. Linky sledují přesunutí, skrytí, změnu šířky i vodorovný posun sloupců.
 • Zlatá tlačítka Zpracovat nabídku, Importovat Ceník a Nová nabídka jsou přesunuta do pravé části titulního řádku stejně jako hlavní tlačítka ostatních záložek.
 • Navigace je sjednocena tak, že záložka Společnosti je umístěna mezi Osoby a Úkoly.
