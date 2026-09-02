@@ -122,6 +122,128 @@ jobs:
 
           module_path = Path("ZakazkyApp_base_6.1/v760_table_activity_performance.py")
           module_text = module_path.read_text(encoding="utf-8")
+
+          wrapper_start = module_text.index(
+              "        def sync_heading_anchors(tree: Any) -> None:\n"
+          )
+          wrapper_end = module_text.index(
+              "        def tree_xview(self: Any, *args: Any):\n",
+              wrapper_start,
+          )
+          wrapper = '''        def _fallback_column_token(tree: Any, column: Any) -> Any:
+            target = str(column)
+            columns = _all_columns(tree)
+            if target in columns:
+                return f"#{columns.index(target) + 1}"
+            return column
+
+        def _original_heading_call(
+            tree: Any, column: Any, option: Any = None, **kwargs: Any
+        ):
+            try:
+                return original_heading(tree, column, option, **kwargs)
+            except Exception:
+                fallback = _fallback_column_token(tree, column)
+                if str(fallback) == str(column):
+                    raise
+                return original_heading(tree, fallback, option, **kwargs)
+
+        def _original_column_call(
+            tree: Any, column: Any, option: Any = None, **kwargs: Any
+        ):
+            try:
+                return original_column(tree, column, option, **kwargs)
+            except Exception:
+                fallback = _fallback_column_token(tree, column)
+                if str(fallback) == str(column):
+                    raise
+                return original_column(tree, fallback, option, **kwargs)
+
+        def sync_heading_anchors(tree: Any) -> None:
+            for column in _all_columns(tree):
+                try:
+                    anchor = _normalize_anchor(
+                        _original_column_call(tree, column, "anchor")
+                    )
+                    _original_heading_call(tree, column, anchor=anchor)
+                except Exception:
+                    pass
+
+        def install_tree_polish(tree: Any) -> None:
+            if not _exists(tree):
+                return
+            first_install = not getattr(tree, "_v760_table_polish", False)
+            if first_install:
+                tree._v760_table_polish = True
+                for sequence in (
+                    "<Configure>",
+                    "<Map>",
+                    "<B1-Motion>",
+                    "<ButtonRelease-1>",
+                ):
+                    tree.bind(
+                        sequence,
+                        lambda _event, current=tree: schedule_separators(current),
+                        add="+",
+                    )
+            sync_heading_anchors(tree)
+            schedule_separators(tree, 0)
+            if first_install:
+                schedule_separators(tree, 90)
+
+        def tree_init(self: Any, *args: Any, **kwargs: Any):
+            original_init(self, *args, **kwargs)
+            try:
+                self.after_idle(lambda current=self: install_tree_polish(current))
+            except Exception:
+                pass
+
+        def tree_heading(self: Any, column: Any, option: Any = None, **kwargs: Any):
+            mutating = bool(kwargs)
+            if mutating:
+                try:
+                    kwargs["anchor"] = _normalize_anchor(
+                        _original_column_call(self, column, "anchor")
+                    )
+                except Exception:
+                    pass
+            result = _original_heading_call(self, column, option, **kwargs)
+            if mutating:
+                schedule_separators(self)
+            return result
+
+        def tree_column(self: Any, column: Any, option: Any = None, **kwargs: Any):
+            mutating = bool(kwargs)
+            result = _original_column_call(self, column, option, **kwargs)
+            if mutating:
+                try:
+                    _original_heading_call(
+                        self,
+                        column,
+                        anchor=_normalize_anchor(
+                            _original_column_call(self, column, "anchor")
+                        ),
+                    )
+                except Exception:
+                    pass
+                schedule_separators(self)
+            return result
+
+        def tree_configure(self: Any, cnf: Any = None, **kwargs: Any):
+            result = original_configure(self, cnf, **kwargs)
+            if cnf is not None or kwargs:
+                try:
+                    sync_heading_anchors(self)
+                    schedule_separators(self)
+                except Exception:
+                    pass
+            return result
+
+'''
+          module_text = (
+              module_text[:wrapper_start] + wrapper + module_text[wrapper_end:]
+          )
+
           start = module_text.index("    def add_project_activity_column(app: Any) -> None:\n")
           end = module_text.index("\n    def refresh_projects(self: Any) -> None:\n", start)
           block = module_text[start:end]
@@ -135,7 +257,11 @@ jobs:
           )
           if block.count(polish) != 1:
               raise SystemExit("Project activity polish point was not found exactly once")
-          module_text = module_text[:start] + block.replace(polish, visible_guard, 1) + module_text[end:]
+          module_text = (
+              module_text[:start]
+              + block.replace(polish, visible_guard, 1)
+              + module_text[end:]
+          )
           module_path.write_text(module_text, encoding="utf-8")
 
           commercial_path = Path(
@@ -224,4 +350,4 @@ jobs:
           git commit -m "Integrate TURTO CRM 7.6 tables, activity and performance"
           git push origin HEAD:feature/7.6.0-table-activity-performance
 
-# retry with the project activity column present from initial Treeview construction
+# retry with numeric Treeview fallback for dynamically composed columns
