@@ -15,7 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Reconstruct generated sources
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+      - name: Install runtime dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+      - name: Reconstruct and apply generated 7.6 sources
         shell: bash
         run: |
           python - <<'PY'
@@ -26,9 +33,8 @@ jobs:
 
           payload = Path("scripts/_tmp760_payload")
           specifications = (
-              ("module_*.b64", Path("/tmp/v760.py"), "96eb4f0253ff5c1317fddc85e83de2c1fb045b8f0311e2ee38b38b08b4f87e3f"),
+              ("module_*.b64", Path("ZakazkyApp_base_6.1/v760_table_activity_performance.py"), "96eb4f0253ff5c1317fddc85e83de2c1fb045b8f0311e2ee38b38b08b4f87e3f"),
               ("integrate_*.b64", Path("/tmp/integrate.py"), "03e20dd842786bffb9a6ef3801b288ea888dd69d039557bc88dda9ad443d8682"),
-              ("validator_*.b64", Path("/tmp/validate760.py"), "884d87708bd73f58b55d4ed3a519a18680de0dd54a6099cd5687ea63f181171d"),
           )
           for pattern, output, expected in specifications:
               encoded = "".join(
@@ -41,18 +47,91 @@ jobs:
                   raise SystemExit((output, digest, expected))
               output.write_bytes(data)
           PY
-      - name: Show project and delayed callback implementation
+          python /tmp/integrate.py
+      - name: Apply the final heading and title-row fixes
         shell: bash
         run: |
-          echo '--- project activity column ---'
-          nl -ba /tmp/v760.py | sed -n '810,955p'
-          echo '--- project toolbar/build/timestamp ---'
-          nl -ba /tmp/v760.py | sed -n '1030,1225p'
-          echo '--- task workspace ---'
-          nl -ba /tmp/v760.py | sed -n '1220,1450p'
-          echo '--- app initialization and delayed callbacks ---'
-          tail -n 360 /tmp/v760.py | nl -ba
-          echo '--- all after(...) calls ---'
-          grep -n -C 3 '\.after(' /tmp/v760.py
-          echo '--- build wrappers ---'
-          grep -n -C 5 'def build_' /tmp/v760.py
+          python - <<'PY'
+          from pathlib import Path
+
+          app_path = Path("ZakazkyApp_base_6.1/app.py")
+          text = app_path.read_text(encoding="utf-8")
+          old = (
+              '        for c,w in zip(cols,widths):\n'
+              '            t.heading(c,text=c,command=lambda col=c,tree=t:self.sort_tree(tree,col))\n'
+              '            t.column(c,width=w,anchor="w")\n'
+          )
+          new = (
+              '        for c,w in zip(cols,widths):\n'
+              '            t.column(c,width=w,anchor="w")\n'
+              '            t.heading(c,text=c,anchor=t.column(c,"anchor"),\n'
+              '                      command=lambda col=c,tree=t:self.sort_tree(tree,col))\n'
+          )
+          app_path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          path = Path("ZakazkyApp_base_6.1/price_lists_domain/platform/commercial_workspace.py")
+          text = path.read_text(encoding="utf-8")
+          old_title = (
+              '    app._offer_drop_area_ready = True\n'
+              '    app.title_label(page, "Přijaté nabídky")\n'
+          )
+          new_title = (
+              '    app._offer_drop_area_ready = True\n'
+              '    offer_import = getattr(app, "import_offer_sources", None)\n'
+              '    title_row = M.ttk.Frame(page, style="App.TFrame")\n'
+              '    title_row.pack(fill="x", pady=(0, 12))\n'
+              '    M.ttk.Label(title_row, text="Přijaté nabídky", style="Title.TLabel").pack(side="left", anchor="n")\n'
+              '    if callable(offer_import):\n'
+              '        M.ttk.Button(\n'
+              '            title_row, text="📥 Zpracovat nabídku", style="Accent.TButton",\n'
+              '            command=lambda: _run_after_invalidation(app, offer_import, offers=True),\n'
+              '        ).pack(side="right", anchor="n", pady=(2, 0))\n'
+          )
+          old_button = (
+              '    if callable(getattr(app, "import_offer_sources", None)):\n'
+              '        M.ttk.Button(\n'
+              '            command, text="📥 Zpracovat nabídku", style="Accent.TButton",\n'
+              '            command=lambda: _run_after_invalidation(app, app.import_offer_sources, offers=True),\n'
+              '        ).pack(side="left")\n'
+          )
+          text = text.replace(old_title, new_title, 1).replace(old_button, "", 1)
+          path.write_text(text, encoding="utf-8")
+          PY
+      - name: Instrument real UI validation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/validate-real-ui.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''        for tree in all_trees:
+            for column in tree["columns"]:
+                assert tree.heading(column, "anchor") == tree.column(column, "anchor"), (
+                    str(tree), column, tree.heading(column, "anchor"), tree.column(column, "anchor")
+                )
+'''
+          new = '''        broken_columns = []
+        for tree in all_trees:
+            snapshot = tuple(tree["columns"])
+            print("V760-TREE", str(tree), "parent=", str(tree.master), "mapped=", tree.winfo_ismapped(), "columns=", snapshot, flush=True)
+            for column in snapshot:
+                try:
+                    heading_anchor = tree.heading(column, "anchor")
+                    column_anchor = tree.column(column, "anchor")
+                except Exception as exc:
+                    current = tuple(tree["columns"]) if tree.winfo_exists() else ()
+                    print("V760-BROKEN", str(tree), repr(column), type(exc).__name__, str(exc), "exists=", tree.winfo_exists(), "current=", current, flush=True)
+                    broken_columns.append((str(tree), str(column), type(exc).__name__, str(exc), current))
+                    continue
+                assert heading_anchor == column_anchor, (str(tree), column, heading_anchor, column_anchor)
+        print("V760-BROKEN-SUMMARY", broken_columns, flush=True)
+'''
+          if old not in text:
+              raise SystemExit("real UI heading loop not found")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+      - name: Ensure virtual display
+        run: command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
+      - name: Run instrumented real UI
+        run: timeout 180s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
