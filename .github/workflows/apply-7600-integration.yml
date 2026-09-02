@@ -75,29 +75,63 @@ jobs:
           python scripts/_tmp760_integrate.py
           rm -rf scripts/_tmp760_payload scripts/_tmp760_integrate.py
 
-      - name: Fix canonical Treeview heading alignment
+      - name: Finalize canonical table and commercial title layout
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          path = Path("ZakazkyApp_base_6.1/app.py")
-          text = path.read_text(encoding="utf-8")
-          old = (
+          app_path = Path("ZakazkyApp_base_6.1/app.py")
+          app_text = app_path.read_text(encoding="utf-8")
+          old_tree = (
               '        for c,w in zip(cols,widths):\n'
               '            t.heading(c,text=c,command=lambda col=c,tree=t:self.sort_tree(tree,col))\n'
               '            t.column(c,width=w,anchor="w")\n'
           )
-          new = (
+          new_tree = (
               '        for c,w in zip(cols,widths):\n'
               '            # Configure the data cell first, then mirror its alignment in the heading.\n'
               '            t.column(c,width=w,anchor="w")\n'
               '            t.heading(c,text=c,anchor=t.column(c,"anchor"),\n'
               '                      command=lambda col=c,tree=t:self.sort_tree(tree,col))\n'
           )
-          if old not in text:
+          if old_tree not in app_text:
               raise SystemExit("Canonical App.tree block was not found")
-          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          app_path.write_text(app_text.replace(old_tree, new_tree, 1), encoding="utf-8")
+
+          commercial_path = Path(
+              "ZakazkyApp_base_6.1/price_lists_domain/platform/commercial_workspace.py"
+          )
+          commercial = commercial_path.read_text(encoding="utf-8")
+          old_title = (
+              '    app._offer_drop_area_ready = True\n'
+              '    app.title_label(page, "Přijaté nabídky")\n'
+          )
+          new_title = (
+              '    app._offer_drop_area_ready = True\n'
+              '    offer_import = getattr(app, "import_offer_sources", None)\n'
+              '    if callable(offer_import):\n'
+              '        app.title_label(\n'
+              '            page, "Přijaté nabídky", "📥 Zpracovat nabídku",\n'
+              '            lambda: _run_after_invalidation(app, offer_import, offers=True),\n'
+              '        )\n'
+              '    else:\n'
+              '        app.title_label(page, "Přijaté nabídky")\n'
+          )
+          old_button = (
+              '    if callable(getattr(app, "import_offer_sources", None)):\n'
+              '        M.ttk.Button(\n'
+              '            command, text="📥 Zpracovat nabídku", style="Accent.TButton",\n'
+              '            command=lambda: _run_after_invalidation(app, app.import_offer_sources, offers=True),\n'
+              '        ).pack(side="left")\n'
+          )
+          if old_title not in commercial:
+              raise SystemExit("Received-offer title block was not found")
+          if old_button not in commercial:
+              raise SystemExit("Received-offer toolbar action block was not found")
+          commercial = commercial.replace(old_title, new_title, 1)
+          commercial = commercial.replace(old_button, "", 1)
+          commercial_path.write_text(commercial, encoding="utf-8")
           PY
 
       - name: Compile source
@@ -136,6 +170,7 @@ jobs:
             ZakazkyApp_base_6.1/app.py \
             ZakazkyApp_base_6.1/ZakazkyCRM.pyw \
             ZakazkyApp_base_6.1/v760_table_activity_performance.py \
+            ZakazkyApp_base_6.1/price_lists_domain/platform/commercial_workspace.py \
             release_version.txt \
             release_notes.txt \
             scripts/publish-update.sh \
@@ -147,4 +182,4 @@ jobs:
           git commit -m "Integrate TURTO CRM 7.6 tables, activity and performance"
           git push origin HEAD:feature/7.6.0-table-activity-performance
 
-# retry with canonical heading alignment applied before the real UI test
+# retry with canonical heading and title-row actions applied before the real UI test
