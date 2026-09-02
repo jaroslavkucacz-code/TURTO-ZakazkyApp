@@ -188,14 +188,40 @@ def tree_configure(self: Any, cnf: Any = None, **kwargs: Any):
     path.write_text(text, encoding="utf-8")
 
 
-def patch_received_offer_title() -> None:
+def patch_commercial_titles() -> None:
     path = SOURCE / "price_lists_domain" / "platform" / "commercial_workspace.py"
     text = path.read_text(encoding="utf-8")
-    old_title = (
+
+    price_title = '    app.title_label(page, "Ceníky")\n'
+    price_title_row = (
+        '    price_import = getattr(app, "import_price_list", None)\n'
+        '    title_row = M.ttk.Frame(page, style="App.TFrame")\n'
+        '    title_row.pack(fill="x", pady=(0, 12))\n'
+        '    M.ttk.Label(\n'
+        '        title_row, text="Ceníky", style="Title.TLabel"\n'
+        '    ).pack(side="left", anchor="n")\n'
+        '    if callable(price_import):\n'
+        '        M.ttk.Button(\n'
+        '            title_row, text="+ Importovat Ceník", style="Accent.TButton",\n'
+        '            command=lambda: _run_after_invalidation(\n'
+        '                app, price_import, prices=True\n'
+        '            ),\n'
+        '        ).pack(side="right", anchor="n", pady=(2, 0))\n'
+    )
+    price_button = (
+        '    M.ttk.Button(\n'
+        '        command, text="+ Importovat Ceník", style="Accent.TButton",\n'
+        '        command=lambda: _run_after_invalidation(app, app.import_price_list, prices=True),\n'
+        '    ).pack(side="left")\n'
+    )
+    text = replace_once(text, price_title, price_title_row, "price-list title row")
+    text = replace_once(text, price_button, "", "price-list legacy toolbar button")
+
+    offer_title = (
         '    app._offer_drop_area_ready = True\n'
         '    app.title_label(page, "Přijaté nabídky")\n'
     )
-    new_title = (
+    offer_title_row = (
         '    app._offer_drop_area_ready = True\n'
         '    offer_import = getattr(app, "import_offer_sources", None)\n'
         '    title_row = M.ttk.Frame(page, style="App.TFrame")\n'
@@ -211,22 +237,47 @@ def patch_received_offer_title() -> None:
         '            ),\n'
         '        ).pack(side="right", anchor="n", pady=(2, 0))\n'
     )
-    old_button = (
+    offer_button = (
         '    if callable(getattr(app, "import_offer_sources", None)):\n'
         '        M.ttk.Button(\n'
         '            command, text="📥 Zpracovat nabídku", style="Accent.TButton",\n'
         '            command=lambda: _run_after_invalidation(app, app.import_offer_sources, offers=True),\n'
         '        ).pack(side="left")\n'
     )
-    text = replace_once(text, old_title, new_title, "received-offer title row")
-    text = replace_once(text, old_button, "", "received-offer legacy toolbar button")
+    text = replace_once(text, offer_title, offer_title_row, "received-offer title row")
+    text = replace_once(text, offer_button, "", "received-offer legacy toolbar button")
+    path.write_text(text, encoding="utf-8")
+
+
+def patch_issued_offer_title() -> None:
+    path = SOURCE / "price_lists_domain" / "issued_offers" / "page.py"
+    text = path.read_text(encoding="utf-8")
+    old_title = '    app.title_label(page, "Vydané nabídky")\n'
+    new_title = (
+        '    title_row = M.ttk.Frame(page, style="App.TFrame")\n'
+        '    title_row.pack(fill="x", pady=(0, 12))\n'
+        '    M.ttk.Label(\n'
+        '        title_row, text="Vydané nabídky", style="Title.TLabel"\n'
+        '    ).pack(side="left", anchor="n")\n'
+        '    M.ttk.Button(\n'
+        '        title_row, text="+ Nová nabídka", style="Accent.TButton",\n'
+        '        command=lambda: app.open_issued_offer_editor(),\n'
+        '    ).pack(side="right", anchor="n", pady=(2, 0))\n'
+    )
+    old_button = (
+        '    M.ttk.Button(toolbar, text="+ Nová nabídka", style="Accent.TButton", '
+        'command=lambda: app.open_issued_offer_editor()).pack(side="left")\n'
+    )
+    text = replace_once(text, old_title, new_title, "issued-offer title row")
+    text = replace_once(text, old_button, "", "issued-offer legacy toolbar button")
     path.write_text(text, encoding="utf-8")
 
 
 def main() -> None:
     patch_app_tree()
     patch_v760_treeview()
-    patch_received_offer_title()
+    patch_commercial_titles()
+    patch_issued_offer_title()
     print("Finalized TURTO CRM 7.6 source")
 
 
