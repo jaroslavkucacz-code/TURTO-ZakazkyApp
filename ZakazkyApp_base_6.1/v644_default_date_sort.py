@@ -1,6 +1,7 @@
 # TURTO CRM 7.6.2 - default sorting and native Tk startup stability
 from __future__ import annotations
 
+import os
 import sys
 from datetime import datetime
 from typing import Any, Callable
@@ -191,6 +192,10 @@ def _stabilize_legacy_owner(M: Any) -> None:
                 (1800, outer_exception_guard),
                 (3000, outer_drop_target),
             ):
+                # Headless integration tests install their own callback capture.
+                # Keep that handler intact so the exact traceback is visible.
+                if function is outer_exception_guard and os.environ.get("TURTO_DISABLE_AUTO_UPDATE"):
+                    continue
                 if callable(function):
                     try:
                         self.after(
