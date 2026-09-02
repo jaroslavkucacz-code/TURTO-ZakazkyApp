@@ -25,6 +25,34 @@ def main() -> None:
     assert layer._parse_activity_datetime("2026-09-01 19:30:00")
     assert layer._parse_activity_datetime("—") is None
 
+    class SymbolicDisplayFallbackTree:
+        def __init__(self):
+            self.columns = ("Název Akce", layer.LAST_ACTIVITY_COLUMN)
+            self.displaycolumns = ("Název Akce",)
+            self.tk = SimpleNamespace(splitlist=lambda value: tuple(value))
+            self.symbolic_attempts = 0
+
+        def cget(self, option):
+            return self.columns if option == "columns" else self.displaycolumns
+
+        def configure(self, *args, **kwargs):
+            display = kwargs.get("displaycolumns")
+            if display is None:
+                return None
+            values = (display,) if isinstance(display, str) else tuple(display)
+            if any(str(value) == layer.LAST_ACTIVITY_COLUMN for value in values):
+                self.symbolic_attempts += 1
+                raise RuntimeError('Invalid column index "Poslední pohyb"')
+            self.displaycolumns = values
+            return None
+
+    fallback_tree = SymbolicDisplayFallbackTree()
+    assert layer._set_displayed_columns(
+        fallback_tree, ["Název Akce", layer.LAST_ACTIVITY_COLUMN]
+    )
+    assert fallback_tree.symbolic_attempts == 1
+    assert fallback_tree.displaycolumns == ("#all",), fallback_tree.displaycolumns
+
     class DummyTree:
         _turto_v760_table_polish_class = True
 
@@ -327,6 +355,7 @@ def main() -> None:
     for token in (
         'LAST_ACTIVITY_COLUMN = "Poslední pohyb"',
         "sync_heading_anchors",
+        "_set_displayed_columns",
         "_v760_separator_widgets",
         "promote_accent_button",
         'order.insert(people_index + 1, "companies")',
@@ -339,21 +368,28 @@ def main() -> None:
     ):
         assert token in layer_text, token
 
+    app_text = (source / "app.py").read_text(encoding="utf-8")
+    project_start = app_text.index("    def build_projects(self):\n")
+    project_end = app_text.index("\n    def build_people(self):\n", project_start)
+    project_block = app_text[project_start:project_end]
+    assert "widths=(300,300,220,220,100,100,90,150)" in project_block
+    assert '"Příležitostí","Poslední pohyb"' in project_block
+
     launcher = (source / "ZakazkyCRM.pyw").read_text(encoding="utf-8")
     assert "v760_table_activity_performance" in launcher
     assert launcher.index("v750_context_filters_offer_format.apply(app)") < launcher.index(
         "v760_table_activity_performance.apply(app)"
     )
     version = (repository / "release_version.txt").read_text(encoding="utf-8").strip()
-    assert version == "7.6.0", version
+    assert version == "7.6.1", version
     publish = (repository / "scripts" / "publish-update.sh").read_text(encoding="utf-8")
     assert "validate-7600-table-activity-performance.py" in publish
     assert "v760_table_activity_performance.py" in publish
     real_ui = (repository / "scripts" / "validate-real-ui.py").read_text(encoding="utf-8")
     assert "v760_table_activity_performance.apply(app)" in real_ui
     print(
-        "OK 7.6.0: headings follow cells, commercial actions share title rows, "
-        "projects/tasks archive consistently and activity/performance queries are lean"
+        "OK 7.6.1: Akce opens with a canonical last-activity column, "
+        "legacy layouts use a safe full-view fallback and all 7.6 contracts remain valid"
     )
 
 

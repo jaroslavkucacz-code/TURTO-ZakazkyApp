@@ -1,10 +1,4 @@
-• Záhlaví všech tabulek se nyní zarovnává stejně jako buňky v příslušném sloupci. Číselné sloupce tak zůstávají vpravo, textové vlevo a středové sloupce uprostřed.
-• Zarovnání záhlaví zůstává stabilní také po načtení uloženého rozložení, změně pořadí sloupců a odloženém překreslení celé záložky.
-• Jednotlivé sloupce odděluje jemná jednobodová svislá linka. Linky sledují přesunutí, skrytí, změnu šířky i vodorovný posun sloupců.
-• Zlatá tlačítka Zpracovat nabídku, Importovat Ceník a Nová nabídka jsou přesunuta do pravé části titulního řádku stejně jako hlavní tlačítka ostatních záložek.
-• Navigace je sjednocena tak, že záložka Společnosti je umístěna mezi Osoby a Úkoly.
-• Úkoly a připomínky mají stejné ovládání archivu jako ostatní přehledy: vlevo Zobrazit archivované a vpravo Archivovat vybrané a Obnovit vybrané. Archiv je dostupný také pravým tlačítkem na řádek.
-• Akce nyní podporují archivaci a obnovení bez mazání navázaných Příležitostí, Poptávek, nabídek, úkolů nebo historie.
-• Do Akcí byl doplněn sloupec Poslední pohyb. Zohledňuje změny Akce a Příležitostí, historii, Poptávky, Úkoly, Přijaté nabídky i Vydané nabídky.
-• Výkon byl upraven bez změny funkčního chování: čekající Poptávky se počítají jedním seskupeným SQL dotazem, přepočty při změně velikosti tabulek jsou sloučené, počty upozornění vznikají agregačními dotazy a byly doplněny bezpečné databázové indexy.
-• Aktualizace je aditivní. Doplňuje pouze archivní a časové údaje Akcí a Úkolů a nové indexy; existující záznamy, ceny, nabídky ani historické PDF revize se nepřepisují.
+• Opravena chyba, při které po aktualizaci z verze 7.5.0 mohla záložka Akce skončit hlášením „Invalid column index Poslední pohyb“.
+• Sloupec Poslední pohyb je nyní součástí tabulky Akce už při jejím vytvoření, nikoli až při prvním otevření záložky.
+• Pokud starší uložené rozložení odmítne nový název sloupce, tabulka bezpečně obnoví úplné výchozí zobrazení všech sloupců.
+• Oprava nemění databázi, ceny, nabídky, vazby ani historické PDF revize.
