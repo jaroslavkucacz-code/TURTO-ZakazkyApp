@@ -1,6 +1,0 @@
-{
-  "version": "7.6.3",
-  "file": "ZakazkyApp_v7.6.3.zip",
-  "sha256": "153233155dd09ba3bd02ea411d812a61434035a6940a357d2e322a966475eee5",
-  "notes": "• Opraveno chybějící záhlaví tabulky Akce po spuštění. Záhlaví se nyní obnoví přímo při sestavení a každém obnovení této konkrétní tabulky, bez globálního procházení oken.\n• Opravena chyba Nastavení sloupců „Invalid column index \\\"Poslední pohyb\\\"“. Editor šířek a pořadí nyní používá bezpečný poziční identifikátor sloupce, pokud Windows/Tk odmítne symbolický název.\n• Změna zachovává uživatelské šířky, viditelnost a pořadí sloupců a nevrací rizikové procesní přepisování ttk.Treeview odstraněné ve verzi 7.6.2.\n• Databázové schéma ani uživatelská data, nabídky, ceny, vazby a historické PDF revize se nemění."
-}

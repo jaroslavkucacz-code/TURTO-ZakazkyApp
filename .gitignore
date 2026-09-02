@@ -1,0 +1,9 @@
+TURTO_Izolacni_nosniky/__pycache__/
+TURTO_Izolacni_nosniky/**/*.pyc
+TURTO_Izolacni_nosniky/catalogs/schoeck_cz_2024_1_2024_09.json
+TURTO_Izolacni_nosniky/catalogs/isopro_2018_en.json
+TURTO_Izolacni_nosniky/catalogs/maxfrank_egcobox_2022_10_24.sqlite
+TURTO_Izolacni_nosniky/catalogs/*.seed.sha256
+TURTO_Izolacni_nosniky/assets/app_icon.png
+TURTO_Izolacni_nosniky/assets/app_icon.ico
+TURTO_Izolacni_nosniky/assets/*.seed.sha256

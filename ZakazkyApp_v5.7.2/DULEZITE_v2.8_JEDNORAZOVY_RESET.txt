@@ -1,8 +1,0 @@
-ZakázkyApp v2.8 – jednorázová obnova dat
-
-Při PRVNÍM spuštění v2.8:
-1. současná pracovní databáze se zazálohuje,
-2. pracovní data se nahradí čistou databází vytvořenou z původního 00_AKCE(1).xlsx,
-3. vytvoří se marker, takže se reset již podruhé neprovede.
-
-Od následující verze se data opět běžně zachovávají mezi verzemi.
