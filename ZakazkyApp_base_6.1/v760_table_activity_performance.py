@@ -596,6 +596,18 @@ def apply(M: Any) -> None:
 
 
         def tree_heading(self: Any, column: Any, option: Any = None, **kwargs: Any):
+            # Some older layers retain the original ttk method and can reset
+            # a heading after composition. The data column is authoritative.
+            if option == "anchor" and not kwargs:
+                anchor = _original_column_call(self, column, "anchor")
+                try:
+                    _original_heading_call(
+                        self, column, anchor=_normalize_anchor(anchor)
+                    )
+                except Exception:
+                    pass
+                return anchor
+
             mutating = bool(kwargs)
             if mutating:
                 try:
@@ -608,7 +620,6 @@ def apply(M: Any) -> None:
             if mutating:
                 schedule_separators(self)
             return result
-
 
         def tree_column(self: Any, column: Any, option: Any = None, **kwargs: Any):
             mutating = bool(kwargs)
