@@ -12,9 +12,11 @@ import Gerotop_Nabidky as legacy
 
 
 LEGACY_CODE_RE = re.compile(r'^\d{3}-\d{3}-\d{3}$')
-MODERN_CODE_RE = re.compile(
-    r'^\d{3}-\d{3,4}-[A-Z0-9]{3}(?:-[A-Z0-9]{2,8})?$'
+PRODUCT_CODE_RE = re.compile(
+    r'^\d{3}-\d{3,4}-[A-Z0-9]{3}(?:-[A-Z0-9.,]{2,12})?$',
+    re.I,
 )
+MODERN_CODE_RE = PRODUCT_CODE_RE
 
 
 def clean_text(text):
@@ -59,30 +61,32 @@ def _percent(text):
     return cz_num(match.group(1)) if match else None
 
 
-def _modern_anchors(page):
+def _row_anchors(page):
     rows = []
     for block in page.get_text('blocks'):
-        text = clean_text(block[4])
-        if (
-            MODERN_CODE_RE.fullmatch(text)
-            and not LEGACY_CODE_RE.fullmatch(text)
-        ):
-            rows.append((text, (block[1] + block[3]) / 2))
+        code = clean_text(block[4])
+        if PRODUCT_CODE_RE.fullmatch(code):
+            rows.append((code, (block[1] + block[3]) / 2))
     rows.sort(key=lambda item: item[1])
     return rows
+
+
+def _modern_anchors(page):
+    return _row_anchors(page)
 
 
 def _is_modern_pdf(pdf_path):
     try:
         with fitz.open(pdf_path) as doc:
-            text = '\n'.join(
-                page.get_text('text')
-                for page in doc[:2]
-            ).upper()
+            text = '\n'.join(page.get_text('text') for page in doc[:2]).upper()
             return (
                 'GEROTOP' in text
                 and 'NABÍDK' in text
-                and any(_modern_anchors(page) for page in doc[:2])
+                and 'ČÍSLO NÁVRHU' in text
+                and 'PRACOVNÍ NÁZEV AKCE' in text
+                and 'JEDNOTKOVÁ' in text
+                and 'CENA PO SLEVĚ' in text
+                and any(_row_anchors(page) for page in doc[:2])
             )
     except Exception:
         return False
@@ -271,42 +275,25 @@ def _row_values(page, row_y):
 def _extract_row_image(doc, page, top, bottom):
     candidates = []
     for image in page.get_images(full=True):
-        xref = image[0]
         try:
-            rects = page.get_image_rects(xref)
+            rects = page.get_image_rects(image[0])
         except Exception:
             continue
-
         for rect in rects:
             center_y = (rect.y0 + rect.y1) / 2
             if not (top <= center_y < bottom):
                 continue
             if rect.width < 18 or rect.height < 18:
                 continue
-            # Product image column lies between description and price table.
-            if (
-                rect.x0 < page.rect.width * 0.42
-                or rect.x1 > page.rect.width * 0.72
-            ):
+            if rect.x0 < page.rect.width * 0.42 or rect.x1 > page.rect.width * 0.72:
                 continue
-            candidates.append((rect.width * rect.height, image))
-
+            candidates.append((rect.width * rect.height, rect))
     if not candidates:
         return None, None
-
-    _area, image = max(candidates, key=lambda item: item[0])
-    xref = int(image[0])
-    smask = int(image[1] or 0) if len(image) > 1 else 0
-
+    _area, rect = max(candidates, key=lambda item: item[0])
     try:
-        if smask:
-            base = fitz.Pixmap(doc, xref)
-            mask = fitz.Pixmap(doc, smask)
-            pixmap = fitz.Pixmap(base, mask)
-            return pixmap.tobytes('png'), 'png'
-
-        data = doc.extract_image(xref)
-        return data['image'], data.get('ext', 'png')
+        pixmap = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=rect, alpha=False)
+        return pixmap.tobytes('png'), 'png'
     except Exception:
         return None, None
 
@@ -329,7 +316,7 @@ def _parse_modern(pdf_path):
         position = 10
 
         for page in doc:
-            anchors = _modern_anchors(page)
+            anchors = _row_anchors(page)
             for index, (code, row_y) in enumerate(anchors):
                 top = (
                     (anchors[index - 1][1] + row_y) / 2
@@ -387,7 +374,7 @@ def _parse_modern(pdf_path):
                         'description': title,
                         # Repeated placeholder product codes are allowed;
                         # the descriptive item key remains unique/stable.
-                        'item_key': title,
+                        'item_key': f'{position}:{code}:{title}',
                         'details': details,
                         'bullets': bullets,
                         'rich_segments': rich_segments,
@@ -450,5 +437,35 @@ def parse_offer(pdf_path):
     return legacy.parse_offer(pdf_path)
 
 
-# Keep one proven Excel implementation for both generations.
-export_excel = legacy.export_excel
+# Keep the proven workbook layout but avoid Excel Place-in-Cell images,
+# which can appear as #VALUE! in clients that do not support the feature.
+def export_excel(data, output_path, price_alerts=None):
+    try:
+        from xlsxwriter.worksheet import Worksheet
+        from PIL import Image
+    except Exception:
+        return legacy.export_excel(data, output_path, price_alerts=price_alerts)
+    original_embed = getattr(Worksheet, 'embed_image', None)
+    if not callable(original_embed):
+        return legacy.export_excel(data, output_path, price_alerts=price_alerts)
+    def compatible_embed(sheet, row, col, filename, options=None):
+        opts = dict(options or {})
+        image_data = opts.get('image_data')
+        scale = 1.0
+        if image_data is not None:
+            try:
+                image_data.seek(0)
+                with Image.open(image_data) as image:
+                    width, height = image.size
+                image_data.seek(0)
+                if width and height:
+                    scale = min(220.0 / width, 120.0 / height, 1.0)
+            except Exception:
+                pass
+        opts.update({'object_position': 1, 'x_scale': scale, 'y_scale': scale, 'x_offset': 4, 'y_offset': 4})
+        return sheet.insert_image(row, col, filename, opts)
+    Worksheet.embed_image = compatible_embed
+    try:
+        return legacy.export_excel(data, output_path, price_alerts=price_alerts)
+    finally:
+        Worksheet.embed_image = original_embed

@@ -377,7 +377,7 @@ def main() -> None:
         "v760_table_activity_performance.apply(app)"
     )
     version = (repository / "release_version.txt").read_text(encoding="utf-8").strip()
-    assert version in {"7.6.1", "7.6.2", "7.6.3"}, version
+    assert version in {"7.6.1", "7.6.2", "7.6.3", "7.6.4"}, version
     publish = (repository / "scripts" / "publish-update.sh").read_text(encoding="utf-8")
     assert "validate-7600-table-activity-performance.py" in publish
     assert "v760_table_activity_performance.py" in publish
