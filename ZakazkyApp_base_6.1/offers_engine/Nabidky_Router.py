@@ -27,6 +27,17 @@ def _register_builtin(name,detect,parse,export=None):
     BUILTINS.append({'supplier':name,'detect':detect,'parse':parse,'export':export})
 
 
+def _strip_images(data):
+    """Images are intentionally not part of received-offer extraction/storage."""
+    if not data:
+        return data
+    data['images_disabled'] = True
+    for item in data.get('items',[]):
+        item['image_bytes'] = None
+        item['image_ext'] = None
+    return data
+
+
 def _leviat_detect(path):
     try:
         d=leviat.parse_offer(str(path));return bool(d and d.get('offer_no'))
@@ -36,8 +47,8 @@ def _leviat_detect(path):
 def _leviat_parse(path):
     data=leviat.parse_offer(str(path));data['supplier']='Leviat';data['source_type']='PDF'
     for item in data.get('items',[]):
-        item.setdefault('item_key',item.get('description',''));item.setdefault('details','');item.setdefault('image_bytes',None);item.setdefault('image_ext',None)
-    return data
+        item.setdefault('item_key',item.get('description',''));item.setdefault('details','')
+    return _strip_images(data)
 
 
 _register_builtin('GEROtop',gerotop.detect_pdf,gerotop.parse_offer,gerotop.export_excel)
@@ -85,8 +96,8 @@ def parse_offer(pdf_path):
             if data:
                 data.setdefault('supplier',p['supplier']);data.setdefault('source_type','PDF')
                 for item in data.get('items',[]):
-                    item.setdefault('item_key',item.get('description',''));item.setdefault('details','');item.setdefault('image_bytes',None);item.setdefault('image_ext',None)
-                return data
+                    item.setdefault('item_key',item.get('description',''));item.setdefault('details','')
+                return _strip_images(data)
         except Exception as exc:
             matched_errors.append(f"{p['supplier']}: {exc}")
     if matched_errors:
@@ -95,6 +106,7 @@ def parse_offer(pdf_path):
 
 
 def export_excel(data, output_path, price_alerts=None):
+    data=_strip_images(data)
     supplier=data.get('supplier')
     for p in parsers():
         if p['supplier']==supplier and p.get('export'):

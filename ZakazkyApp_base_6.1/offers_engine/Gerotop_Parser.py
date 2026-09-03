@@ -1,8 +1,8 @@
 # Canonical GEROtop PDF parser entry point.
 #
-# Newer GEROtop / PROSTUPY offers use geometry-driven rows and product codes
-# such as 411-0150-030-XXX. Legacy PDFs keep using the proven original parser.
-# The router registers only this module, so there is one GEROtop mechanism.
+# Current GEROtop / PROSTUPY offers are read by geometry. Product rows are
+# anchored by code words in the left table column. Product images are
+# intentionally ignored: received-offer extraction stores text and prices only.
 import os
 import re
 
@@ -62,11 +62,29 @@ def _percent(text):
 
 
 def _row_anchors(page):
+    """Return product-code anchors from the real left-hand code column.
+
+    PyMuPDF does not guarantee that a visually separate code is a separate
+    text *block*. Current GEROtop files do, however, expose every code as an
+    individual word. Using words therefore keeps classic and extended codes
+    together and preserves repeated product rows.
+    """
     rows = []
-    for block in page.get_text('blocks'):
-        code = clean_text(block[4])
-        if PRODUCT_CODE_RE.fullmatch(code):
-            rows.append((code, (block[1] + block[3]) / 2))
+    width = float(page.rect.width)
+    seen = set()
+    for word in page.get_text('words'):
+        code = clean_text(word[4])
+        center_x = (word[0] + word[2]) / 2
+        center_y = (word[1] + word[3]) / 2
+        if center_x > width * 0.16:
+            continue
+        if not PRODUCT_CODE_RE.fullmatch(code):
+            continue
+        key = (code, round(center_y, 2))
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append((code, center_y))
     rows.sort(key=lambda item: item[1])
     return rows
 
@@ -93,7 +111,6 @@ def _is_modern_pdf(pdf_path):
 
 
 def detect_pdf(pdf_path):
-    # Keep the broad, proven GEROtop/PROSTUPY detector for both generations.
     return legacy.detect_pdf(pdf_path)
 
 
@@ -143,6 +160,7 @@ def _header(joined):
 
 def _description_block(page, top, bottom):
     candidates = []
+    width = float(page.rect.width)
     for block in page.get_text('dict').get('blocks', []):
         if 'lines' not in block:
             continue
@@ -150,6 +168,11 @@ def _description_block(page, top, bottom):
         bbox = block.get('bbox', (0, 0, 0, 0))
         center_y = (bbox[1] + bbox[3]) / 2
         if not (top <= center_y < bottom):
+            continue
+
+        # Ignore the left code and right numeric columns. This avoids a header
+        # or a price block winning over the product description.
+        if bbox[0] < width * 0.14 or bbox[0] > width * 0.68:
             continue
 
         text = clean_text(
@@ -221,13 +244,7 @@ def _title_and_description(page, top, bottom):
 
 
 def _row_values(page, row_y):
-    """
-    Read the numeric columns by geometry instead of PDF text-stream order.
-
-    Current GEROtop sheets place the right-side columns at stable relative
-    positions on the page:
-      quantity | original price | discount | discounted price | row total
-    """
+    """Read quantity and price columns from their visual X/Y positions."""
     width = float(page.rect.width)
     words = []
     for word in page.get_text('words'):
@@ -272,30 +289,15 @@ def _row_values(page, row_y):
     return quantity, original, discount, unit_price, item_total
 
 
-def _extract_row_image(doc, page, top, bottom):
-    candidates = []
-    for image in page.get_images(full=True):
-        try:
-            rects = page.get_image_rects(image[0])
-        except Exception:
-            continue
-        for rect in rects:
-            center_y = (rect.y0 + rect.y1) / 2
-            if not (top <= center_y < bottom):
-                continue
-            if rect.width < 18 or rect.height < 18:
-                continue
-            if rect.x0 < page.rect.width * 0.42 or rect.x1 > page.rect.width * 0.72:
-                continue
-            candidates.append((rect.width * rect.height, rect))
-    if not candidates:
-        return None, None
-    _area, rect = max(candidates, key=lambda item: item[0])
-    try:
-        pixmap = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=rect, alpha=False)
-        return pixmap.tobytes('png'), 'png'
-    except Exception:
-        return None, None
+def _without_images(data):
+    """Prevent images from entering exports, history or the CRM database."""
+    if not data:
+        return data
+    data['images_disabled'] = True
+    for item in data.get('items', []):
+        item['image_bytes'] = None
+        item['image_ext'] = None
+    return data
 
 
 def _parse_modern(pdf_path):
@@ -360,20 +362,11 @@ def _parse_modern(pdf_path):
                     for bullet in bullets
                 )
 
-                image_bytes, image_ext = _extract_row_image(
-                    doc,
-                    page,
-                    top,
-                    bottom,
-                )
-
                 items.append(
                     {
                         'position': position,
                         'product': code,
                         'description': title,
-                        # Repeated placeholder product codes are allowed;
-                        # the descriptive item key remains unique/stable.
                         'item_key': f'{position}:{code}:{title}',
                         'details': details,
                         'bullets': bullets,
@@ -385,8 +378,8 @@ def _parse_modern(pdf_path):
                         'discount_pct': discount or 0.0,
                         'unit_price': unit_price,
                         'item_total': item_total,
-                        'image_bytes': image_bytes,
-                        'image_ext': image_ext,
+                        'image_bytes': None,
+                        'image_ext': None,
                     }
                 )
                 position += 10
@@ -408,25 +401,27 @@ def _parse_modern(pdf_path):
             for item in items
         )
 
-        return {
-            'supplier': 'GEROtop',
-            'offer_no': offer_no,
-            'date': offer_date,
-            'reference': reference,
-            'gross': gross,
-            'discount_pct': (
-                (gross - net) / gross * 100
-                if gross
-                else 0
-            ),
-            'discount_value': net - gross,
-            'net': net,
-            'vat': None,
-            'total': None,
-            'source_pdf': os.path.basename(pdf_path),
-            'source_type': 'PDF',
-            'items': items,
-        }
+        return _without_images(
+            {
+                'supplier': 'GEROtop',
+                'offer_no': offer_no,
+                'date': offer_date,
+                'reference': reference,
+                'gross': gross,
+                'discount_pct': (
+                    (gross - net) / gross * 100
+                    if gross
+                    else 0
+                ),
+                'discount_value': net - gross,
+                'net': net,
+                'vat': None,
+                'total': None,
+                'source_pdf': os.path.basename(pdf_path),
+                'source_type': 'PDF',
+                'items': items,
+            }
+        )
     finally:
         doc.close()
 
@@ -434,38 +429,140 @@ def _parse_modern(pdf_path):
 def parse_offer(pdf_path):
     if _is_modern_pdf(pdf_path):
         return _parse_modern(pdf_path)
-    return legacy.parse_offer(pdf_path)
+    return _without_images(legacy.parse_offer(pdf_path))
 
 
-# Keep the proven workbook layout but avoid Excel Place-in-Cell images,
-# which can appear as #VALUE! in clients that do not support the feature.
 def export_excel(data, output_path, price_alerts=None):
+    """Create a compact extraction workbook without any image column."""
+    import xlsxwriter
+
+    data = _without_images(data)
+    workbook = xlsxwriter.Workbook(str(output_path))
     try:
-        from xlsxwriter.worksheet import Worksheet
-        from PIL import Image
-    except Exception:
-        return legacy.export_excel(data, output_path, price_alerts=price_alerts)
-    original_embed = getattr(Worksheet, 'embed_image', None)
-    if not callable(original_embed):
-        return legacy.export_excel(data, output_path, price_alerts=price_alerts)
-    def compatible_embed(sheet, row, col, filename, options=None):
-        opts = dict(options or {})
-        image_data = opts.get('image_data')
-        scale = 1.0
-        if image_data is not None:
-            try:
-                image_data.seek(0)
-                with Image.open(image_data) as image:
-                    width, height = image.size
-                image_data.seek(0)
-                if width and height:
-                    scale = min(220.0 / width, 120.0 / height, 1.0)
-            except Exception:
-                pass
-        opts.update({'object_position': 1, 'x_scale': scale, 'y_scale': scale, 'x_offset': 4, 'y_offset': 4})
-        return sheet.insert_image(row, col, filename, opts)
-    Worksheet.embed_image = compatible_embed
-    try:
-        return legacy.export_excel(data, output_path, price_alerts=price_alerts)
+        sheet = workbook.add_worksheet('Nabídka')
+        sheet.hide_gridlines(2)
+
+        title_fmt = workbook.add_format({
+            'bold': True,
+            'font_size': 16,
+            'font_name': 'Calibri',
+        })
+        label_fmt = workbook.add_format({
+            'bold': True,
+            'font_name': 'Calibri',
+        })
+        value_fmt = workbook.add_format({'font_name': 'Calibri'})
+        header_fmt = workbook.add_format({
+            'bold': True,
+            'font_name': 'Calibri',
+            'bg_color': '#D9EAF7',
+            'border': 1,
+            'align': 'center',
+            'valign': 'vcenter',
+        })
+        text_fmt = workbook.add_format({
+            'font_name': 'Calibri',
+            'text_wrap': True,
+            'valign': 'top',
+            'border': 1,
+        })
+        code_fmt = workbook.add_format({
+            'font_name': 'Calibri',
+            'valign': 'top',
+            'border': 1,
+        })
+        qty_fmt = workbook.add_format({
+            'font_name': 'Calibri',
+            'num_format': '0.###',
+            'align': 'right',
+            'valign': 'top',
+            'border': 1,
+        })
+        money_fmt = workbook.add_format({
+            'font_name': 'Calibri',
+            'num_format': '#,##0.0 "Kč"',
+            'align': 'right',
+            'valign': 'top',
+            'border': 1,
+        })
+        total_fmt = workbook.add_format({
+            'font_name': 'Calibri',
+            'num_format': '#,##0 "Kč"',
+            'align': 'right',
+            'valign': 'top',
+            'border': 1,
+        })
+        percent_fmt = workbook.add_format({
+            'font_name': 'Calibri',
+            'num_format': '0.0%',
+            'align': 'right',
+            'valign': 'top',
+            'border': 1,
+        })
+
+        offer_no = data.get('offer_no') or ''
+        sheet.merge_range('A1:G1', f'Cenová nabídka {offer_no}', title_fmt)
+        metadata = [
+            ('Dodavatel', data.get('supplier') or 'GEROtop'),
+            ('Číslo nabídky', offer_no),
+            ('Datum', data.get('date') or ''),
+            ('Zakázka', data.get('reference') or ''),
+            ('Celkem bez DPH – pouze výrobky', float(data.get('net') or 0)),
+        ]
+        for row, (label, value) in enumerate(metadata, start=1):
+            sheet.write(row, 0, label, label_fmt)
+            if row == 5:
+                sheet.write_number(row, 1, float(value or 0), total_fmt)
+            else:
+                sheet.write(row, 1, value, value_fmt)
+
+        header_row = 8
+        headers = (
+            'Kód',
+            'Název / technický popis',
+            'Počet',
+            'MJ',
+            'Cena/ks po slevě',
+            'Sleva',
+            'Původní cena/ks',
+        )
+        sheet.write_row(header_row, 0, headers, header_fmt)
+
+        for offset, item in enumerate(data.get('items', []), start=1):
+            row = header_row + offset
+            name = item.get('description') or ''
+            details = item.get('details') or ''
+            combined = name if not details else f'{name}\n{details}'
+            sheet.write(row, 0, item.get('product') or '', code_fmt)
+            sheet.write(row, 1, combined, text_fmt)
+            sheet.write_number(row, 2, float(item.get('quantity') or 0), qty_fmt)
+            sheet.write(row, 3, item.get('unit') or '', code_fmt)
+            sheet.write_number(row, 4, float(item.get('unit_price') or 0), money_fmt)
+            sheet.write_number(
+                row,
+                5,
+                float(item.get('discount_pct') or 0) / 100.0,
+                percent_fmt,
+            )
+            sheet.write_number(
+                row,
+                6,
+                float(item.get('original_unit_price') or 0),
+                money_fmt,
+            )
+            lines = max(2, combined.count('\n') + 1)
+            sheet.set_row(row, min(15 * lines, 105))
+
+        sheet.set_column('A:A', 20)
+        sheet.set_column('B:B', 78)
+        sheet.set_column('C:C', 10)
+        sheet.set_column('D:D', 8)
+        sheet.set_column('E:E', 18)
+        sheet.set_column('F:F', 11)
+        sheet.set_column('G:G', 18)
+        sheet.freeze_panes(header_row + 1, 0)
+        if data.get('items'):
+            last_row = header_row + len(data['items'])
+            sheet.autofilter(header_row, 0, last_row, len(headers) - 1)
     finally:
-        Worksheet.embed_image = original_embed
+        workbook.close()
