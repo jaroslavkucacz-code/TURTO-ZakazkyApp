@@ -21,6 +21,8 @@ on:
       - scripts/validate-7500-context-filters-offer-format.py
       - scripts/validate-7600-table-activity-performance.py
       - scripts/validate-762-startup-stability.py
+      - scripts/validate-764-gerotop-geometry.py
+      - scripts/validate-767-offer-reprocess-images.py
       - scripts/validate-real-ui.py
       - post_baseline.py
       - ZakazkyApp_base_6.1/crm_price_lists.py
@@ -32,6 +34,8 @@ on:
       - ZakazkyApp_base_6.1/v740_offer_defaults.py
       - ZakazkyApp_base_6.1/v750_context_filters_offer_format.py
       - ZakazkyApp_base_6.1/v760_table_activity_performance.py
+      - ZakazkyApp_base_6.1/v767_offer_reprocess_images.py
+      - ZakazkyApp_base_6.1/offers_engine/**
       - ZakazkyApp_base_6.1/price_lists_domain/issued_offers/**
       - ZakazkyApp_base_6.1/price_lists_domain/platform/categories.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/product_catalog.py
@@ -42,6 +46,7 @@ on:
       - ZakazkyApp_base_6.1/price_lists_domain/__init__.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/automatic_updates.py
       - .github/workflows/publish-update.yml
+      - .github/workflows/validate-gerotop-parser.yml
       - .github/workflows/validate-6340-manual-pricing.yml
       - .github/workflows/validate-6341-offer-catalog-separation.yml
       - .github/workflows/validate-7200-visual-issued-offers.yml
@@ -126,6 +131,14 @@ jobs:
       - name: Validate 7.6.2 native Tk startup stability
         shell: bash
         run: python scripts/validate-762-startup-stability.py ZakazkyApp_base_6.1
+
+      - name: Validate GEROtop word anchors and restored images
+        shell: bash
+        run: python scripts/validate-764-gerotop-geometry.py ZakazkyApp_base_6.1
+
+      - name: Validate identical-offer reprocessing
+        shell: bash
+        run: python scripts/validate-767-offer-reprocess-images.py ZakazkyApp_base_6.1
 
       - name: Build, validate and publish
         shell: bash
