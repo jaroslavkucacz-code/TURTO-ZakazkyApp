@@ -1,5 +1,4 @@
-• Opravena extrakce současných nabídek GEROtop, které v jedné tabulce kombinují běžné kódy 202-100-300 s delšími kódy 411-0400-030-355.
-• Parser již nevynechává klasické třídílné kódy ani kódy s desetinnou čárkou, například 411-0100-030-044,5; opakovaný kód zůstává samostatnou položkou.
-• Řádky se dál čtou geometricky z PDF, takže množství, ceny, sleva a řádkový součet zůstávají navázané na správný výrobek.
-• Obrázky produktů se renderují z jejich skutečné oblasti v PDF a Excel export používá kompatibilní vložené obrázky místo Place in Cell.
-• Změna se týká pouze GEROtop parseru/exportu a nemění databázové schéma ani historická data.
+• Opravena instalace GEROtop parseru: aktualizátor před kopírováním nové verze vždy smaže celý starý adresář offers_engine včetně případného __pycache__.
+• Po instalaci aktualizátor ověří, že Gerotop_Parser.py skutečně obsahuje novou smíšenou geometrii PRODUCT_CODE_RE / _row_anchors; při neúplné aktualizaci program raději nespustí se starým parserem.
+• Samotná pravidla GEROtop 7.6.4 zůstávají zachována: běžné i dlouhé kódy, opakované položky, geometrické čtení cen a kompatibilní obrázky v Excelu.
+• Oprava nemění databázi, přijaté/vydané nabídky ani historická data; týká se pouze spolehlivého nahrazení programových souborů při aktualizaci.
