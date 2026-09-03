@@ -1,6 +1,6 @@
 {
-  "version": "7.6.3",
-  "file": "ZakazkyApp_v7.6.3.zip",
-  "sha256": "153233155dd09ba3bd02ea411d812a61434035a6940a357d2e322a966475eee5",
-  "notes": "• Opraveno chybějící záhlaví tabulky Akce po spuštění. Záhlaví se nyní obnoví přímo při sestavení a každém obnovení této konkrétní tabulky, bez globálního procházení oken.\n• Opravena chyba Nastavení sloupců „Invalid column index \\\"Poslední pohyb\\\"“. Editor šířek a pořadí nyní používá bezpečný poziční identifikátor sloupce, pokud Windows/Tk odmítne symbolický název.\n• Změna zachovává uživatelské šířky, viditelnost a pořadí sloupců a nevrací rizikové procesní přepisování ttk.Treeview odstraněné ve verzi 7.6.2.\n• Databázové schéma ani uživatelská data, nabídky, ceny, vazby a historické PDF revize se nemění."
+  "version": "7.6.4",
+  "file": "ZakazkyApp_v7.6.4.zip",
+  "sha256": "bb61a0f48c84e4c1c8e3229d361f7d05350b83ad03f46b5349bc787a7fd55826",
+  "notes": "• Opravena extrakce současných nabídek GEROtop, které v jedné tabulce kombinují běžné kódy 202-100-300 s delšími kódy 411-0400-030-355.\n• Parser již nevynechává klasické třídílné kódy ani kódy s desetinnou čárkou, například 411-0100-030-044,5; opakovaný kód zůstává samostatnou položkou.\n• Řádky se dál čtou geometricky z PDF, takže množství, ceny, sleva a řádkový součet zůstávají navázané na správný výrobek.\n• Obrázky produktů se renderují z jejich skutečné oblasti v PDF a Excel export používá kompatibilní vložené obrázky místo Place in Cell.\n• Změna se týká pouze GEROtop parseru/exportu a nemění databázové schéma ani historická data."
 }
