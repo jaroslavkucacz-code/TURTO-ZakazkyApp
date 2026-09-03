@@ -1,6 +1,6 @@
 {
-  "version": "7.6.5",
-  "file": "ZakazkyApp_v7.6.5.zip",
-  "sha256": "bc433ee34e4f38733448fe1fb2681596cc21a6ea1439d58bf87fe6a8f03b5057",
-  "notes": "• Opravena instalace GEROtop parseru: aktualizátor před kopírováním nové verze vždy smaže celý starý adresář offers_engine včetně případného __pycache__.\n• Po instalaci aktualizátor ověří, že Gerotop_Parser.py skutečně obsahuje novou smíšenou geometrii PRODUCT_CODE_RE / _row_anchors; při neúplné aktualizaci program raději nespustí se starým parserem.\n• Samotná pravidla GEROtop 7.6.4 zůstávají zachována: běžné i dlouhé kódy, opakované položky, geometrické čtení cen a kompatibilní obrázky v Excelu.\n• Oprava nemění databázi, přijaté/vydané nabídky ani historická data; týká se pouze spolehlivého nahrazení programových souborů při aktualizaci."
+  "version": "7.6.6",
+  "file": "ZakazkyApp_v7.6.6.zip",
+  "sha256": "07e80994c364880fd4d9fda1f94cf4c2c0cc36cf7ccb84b2e044933d5d12bc25",
+  "notes": "• GEROtop parser nyní hledá produktové kódy jako jednotlivá slova v levém sloupci tabulky, nikoli jako celé PDF textové bloky. Tím se správně zachytí běžné kódy 202-..., 223-..., 286-..., 601-..., 611-..., 624-..., 626-... i rozšířené 411-....\n• Na testovací nabídce P12196 / ROSALA SUOMI nová geometrie vrací všech 17 produktových řádků se správným množstvím, slevou a cenami.\n• Obrázky produktů byly z extrakce úplně odstraněny. GEROtop Excel už neobsahuje sloupec Obrázek, žádná média ani funkci Place in Cell, takže nemůže vzniknout #VALUE! kvůli obrázkům.\n• Router před předáním dat do databáze nastaví image_bytes/image_ext na NULL u všech podporovaných dodavatelů. Nové přijaté nabídky tedy obrázky do databáze neukládají.\n• Existující historická data a případné dříve uložené obrázky se automaticky nemažou; změna je pouze pro nové extrakce/importy a nemění ostatní obchodní data."
 }
