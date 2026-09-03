@@ -34,6 +34,12 @@ def main():
         try:shutil.rmtree(target/'_runtime',ignore_errors=True)
         except Exception:pass
 
+        # GEROtop/offer parsers historically live outside _runtime. Remove the
+        # complete folder before copying a release so an old parser or stale
+        # __pycache__ can never survive an application update.
+        try:shutil.rmtree(target/'offers_engine',ignore_errors=True)
+        except Exception:pass
+
         # Při přechodu ze starší instalace odstraň i historické kopie z kořene.
         # Uživatelská data jsou mimo instalační adresář v Dokumenty/TURTO Zakazky.
         for name in STALE_ROOT_FILES:
@@ -55,6 +61,15 @@ def main():
             try:shutil.copy2(p,dest)
             except Exception:
                 time.sleep(.5);shutil.copy2(p,dest)
+
+        # Fail the update rather than silently launching with a stale/missing
+        # offer engine. 7.6.5+ must contain the mixed-code GEROtop parser.
+        parser=target/'offers_engine'/'Gerotop_Parser.py'
+        if not parser.exists():
+            raise RuntimeError('Aktualizace neobsahuje offers_engine/Gerotop_Parser.py')
+        parser_text=parser.read_text(encoding='utf-8',errors='replace')
+        if 'PRODUCT_CODE_RE' not in parser_text or 'anchors = _row_anchors(page)' not in parser_text:
+            raise RuntimeError('GEROtop parser nebyl při aktualizaci správně nahrazen novou verzí.')
 
     vbs=target/'Spustit_Zakazky.vbs'
     if sys.platform.startswith('win') and vbs.exists():
