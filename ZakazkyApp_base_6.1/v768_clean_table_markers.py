@@ -16,6 +16,10 @@ def _plain_date(value):
 
 
 def apply(M):
+    if getattr(M, "_turto_v768_clean_table_markers", False):
+        return
+    M._turto_v768_clean_table_markers = True
+
     def clean_action_deadline_highlights(self, rows):
         """Legacy compatibility hook: clean Deadline text, never add symbols."""
         tree = getattr(self, "action_tree", None)
