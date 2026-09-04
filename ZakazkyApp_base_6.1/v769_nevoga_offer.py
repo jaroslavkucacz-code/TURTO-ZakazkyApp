@@ -82,7 +82,6 @@ def apply(M):
     try:
         ensure_schema()
     except Exception:
-        # The canonical launcher runs schema setup again after all layers apply.
         pass
 
     def store_rich_descriptions(offer_id, parsed):
@@ -145,9 +144,6 @@ def apply(M):
             parsed = result[3] if len(result) > 3 else {}
             supplier_before = str((parsed or {}).get("supplier") or "")
 
-            # Historical development builds called this provider "Nevegar".
-            # Normalize the user-facing identity to the actual supplier name
-            # used in the enquiry mail: Nevoga. This also improves company match.
             if _is_nevoga_name(supplier_before):
                 parsed["supplier"] = "Nevoga"
                 with M.db() as con:
@@ -185,17 +181,11 @@ def apply(M):
         except RuntimeError:
             raise
         except Exception:
-            # Non-rich/legacy suppliers keep their established import path.
             pass
         return result
 
     M.save_offer_import = save_offer_import
 
-    # ------------------------------------------------------------------
-    # Received-offer detail: Treeview cannot colour only part of one cell.
-    # Mark the whole supplier-changed row in red. The exact changed fragments
-    # remain stored in details_rich_json and are rendered partially red in Excel.
-    # ------------------------------------------------------------------
     try:
         import crm_features
     except Exception:
@@ -257,11 +247,6 @@ def apply(M):
         cls._build = build
         cls._turto_v769_nevoga_detail = True
 
-    # ------------------------------------------------------------------
-    # Canonical DB export. v624 treats every unknown supplier as Leviat, so
-    # Nevoga is routed back to its own provider to preserve partial red text
-    # and the product-type picture.
-    # ------------------------------------------------------------------
     previous_export_offer_excel = getattr(M, "export_offer_excel", None)
 
     def export_offer_excel(app, offer_id, parent=None):
