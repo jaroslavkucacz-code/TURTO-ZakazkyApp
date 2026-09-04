@@ -201,3 +201,12 @@ def apply(M):
         return oid, False, len(items), parsed
 
     M.save_offer_import = save_offer_import
+
+    # 7.6.8 is intentionally chained here as well so packaged launchers from
+    # the 7.6.7 release script get the table-date cleanup even before that
+    # script is refactored to list the new tiny layer explicitly.
+    try:
+        import v768_clean_table_markers
+        v768_clean_table_markers.apply(M)
+    except Exception:
+        pass
