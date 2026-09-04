@@ -1,7 +1,8 @@
-• Opraven automaticky vytvářený Excel při zpracování nabídky Nevoga / REINFORCEMENT SYSTEMS z PDF nebo Outlook .msg.
-• Přesná příčina: archivní vrstva si před načtením finálního Nevoga modulu zachytila starý exportér v624. Ten všechny dodavatele kromě GEROtop směroval do šablony Leviat, takže Nevoga skončila s názvem položky přes C:H (6 sloupců), bez obrázků PLEXUS a bez červených fragmentů.
-• Od verze 7.6.14 se po automatickém zpracování Nevoga výsledný archivní Excel vždy přegeneruje aktuálním finálním dodavatelským exportérem, stejným jako ruční „Extrakce dat do Excelu“.
-• Výstup Nevoga má Popis výrobku pouze v C:F (4 sloupce) a konkrétní obrázek typu PLEXUS v G:H (2 sloupce).
-• Červeně zůstává pouze skutečně červený fragment z originální nabídky. U referenční CN 2026/906 je v technickém popisu druhé položky červený pouze zdrojový údaj „max 40“; generované „lü=“ a „cm“ ani ostatní parametry se červeně nebarví.
-• Přidán regresní test, který nejprve vytvoří chybný „legacy“ automatický Excel a následně ověří, že PDF i MSG cesta jej přepíše finálním 4+2 exportem s obrázkem a přesným rich-text formátováním.
-• Databázové schéma ani existující nabídky se touto opravou nemění.
+• Nevoga / REINFORCEMENT SYSTEMS se nově ukládá v obchodní měrné jednotce metr (m), nikoli kus (ks), stejně jako ostatní délkové výztužné prvky v našem běžném workflow.
+• Množství se nepřejmenuje pouze formálně: parser skutečně přepočítá kusy × délku prvku na celkový počet metrů. Například 2 ks délky 1,25 m se uloží jako 2,50 m a 2 ks délky 0,80 m jako 1,60 m.
+• Původní cena výrobce se ukládá jako cena za metr. Cena po případném příplatku/slevě je rovněž cena za metr; celková cena položky zůstává přesně podle nabídky výrobce.
+• Pro dohledatelnost se v detailu položky zachová zdrojové množství výrobce ve tvaru např. „2 ks × 1,25 m = 2,5 m“ a původní zdrojová cena v CZK/m.
+• Excelová extrakce Nevoga nyní používá hlavičku „Cena/m“, ve sloupci MJ je „m“ a množství je celková délka v metrech.
+• U nově zpracovaných Nevoga nabídek se v detailu zobrazí „Pův. cena/m“ a „Cena/m“. Historie cen používá obecné „Pův. cena/MJ“ a „Cena/MJ“, protože může obsahovat starší řádky v ks i nové řádky v m; konkrétní MJ je vždy vidět v samostatném sloupci.
+• Dosavadní opravy z 7.6.14 zůstávají zachovány: Popis výrobku je v C:F, konkrétní obrázek PLEXUS v G:H a červeně se exportují pouze skutečně červené fragmenty z originální nabídky.
+• Existující již uložené nabídky se nepřepisují hromadnou migrací. Při jejich opětovném zpracování ze zdrojového PDF/MSG se položky přepočítají do metrů novým parserem.

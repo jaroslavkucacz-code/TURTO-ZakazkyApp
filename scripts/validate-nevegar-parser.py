@@ -121,13 +121,14 @@ def main():
 
         a, b = data["items"]
         assert a["product"] == "BWSP26/0906/01"
-        assert a["quantity"] == 2 and a["unit"] == "ks"
-        assert abs(a["original_unit_price"] - 768.5625) < 0.001
-        assert abs(a["unit_price"] - 768.565) < 0.001
+        assert abs(a["quantity"] - 2.5) < 0.001 and a["unit"] == "m"
+        assert abs(a["original_unit_price"] - 614.85) < 0.001
+        assert abs(a["unit_price"] - (1537.13 / 2.5)) < 0.001
         assert abs(a["item_total"] - 1537.13) < 0.001
         assert "PLEXUS" in a["description"]
         for token in ("typ B", "Ø10 mm", "s=15 cm", "b=16 cm", "h=26 cm", "lü=50 cm", "box b=18,5 cm", "box h=36 mm", "L=125 cm"):
             assert token in a["description"], token
+        assert "Zdrojové množství: 2 ks × 1,25 m = 2,5 m" in a["details"]
         assert "Zdrojová cena: 614,85 CZK/m" in a["details"]
         assert a["image_bytes"] and a["image_ext"] == "png"
 
@@ -137,6 +138,10 @@ def main():
             assert key not in b, key
 
         assert b["product"] == "BWSP26/0906/02"
+        assert abs(b["quantity"] - 1.6) < 0.001 and b["unit"] == "m"
+        assert abs(b["original_unit_price"] - 626.98) < 0.001
+        assert abs(b["unit_price"] - (1003.17 / 1.6)) < 0.001
+        assert "Zdrojové množství: 2 ks × 0,8 m = 1,6 m" in b["details"]
         assert "lü=max 40 cm" in b["description"]
         assert b["changed_fields"] == ["pull_out_length"]
         red = _red_segments(b)
@@ -144,7 +149,7 @@ def main():
         # Generated label/unit are never red merely because the supplier value is red.
         assert not any("lü=" in segment["text"] or "cm" in segment["text"] for segment in red), red
 
-        # The standalone supplier workbook must preserve partial red formatting and image.
+        # The standalone supplier workbook must preserve metre units, partial red formatting and image.
         xlsx = temp / "offer_906.xlsx"
         module.export_excel(data, xlsx)
         with zipfile.ZipFile(xlsx) as archive:
@@ -156,6 +161,8 @@ def main():
                 if name.endswith(".xml")
             )
             assert b"FFFF0000" in xml or b"FF0000" in xml
+            assert b"Cena/m" in xml
+            assert b">m<" in xml
 
         pdf_alt = temp / "offer_896.pdf"
         _fixture_alternatives(pdf_alt)
@@ -164,9 +171,15 @@ def main():
         assert len(alt_data["items"]) == 3
         assert abs(alt_data["total"] - 460.0) < 0.001
         main_a, main_b, alternative = alt_data["items"]
+        assert abs(main_a["quantity"] - 2.0) < 0.001 and main_a["unit"] == "m"
+        assert abs(main_a["original_unit_price"] - 100.0) < 0.001
+        assert abs(main_a["unit_price"] - 115.0) < 0.001
         assert abs(main_a["discount_pct"] + 15.0) < 0.01
+        assert abs(main_b["quantity"] - 1.0) < 0.001 and main_b["unit"] == "m"
+        assert abs(main_b["unit_price"] - 230.0) < 0.001
         assert abs(main_b["discount_pct"] + 15.0) < 0.01
         assert alternative["alternative"] is True
+        assert alternative["unit"] == "m"
         assert "ALTERNATIVA" in alternative["description"]
         assert "lü=max 10 cm" in alternative["description"]
         assert "pull_out_length" in alternative["changed_fields"]
@@ -185,8 +198,10 @@ def main():
     assert "Červený text = hodnota upravená výrobcem oproti zadání." in provider_text
     assert '"price_per_meter": price_per_meter' not in provider_text
     assert '"length_cm": length_cm' not in provider_text
+    assert '"unit": "m"' in provider_text
+    assert '"Cena/m"' in provider_text
 
-    print("OK Nevoga: exact supplier-red fragments, unified descriptions, alternatives, images and totals")
+    print("OK Nevoga: metre units/prices, exact supplier-red fragments, unified descriptions, alternatives, images and totals")
 
 
 if __name__ == "__main__":

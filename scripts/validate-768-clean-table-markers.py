@@ -74,9 +74,11 @@ def main():
     assert "v769_nevoga_offer.apply(M)" in v768
     assert "import v7614_nevoga_canonical_export" in v768
     assert "v7614_nevoga_canonical_export.apply(M)" in v768
+    assert "import v7615_nevoga_meter_units" in v768
+    assert "v7615_nevoga_meter_units.apply(M)" in v768
     assert v768.index("v769_nevoga_offer.apply(M)") < v768.index(
         "v7614_nevoga_canonical_export.apply(M)"
-    )
+    ) < v768.index("v7615_nevoga_meter_units.apply(M)")
 
     launcher = (source / "ZakazkyCRM.pyw").read_text(encoding="utf-8")
     assert "v768_clean_table_markers.apply(app)" in launcher
@@ -85,7 +87,11 @@ def main():
     )
 
     version = (repository / "release_version.txt").read_text(encoding="utf-8").strip()
-    assert version in {"7.6.8", "7.6.9", "7.6.10", "7.6.11", "7.6.12", "7.6.13", "7.6.14"}, version
+    try:
+        version_tuple = tuple(int(part) for part in version.split("."))
+    except ValueError as exc:
+        raise AssertionError(version) from exc
+    assert (7, 6, 8) <= version_tuple < (7, 7, 0), version
 
     print("TURTO CRM 7.6.8+ clean table-date marker / Nevoga packaging bridge validation passed")
 
