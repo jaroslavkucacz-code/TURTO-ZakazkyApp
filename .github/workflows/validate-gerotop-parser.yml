@@ -4,13 +4,17 @@ on:
   pull_request:
     paths:
       - 'ZakazkyApp_base_6.1/offers_engine/**'
+      - 'ZakazkyApp_base_6.1/v767_offer_reprocess_images.py'
       - 'scripts/validate-764-gerotop-geometry.py'
+      - 'scripts/validate-767-offer-reprocess-images.py'
       - 'release_version.txt'
   push:
     branches: [main]
     paths:
       - 'ZakazkyApp_base_6.1/offers_engine/**'
+      - 'ZakazkyApp_base_6.1/v767_offer_reprocess_images.py'
       - 'scripts/validate-764-gerotop-geometry.py'
+      - 'scripts/validate-767-offer-reprocess-images.py'
       - 'release_version.txt'
 
 jobs:
@@ -28,7 +32,9 @@ jobs:
           cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
       - name: Install runtime dependencies
         run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
-      - name: Compile GEROtop engine
-        run: python -m compileall -q ZakazkyApp_base_6.1/offers_engine
-      - name: Validate word anchors and image-free extraction
+      - name: Compile GEROtop engine and reprocess layer
+        run: python -m compileall -q ZakazkyApp_base_6.1/offers_engine ZakazkyApp_base_6.1/v767_offer_reprocess_images.py
+      - name: Validate word anchors and restored images
         run: python scripts/validate-764-gerotop-geometry.py ZakazkyApp_base_6.1
+      - name: Validate identical-offer reprocessing
+        run: python scripts/validate-767-offer-reprocess-images.py ZakazkyApp_base_6.1
