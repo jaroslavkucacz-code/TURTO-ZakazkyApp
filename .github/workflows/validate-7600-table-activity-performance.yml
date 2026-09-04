@@ -94,7 +94,28 @@ jobs:
 
       - name: Validate the composed Tk application
         if: matrix.python-version == '3.14'
-        run: timeout 180s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
+        shell: bash
+        run: |
+          # Python 3.14 + Tk/Xvfb on hosted Ubuntu occasionally aborts inside
+          # Tcl/Tk itself with "alloc: invalid block" (exit 134) before Python
+          # can report an application exception. Retry only that native allocator
+          # abort; any normal test failure keeps failing immediately.
+          set +e
+          rc=1
+          for attempt in 1 2 3; do
+            echo "Tk UI validation attempt ${attempt}/3"
+            timeout 180s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
+            rc=$?
+            if [ "$rc" -eq 0 ]; then
+              exit 0
+            fi
+            if [ "$rc" -ne 134 ]; then
+              exit "$rc"
+            fi
+            echo "Transient Tcl/Tk allocator abort (134); retrying..."
+            sleep 2
+          done
+          exit "$rc"
 
       - name: Validate release script syntax
         run: bash -n scripts/publish-update.sh
