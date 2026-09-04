@@ -25,7 +25,7 @@ def _validate_final_ui_routing(source: pathlib.Path) -> None:
     # legacy closure.
     nevoga_text = (source / "v769_nevoga_offer.py").read_text(encoding="utf-8")
     assert "M.export_offer_excel = export_offer_excel" in nevoga_text
-    assert "provider.export" in nevoga_text
+    assert 'provider["export"](data, path, price_alerts=None)' in nevoga_text
 
 
 def main():
