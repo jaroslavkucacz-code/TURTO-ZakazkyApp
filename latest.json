@@ -1,6 +1,6 @@
 {
-  "version": "7.6.11",
-  "file": "ZakazkyApp_v7.6.11.zip",
-  "sha256": "4dd570148e81e468561bc609db4d0ad5044086978253a7e0c7476d202c284f4f",
-  "notes": "• Opraven skutečný příkaz „Extrakce dat“ u přijatých nabídek: po 7.6.10 tlačítko stále volalo starý export z vrstvy v6.2.4, takže Nevoga se v praxi exportovala ve starém šestisloupcovém rozložení bez obrázků a bez přesného červeného formátování.\n• Nevoga / REINFORCEMENT SYSTEMS nyní z obou vstupních míst (seznam Nabídky i detail nabídky) vždy používá finální dodavatelsky specifický export.\n• Popis výrobku je v Excelu přesně ve čtyřech sloupcích C:F a následující dva sloupce G:H patří konkrétnímu obrázku PLEXUS podle typu.\n• Červeně se exportuje výhradně přesný úsek, který je červený v originální nabídce výrobce. Například u „lü=max 40 cm“ zůstane červená jen skutečně červená hodnota/fragment z PDF; prefix, jednotky ani zbytek řádku se nezvýrazňují.\n• Přidána regresní kontrola přímo na finální UI směrování, aby starý export už nemohl znovu převzít viditelné tlačítko ani po dalších vrstvách aplikace.\n• Databáze, uložené nabídky, ceny a existující PDF revize se nemění."
+  "version": "7.6.12",
+  "file": "ZakazkyApp_v7.6.12.zip",
+  "sha256": "6a922f5692992c1e9632ef735ab4747f893bcdf72f0436c985c7096c496af009",
+  "notes": "• Opraven import cenových nabídek z Outlook .msg, který mohl na starší uživatelské databázi skončit chybou „no such column: updated_at“ při ukládání obrázků položek.\n• Příčinou byla starší tabulka offer_product_images bez sloupce updated_at. Novější CREATE TABLE IF NOT EXISTS existující tabulku sám nerozšíří, přestože současný import tento sloupec při INSERT/UPDATE používá.\n• Verze 7.6.12 při startu provede bezpečnou aditivní migraci: chybějící updated_at doplní a u existujících řádků doplní časovou značku. Žádné nabídky, obrázky ani obchodní vazby se nemažou.\n• Přidán regresní test přímo na staré schéma bez updated_at a následné ukládání obrázku stejným SQL, které chybu vyvolávalo.\n• Nevoga / REINFORCEMENT SYSTEMS nadále používá přesné červené fragmenty podle originálního PDF a Excel extrakci s Popisem výrobku v C:F a konkrétním obrázkem PLEXUS v G:H."
 }
