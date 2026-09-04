@@ -1,8 +1,7 @@
-• Nevoga / REINFORCEMENT SYSTEMS se nově ukládá v obchodní měrné jednotce metr (m), nikoli kus (ks), stejně jako ostatní délkové výztužné prvky v našem běžném workflow.
-• Množství se nepřejmenuje pouze formálně: parser skutečně přepočítá kusy × délku prvku na celkový počet metrů. Například 2 ks délky 1,25 m se uloží jako 2,50 m a 2 ks délky 0,80 m jako 1,60 m.
-• Původní cena výrobce se ukládá jako cena za metr. Cena po případném příplatku/slevě je rovněž cena za metr; celková cena položky zůstává přesně podle nabídky výrobce.
-• Pro dohledatelnost se v detailu položky zachová zdrojové množství výrobce ve tvaru např. „2 ks × 1,25 m = 2,5 m“ a původní zdrojová cena v CZK/m.
-• Excelová extrakce Nevoga nyní používá hlavičku „Cena/m“, ve sloupci MJ je „m“ a množství je celková délka v metrech.
-• U nově zpracovaných Nevoga nabídek se v detailu zobrazí „Pův. cena/m“ a „Cena/m“. Historie cen používá obecné „Pův. cena/MJ“ a „Cena/MJ“, protože může obsahovat starší řádky v ks i nové řádky v m; konkrétní MJ je vždy vidět v samostatném sloupci.
-• Dosavadní opravy z 7.6.14 zůstávají zachovány: Popis výrobku je v C:F, konkrétní obrázek PLEXUS v G:H a červeně se exportují pouze skutečně červené fragmenty z originální nabídky.
-• Existující již uložené nabídky se nepřepisují hromadnou migrací. Při jejich opětovném zpracování ze zdrojového PDF/MSG se položky přepočítají do metrů novým parserem.
+• V záložce Poptávky je opravena geometrie tabulky: všech 9 sloupců má vlastní šířku a záhlaví se zarovnává stejně jako obsah řádků. Opraveno je také navazující zarovnání filtrovacího řádku při změně velikosti a horizontálním posunu.
+• Dlouho čekající poptávky se znovu zobrazují tučně. Používá se stávající pravidlo dlouhého čekání (neobdržená nabídka po 7 a více dnech); barevné stavové zvýraznění zůstává zachováno a do data se nevracejí žádné varovné emoji ani symboly.
+• Obrázky Nevoga PLEXUS se nově ukládají v databázi jako sdílená aktiva podle typu, např. `nevoga:plexus:B`. Stejný obrázek typu B se tedy neukládá znovu ke každé položce a každé nabídce.
+• Do `supplier_offer_items` se ukládá pouze vazba `image_asset_key` a `plexus_type`. Po úspěšném uložení sdíleného aktiva se duplicitní BLOB u Nevoga položky odstraní; ostatních dodavatelů se deduplikace netýká.
+• Při prvním spuštění 7.6.16 se již existující rozpoznatelné Nevoga PLEXUS obrázky bezpečně sjednotí podle typu. Starý BLOB se smaže až po úspěšném vytvoření sdíleného aktiva ve stejné databázové transakci.
+• Detail přijaté nabídky i Excelová extrakce používají společný resolver obrázků, takže obrázky PLEXUS zůstávají dostupné i po deduplikaci. Stejný resolver je připraven pro následné vkládání obrázků do Vydaných nabídek.
+• Opravy Nevoga z 7.6.14–7.6.15 zůstávají zachovány: popis v C:F, obrázek v G:H, přesné červené fragmenty a obchodní měrná jednotka metr s cenou za metr.
