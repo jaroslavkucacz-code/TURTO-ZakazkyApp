@@ -245,19 +245,12 @@ def apply(M):
 
     M.save_offer_import = save_offer_import
 
-    # 7.6.8/7.6.11 are intentionally chained here as well. The publish script
-    # still generates a compact launcher ending at v767, so the packaged app
-    # must activate the two later corrective layers from the last guaranteed
-    # runtime layer. Source/dev launchers may apply them again; their guards make
-    # that idempotent.
+    # 7.6.8 is intentionally chained here as well so packaged launchers from
+    # the 7.6.7 release script get the table-date cleanup even before that
+    # script is refactored to list the new tiny layer explicitly. v768 itself
+    # chains the later Nevoga layer, preserving the existing packaged order.
     try:
         import v768_clean_table_markers
         v768_clean_table_markers.apply(M)
-    except Exception:
-        pass
-
-    try:
-        import v769_nevoga_offer
-        v769_nevoga_offer.apply(M)
     except Exception:
         pass
