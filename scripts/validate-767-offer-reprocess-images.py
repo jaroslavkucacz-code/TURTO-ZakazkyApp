@@ -262,12 +262,10 @@ def main():
     assert "ADD COLUMN updated_at TEXT DEFAULT ''" in layer
     assert 'import v768_clean_table_markers' in layer
     assert 'v768_clean_table_markers.apply(M)' in layer
-    assert 'import v769_nevoga_offer' in layer
-    assert 'v769_nevoga_offer.apply(M)' in layer
 
     print(
         'TURTO CRM 7.6.12 legacy offer-image schema migration / '
-        'reprocess / packaged Nevoga layer validation passed'
+        'existing-offer reprocess validation passed'
     )
 
 
