@@ -1,5 +1,6 @@
-• Opraven import cenových nabídek z Outlook .msg, který mohl na starší uživatelské databázi skončit chybou „no such column: updated_at“ při ukládání obrázků položek.
-• Příčinou byla starší tabulka offer_product_images bez sloupce updated_at. Novější CREATE TABLE IF NOT EXISTS existující tabulku sám nerozšíří, přestože současný import tento sloupec při INSERT/UPDATE používá.
-• Verze 7.6.12 při startu provede bezpečnou aditivní migraci: chybějící updated_at doplní a u existujících řádků doplní časovou značku. Žádné nabídky, obrázky ani obchodní vazby se nemažou.
-• Přidán regresní test přímo na staré schéma bez updated_at a následné ukládání obrázku stejným SQL, které chybu vyvolávalo.
-• Nevoga / REINFORCEMENT SYSTEMS nadále používá přesné červené fragmenty podle originálního PDF a Excel extrakci s Popisem výrobku v C:F a konkrétním obrázkem PLEXUS v G:H.
+• Opraveno opakované zpracování již uložené přijaté nabídky (typicky z Outlook .msg), které ve 7.6.12 mohlo stále skončit chybou „no such column: updated_at“.
+• Druhá příčina byla odlišná od opravy 7.6.12: základní tabulka supplier_offers historicky obsahovala imported_at, ale nikoli updated_at, zatímco novější cesta pro znovuzpracování stejného PDF tento sloupec při UPDATE používá.
+• Verze 7.6.13 bezpečně a pouze aditivně doplní updated_at jak do supplier_offers, tak do případné starší offer_product_images. Existující nabídky, položky, obrázky, vazby na Akce ani ruční poznámky se nemažou.
+• Oprava se kontroluje nejen při startu, ale i bezprostředně před každým importem/znovuzpracováním nabídky, takže funguje i u databází vytvořených starší verzí CRM.
+• Regresní test nyní přesně reprodukuje schéma supplier_offers bez updated_at a následně provede duplicate/reprocess cestu, která padala u Nevoga CN 2026/906.
+• Nevoga / REINFORCEMENT SYSTEMS zůstává beze změny: červeně se exportují pouze skutečně červené fragmenty z PDF, Popis výrobku je v Excelu v C:F a konkrétní obrázek PLEXUS v G:H.

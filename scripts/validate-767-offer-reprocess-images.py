@@ -38,6 +38,8 @@ def main():
         con = sqlite3.connect(db_path)
         con.executescript(
             '''
+            -- This mirrors the offer schema created by the canonical base app:
+            -- supplier_offers historically has imported_at but no updated_at.
             CREATE TABLE supplier_offers(
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               offer_date TEXT DEFAULT '', supplier_company_id INTEGER,
@@ -45,7 +47,7 @@ def main():
               offer_number TEXT DEFAULT '', source_pdf TEXT DEFAULT '',
               source_hash TEXT NOT NULL UNIQUE, raw_text TEXT DEFAULT '',
               note TEXT DEFAULT '', updated_by TEXT DEFAULT '',
-              updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              imported_at TEXT DEFAULT CURRENT_TIMESTAMP,
               supplier_name TEXT DEFAULT '', source_type TEXT DEFAULT 'PDF',
               reference TEXT DEFAULT '', gross_value REAL DEFAULT 0,
               discount_pct REAL DEFAULT 0, net_value REAL DEFAULT 0,
@@ -67,7 +69,7 @@ def main():
               item_key TEXT NOT NULL, alias TEXT NOT NULL,
               PRIMARY KEY(item_key, alias)
             );
-            -- Exact legacy schema that caused 7.6.11 imports to fail:
+            -- Exact legacy image schema that caused the first updated_at failure:
             -- current SQL writes updated_at, but an existing older table did not
             -- receive that column from CREATE TABLE IF NOT EXISTS.
             CREATE TABLE offer_product_images(
@@ -169,8 +171,7 @@ def main():
             if not image_bytes:
                 return
             ih = hashlib.sha1(bytes(image_bytes)).hexdigest()
-            # This intentionally mirrors the current production statement that
-            # failed with "no such column: updated_at" on the legacy table.
+            # Mirrors the production statement that requires image updated_at.
             c.execute(
                 '''INSERT INTO offer_product_images(
                      supplier,item_key,image_blob,image_ext,source_offer_no,
@@ -207,11 +208,19 @@ def main():
             image_cols = {
                 row[1] for row in c.execute('PRAGMA table_info(offer_product_images)')
             }
+            offer_cols = {
+                row[1] for row in c.execute('PRAGMA table_info(supplier_offers)')
+            }
             legacy_stamp = c.execute(
                 "SELECT updated_at FROM offer_product_images WHERE supplier='LEGACY' AND item_key='legacy-key'"
             ).fetchone()[0]
+            offer_stamp = c.execute(
+                'SELECT updated_at FROM supplier_offers WHERE id=?', (offer_id,)
+            ).fetchone()[0]
         assert 'updated_at' in image_cols
+        assert 'updated_at' in offer_cols
         assert str(legacy_stamp or '').strip(), 'Legacy image rows must be backfilled.'
+        assert str(offer_stamp or '').strip(), 'Existing offers must receive updated_at.'
         assert calls['ensure_schema'] >= 1
 
         result = M.save_offer_import(pdf_path)
@@ -238,6 +247,7 @@ def main():
         assert all(r['image_ext'] == 'png' for r in rows)
         assert len(images) == 2
         assert all(str(r['updated_at'] or '').strip() for r in images)
+        assert str(offer['updated_at'] or '').strip()
         assert offer['action_id'] == 33
         assert offer['supplier_company_id'] == 11
         assert offer['customer_company_id'] == 22
@@ -258,13 +268,15 @@ def main():
     assert "DELETE FROM supplier_offer_items WHERE offer_id=?" in layer
     assert "source_hash=?" in layer
     assert "M._save_canonical_image" in layer
-    assert "PRAGMA table_info(offer_product_images)" in layer
+    assert "PRAGMA table_info({table_name})" in layer
+    assert "('supplier_offers', 'offer_product_images')" in layer
     assert "ADD COLUMN updated_at TEXT DEFAULT ''" in layer
+    assert 'ensure_offer_import_schema()' in layer
     assert 'import v768_clean_table_markers' in layer
     assert 'v768_clean_table_markers.apply(M)' in layer
 
     print(
-        'TURTO CRM 7.6.12 legacy offer-image schema migration / '
+        'TURTO CRM 7.6.13 legacy offer schema migration / '
         'existing-offer reprocess validation passed'
     )
 

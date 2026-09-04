@@ -1,4 +1,4 @@
-# TURTO CRM 7.6.12 - reprocess offers and keep legacy image schema compatible.
+# TURTO CRM 7.6.13 - reprocess offers and keep legacy offer schema compatible.
 from __future__ import annotations
 
 import hashlib
@@ -10,45 +10,59 @@ def apply(M):
         return
     M._turto_v767_offer_reprocess_images = True
 
-    # Older user databases can already contain offer_product_images from a
-    # release where the table had no updated_at column. CREATE TABLE IF NOT
-    # EXISTS never upgrades such an existing table, while the current image
-    # persistence SQL explicitly writes updated_at. Migrate additively before
-    # any PDF/MSG import can reach _save_canonical_image().
+    # Older user databases can already contain offer tables from releases where
+    # updated_at did not exist. CREATE TABLE IF NOT EXISTS never upgrades an
+    # existing table. The current duplicate/reprocess path writes updated_at to
+    # supplier_offers, and canonical image persistence writes it to
+    # offer_product_images, so both legacy tables must be migrated additively.
     previous_ensure_schema = getattr(M, 'ensure_schema', None)
 
-    def ensure_offer_product_images_schema():
-        with M.db() as con:
-            table = con.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='offer_product_images'"
-            ).fetchone()
-            if not table:
-                return False
-            columns = {
-                str(row[1])
-                for row in con.execute('PRAGMA table_info(offer_product_images)').fetchall()
-            }
-            if 'updated_at' in columns:
-                return False
-
+    def _ensure_updated_at_column(con, table_name):
+        table = con.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        ).fetchone()
+        if not table:
+            return False
+        columns = {
+            str(row[1])
+            for row in con.execute(f'PRAGMA table_info({table_name})').fetchall()
+        }
+        changed = False
+        if 'updated_at' not in columns:
             # SQLite does not allow ALTER TABLE ADD COLUMN with a non-constant
             # CURRENT_TIMESTAMP default on all supported versions. Add a plain
             # text column first, then backfill legacy rows explicitly.
             con.execute(
-                "ALTER TABLE offer_product_images ADD COLUMN updated_at TEXT DEFAULT ''"
+                f"ALTER TABLE {table_name} ADD COLUMN updated_at TEXT DEFAULT ''"
             )
-            con.execute(
-                "UPDATE offer_product_images SET updated_at=CURRENT_TIMESTAMP "
-                "WHERE trim(coalesce(updated_at,''))=''"
-            )
-            return True
+            changed = True
+        con.execute(
+            f"UPDATE {table_name} SET updated_at=CURRENT_TIMESTAMP "
+            "WHERE trim(coalesce(updated_at,''))=''"
+        )
+        return changed
 
+    def ensure_offer_import_schema():
+        with M.db() as con:
+            changed = []
+            for table_name in ('supplier_offers', 'offer_product_images'):
+                if _ensure_updated_at_column(con, table_name):
+                    changed.append(table_name)
+            return tuple(changed)
+
+    # Compatibility name retained for any older runtime layer/tests that call it.
+    def ensure_offer_product_images_schema():
+        with M.db() as con:
+            return _ensure_updated_at_column(con, 'offer_product_images')
+
+    M.ensure_offer_import_schema = ensure_offer_import_schema
     M.ensure_offer_product_images_schema = ensure_offer_product_images_schema
 
     if callable(previous_ensure_schema):
         def ensure_schema():
             result = previous_ensure_schema()
-            ensure_offer_product_images_schema()
+            ensure_offer_import_schema()
             return result
 
         M.ensure_schema = ensure_schema
@@ -72,6 +86,11 @@ def apply(M):
         its extracted rows are transactionally replaced under the same offer ID.
         Offer/customer/action links and user-entered offer metadata stay intact.
         """
+        # Repeat the tiny additive guard immediately before every import as well
+        # as at startup. This makes Outlook .msg processing safe even for a DB
+        # created by an older release whose offer tables were never migrated.
+        ensure_offer_import_schema()
+
         parsed, raw = M.extract_offer_pdf(pdf_path)
         source_bytes = Path(pdf_path).read_bytes()
         source_hash = hashlib.sha256(source_bytes).hexdigest()

@@ -80,7 +80,7 @@ def main():
     )
 
     version = (repository / "release_version.txt").read_text(encoding="utf-8").strip()
-    assert version in {"7.6.8", "7.6.9", "7.6.10", "7.6.11", "7.6.12"}, version
+    assert version in {"7.6.8", "7.6.9", "7.6.10", "7.6.11", "7.6.12", "7.6.13"}, version
 
     print("TURTO CRM 7.6.8+ clean table-date marker validation passed")
 
