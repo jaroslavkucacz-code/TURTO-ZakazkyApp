@@ -433,6 +433,9 @@ def apply(M):
             return M.messagebox.showinfo(
                 'Extrakce dat', 'Vyberte nabídku.', parent=self
             )
+        exporter = getattr(M, 'export_offer_excel', None)
+        if callable(exporter):
+            return exporter(self, offer_id, self)
         return export_legacy(self, offer_id, self)
 
     M.App.export_selected_offer_excel = selected
@@ -456,7 +459,9 @@ def apply(M):
                             ):
                                 child.configure(
                                     text='Extrakce dat do Excelu',
-                                    command=lambda: export_legacy(
+                                    command=lambda: getattr(
+                                        M, 'export_offer_excel', export_legacy
+                                    )(
                                         self.parent_app, self.oid, self
                                     ),
                                 )
