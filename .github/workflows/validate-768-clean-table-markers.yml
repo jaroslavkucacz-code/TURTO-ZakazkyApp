@@ -1,0 +1,34 @@
+name: Validate TURTO CRM 7.6.8 clean table dates
+
+on:
+  pull_request:
+    paths:
+      - 'ZakazkyApp_base_6.1/v768_clean_table_markers.py'
+      - 'ZakazkyApp_base_6.1/v767_offer_reprocess_images.py'
+      - 'ZakazkyApp_base_6.1/ZakazkyCRM.pyw'
+      - 'scripts/validate-768-clean-table-markers.py'
+      - 'release_version.txt'
+  push:
+    branches: [main]
+    paths:
+      - 'ZakazkyApp_base_6.1/v768_clean_table_markers.py'
+      - 'ZakazkyApp_base_6.1/v767_offer_reprocess_images.py'
+      - 'ZakazkyApp_base_6.1/ZakazkyCRM.pyw'
+      - 'scripts/validate-768-clean-table-markers.py'
+      - 'release_version.txt'
+
+jobs:
+  validate-clean-dates:
+    strategy:
+      matrix:
+        python-version: ['3.12', '3.14']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compile cleanup layer
+        run: python -m compileall -q ZakazkyApp_base_6.1/v768_clean_table_markers.py ZakazkyApp_base_6.1/v767_offer_reprocess_images.py
+      - name: Validate clean table dates
+        run: python scripts/validate-768-clean-table-markers.py ZakazkyApp_base_6.1
