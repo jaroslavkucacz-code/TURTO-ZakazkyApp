@@ -192,7 +192,7 @@ def main():
             "v769_nevoga_offer.apply(app)"
         )
 
-    print("OK 7.6.9: one technical description, existing rich JSON keeps supplier red changes, no geometry columns")
+    print("OK 7.6.9+: one technical description, rich JSON keeps exact supplier red changes, no geometry columns")
 
 
 if __name__ == "__main__":

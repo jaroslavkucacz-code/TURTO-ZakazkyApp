@@ -10,6 +10,7 @@ on:
       - 'ZakazkyApp_base_6.1/ZakazkyCRM.pyw'
       - 'scripts/validate-nevegar-parser.py'
       - 'scripts/validate-769-nevoga-rich-description.py'
+      - 'scripts/validate-7610-nevoga-exact-red-excel.py'
       - 'scripts/validate-7600-table-activity-performance.py'
       - 'scripts/validate-768-clean-table-markers.py'
       - 'release_version.txt'
@@ -25,6 +26,7 @@ on:
       - 'ZakazkyApp_base_6.1/ZakazkyCRM.pyw'
       - 'scripts/validate-nevegar-parser.py'
       - 'scripts/validate-769-nevoga-rich-description.py'
+      - 'scripts/validate-7610-nevoga-exact-red-excel.py'
       - 'scripts/validate-7600-table-activity-performance.py'
       - 'scripts/validate-768-clean-table-markers.py'
       - 'release_version.txt'
@@ -51,10 +53,13 @@ jobs:
           ZakazkyApp_base_6.1/v769_nevoga_offer.py
           scripts/validate-nevegar-parser.py
           scripts/validate-769-nevoga-rich-description.py
+          scripts/validate-7610-nevoga-exact-red-excel.py
       - name: Validate Nevoga extraction contract
         run: python scripts/validate-nevegar-parser.py ZakazkyApp_base_6.1
       - name: Validate one-description DB contract and supplier-red persistence
         run: python scripts/validate-769-nevoga-rich-description.py ZakazkyApp_base_6.1
+      - name: Validate exact supplier-red fragments and 4+2 Excel layout
+        run: python scripts/validate-7610-nevoga-exact-red-excel.py ZakazkyApp_base_6.1
       - name: Keep 7.6 compatibility contracts
         run: |
           python scripts/validate-7600-table-activity-performance.py ZakazkyApp_base_6.1

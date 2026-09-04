@@ -141,6 +141,8 @@ def main():
         assert b["changed_fields"] == ["pull_out_length"]
         red = _red_segments(b)
         assert any("max 40" in segment["text"] for segment in red), red
+        # Generated label/unit are never red merely because the supplier value is red.
+        assert not any("lü=" in segment["text"] or "cm" in segment["text"] for segment in red), red
 
         # The standalone supplier workbook must preserve partial red formatting and image.
         xlsx = temp / "offer_906.xlsx"
@@ -168,17 +170,23 @@ def main():
         assert "ALTERNATIVA" in alternative["description"]
         assert "lü=max 10 cm" in alternative["description"]
         assert "pull_out_length" in alternative["changed_fields"]
-        assert any("ALTERNATIVA" in s["text"] for s in _red_segments(alternative))
+        alt_red = _red_segments(alternative)
+        # "ALTERNATIVA –" is TURTO-generated text and therefore must stay black.
+        assert not any("ALTERNATIVA" in segment["text"] for segment in alt_red), alt_red
+        # Only the supplier's actual red note and actual red parameter value stay red.
+        assert any("length of element short as possible" in segment["text"] for segment in alt_red), alt_red
+        assert any("max 10" in segment["text"] for segment in alt_red), alt_red
         assert "není zahrnuta do celku nabídky" in alternative["details"]
 
     provider_text = (source / "offers_engine" / "providers" / "nevegar.py").read_text(encoding="utf-8")
     assert "changed_fields" in provider_text
+    assert "changed_fragments" in provider_text
     assert "rich_segments" in provider_text
     assert "Červený text = hodnota upravená výrobcem oproti zadání." in provider_text
     assert '"price_per_meter": price_per_meter' not in provider_text
     assert '"length_cm": length_cm' not in provider_text
 
-    print("OK Nevoga: unified technical descriptions, supplier-red changes, alternatives, images and totals")
+    print("OK Nevoga: exact supplier-red fragments, unified descriptions, alternatives, images and totals")
 
 
 if __name__ == "__main__":

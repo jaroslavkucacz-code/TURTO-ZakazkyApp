@@ -23,6 +23,8 @@ on:
       - scripts/validate-762-startup-stability.py
       - scripts/validate-764-gerotop-geometry.py
       - scripts/validate-767-offer-reprocess-images.py
+      - scripts/validate-769-nevoga-rich-description.py
+      - scripts/validate-7610-nevoga-exact-red-excel.py
       - scripts/validate-real-ui.py
       - post_baseline.py
       - ZakazkyApp_base_6.1/crm_price_lists.py
@@ -35,6 +37,7 @@ on:
       - ZakazkyApp_base_6.1/v750_context_filters_offer_format.py
       - ZakazkyApp_base_6.1/v760_table_activity_performance.py
       - ZakazkyApp_base_6.1/v767_offer_reprocess_images.py
+      - ZakazkyApp_base_6.1/v769_nevoga_offer.py
       - ZakazkyApp_base_6.1/offers_engine/**
       - ZakazkyApp_base_6.1/price_lists_domain/issued_offers/**
       - ZakazkyApp_base_6.1/price_lists_domain/platform/categories.py
@@ -54,6 +57,7 @@ on:
       - .github/workflows/validate-7400-issued-pricing-columns.yml
       - .github/workflows/validate-7500-context-filters-offer-format.yml
       - .github/workflows/validate-7600-table-activity-performance.yml
+      - .github/workflows/validate-nevegar-parser.yml
 permissions:
   contents: write
 concurrency:
@@ -139,6 +143,14 @@ jobs:
       - name: Validate identical-offer reprocessing
         shell: bash
         run: python scripts/validate-767-offer-reprocess-images.py ZakazkyApp_base_6.1
+
+      - name: Validate Nevoga one-description persistence
+        shell: bash
+        run: python scripts/validate-769-nevoga-rich-description.py ZakazkyApp_base_6.1
+
+      - name: Validate Nevoga exact red and 4+2 Excel layout
+        shell: bash
+        run: python scripts/validate-7610-nevoga-exact-red-excel.py ZakazkyApp_base_6.1
 
       - name: Build, validate and publish
         shell: bash

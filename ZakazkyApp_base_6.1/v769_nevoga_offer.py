@@ -1,4 +1,4 @@
-"""TURTO CRM 7.6.9 - Nevoga / Reinforcement Systems rich offer descriptions.
+"""TURTO CRM 7.6.10 - Nevoga / Reinforcement Systems exact rich descriptions.
 
 Technical dimensions stay inside one product-description string. The existing
 `details_rich_json` text field stores presentation metadata only (which fragments
@@ -219,27 +219,87 @@ def apply(M):
                     tree.heading("Původní název", text="Popis výrobku")
                 except Exception:
                     pass
-                tree.tag_configure(
-                    "supplier_changed",
-                    foreground="#C62828",
-                    font=("Calibri", 10, "bold"),
-                )
+
                 with M.db() as con:
                     rows = con.execute(
                         "SELECT id,details_rich_json FROM supplier_offer_items "
                         "WHERE offer_id=?",
                         (int(self.oid),),
                     ).fetchall()
-                for row in rows:
-                    if not _has_supplier_change(row["details_rich_json"]):
-                        continue
-                    iid = f"i{row['id']}"
-                    if not tree.exists(iid):
-                        continue
-                    tags = list(tree.item(iid, "tags") or ())
-                    if "supplier_changed" not in tags:
-                        tags.append("supplier_changed")
+                rich_by_iid = {
+                    f"i{row['id']}": _decode_segments(row["details_rich_json"])
+                    for row in rows
+                }
+
+                # Never colour an entire table row merely because one supplier
+                # value changed. That would overstate what was red in the PDF.
+                for iid in tree.get_children(""):
+                    tags = [
+                        tag for tag in (tree.item(iid, "tags") or ())
+                        if tag != "supplier_changed"
+                    ]
                     tree.item(iid, tags=tuple(tags))
+
+                existing_children = list(self.f.winfo_children())
+                before_widget = existing_children[-1] if existing_children else None
+                preview = M.ttk.Frame(self.f, style="Card.TFrame", padding=8)
+                M.ttk.Label(
+                    preview,
+                    text="Popis výrobku – červeně pouze změna z nabídky výrobce",
+                    style="PageSubtitle.TLabel",
+                ).pack(anchor="w", pady=(0, 3))
+                rich_text = M.tk.Text(
+                    preview,
+                    height=2,
+                    wrap="word",
+                    font=("Calibri", 10),
+                    borderwidth=0,
+                    relief="flat",
+                    padx=4,
+                    pady=4,
+                )
+                rich_text.pack(fill="x", expand=True)
+                rich_text.tag_configure("normal", font=("Calibri", 10))
+                rich_text.tag_configure("bold", font=("Calibri", 10, "bold"))
+                rich_text.tag_configure("red", foreground="#C62828", font=("Calibri", 10))
+                rich_text.tag_configure(
+                    "red_bold", foreground="#C62828", font=("Calibri", 10, "bold")
+                )
+                rich_text.configure(state="disabled")
+
+                def render_exact_description(_event=None):
+                    selection = tuple(tree.selection())
+                    iid = selection[0] if selection else ""
+                    segments = rich_by_iid.get(iid) or []
+                    rich_text.configure(state="normal")
+                    rich_text.delete("1.0", "end")
+                    for segment in segments:
+                        changed = bool(segment.get("changed"))
+                        bold = bool(segment.get("bold"))
+                        tag = (
+                            "red_bold" if changed and bold
+                            else "red" if changed
+                            else "bold" if bold
+                            else "normal"
+                        )
+                        rich_text.insert("end", segment.get("text") or "", tag)
+                    rich_text.configure(state="disabled")
+
+                tree.bind("<<TreeviewSelect>>", render_exact_description, add="+")
+                try:
+                    if before_widget is not None:
+                        preview.pack(fill="x", pady=(6, 0), before=before_widget)
+                    else:
+                        preview.pack(fill="x", pady=(6, 0))
+                except Exception:
+                    preview.pack(fill="x", pady=(6, 0))
+
+                selection = tuple(tree.selection())
+                if not selection:
+                    first = tree.get_children("")
+                    if first:
+                        tree.selection_set(first[0])
+                render_exact_description()
             except Exception:
                 pass
             return result
@@ -357,5 +417,8 @@ def apply(M):
         "rich_format_owner": "supplier_offer_items.details_rich_json",
         "supplier_red_preserved": True,
         "excel_partial_red": True,
-        "detail_changed_rows_red": True,
+        "detail_changed_rows_red": False,
+        "detail_exact_rich_preview": True,
+        "excel_description_columns": 4,
+        "excel_image_columns": 2,
     }
