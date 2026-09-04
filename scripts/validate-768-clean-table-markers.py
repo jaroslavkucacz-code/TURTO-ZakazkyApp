@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression test for TURTO CRM 7.6.8 table-date marker cleanup."""
+"""Regression test for TURTO CRM 7.6.8+ table-date marker cleanup."""
 from __future__ import annotations
 
 import pathlib
@@ -69,6 +69,9 @@ def main():
     v767 = (source / "v767_offer_reprocess_images.py").read_text(encoding="utf-8")
     assert "import v768_clean_table_markers" in v767
     assert "v768_clean_table_markers.apply(M)" in v767
+    v768 = (source / "v768_clean_table_markers.py").read_text(encoding="utf-8")
+    assert "import v769_nevoga_offer" in v768
+    assert "v769_nevoga_offer.apply(M)" in v768
 
     launcher = (source / "ZakazkyCRM.pyw").read_text(encoding="utf-8")
     assert "v768_clean_table_markers.apply(app)" in launcher
@@ -77,9 +80,9 @@ def main():
     )
 
     version = (repository / "release_version.txt").read_text(encoding="utf-8").strip()
-    assert version == "7.6.8", version
+    assert version in {"7.6.8", "7.6.9"}, version
 
-    print("TURTO CRM 7.6.8 clean table-date marker validation passed")
+    print("TURTO CRM 7.6.8+ clean table-date marker validation passed")
 
 
 if __name__ == "__main__":
