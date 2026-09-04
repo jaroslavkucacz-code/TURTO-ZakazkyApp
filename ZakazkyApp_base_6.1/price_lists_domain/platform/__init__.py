@@ -18,6 +18,7 @@ def install(module) -> None:
     from .commercial_workspace import install as install_commercial_workspace
     from .lazy_refresh import install as install_lazy_refresh
     from .project_table_stability import install as install_project_table_stability
+    from .nevoga_export_routing import install as install_nevoga_export_routing
     from .automatic_updates import install as install_automatic_updates
 
     if getattr(module, "_turto_platform_v6339", False):
@@ -48,6 +49,10 @@ def install(module) -> None:
     # Register the Akce table stabilizer before v760.apply() runs. The hook
     # installs its final owner only after v760 has finished composing the table.
     install_project_table_stability(module)
+    # v624 binds received-offer Excel buttons directly to its legacy closure.
+    # Register this hook now; it takes final ownership only after v769.apply()
+    # has installed the supplier-aware Nevoga exporter.
+    install_nevoga_export_routing(module)
     # The updater is installed last so no older runtime layer can restore a
     # confirmation dialog or a second competing startup check.
     install_automatic_updates(module)
