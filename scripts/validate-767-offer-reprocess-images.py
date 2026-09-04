@@ -67,13 +67,20 @@ def main():
               item_key TEXT NOT NULL, alias TEXT NOT NULL,
               PRIMARY KEY(item_key, alias)
             );
+            -- Exact legacy schema that caused 7.6.11 imports to fail:
+            -- current SQL writes updated_at, but an existing older table did not
+            -- receive that column from CREATE TABLE IF NOT EXISTS.
             CREATE TABLE offer_product_images(
               supplier TEXT NOT NULL, item_key TEXT NOT NULL,
               image_blob BLOB NOT NULL, image_ext TEXT DEFAULT '',
               source_offer_no TEXT DEFAULT '', source_offer_date TEXT DEFAULT '',
-              image_hash TEXT DEFAULT '', updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              image_hash TEXT DEFAULT '',
               PRIMARY KEY(supplier,item_key)
             );
+            INSERT INTO offer_product_images(
+              supplier,item_key,image_blob,image_ext,source_offer_no,
+              source_offer_date,image_hash
+            ) VALUES('LEGACY','legacy-key',X'00','png','OLD','2026-01-01','oldhash');
             '''
         )
         cur = con.execute(
@@ -142,12 +149,15 @@ def main():
             ],
         }
 
-        calls = {'old_save': 0}
+        calls = {'old_save': 0, 'ensure_schema': 0}
 
         def db():
             c = sqlite3.connect(db_path)
             c.row_factory = sqlite3.Row
             return c
+
+        def ensure_schema():
+            calls['ensure_schema'] += 1
 
         def extract_offer_pdf(_path):
             return parsed, 'fresh raw text'
@@ -159,16 +169,18 @@ def main():
             if not image_bytes:
                 return
             ih = hashlib.sha1(bytes(image_bytes)).hexdigest()
+            # This intentionally mirrors the current production statement that
+            # failed with "no such column: updated_at" on the legacy table.
             c.execute(
                 '''INSERT INTO offer_product_images(
                      supplier,item_key,image_blob,image_ext,source_offer_no,
-                     source_offer_date,image_hash)
-                   VALUES(?,?,?,?,?,?,?)
+                     source_offer_date,image_hash,updated_at)
+                   VALUES(?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
                    ON CONFLICT(supplier,item_key) DO UPDATE SET
                      image_blob=excluded.image_blob,image_ext=excluded.image_ext,
                      source_offer_no=excluded.source_offer_no,
                      source_offer_date=excluded.source_offer_date,
-                     image_hash=excluded.image_hash''',
+                     image_hash=excluded.image_hash,updated_at=CURRENT_TIMESTAMP''',
                 (supplier, item_key, sqlite3.Binary(image_bytes), image_ext, offer_no, offer_date, ih),
             )
 
@@ -177,6 +189,7 @@ def main():
             return 999, True, 0, {}
 
         M = SimpleNamespace(
+            ensure_schema=ensure_schema,
             save_offer_import=old_save,
             extract_offer_pdf=extract_offer_pdf,
             db=db,
@@ -188,6 +201,19 @@ def main():
         )
 
         mod.apply(M)
+        M.ensure_schema()
+
+        with db() as c:
+            image_cols = {
+                row[1] for row in c.execute('PRAGMA table_info(offer_product_images)')
+            }
+            legacy_stamp = c.execute(
+                "SELECT updated_at FROM offer_product_images WHERE supplier='LEGACY' AND item_key='legacy-key'"
+            ).fetchone()[0]
+        assert 'updated_at' in image_cols
+        assert str(legacy_stamp or '').strip(), 'Legacy image rows must be backfilled.'
+        assert calls['ensure_schema'] >= 1
+
         result = M.save_offer_import(pdf_path)
         assert result[0] == offer_id
         assert result[1] is False
@@ -202,13 +228,16 @@ def main():
                 'SELECT * FROM supplier_offer_items WHERE offer_id=? ORDER BY position,id',
                 (offer_id,),
             ).fetchall()
-            images = c.execute('SELECT * FROM offer_product_images ORDER BY item_key').fetchall()
+            images = c.execute(
+                "SELECT * FROM offer_product_images WHERE supplier='GEROtop' ORDER BY item_key"
+            ).fetchall()
 
         assert len(rows) == 2
         assert [r['product_code'] for r in rows] == ['202-100-300', '286-250-000']
         assert all(r['image_blob'] for r in rows)
         assert all(r['image_ext'] == 'png' for r in rows)
         assert len(images) == 2
+        assert all(str(r['updated_at'] or '').strip() for r in images)
         assert offer['action_id'] == 33
         assert offer['supplier_company_id'] == 11
         assert offer['customer_company_id'] == 22
@@ -229,8 +258,15 @@ def main():
     assert "DELETE FROM supplier_offer_items WHERE offer_id=?" in layer
     assert "source_hash=?" in layer
     assert "M._save_canonical_image" in layer
+    assert "PRAGMA table_info(offer_product_images)" in layer
+    assert "ADD COLUMN updated_at TEXT DEFAULT ''" in layer
+    assert 'import v768_clean_table_markers' in layer
+    assert 'v768_clean_table_markers.apply(M)' in layer
 
-    print('TURTO CRM 7.6.7 existing-offer reprocess / image persistence validation passed')
+    print(
+        'TURTO CRM 7.6.12 legacy offer-image schema migration / '
+        'existing-offer reprocess validation passed'
+    )
 
 
 if __name__ == '__main__':

@@ -1,6 +1,5 @@
-• Opraven skutečný příkaz „Extrakce dat“ u přijatých nabídek: po 7.6.10 tlačítko stále volalo starý export z vrstvy v6.2.4, takže Nevoga se v praxi exportovala ve starém šestisloupcovém rozložení bez obrázků a bez přesného červeného formátování.
-• Nevoga / REINFORCEMENT SYSTEMS nyní z obou vstupních míst (seznam Nabídky i detail nabídky) vždy používá finální dodavatelsky specifický export.
-• Popis výrobku je v Excelu přesně ve čtyřech sloupcích C:F a následující dva sloupce G:H patří konkrétnímu obrázku PLEXUS podle typu.
-• Červeně se exportuje výhradně přesný úsek, který je červený v originální nabídce výrobce. Například u „lü=max 40 cm“ zůstane červená jen skutečně červená hodnota/fragment z PDF; prefix, jednotky ani zbytek řádku se nezvýrazňují.
-• Přidána regresní kontrola přímo na finální UI směrování, aby starý export už nemohl znovu převzít viditelné tlačítko ani po dalších vrstvách aplikace.
-• Databáze, uložené nabídky, ceny a existující PDF revize se nemění.
+• Opraven import cenových nabídek z Outlook .msg, který mohl na starší uživatelské databázi skončit chybou „no such column: updated_at“ při ukládání obrázků položek.
+• Příčinou byla starší tabulka offer_product_images bez sloupce updated_at. Novější CREATE TABLE IF NOT EXISTS existující tabulku sám nerozšíří, přestože současný import tento sloupec při INSERT/UPDATE používá.
+• Verze 7.6.12 při startu provede bezpečnou aditivní migraci: chybějící updated_at doplní a u existujících řádků doplní časovou značku. Žádné nabídky, obrázky ani obchodní vazby se nemažou.
+• Přidán regresní test přímo na staré schéma bez updated_at a následné ukládání obrázku stejným SQL, které chybu vyvolávalo.
+• Nevoga / REINFORCEMENT SYSTEMS nadále používá přesné červené fragmenty podle originálního PDF a Excel extrakci s Popisem výrobku v C:F a konkrétním obrázkem PLEXUS v G:H.

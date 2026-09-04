@@ -1,4 +1,4 @@
-# TURTO CRM 7.6.7 - reprocess an already imported offer with the current parser.
+# TURTO CRM 7.6.12 - reprocess offers and keep legacy image schema compatible.
 from __future__ import annotations
 
 import hashlib
@@ -9,6 +9,49 @@ def apply(M):
     if getattr(M, '_turto_v767_offer_reprocess_images', False):
         return
     M._turto_v767_offer_reprocess_images = True
+
+    # Older user databases can already contain offer_product_images from a
+    # release where the table had no updated_at column. CREATE TABLE IF NOT
+    # EXISTS never upgrades such an existing table, while the current image
+    # persistence SQL explicitly writes updated_at. Migrate additively before
+    # any PDF/MSG import can reach _save_canonical_image().
+    previous_ensure_schema = getattr(M, 'ensure_schema', None)
+
+    def ensure_offer_product_images_schema():
+        with M.db() as con:
+            table = con.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='offer_product_images'"
+            ).fetchone()
+            if not table:
+                return False
+            columns = {
+                str(row[1])
+                for row in con.execute('PRAGMA table_info(offer_product_images)').fetchall()
+            }
+            if 'updated_at' in columns:
+                return False
+
+            # SQLite does not allow ALTER TABLE ADD COLUMN with a non-constant
+            # CURRENT_TIMESTAMP default on all supported versions. Add a plain
+            # text column first, then backfill legacy rows explicitly.
+            con.execute(
+                "ALTER TABLE offer_product_images ADD COLUMN updated_at TEXT DEFAULT ''"
+            )
+            con.execute(
+                "UPDATE offer_product_images SET updated_at=CURRENT_TIMESTAMP "
+                "WHERE trim(coalesce(updated_at,''))=''"
+            )
+            return True
+
+    M.ensure_offer_product_images_schema = ensure_offer_product_images_schema
+
+    if callable(previous_ensure_schema):
+        def ensure_schema():
+            result = previous_ensure_schema()
+            ensure_offer_product_images_schema()
+            return result
+
+        M.ensure_schema = ensure_schema
 
     previous_save = M.save_offer_import
 
@@ -204,7 +247,8 @@ def apply(M):
 
     # 7.6.8 is intentionally chained here as well so packaged launchers from
     # the 7.6.7 release script get the table-date cleanup even before that
-    # script is refactored to list the new tiny layer explicitly.
+    # script is refactored to list the new tiny layer explicitly. v768 itself
+    # chains the later Nevoga layer, preserving the existing packaged order.
     try:
         import v768_clean_table_markers
         v768_clean_table_markers.apply(M)
