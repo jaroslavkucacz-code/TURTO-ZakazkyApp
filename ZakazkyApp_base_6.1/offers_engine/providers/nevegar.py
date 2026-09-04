@@ -414,15 +414,20 @@ def _items(page):
         except Exception:
             length_cm = None
 
-        base_unit = (
-            price_per_meter * (length_cm / 100.0)
-            if price_per_meter is not None and length_cm is not None
-            else None
-        )
-        unit_price = total / float(pieces) if pieces else (base_unit or price_per_meter)
-        base_total = (
-            float(pieces) * base_unit if pieces and base_unit is not None else 0.0
-        )
+        if length_cm is None or length_cm <= 0:
+            raise ValueError(
+                f"Řádek {item_no} nemá čitelnou délku prvku; "
+                "množství nelze bezpečně převést na metry."
+            )
+        length_m = length_cm / 100.0
+        quantity_m = float(pieces) * length_m if pieces else 0.0
+        if quantity_m <= 0:
+            raise ValueError(
+                f"Řádek {item_no} nemá kladné množství v metrech."
+            )
+
+        base_total = quantity_m * price_per_meter
+        unit_price = total / quantity_m
         discount_pct, modifier_note = _price_modifier(
             base_total, total, values["discount_surcharge"]
         )
@@ -434,7 +439,10 @@ def _items(page):
             alternative_text if is_alternative else "",
         )
 
-        details_parts = []
+        details_parts = [
+            "Zdrojové množství: "
+            f"{_fmt_num(pieces)} ks × {_fmt_num(length_m)} m = {_fmt_num(quantity_m)} m"
+        ]
         if price_per_meter is not None:
             details_parts.append(
                 f"Zdrojová cena: {_fmt_num(price_per_meter)} CZK/m"
@@ -465,9 +473,9 @@ def _items(page):
                 ],
                 "plexus_type": type_code,
                 "alternative": is_alternative,
-                "quantity": pieces,
-                "unit": "ks",
-                "original_unit_price": base_unit if base_unit is not None else unit_price,
+                "quantity": quantity_m,
+                "unit": "m",
+                "original_unit_price": price_per_meter,
                 "discount_pct": discount_pct,
                 "unit_price": unit_price,
                 "item_total": total,
@@ -672,7 +680,7 @@ def export_excel(data, output_path, price_alerts=None):
         for col, label in (
             (8, "Množství"),
             (9, "MJ"),
-            (10, "Cena/ks"),
+            (10, "Cena/m"),
             (11, "Celkem"),
         ):
             sheet.write(start, col, label, formats["head"])
@@ -707,7 +715,7 @@ def export_excel(data, output_path, price_alerts=None):
                 )
 
             sheet.write_number(row, 8, float(item.get("quantity") or 0), formats["cell"])
-            sheet.write(row, 9, item.get("unit") or "ks", formats["cell"])
+            sheet.write(row, 9, item.get("unit") or "m", formats["cell"])
             sheet.write_number(row, 10, float(item.get("unit_price") or 0), formats["money"])
             sheet.write_number(row, 11, float(item.get("item_total") or 0), formats["money"])
             sheet.set_row(row, 88)
