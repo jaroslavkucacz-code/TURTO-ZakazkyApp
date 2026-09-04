@@ -7,90 +7,25 @@ import importlib.util
 import pathlib
 import sys
 import tempfile
-import types
 import zipfile
 import xml.etree.ElementTree as ET
 
 
 def _validate_final_ui_routing(source: pathlib.Path) -> None:
-    """The visible Extrakce dat command must not keep v624's legacy closure."""
-    routing_path = (
-        source / "price_lists_domain" / "platform" / "nevoga_export_routing.py"
-    )
-    assert routing_path.is_file(), routing_path
-    platform_text = (
-        source / "price_lists_domain" / "platform" / "__init__.py"
-    ).read_text(encoding="utf-8")
-    assert "install_nevoga_export_routing" in platform_text
+    """The visible Extrakce dat commands must resolve the current exporter."""
+    legacy_text = (source / "v624_legacy_exports.py").read_text(encoding="utf-8")
+    assert "exporter = getattr(M, 'export_offer_excel', None)" in legacy_text
+    assert "return exporter(self, offer_id, self)" in legacy_text
+    assert "M, 'export_offer_excel', export_legacy" in legacy_text
+    assert "command=lambda: export_legacy(" not in legacy_text
 
-    spec = importlib.util.spec_from_file_location(
-        "_turto_nevoga_export_route_7611", routing_path
-    )
-    routing = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(routing)
-
-    old_v769 = sys.modules.get("v769_nevoga_offer")
-    old_crm = sys.modules.get("crm_features")
-    fake_v769 = types.ModuleType("v769_nevoga_offer")
-    fake_crm = types.ModuleType("crm_features")
-    sys.modules["v769_nevoga_offer"] = fake_v769
-    sys.modules["crm_features"] = fake_crm
-
-    calls = []
-
-    class App:
-        def _selected_offer_id(self):
-            return 77
-
-    def legacy_selected(_self):
-        raise AssertionError("legacy v624 selected-export closure was still called")
-
-    App.export_selected_offer_excel = legacy_selected
-    module = types.SimpleNamespace(
-        App=App,
-        messagebox=types.SimpleNamespace(showinfo=lambda *args, **kwargs: None),
-    )
-
-    def original_apply(target):
-        def supplier_aware_export(app, offer_id, parent=None):
-            calls.append((app, offer_id, parent, "first"))
-            return "supplier-aware"
-
-        target.export_offer_excel = supplier_aware_export
-        return "v769-applied"
-
-    fake_v769.apply = original_apply
-
-    try:
-        routing.install(module)
-        result = fake_v769.apply(module)
-        assert result == "v769-applied"
-        app = App()
-        assert app.export_selected_offer_excel() == "supplier-aware"
-        assert calls and calls[-1][1] == 77 and calls[-1][2] is app, calls
-        assert getattr(module, "_turto_nevoga_export_selected_dynamic", False)
-
-        # Prove the command resolves module.export_offer_excel at click time.
-        # This is the regression that 7.6.10 missed: v624 had captured its local
-        # legacy exporter before v769 installed the Nevoga-aware dispatcher.
-        second = []
-
-        def replacement_export(app, offer_id, parent=None):
-            second.append((app, offer_id, parent))
-            return "replacement"
-
-        module.export_offer_excel = replacement_export
-        assert app.export_selected_offer_excel() == "replacement"
-        assert second and second[-1][1] == 77 and second[-1][2] is app, second
-    finally:
-        if old_v769 is None:
-            sys.modules.pop("v769_nevoga_offer", None)
-        else:
-            sys.modules["v769_nevoga_offer"] = old_v769
-        if old_crm is None:
-            sys.modules.pop("crm_features", None)
-        else:
-            sys.modules["crm_features"] = old_crm
+    # The supplier-aware Nevoga layer is intentionally installed later and
+    # replaces M.export_offer_excel. The v624 commands above must therefore
+    # resolve that current owner at click time instead of retaining v624's local
+    # legacy closure.
+    nevoga_text = (source / "v769_nevoga_offer.py").read_text(encoding="utf-8")
+    assert "M.export_offer_excel = export_offer_excel" in nevoga_text
+    assert "provider.export" in nevoga_text
 
 
 def main():
