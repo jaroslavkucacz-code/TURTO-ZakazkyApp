@@ -1,0 +1,37 @@
+name: Patch TURTO CRM 7.6.10
+on:
+  push:
+    branches: [feature/7.6.10-nevoga-exact-red-images]
+    paths:
+      - 'scripts/patch-v7610.py'
+      - '.github/workflows/patch-v7610.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/7.6.10-nevoga-exact-red-images
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Apply patch
+        run: python scripts/patch-v7610.py
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ZakazkyApp_base_6.1/offers_engine/providers/nevegar.py \
+                  ZakazkyApp_base_6.1/v769_nevoga_offer.py \
+                  scripts/publish-update.sh \
+                  scripts/validate-7600-table-activity-performance.py \
+                  scripts/validate-768-clean-table-markers.py \
+                  scripts/validate-769-nevoga-rich-description.py \
+                  release_version.txt release_notes.txt \
+                  .github/workflows/publish-update.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'TURTO CRM 7.6.10 exact Nevoga red and 4+2 Excel layout'
+          git push origin HEAD:feature/7.6.10-nevoga-exact-red-images
