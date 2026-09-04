@@ -1,7 +1,5 @@
-• Přidán samostatný parser cenových nabídek Nevoga / REINFORCEMENT SYSTEMS pro zakázkové PLEXUS®, PLEXUS® ABZ, PYRAPLEX®, PLEXUS® FTW a PLEXUS® SPURGIN prvky.
-• Technické parametry výrobku se neukládají do nových databázových sloupců. Verze, typ, průměr výztuže, rozteče a rozměry se skládají do jednoho přehledného pole Popis výrobku.
-• Červené hodnoty z originální nabídky se zachovávají jako formátovací metadata u popisu. V detailu přijaté nabídky je změněná položka červeně zvýrazněna a v Excel exportu zůstává červená právě konkrétní hodnota upravená výrobcem.
-• Podporovány jsou i alternativní položky označené výrobcem červeným textem; alternativa zůstane evidována, ale není omylem započtena do hlavního součtu nabídky.
-• Zdrojová cena za metr se zachovává jako doplňující cenová informace k položce, zatímco množství zůstává v kusech a cena/ks odpovídá skutečnému řádkovému součtu nabídky. Příplatek/sleva se odvozuje z ceny výrobce.
-• Obrázek typu prvku se přebírá z katalogu tvarů v horní části nabídky a ukládá se standardně k položce.
-• Dodavatel se v CRM sjednocuje na název Nevoga; starší interní označení Nevegar je při importu automaticky normalizováno.
+• Nevoga / REINFORCEMENT SYSTEMS: červeně se nyní zobrazuje výhradně přesný úsek, který je červený v originální nabídce výrobce. Pokud je například změněna pouze kratší hodnota lü, červená je jen tato hodnota; prefix lü=, jednotky ani zbytek řádku se nebarví.
+• Detail přijaté nabídky už nebarví celý řádek. Pod tabulkou zobrazuje přesný Popis výrobku s částečným formátováním podle originálu.
+• Excel extrakce používá pro Popis výrobku přesně čtyři sloupce (C:F). Následující dva sloupce (G:H) jsou vyhrazené konkrétnímu obrázku tvaru podle typu PLEXUS.
+• Obrázek se nadále vybírá z katalogu tvarů v nabídce podle typu A/C/D/I/J/AA/AC/AD/B/CC/DD/E/F/G/H/K/L/M/O a ukládá se přímo k položce.
+• Databázový model zůstává jednoduchý: technické hodnoty jsou stále jediný Popis výrobku plus formátovací metadata; nevznikají nové sloupce pro lü, b, h, Ø ani další rozměry.
