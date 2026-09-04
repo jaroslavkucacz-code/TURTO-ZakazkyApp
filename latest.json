@@ -1,6 +1,6 @@
 {
-  "version": "7.6.7",
-  "file": "ZakazkyApp_v7.6.7.zip",
-  "sha256": "03958310c20586044b737998dec0bc17276df58ed5d9a7d9b2e083eb76b3d31b",
-  "notes": "• Opětovné zpracování stejného PDF už nepoužije staré chybně uložené položky jen proto, že má soubor stejný SHA-256. Aktuální parser znovu načte zdroj a transakčně nahradí extrahované řádky pod stejným ID nabídky.\n• Zachovají se vazby nabídky na Akci, dodavatele, odběratele i ruční poznámka; nevznikne duplicitní nabídka. Když nový parser nevrátí žádné položky, původní data se nesmažou.\n• GEROtop nadále používá opravené slovní kotvy v levém sloupci, takže běžné i dlouhé produktové kódy a opakované řádky zůstávají správně zachycené.\n• Obrázky produktů jsou znovu součástí extrakce a ukládají se do supplier_offer_items i do kanonické historie obrázků produktů.\n• Excel export GEROtop znovu obsahuje obrázky, ale používá klasické vložené obrázky místo funkce Place in Cell, aby se předešlo #VALUE! ve starších/verzích Excelu bez této funkce."
+  "version": "7.6.8",
+  "file": "ZakazkyApp_v7.6.8.zip",
+  "sha256": "19d7e40f96c9c210e6b8a079cb5187339a02066a896926171299b417063917e0",
+  "notes": "• Z buněk Poptáno a Deadline byly odstraněny textové/emoji značky ⚠ a ●, které se ve Windows/Tk mohly zobrazovat jako růžové čtverce přes datum.\n• Termíny a stáří poptávek zůstávají rozlišeny stávajícími barvami řádků a stavů; samotná data jsou vždy zobrazena jako čisté datum bez vložených symbolů.\n• Kompatibilní čisticí callback zároveň odstraní případný starý symbol, pokud by ho do tabulky vložila některá starší vrstva při odloženém překreslení.\n• Oprava je aplikována i v aktualizačním balíčku přes poslední runtime vrstvu, takže se problém po aktualizaci nemá vracet."
 }
