@@ -1,6 +1,6 @@
 """TURTO CRM 7.6.9 - Nevoga / Reinforcement Systems rich offer descriptions.
 
-Technical dimensions stay inside one product-description string.  The existing
+Technical dimensions stay inside one product-description string. The existing
 `details_rich_json` text field stores presentation metadata only (which fragments
 were red/bold in the supplier PDF); no supplier-specific geometry columns are
 added to the CRM schema.
@@ -8,6 +8,11 @@ added to the CRM schema.
 from __future__ import annotations
 
 import json
+
+
+def _is_nevoga_name(value):
+    folded = str(value or "").strip().casefold()
+    return any(token in folded for token in ("nevoga", "nevegar", "reinforcement systems"))
 
 
 def _normalized_segments(raw_segments):
@@ -20,10 +25,7 @@ def _normalized_segments(raw_segments):
             continue
         color = str(segment.get("color") or "").strip()
         changed = bool(segment.get("changed")) or color.upper() in {
-            "#FF0000",
-            "FF0000",
-            "#C62828",
-            "C62828",
+            "#FF0000", "FF0000", "#C62828", "C62828",
         }
         current = {
             "text": text,
@@ -80,8 +82,7 @@ def apply(M):
     try:
         ensure_schema()
     except Exception:
-        # Startup schema setup runs again from the canonical launcher.  Do not
-        # make module application itself fatal when a test stub has no DB yet.
+        # The canonical launcher runs schema setup again after all layers apply.
         pass
 
     def store_rich_descriptions(offer_id, parsed):
@@ -126,11 +127,7 @@ def apply(M):
                 con.execute(
                     "UPDATE supplier_offer_items SET details_rich_json=? WHERE id=?",
                     (
-                        json.dumps(
-                            segments,
-                            ensure_ascii=False,
-                            separators=(",", ":"),
-                        ),
+                        json.dumps(segments, ensure_ascii=False, separators=(",", ":")),
                         item_id,
                     ),
                 )
@@ -146,6 +143,33 @@ def apply(M):
         try:
             offer_id = int(result[0])
             parsed = result[3] if len(result) > 3 else {}
+            supplier_before = str((parsed or {}).get("supplier") or "")
+
+            # Historical development builds called this provider "Nevegar".
+            # Normalize the user-facing identity to the actual supplier name
+            # used in the enquiry mail: Nevoga. This also improves company match.
+            if _is_nevoga_name(supplier_before):
+                parsed["supplier"] = "Nevoga"
+                with M.db() as con:
+                    company_id = None
+                    resolver = getattr(M, "_company_id_by_name", None)
+                    if callable(resolver):
+                        try:
+                            company_id = resolver(con, "Nevoga")
+                        except Exception:
+                            company_id = None
+                    if company_id:
+                        con.execute(
+                            "UPDATE supplier_offers SET supplier_name='Nevoga', "
+                            "supplier_company_id=coalesce(supplier_company_id,?) WHERE id=?",
+                            (company_id, offer_id),
+                        )
+                    else:
+                        con.execute(
+                            "UPDATE supplier_offers SET supplier_name='Nevoga' WHERE id=?",
+                            (offer_id,),
+                        )
+
             expected = sum(
                 1
                 for item in list((parsed or {}).get("items") or [])
@@ -153,8 +177,7 @@ def apply(M):
             )
             if expected:
                 stored = store_rich_descriptions(offer_id, parsed)
-                supplier = str((parsed or {}).get("supplier") or "").casefold()
-                if "nevoga" in supplier and stored != expected:
+                if _is_nevoga_name(parsed.get("supplier")) and stored != expected:
                     raise RuntimeError(
                         "Nepodařilo se zachovat červené/formátované části "
                         "popisu nabídky Nevoga. Import nebyl označen za kompletní."
@@ -162,7 +185,7 @@ def apply(M):
         except RuntimeError:
             raise
         except Exception:
-            # Non-rich/legacy suppliers must keep their established import path.
+            # Non-rich/legacy suppliers keep their established import path.
             pass
         return result
 
@@ -170,8 +193,8 @@ def apply(M):
 
     # ------------------------------------------------------------------
     # Received-offer detail: Treeview cannot colour only part of one cell.
-    # Mark the whole supplier-changed row in red while the exact changed
-    # fragments remain preserved in details_rich_json and in Excel export.
+    # Mark the whole supplier-changed row in red. The exact changed fragments
+    # remain stored in details_rich_json and are rendered partially red in Excel.
     # ------------------------------------------------------------------
     try:
         import crm_features
@@ -195,10 +218,8 @@ def apply(M):
             result = __previous(self, *args, **kwargs)
             try:
                 offer = getattr(self, "offer_row", None)
-                supplier = str(
-                    (offer["supplier"] if offer is not None else "") or ""
-                ).casefold()
-                if "nevoga" not in supplier:
+                supplier = (offer["supplier"] if offer is not None else "") or ""
+                if not _is_nevoga_name(supplier):
                     return result
                 tree = getattr(self, "tree", None)
                 if tree is None:
@@ -237,9 +258,9 @@ def apply(M):
         cls._turto_v769_nevoga_detail = True
 
     # ------------------------------------------------------------------
-    # Canonical DB export.  v624 treats every unknown supplier as Leviat, so
-    # Nevoga must be routed back to its own provider to preserve partial red
-    # formatting and the type picture.
+    # Canonical DB export. v624 treats every unknown supplier as Leviat, so
+    # Nevoga is routed back to its own provider to preserve partial red text
+    # and the product-type picture.
     # ------------------------------------------------------------------
     previous_export_offer_excel = getattr(M, "export_offer_excel", None)
 
@@ -255,7 +276,7 @@ def apply(M):
                    WHERE o.id=?""",
                 (int(offer_id),),
             ).fetchone()
-        if not offer or "nevoga" not in str(offer["supplier"] or "").casefold():
+        if not offer or not _is_nevoga_name(offer["supplier"]):
             if callable(previous_export_offer_excel):
                 return previous_export_offer_excel(app, offer_id, parent=parent)
             return None
@@ -310,7 +331,7 @@ def apply(M):
             provider = next(
                 (
                     entry for entry in router.parsers()
-                    if "nevoga" in str(entry.get("supplier") or "").casefold()
+                    if _is_nevoga_name(entry.get("supplier"))
                 ),
                 None,
             )
@@ -318,7 +339,7 @@ def apply(M):
                 raise RuntimeError("Chybí Excel export pro nabídky Nevoga.")
 
             data = {
-                "supplier": offer["supplier"] or "Nevoga",
+                "supplier": "Nevoga",
                 "offer_no": offer["offer_number"] or "",
                 "date": offer["offer_date"] or "",
                 "reference": offer["reference"] or "",
