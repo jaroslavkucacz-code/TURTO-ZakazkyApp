@@ -6,8 +6,8 @@ history:
 - requests waiting at least seven days are bold again, without warning glyphs;
 - Nevoga PLEXUS drawings live once per PLEXUS type in a shared DB asset table.
 
-Existing Nevoga item images are migrated transactionally.  Only after the shared
-asset is stored successfully are duplicate item/canonical blobs removed.  Other
+Existing Nevoga item images are migrated transactionally. Only after the shared
+asset is stored successfully are duplicate item/canonical blobs removed. Other
 suppliers are untouched.
 """
 from __future__ import annotations
@@ -29,6 +29,7 @@ REQUEST_COLUMNS = (
     "Poptáváno",
     "Příjemci",
 )
+# Fallbacks only. Existing/persisted widths are deliberately preserved.
 REQUEST_WIDTHS = (100, 150, 90, 90, 190, 280, 220, 300, 280)
 OVERDUE_TAG = "req_overdue_bold"
 _TYPE_RE = re.compile(r"(?:^|\|)\s*typ\s+([A-Z]{1,2})(?=\s|\||$)", re.I)
@@ -315,21 +316,34 @@ def _resolve_image(con, item, supplier=""):
 
 
 def _repair_request_table(app):
+    """Align all request headings/filter columns without destroying saved widths."""
     tree = getattr(app, "request_tree", None)
     if tree is None:
         return
-    for column, width in zip(REQUEST_COLUMNS, REQUEST_WIDTHS):
+
+    actual_widths = []
+    for column, fallback in zip(REQUEST_COLUMNS, REQUEST_WIDTHS):
+        width = fallback
         try:
-            tree.column(column, width=width, anchor="w")
+            current = int(tree.column(column, "width") or 0)
+            if current > 1:
+                width = current
+            else:
+                tree.column(column, width=fallback)
+            # The data rows are left aligned; headings must use the same anchor.
+            tree.column(column, anchor="w")
             tree.heading(column, anchor="w")
         except Exception:
             pass
+        actual_widths.append(width)
 
     frame = getattr(tree, "_filter_frame", None)
     if frame is not None:
-        for index, width in enumerate(REQUEST_WIDTHS):
+        # app.py historically configured only eight grid columns for a nine-column
+        # Poptavky tree. Complete all nine so filter/header geometry cannot drift.
+        for index, width in enumerate(actual_widths):
             try:
-                frame.columnconfigure(index, weight=width)
+                frame.columnconfigure(index, weight=max(1, int(width)))
             except Exception:
                 pass
     sync = getattr(tree, "_sync_filter_bar", None)
@@ -388,16 +402,6 @@ def apply(M):
     def build_requests(self, *args, **kwargs):
         result = previous_build_requests(self, *args, **kwargs)
         _repair_request_table(self)
-        try:
-            self.request_tree.bind(
-                "<Configure>",
-                lambda _event, current=self: current.after_idle(
-                    lambda: _repair_request_table(current)
-                ),
-                add="+",
-            )
-        except Exception:
-            pass
         return result
 
     M.App.build_requests = build_requests
