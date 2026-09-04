@@ -63,12 +63,14 @@ def apply(M):
     M.App._refresh_request_date_highlights = clean_request_date_highlights
     M.V768_TABLE_MARKERS_CLEAN = True
 
-    # 7.6.9 is chained here as a packaging bridge. The current release builder
-    # already ships new root-level compatibility layers even before its explicit
-    # runtime list is extended; v767 imports v768, and v768 therefore activates
-    # the Nevoga rich-offer layer in the packaged launcher as well.
+    # 7.6.9+ layers are chained here as a packaging bridge. The current release
+    # builder ships these root-level compatibility layers even before its
+    # explicit runtime list is extended; v767 imports v768, which activates the
+    # final Nevoga supplier layer and then the 7.6.14 automatic-export routing.
     try:
         import v769_nevoga_offer
         v769_nevoga_offer.apply(M)
+        import v7614_nevoga_canonical_export
+        v7614_nevoga_canonical_export.apply(M)
     except Exception:
         pass
