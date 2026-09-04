@@ -1,0 +1,61 @@
+name: Validate Nevoga offer parser
+
+on:
+  pull_request:
+    paths:
+      - 'ZakazkyApp_base_6.1/offers_engine/providers/nevegar.py'
+      - 'ZakazkyApp_base_6.1/offers_engine/Nabidky_Router.py'
+      - 'ZakazkyApp_base_6.1/v768_clean_table_markers.py'
+      - 'ZakazkyApp_base_6.1/v769_nevoga_offer.py'
+      - 'ZakazkyApp_base_6.1/ZakazkyCRM.pyw'
+      - 'scripts/validate-nevegar-parser.py'
+      - 'scripts/validate-769-nevoga-rich-description.py'
+      - 'scripts/validate-7600-table-activity-performance.py'
+      - 'scripts/validate-768-clean-table-markers.py'
+      - 'release_version.txt'
+      - 'release_notes.txt'
+      - '.github/workflows/validate-nevegar-parser.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ZakazkyApp_base_6.1/offers_engine/providers/nevegar.py'
+      - 'ZakazkyApp_base_6.1/offers_engine/Nabidky_Router.py'
+      - 'ZakazkyApp_base_6.1/v768_clean_table_markers.py'
+      - 'ZakazkyApp_base_6.1/v769_nevoga_offer.py'
+      - 'ZakazkyApp_base_6.1/ZakazkyCRM.pyw'
+      - 'scripts/validate-nevegar-parser.py'
+      - 'scripts/validate-769-nevoga-rich-description.py'
+      - 'scripts/validate-7600-table-activity-performance.py'
+      - 'scripts/validate-768-clean-table-markers.py'
+      - 'release_version.txt'
+      - 'release_notes.txt'
+      - '.github/workflows/validate-nevegar-parser.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.12', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install parser dependencies
+        run: python -m pip install 'PyMuPDF<2,>=1.24' 'XlsxWriter<4,>=3.2'
+      - name: Compile Nevoga provider and runtime layer
+        run: >-
+          python -m compileall -q
+          ZakazkyApp_base_6.1/offers_engine/providers/nevegar.py
+          ZakazkyApp_base_6.1/v769_nevoga_offer.py
+          scripts/validate-nevegar-parser.py
+          scripts/validate-769-nevoga-rich-description.py
+      - name: Validate Nevoga extraction contract
+        run: python scripts/validate-nevegar-parser.py ZakazkyApp_base_6.1
+      - name: Validate one-description DB contract and supplier-red persistence
+        run: python scripts/validate-769-nevoga-rich-description.py ZakazkyApp_base_6.1
+      - name: Keep 7.6 compatibility contracts
+        run: |
+          python scripts/validate-7600-table-activity-performance.py ZakazkyApp_base_6.1
+          python scripts/validate-768-clean-table-markers.py ZakazkyApp_base_6.1
