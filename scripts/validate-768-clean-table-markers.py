@@ -36,8 +36,9 @@ def main():
         pass
 
     class Module:
-        App = App
+        pass
 
+    Module.App = App
     module = Module()
     layer.apply(module)
     assert module.V768_TABLE_MARKERS_CLEAN is True
