@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""TURTO CRM 7.6.10: exact supplier-red fragments and 4+2 Excel layout."""
+"""TURTO CRM 7.6.10/7.6.11: exact Nevoga Excel output and final UI routing."""
 from __future__ import annotations
 
 import base64
@@ -9,6 +9,23 @@ import sys
 import tempfile
 import zipfile
 import xml.etree.ElementTree as ET
+
+
+def _validate_final_ui_routing(source: pathlib.Path) -> None:
+    """The visible Extrakce dat commands must resolve the current exporter."""
+    legacy_text = (source / "v624_legacy_exports.py").read_text(encoding="utf-8")
+    assert "exporter = getattr(M, 'export_offer_excel', None)" in legacy_text
+    assert "return exporter(self, offer_id, self)" in legacy_text
+    assert "M, 'export_offer_excel', export_legacy" in legacy_text
+    assert "command=lambda: export_legacy(" not in legacy_text
+
+    # The supplier-aware Nevoga layer is intentionally installed later and
+    # replaces M.export_offer_excel. The v624 commands above must therefore
+    # resolve that current owner at click time instead of retaining v624's local
+    # legacy closure.
+    nevoga_text = (source / "v769_nevoga_offer.py").read_text(encoding="utf-8")
+    assert "M.export_offer_excel = export_offer_excel" in nevoga_text
+    assert 'provider["export"](data, path, price_alerts=None)' in nevoga_text
 
 
 def main():
@@ -38,7 +55,7 @@ def main():
         for key, value in values.items()
         if value
     }
-    # Simulate the supplier making only the shortened lü value red.  The label
+    # Simulate the supplier making only the shortened lü value red. The label
     # "lü=", separators and every other product parameter must stay black.
     field_segments["pull_out_length"] = [
         {"text": "max", "red": False},
@@ -128,9 +145,11 @@ def main():
                     red_runs.append(text)
             assert red_runs == ["40"], red_runs
 
+    _validate_final_ui_routing(source)
+
     print(
-        "OK 7.6.10: only the real supplier-red fragment stays red; "
-        "description spans 4 columns and the type image spans the next 2"
+        "OK 7.6.11: visible Excel commands resolve the final Nevoga exporter; "
+        "only the real supplier-red fragment stays red and the sheet is 4+2"
     )
 
 

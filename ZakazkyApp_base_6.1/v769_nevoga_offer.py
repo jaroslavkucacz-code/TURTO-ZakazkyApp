@@ -1,4 +1,4 @@
-"""TURTO CRM 7.6.10 - Nevoga / Reinforcement Systems exact rich descriptions.
+"""TURTO CRM 7.6.11 - Nevoga / Reinforcement Systems exact rich descriptions.
 
 Technical dimensions stay inside one product-description string. The existing
 `details_rich_json` text field stores presentation metadata only (which fragments
@@ -220,6 +220,42 @@ def apply(M):
                 except Exception:
                     pass
 
+                # Older export layers bind their button command to a local
+                # closure before Nevoga is installed. Rewire only this Nevoga
+                # detail so the visible command resolves the current final
+                # supplier-aware exporter at click time.
+                def rewire_export_buttons(widget):
+                    for child in widget.winfo_children():
+                        try:
+                            text = str(child.cget("text") or "").strip()
+                        except Exception:
+                            text = ""
+                        if text in {
+                            "Exportovat do Excelu",
+                            "Extrakce dat do Excelu",
+                            "Extrakce dat vybrané nabídky",
+                        }:
+                            try:
+                                child.configure(
+                                    text="Extrakce dat do Excelu",
+                                    command=lambda current=self: M.export_offer_excel(
+                                        current.parent_app,
+                                        current.oid,
+                                        parent=current,
+                                    ),
+                                )
+                            except Exception:
+                                pass
+                        try:
+                            rewire_export_buttons(child)
+                        except Exception:
+                            pass
+
+                try:
+                    rewire_export_buttons(self.f)
+                except Exception:
+                    pass
+
                 with M.db() as con:
                     rows = con.execute(
                         "SELECT id,details_rich_json FROM supplier_offer_items "
@@ -410,6 +446,26 @@ def apply(M):
 
     if callable(previous_export_offer_excel):
         M.export_offer_excel = export_offer_excel
+
+        # The main Offers command is also captured by older layers. Replace the
+        # final method here so selecting a Nevoga offer always reaches the
+        # supplier-aware exporter above; non-Nevoga offers still delegate to
+        # the previous exporter from inside export_offer_excel().
+        def export_selected_offer_excel(self):
+            offer_id = (
+                self._selected_offer_id()
+                if hasattr(self, "_selected_offer_id")
+                else None
+            )
+            if not offer_id:
+                return M.messagebox.showinfo(
+                    "Extrakce dat",
+                    "Vyberte nabídku.",
+                    parent=self,
+                )
+            return M.export_offer_excel(self, offer_id, parent=self)
+
+        M.App.export_selected_offer_excel = export_selected_offer_excel
 
     M.V769_NEVOGA_RICH_DESCRIPTION = {
         "technical_columns_added": False,
