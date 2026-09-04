@@ -1,0 +1,32 @@
+name: Audit TURTO CRM runtime composition
+
+on:
+  pull_request:
+    paths:
+      - 'ZakazkyApp_base_6.1/**/*.py'
+      - 'ZakazkyApp_base_6.1/**/*.pyw'
+      - 'scripts/audit-runtime-overrides.py'
+      - '.github/workflows/audit-runtime.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ZakazkyApp_base_6.1/**/*.py'
+      - 'ZakazkyApp_base_6.1/**/*.pyw'
+      - 'scripts/audit-runtime-overrides.py'
+      - '.github/workflows/audit-runtime.yml'
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Static runtime ownership audit
+        run: python scripts/audit-runtime-overrides.py .
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: turto-runtime-audit
+          path: runtime-audit.json
