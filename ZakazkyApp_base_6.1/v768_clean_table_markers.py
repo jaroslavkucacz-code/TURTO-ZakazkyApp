@@ -57,16 +57,15 @@ def apply(M):
             except Exception:
                 continue
 
-    # These are intentionally the final owners of the two callbacks. Existing
-    # refresh code can keep calling them after_idle, but they only sanitize text.
+    # These callbacks first establish the clean-text baseline. Later 7.6 layers
+    # may add presentation-only emphasis without reintroducing warning glyphs.
     M.App._refresh_action_deadline_highlights = clean_action_deadline_highlights
     M.App._refresh_request_date_highlights = clean_request_date_highlights
     M.V768_TABLE_MARKERS_CLEAN = True
 
     # 7.6.9+ layers are chained here as a packaging bridge. The current release
-    # builder ships these root-level compatibility layers even before its
-    # explicit runtime list is extended; v767 imports v768, which activates the
-    # Nevoga rich text, final automatic export routing and metre-unit UI labels.
+    # builder ships these root-level compatibility layers; v767 imports v768,
+    # which activates the final Nevoga and request-table layers in this order.
     try:
         import v769_nevoga_offer
         v769_nevoga_offer.apply(M)
@@ -74,5 +73,7 @@ def apply(M):
         v7614_nevoga_canonical_export.apply(M)
         import v7615_nevoga_meter_units
         v7615_nevoga_meter_units.apply(M)
+        import v7616_requests_plexus_assets
+        v7616_requests_plexus_assets.apply(M)
     except Exception:
         pass
