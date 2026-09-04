@@ -1,8 +1,9 @@
 """TURTO CRM 7.6.15 - Nevoga commercial quantities and prices are per metre.
 
 The supplier PDF contains pieces, element length and a CZK/m source price. The
-provider converts the commercial quantity to total metres. This layer only makes
-the received-offer UI headings explicit so no Nevoga price is labelled as Kč/ks.
+provider converts the commercial quantity to total metres. This layer makes the
+received-offer UI headings unit-aware without mislabelling older stored rows that
+still legitimately contain the historical ``ks`` representation.
 """
 from __future__ import annotations
 
@@ -12,17 +13,25 @@ def _is_nevoga_name(value):
     return any(token in folded for token in ("nevoga", "nevegar", "reinforcement systems"))
 
 
-def _meter_headings(tree):
+def _set_headings(tree, original_label, price_label):
     if tree is None:
         return
     for column, label in (
-        ("Pův. cena", "Pův. cena/m"),
-        ("Cena/ks", "Cena/m"),
+        ("Pův. cena", original_label),
+        ("Cena/ks", price_label),
     ):
         try:
             tree.heading(column, text=label)
         except Exception:
             pass
+
+
+def _meter_headings(tree):
+    _set_headings(tree, "Pův. cena/m", "Cena/m")
+
+
+def _unit_headings(tree):
+    _set_headings(tree, "Pův. cena/MJ", "Cena/MJ")
 
 
 def _walk_treeviews(widget, callback):
@@ -66,8 +75,32 @@ def apply(M):
             try:
                 offer = getattr(self, "offer_row", None)
                 supplier = (offer["supplier"] if offer is not None else "") or ""
-                if _is_nevoga_name(supplier):
-                    _meter_headings(getattr(self, "tree", None))
+                if not _is_nevoga_name(supplier):
+                    return result
+
+                units = set()
+                try:
+                    with M.db() as con:
+                        rows = con.execute(
+                            "SELECT DISTINCT lower(trim(coalesce(unit,''))) unit "
+                            "FROM supplier_offer_items WHERE offer_id=?",
+                            (int(self.oid),),
+                        ).fetchall()
+                    units = {
+                        str(row["unit"] or "").strip().casefold()
+                        for row in rows
+                        if str(row["unit"] or "").strip()
+                    }
+                except Exception:
+                    units = set()
+
+                tree = getattr(self, "tree", None)
+                if units == {"m"}:
+                    _meter_headings(tree)
+                else:
+                    # Legacy offers can still contain ks until they are explicitly
+                    # reprocessed. Cena/MJ stays truthful for both old and new rows.
+                    _unit_headings(tree)
             except Exception:
                 pass
             return result
@@ -95,7 +128,9 @@ def apply(M):
                 if supplier is None and len(args) >= 2:
                     supplier = args[1]
                 if _is_nevoga_name(supplier):
-                    _walk_treeviews(self, _meter_headings)
+                    # Price history may intentionally contain both historical ks
+                    # rows and new m rows. The row's MJ column is authoritative.
+                    _walk_treeviews(self, _unit_headings)
             except Exception:
                 pass
             return result
@@ -106,5 +141,6 @@ def apply(M):
     M.V7615_NEVOGA_METER_UNITS = {
         "commercial_unit": "m",
         "unit_price_label": "Cena/m",
+        "history_price_label": "Cena/MJ",
         "source_piece_count_preserved_in_details": True,
     }
