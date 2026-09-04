@@ -76,9 +76,13 @@ def main():
     assert "v7614_nevoga_canonical_export.apply(M)" in v768
     assert "import v7615_nevoga_meter_units" in v768
     assert "v7615_nevoga_meter_units.apply(M)" in v768
+    assert "import v7616_requests_plexus_assets" in v768
+    assert "v7616_requests_plexus_assets.apply(M)" in v768
     assert v768.index("v769_nevoga_offer.apply(M)") < v768.index(
         "v7614_nevoga_canonical_export.apply(M)"
-    ) < v768.index("v7615_nevoga_meter_units.apply(M)")
+    ) < v768.index("v7615_nevoga_meter_units.apply(M)") < v768.index(
+        "v7616_requests_plexus_assets.apply(M)"
+    )
 
     launcher = (source / "ZakazkyCRM.pyw").read_text(encoding="utf-8")
     assert "v768_clean_table_markers.apply(app)" in launcher
