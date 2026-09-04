@@ -1,4 +1,7 @@
-• Z buněk Poptáno a Deadline byly odstraněny textové/emoji značky ⚠ a ●, které se ve Windows/Tk mohly zobrazovat jako růžové čtverce přes datum.
-• Termíny a stáří poptávek zůstávají rozlišeny stávajícími barvami řádků a stavů; samotná data jsou vždy zobrazena jako čisté datum bez vložených symbolů.
-• Kompatibilní čisticí callback zároveň odstraní případný starý symbol, pokud by ho do tabulky vložila některá starší vrstva při odloženém překreslení.
-• Oprava je aplikována i v aktualizačním balíčku přes poslední runtime vrstvu, takže se problém po aktualizaci nemá vracet.
+• Přidán samostatný parser cenových nabídek Nevoga / REINFORCEMENT SYSTEMS pro zakázkové PLEXUS®, PLEXUS® ABZ, PYRAPLEX®, PLEXUS® FTW a PLEXUS® SPURGIN prvky.
+• Technické parametry výrobku se neukládají do nových databázových sloupců. Verze, typ, průměr výztuže, rozteče a rozměry se skládají do jednoho přehledného pole Popis výrobku.
+• Červené hodnoty z originální nabídky se zachovávají jako formátovací metadata u popisu. V detailu přijaté nabídky je změněná položka červeně zvýrazněna a v Excel exportu zůstává červená právě konkrétní hodnota upravená výrobcem.
+• Podporovány jsou i alternativní položky označené výrobcem červeným textem; alternativa zůstane evidována, ale není omylem započtena do hlavního součtu nabídky.
+• Zdrojová cena za metr se zachovává jako informace k položce, zatímco množství zůstává v kusech a cena/ks odpovídá skutečnému řádkovému součtu nabídky. Příplatek/sleva se odvozuje z ceny výrobce.
+• Obrázek typu prvku se přebírá z katalogu tvarů v horní části nabídky a ukládá se standardně k položce.
+• Dodavatel se v CRM sjednocuje na název Nevoga; starší interní označení Nevegar je při importu automaticky normalizováno.
