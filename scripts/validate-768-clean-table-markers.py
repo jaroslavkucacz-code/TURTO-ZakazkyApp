@@ -72,6 +72,11 @@ def main():
     v768 = (source / "v768_clean_table_markers.py").read_text(encoding="utf-8")
     assert "import v769_nevoga_offer" in v768
     assert "v769_nevoga_offer.apply(M)" in v768
+    assert "import v7614_nevoga_canonical_export" in v768
+    assert "v7614_nevoga_canonical_export.apply(M)" in v768
+    assert v768.index("v769_nevoga_offer.apply(M)") < v768.index(
+        "v7614_nevoga_canonical_export.apply(M)"
+    )
 
     launcher = (source / "ZakazkyCRM.pyw").read_text(encoding="utf-8")
     assert "v768_clean_table_markers.apply(app)" in launcher
@@ -80,9 +85,9 @@ def main():
     )
 
     version = (repository / "release_version.txt").read_text(encoding="utf-8").strip()
-    assert version in {"7.6.8", "7.6.9", "7.6.10", "7.6.11", "7.6.12", "7.6.13"}, version
+    assert version in {"7.6.8", "7.6.9", "7.6.10", "7.6.11", "7.6.12", "7.6.13", "7.6.14"}, version
 
-    print("TURTO CRM 7.6.8+ clean table-date marker validation passed")
+    print("TURTO CRM 7.6.8+ clean table-date marker / Nevoga packaging bridge validation passed")
 
 
 if __name__ == "__main__":
