@@ -3,6 +3,6 @@
 • Původní cena výrobce se ukládá jako cena za metr. Cena po případném příplatku/slevě je rovněž cena za metr; celková cena položky zůstává přesně podle nabídky výrobce.
 • Pro dohledatelnost se v detailu položky zachová zdrojové množství výrobce ve tvaru např. „2 ks × 1,25 m = 2,5 m“ a původní zdrojová cena v CZK/m.
 • Excelová extrakce Nevoga nyní používá hlavičku „Cena/m“, ve sloupci MJ je „m“ a množství je celková délka v metrech.
-• V detailu přijaté nabídky a v historii cen Nevoga se cenové sloupce označují „Pův. cena/m“ a „Cena/m“, aby nikde nezůstávalo zavádějící „Cena/ks“.
+• U nově zpracovaných Nevoga nabídek se v detailu zobrazí „Pův. cena/m“ a „Cena/m“. Historie cen používá obecné „Pův. cena/MJ“ a „Cena/MJ“, protože může obsahovat starší řádky v ks i nové řádky v m; konkrétní MJ je vždy vidět v samostatném sloupci.
 • Dosavadní opravy z 7.6.14 zůstávají zachovány: Popis výrobku je v C:F, konkrétní obrázek PLEXUS v G:H a červeně se exportují pouze skutečně červené fragmenty z originální nabídky.
 • Existující již uložené nabídky se nepřepisují hromadnou migrací. Při jejich opětovném zpracování ze zdrojového PDF/MSG se položky přepočítají do metrů novým parserem.
