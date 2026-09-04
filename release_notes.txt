@@ -1,6 +1,7 @@
-• Opraveno opakované zpracování již uložené přijaté nabídky (typicky z Outlook .msg), které ve 7.6.12 mohlo stále skončit chybou „no such column: updated_at“.
-• Druhá příčina byla odlišná od opravy 7.6.12: základní tabulka supplier_offers historicky obsahovala imported_at, ale nikoli updated_at, zatímco novější cesta pro znovuzpracování stejného PDF tento sloupec při UPDATE používá.
-• Verze 7.6.13 bezpečně a pouze aditivně doplní updated_at jak do supplier_offers, tak do případné starší offer_product_images. Existující nabídky, položky, obrázky, vazby na Akce ani ruční poznámky se nemažou.
-• Oprava se kontroluje nejen při startu, ale i bezprostředně před každým importem/znovuzpracováním nabídky, takže funguje i u databází vytvořených starší verzí CRM.
-• Regresní test nyní přesně reprodukuje schéma supplier_offers bez updated_at a následně provede duplicate/reprocess cestu, která padala u Nevoga CN 2026/906.
-• Nevoga / REINFORCEMENT SYSTEMS zůstává beze změny: červeně se exportují pouze skutečně červené fragmenty z PDF, Popis výrobku je v Excelu v C:F a konkrétní obrázek PLEXUS v G:H.
+• Opraven automaticky vytvářený Excel při zpracování nabídky Nevoga / REINFORCEMENT SYSTEMS z PDF nebo Outlook .msg.
+• Přesná příčina: archivní vrstva si před načtením finálního Nevoga modulu zachytila starý exportér v624. Ten všechny dodavatele kromě GEROtop směroval do šablony Leviat, takže Nevoga skončila s názvem položky přes C:H (6 sloupců), bez obrázků PLEXUS a bez červených fragmentů.
+• Od verze 7.6.14 se po automatickém zpracování Nevoga výsledný archivní Excel vždy přegeneruje aktuálním finálním dodavatelským exportérem, stejným jako ruční „Extrakce dat do Excelu“.
+• Výstup Nevoga má Popis výrobku pouze v C:F (4 sloupce) a konkrétní obrázek typu PLEXUS v G:H (2 sloupce).
+• Červeně zůstává pouze skutečně červený fragment z originální nabídky. U referenční CN 2026/906 je v technickém popisu druhé položky červený pouze zdrojový údaj „max 40“; generované „lü=“ a „cm“ ani ostatní parametry se červeně nebarví.
+• Přidán regresní test, který nejprve vytvoří chybný „legacy“ automatický Excel a následně ověří, že PDF i MSG cesta jej přepíše finálním 4+2 exportem s obrázkem a přesným rich-text formátováním.
+• Databázové schéma ani existující nabídky se touto opravou nemění.
