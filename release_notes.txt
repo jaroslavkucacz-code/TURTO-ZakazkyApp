@@ -1,5 +1,6 @@
-• Nevoga / REINFORCEMENT SYSTEMS: červeně se nyní zobrazuje výhradně přesný úsek, který je červený v originální nabídce výrobce. Pokud je například změněna pouze kratší hodnota lü, červená je jen tato hodnota; prefix lü=, jednotky ani zbytek řádku se nebarví.
-• Detail přijaté nabídky už nebarví celý řádek. Pod tabulkou zobrazuje přesný Popis výrobku s částečným formátováním podle originálu.
-• Excel extrakce používá pro Popis výrobku přesně čtyři sloupce (C:F). Následující dva sloupce (G:H) jsou vyhrazené konkrétnímu obrázku tvaru podle typu PLEXUS.
-• Obrázek se nadále vybírá z katalogu tvarů v nabídce podle typu A/C/D/I/J/AA/AC/AD/B/CC/DD/E/F/G/H/K/L/M/O a ukládá se přímo k položce.
-• Databázový model zůstává jednoduchý: technické hodnoty jsou stále jediný Popis výrobku plus formátovací metadata; nevznikají nové sloupce pro lü, b, h, Ø ani další rozměry.
+• Opraven skutečný příkaz „Extrakce dat“ u přijatých nabídek: po 7.6.10 tlačítko stále volalo starý export z vrstvy v6.2.4, takže Nevoga se v praxi exportovala ve starém šestisloupcovém rozložení bez obrázků a bez přesného červeného formátování.
+• Nevoga / REINFORCEMENT SYSTEMS nyní z obou vstupních míst (seznam Nabídky i detail nabídky) vždy používá finální dodavatelsky specifický export.
+• Popis výrobku je v Excelu přesně ve čtyřech sloupcích C:F a následující dva sloupce G:H patří konkrétnímu obrázku PLEXUS podle typu.
+• Červeně se exportuje výhradně přesný úsek, který je červený v originální nabídce výrobce. Například u „lü=max 40 cm“ zůstane červená jen skutečně červená hodnota/fragment z PDF; prefix, jednotky ani zbytek řádku se nezvýrazňují.
+• Přidána regresní kontrola přímo na finální UI směrování, aby starý export už nemohl znovu převzít viditelné tlačítko ani po dalších vrstvách aplikace.
+• Databáze, uložené nabídky, ceny a existující PDF revize se nemění.
