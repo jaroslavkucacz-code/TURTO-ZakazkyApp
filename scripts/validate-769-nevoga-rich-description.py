@@ -127,7 +127,7 @@ def main():
                          id,offer_id,position,original_name,item_key,quantity,unit,
                          unit_price,total_price,product_code,details,original_unit_price,
                          discount_pct,image_ext
-                       ) VALUES(1,1,1,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       ) VALUES(1,1,1,?,?,?,?,?,?,?,?,?,?,?)""",
                     (
                         parsed["items"][0]["description"],
                         parsed["items"][0]["description"],
@@ -187,7 +187,6 @@ def main():
         assert module.V769_NEVOGA_RICH_DESCRIPTION["supplier_red_preserved"] is True
 
     launcher = (source / "ZakazkyCRM.pyw").read_text(encoding="utf-8")
-    # Launcher integration is added before this validation is promoted to release.
     if "v769_nevoga_offer" in launcher:
         assert launcher.index("v768_clean_table_markers.apply(app)") < launcher.index(
             "v769_nevoga_offer.apply(app)"
