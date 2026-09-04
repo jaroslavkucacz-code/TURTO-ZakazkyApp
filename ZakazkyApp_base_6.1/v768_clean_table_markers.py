@@ -66,11 +66,13 @@ def apply(M):
     # 7.6.9+ layers are chained here as a packaging bridge. The current release
     # builder ships these root-level compatibility layers even before its
     # explicit runtime list is extended; v767 imports v768, which activates the
-    # final Nevoga supplier layer and then the 7.6.14 automatic-export routing.
+    # Nevoga rich text, final automatic export routing and metre-unit UI labels.
     try:
         import v769_nevoga_offer
         v769_nevoga_offer.apply(M)
         import v7614_nevoga_canonical_export
         v7614_nevoga_canonical_export.apply(M)
+        import v7615_nevoga_meter_units
+        v7615_nevoga_meter_units.apply(M)
     except Exception:
         pass
