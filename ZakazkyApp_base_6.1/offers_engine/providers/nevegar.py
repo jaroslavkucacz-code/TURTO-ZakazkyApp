@@ -9,9 +9,10 @@ import fitz
 
 SUPPLIER = "Nevegar"
 
-_ITEM_RE = re.compile(r"^[A-Z]{2,}[A-Z0-9]*/[A-Z0-9]+/[A-Z0-9]+$", re.I)
 _DATE_RE = re.compile(r"\b(\d{1,2}\.\d{1,2}\.20\d{2})\b")
 _OFFER_RE = re.compile(r"\bOffer\s+(\d{4}\s*/\s*\d+)\b", re.I)
+_BWSP_RE = re.compile(r"^BWSP\d+/\d+/\d+$", re.I)
+_COMPACT_ITEM_RE = re.compile(r"^[A-Z]{2,}[A-Z0-9/-]{5,}$", re.I)
 
 _VERSION_NAMES = {
     "P": "PLEXUS®",
@@ -21,8 +22,6 @@ _VERSION_NAMES = {
     "S": "PLEXUS® SPURGIN",
 }
 
-# PDF-coordinate crop rectangles for the product shape catalogue printed above
-# the table in this Nevegar layout.
 _TYPE_RECTS = {}
 for _code, _center in zip(
     ("A", "C", "D", "I", "J", "AA", "AC", "AD"),
@@ -35,8 +34,6 @@ for _code, _center in zip(
 ):
     _TYPE_RECTS[_code] = (_center - 29, 150, _center + 29, 216)
 
-# Table x-coordinate bands (PDF points). Kept deliberately separated from
-# header text because PyMuPDF's block order for this form is not visual order.
 _BANDS = {
     "position": (35, 59),
     "version": (59, 88),
@@ -57,6 +54,20 @@ _BANDS = {
     "total": (735, 810),
 }
 
+_TECH_FIELDS = (
+    ("version", "verze", ""),
+    ("type", "typ", ""),
+    ("iron", "Ø", " mm"),
+    ("stirrup_distance", "s=", " cm"),
+    ("stirrup_width", "b=", " cm"),
+    ("stirrup_height", "h=", " cm"),
+    ("pull_out_length", "lü=", " cm"),
+    ("dimension", "v/v1=", " cm"),
+    ("box_width", "box b=", " cm"),
+    ("box_height", "box h=", " mm"),
+    ("length", "L=", " cm"),
+)
+
 
 def _clean(value):
     return " ".join(str(value or "").replace("\xa0", " ").split())
@@ -67,6 +78,36 @@ def _cz_num(value):
     text = re.sub(r"\bCZK\b", "", text, flags=re.I).strip()
     text = text.replace(" ", "").replace(".", "").replace(",", ".")
     return float(text)
+
+
+def _fmt_num(value):
+    if value is None:
+        return ""
+    if abs(float(value) - round(float(value))) < 1e-9:
+        return str(int(round(float(value))))
+    return f"{float(value):.2f}".rstrip("0").rstrip(".").replace(".", ",")
+
+
+def _is_red(color):
+    try:
+        color = int(color or 0)
+    except Exception:
+        return False
+    r = (color >> 16) & 255
+    g = (color >> 8) & 255
+    b = color & 255
+    return r >= 180 and r > g * 1.5 and r > b * 1.5
+
+
+def _is_item_no(text):
+    text = _clean(text)
+    if _BWSP_RE.fullmatch(text):
+        return True
+    return (
+        bool(_COMPACT_ITEM_RE.fullmatch(text))
+        and any(ch.isdigit() for ch in text)
+        and text.upper() not in {"REINFORCEMENT", "SYSTEMS"}
+    )
 
 
 def _first_page(pdf_path):
@@ -88,12 +129,19 @@ def detect(path):
     try:
         text = _text(path)
         folded = text.casefold()
-        return (
+        if not (
             "reinforcement systems" in folded
             and "offer custom-made products" in folded
             and bool(_OFFER_RE.search(text))
-            and bool(re.search(r"\bBWSP\d+/\d+/\d+\b", text, re.I))
-        )
+        ):
+            return False
+        with fitz.open(path) as doc:
+            if not doc.page_count:
+                return False
+            return any(
+                _is_item_no(word[4]) and 80 <= word[0] <= 190
+                for word in doc[0].get_text("words")
+            )
     except Exception:
         return False
 
@@ -101,24 +149,19 @@ def detect(path):
 def _header(text):
     offer_match = _OFFER_RE.search(text)
     offer_no = _clean(offer_match.group(1)) if offer_match else ""
-
     dates = _DATE_RE.findall(text)
     offer_date = dates[0] if dates else ""
 
-    reference = ""
-    project = re.search(r"\bProject:\s*([^\r\n]+)", text, re.I)
-    if project:
-        reference = _clean(project.group(1))
+    project_match = re.search(r"\bProject:[ \t]*([^\r\n]*)", text, re.I)
+    reference = _clean(project_match.group(1)) if project_match else ""
 
-    customer = ""
-    customer_match = re.search(r"\bCustomer:\s*([^\r\n]+)", text, re.I)
-    if customer_match:
-        customer = _clean(customer_match.group(1))
-    elif "Customer:" in text:
+    customer_match = re.search(r"\bCustomer:[ \t]*([^\r\n]*)", text, re.I)
+    customer = _clean(customer_match.group(1)) if customer_match else ""
+    if not customer:
         lines = [_clean(x) for x in text.splitlines() if _clean(x)]
         try:
-            idx = next(i for i, x in enumerate(lines) if x.casefold() == "customer:")
-            if idx + 1 < len(lines):
+            idx = next(i for i, line in enumerate(lines) if line.casefold() == "customer:")
+            if idx + 1 < len(lines) and not lines[idx + 1].endswith(":"):
                 customer = lines[idx + 1]
         except StopIteration:
             pass
@@ -126,23 +169,57 @@ def _header(text):
     return offer_no, offer_date, reference, customer
 
 
-def _words_in_row(page, y, tolerance=4.5):
+def _row_spans(page, y, tolerance=4.7):
     out = []
-    for word in page.get_text("words"):
-        x0, y0, x1, y1, text = word[:5]
-        cy = (y0 + y1) / 2
-        if abs(cy - y) <= tolerance:
-            out.append((x0, y0, x1, y1, _clean(text)))
-    return sorted(out, key=lambda w: w[0])
+    for block in page.get_text("dict").get("blocks", []):
+        for line in block.get("lines", []):
+            for span in line.get("spans", []):
+                text = _clean(span.get("text", ""))
+                if not text:
+                    continue
+                x0, y0, x1, y1 = span.get("bbox", (0, 0, 0, 0))
+                cy = (y0 + y1) / 2
+                if abs(cy - y) <= tolerance:
+                    out.append(
+                        {
+                            "x0": float(x0),
+                            "x1": float(x1),
+                            "text": text,
+                            "red": _is_red(span.get("color", 0)),
+                        }
+                    )
+    return sorted(out, key=lambda s: s["x0"])
 
 
-def _band_text(row_words, name):
+def _band_value(row_spans, name):
     x0, x1 = _BANDS[name]
-    values = [
-        text for wx0, _wy0, wx1, _wy1, text in row_words
-        if ((wx0 + wx1) / 2) >= x0 and ((wx0 + wx1) / 2) < x1
+    selected = [
+        span for span in row_spans
+        if x0 <= (span["x0"] + span["x1"]) / 2 < x1
     ]
-    return _clean(" ".join(values))
+    return (
+        _clean(" ".join(span["text"] for span in selected)),
+        any(span["red"] for span in selected),
+    )
+
+
+def _red_notes(page):
+    notes = []
+    for block in page.get_text("dict").get("blocks", []):
+        for line in block.get("lines", []):
+            for span in line.get("spans", []):
+                text = _clean(span.get("text", ""))
+                if not text or not _is_red(span.get("color", 0)):
+                    continue
+                x0, y0, x1, y1 = span.get("bbox", (0, 0, 0, 0))
+                notes.append(
+                    {
+                        "text": text,
+                        "y": (float(y0) + float(y1)) / 2,
+                        "x": (float(x0) + float(x1)) / 2,
+                    }
+                )
+    return notes
 
 
 def _type_image(page, type_code):
@@ -160,64 +237,65 @@ def _type_image(page, type_code):
         return None, None
 
 
-def _discount_pct(text):
-    value = _clean(text)
-    m = re.search(r"([+-]?\d+(?:[.,]\d+)?)\s*%", value)
-    if not m:
-        return 0.0
-    number = float(m.group(1).replace(",", "."))
-    if value.lstrip().startswith("+"):
-        return -abs(number)
-    if value.lstrip().startswith("-"):
-        return abs(number)
-    return number
+def _technical_description(values, red_fields, alternative_note=""):
+    segments = []
 
+    def add(text, changed=False, bold=False):
+        if not text:
+            return
+        if segments:
+            segments.append(
+                {"text": " | ", "bold": False, "color": "", "changed": False}
+            )
+        segments.append(
+            {
+                "text": text,
+                "bold": bool(bold),
+                "color": "#FF0000" if changed else "",
+                "changed": bool(changed),
+            }
+        )
 
-def _description(values):
-    version = _clean(values["version"]).upper()
+    if alternative_note:
+        add(
+            "ALTERNATIVA – " + alternative_note,
+            changed=True,
+            bold=True,
+        )
+
+    version = _clean(values.get("version")).upper()
     family = _VERSION_NAMES.get(version, version or "PLEXUS")
-    type_code = _clean(values["type"]).upper()
+    add(family, "version" in red_fields)
 
-    parts = [family]
+    type_code = _clean(values.get("type")).upper()
     if type_code:
-        parts.append(f"typ {type_code}")
-    if values["iron"]:
-        parts.append(f"Ø{values['iron']} mm")
-    if values["stirrup_distance"]:
-        parts.append(f"s={values['stirrup_distance']} cm")
-    if values["stirrup_width"]:
-        parts.append(f"b={values['stirrup_width']} cm")
-    if values["stirrup_height"]:
-        parts.append(f"h={values['stirrup_height']} cm")
-    if values["pull_out_length"]:
-        parts.append(f"lü={values['pull_out_length']} cm")
-    if values["dimension"]:
-        parts.append(f"v/v1={values['dimension']} cm")
-    if values["box_width"]:
-        parts.append(f"box b={values['box_width']} cm")
-    if values["box_height"]:
-        parts.append(f"box h={values['box_height']} mm")
-    if values["length"]:
-        parts.append(f"L={values['length']} cm")
-    return " | ".join(parts)
+        add(f"typ {type_code}", "type" in red_fields)
+
+    for key, prefix, suffix in _TECH_FIELDS[2:]:
+        value = _clean(values.get(key))
+        if value:
+            add(f"{prefix}{value}{suffix}", key in red_fields)
+
+    plain = "".join(segment["text"] for segment in segments)
+    return plain, segments
 
 
-def _details(values, price_per_meter):
-    pairs = [
-        ("Verze", values["version"]),
-        ("Typ", values["type"]),
-        ("Ø výztuže", f"{values['iron']} mm" if values["iron"] else ""),
-        ("Rozteč třmínků s", f"{values['stirrup_distance']} cm" if values["stirrup_distance"] else ""),
-        ("Šířka třmínku b", f"{values['stirrup_width']} cm" if values["stirrup_width"] else ""),
-        ("Výška třmínku h", f"{values['stirrup_height']} cm" if values["stirrup_height"] else ""),
-        ("Délka vytažení lü", f"{values['pull_out_length']} cm" if values["pull_out_length"] else ""),
-        ("Rozměr v/v1", f"{values['dimension']} cm" if values["dimension"] else ""),
-        ("Šířka boxu", f"{values['box_width']} cm" if values["box_width"] else ""),
-        ("Výška boxu", f"{values['box_height']} mm" if values["box_height"] else ""),
-        ("Délka", f"{values['length']} cm" if values["length"] else ""),
-        ("Cena za metr", f"{price_per_meter:.2f} CZK".replace(".", ",") if price_per_meter is not None else ""),
-    ]
-    return "; ".join(f"{name}: {value}" for name, value in pairs if value)
+def _price_modifier(base_total, actual_total, text):
+    raw = _clean(text)
+    if not raw or not base_total:
+        return 0.0, ""
+    match = re.search(r"([+-]?\d+(?:[.,]\d+)?)\s*%", raw)
+    if match:
+        nominal = abs(float(match.group(1).replace(",", ".")))
+    else:
+        nominal = abs((actual_total / base_total - 1.0) * 100.0)
+
+    delta = actual_total - base_total
+    if abs(delta) <= max(0.02, abs(base_total) * 0.001):
+        return 0.0, ""
+    if delta > 0:
+        return -nominal, f"Příplatek {nominal:g} %"
+    return nominal, f"Sleva {nominal:g} %"
 
 
 def _items(page):
@@ -225,16 +303,34 @@ def _items(page):
     for word in page.get_text("words"):
         x0, y0, x1, y1, text = word[:5]
         clean = _clean(text)
-        if _ITEM_RE.fullmatch(clean) and 80 <= x0 <= 190:
+        if _is_item_no(clean) and 80 <= x0 <= 190:
             anchors.append(((y0 + y1) / 2, clean))
 
     if not anchors:
         raise ValueError("V nabídce Nevegar nebyly nalezeny řádky položek.")
 
+    red_notes = _red_notes(page)
+    alternative_notes = [
+        note for note in red_notes
+        if note["text"].casefold().startswith("alternative:")
+    ]
+    alternative_y = min((note["y"] for note in alternative_notes), default=None)
+    alternative_text = ""
+    if alternative_notes:
+        alternative_text = re.sub(
+            r"^\s*Alternative:\s*", "", alternative_notes[0]["text"], flags=re.I
+        ).strip()
+
     items = []
     for y, item_no in sorted(anchors):
-        row_words = _words_in_row(page, y)
-        values = {name: _band_text(row_words, name) for name in _BANDS}
+        spans = _row_spans(page, y)
+        values = {}
+        red_fields = set()
+        for name in _BANDS:
+            value, is_red = _band_value(spans, name)
+            values[name] = value
+            if is_red:
+                red_fields.add(name)
         values["item_no"] = item_no
 
         try:
@@ -248,56 +344,93 @@ def _items(page):
                 f"Řádek {item_no} má nečitelnou číselnou hodnotu: {exc}"
             ) from exc
 
-        length_cm = None
         try:
             length_cm = _cz_num(values["length"]) if values["length"] else None
         except Exception:
-            pass
+            length_cm = None
 
-        # CRM stores quantity and unit price so their multiplication matches the
-        # row total. The source prints pieces and a price per metre, therefore
-        # store pieces as quantity and calculate the finished-box unit price.
-        if pieces and total:
-            unit_price = total / float(pieces)
-        elif length_cm is not None and price_per_meter:
-            unit_price = price_per_meter * (length_cm / 100.0)
-        else:
-            unit_price = price_per_meter
+        base_unit = (
+            price_per_meter * (length_cm / 100.0)
+            if price_per_meter is not None and length_cm is not None
+            else None
+        )
+        unit_price = total / float(pieces) if pieces else (base_unit or price_per_meter)
+        base_total = (
+            float(pieces) * base_unit if pieces and base_unit is not None else 0.0
+        )
+        discount_pct, modifier_note = _price_modifier(
+            base_total, total, values["discount_surcharge"]
+        )
 
-        type_code = values["type"].upper()
+        is_alternative = alternative_y is not None and y > alternative_y
+        description, rich_segments = _technical_description(
+            values,
+            red_fields,
+            alternative_text if is_alternative else "",
+        )
+
+        details_parts = []
+        if price_per_meter is not None:
+            details_parts.append(
+                f"Zdrojová cena: {_fmt_num(price_per_meter)} CZK/m"
+            )
+        if modifier_note:
+            details_parts.append(modifier_note)
+        if is_alternative:
+            details_parts.append("Alternativní položka – není zahrnuta do celku nabídky")
+        details = "; ".join(details_parts)
+
+        type_code = _clean(values["type"]).upper()
         image_bytes, image_ext = _type_image(page, type_code)
-        description = _description(values)
-        disc = _discount_pct(values["discount_surcharge"])
 
-        items.append({
-            "position": position,
-            "product": item_no,
-            "description": description,
-            "item_key": description,
-            "details": _details(values, price_per_meter),
-            "quantity": pieces,
-            "unit": "ks",
-            "original_unit_price": unit_price,
-            "discount_pct": disc,
-            "unit_price": unit_price,
-            "item_total": total,
-            "price_per_meter": price_per_meter,
-            "length_cm": length_cm,
-            "image_bytes": image_bytes,
-            "image_ext": image_ext,
-        })
+        items.append(
+            {
+                "position": position,
+                "product": item_no,
+                "description": description,
+                "item_key": description,
+                "details": details,
+                "rich_segments": rich_segments,
+                "changed_fields": sorted(red_fields),
+                "alternative": is_alternative,
+                "quantity": pieces,
+                "unit": "ks",
+                "original_unit_price": base_unit if base_unit is not None else unit_price,
+                "discount_pct": discount_pct,
+                "unit_price": unit_price,
+                "item_total": total,
+                "image_bytes": image_bytes,
+                "image_ext": image_ext,
+            }
+        )
 
     return items
 
 
-def _summary_total(text):
-    values = []
-    for raw in re.findall(r"\b\d[\d ]*,\d{2}\s*CZK\b", text, re.I):
-        try:
-            values.append(_cz_num(raw))
-        except Exception:
-            pass
-    return max(values) if values else None
+def _summary_total(page):
+    labels = []
+    monies = []
+    for block in page.get_text("dict").get("blocks", []):
+        for line in block.get("lines", []):
+            for span in line.get("spans", []):
+                value = _clean(span.get("text", ""))
+                if not value:
+                    continue
+                x0, y0, x1, y1 = span.get("bbox", (0, 0, 0, 0))
+                cy = (float(y0) + float(y1)) / 2
+                if value.casefold() == "total:":
+                    labels.append((cy, float(x0)))
+                elif re.fullmatch(r"\d[\d .]*,\d{2}\s*CZK", value, re.I):
+                    monies.append((cy, float(x0), value))
+    for label_y, _label_x in labels:
+        candidates = [
+            (abs(cy - label_y), x, value)
+            for cy, x, value in monies
+            if x >= 720 and abs(cy - label_y) <= 3.5
+        ]
+        if candidates:
+            return _cz_num(min(candidates)[2])
+    return None
 
 
 def parse(pdf_path):
@@ -309,7 +442,9 @@ def parse(pdf_path):
             "reinforcement systems" not in folded
             or "offer custom-made products" not in folded
         ):
-            raise ValueError("PDF není rozpoznáno jako nabídka Nevegar / Reinforcement Systems.")
+            raise ValueError(
+                "PDF není rozpoznáno jako nabídka Nevegar / Reinforcement Systems."
+            )
 
         offer_no, offer_date, reference, customer = _header(text)
         if not offer_no:
@@ -318,14 +453,19 @@ def parse(pdf_path):
             raise ValueError("V nabídce Nevegar nebylo nalezeno datum nabídky.")
 
         items = _items(page)
-        calculated = sum(float(item.get("item_total") or 0) for item in items)
-        total = _summary_total(text)
+        calculated = sum(
+            float(item.get("item_total") or 0)
+            for item in items
+            if not item.get("alternative")
+        )
+        total = _summary_total(page)
         if total is None:
             total = calculated
 
         if total and calculated and abs(total - calculated) > max(0.10, total * 0.002):
             raise ValueError(
-                f"Součet položek Nevegar ({calculated:.2f}) neodpovídá celku nabídky ({total:.2f})."
+                f"Součet položek Nevegar ({calculated:.2f}) "
+                f"neodpovídá celku nabídky ({total:.2f})."
             )
 
         return {
@@ -349,63 +489,148 @@ def parse(pdf_path):
         doc.close()
 
 
+def _write_rich_description(sheet, row, col, item, formats):
+    segments = list(item.get("rich_segments") or [])
+    if not segments:
+        sheet.write(row, col, item.get("description") or "", formats["wrap"])
+        return
+
+    args = []
+    for segment in segments:
+        text = str(segment.get("text") or "")
+        if not text:
+            continue
+        changed = bool(segment.get("changed")) or str(segment.get("color") or "").upper() in {
+            "#FF0000", "FF0000"
+        }
+        bold = bool(segment.get("bold"))
+        key = "red_bold" if changed and bold else "red" if changed else "bold" if bold else "normal"
+        args.extend([formats[key], text])
+
+    if len(args) < 4:
+        sheet.write(row, col, item.get("description") or "", formats["wrap"])
+        return
+    try:
+        sheet.write_rich_string(row, col, *args, formats["wrap"])
+    except Exception:
+        sheet.write(row, col, item.get("description") or "", formats["wrap"])
+
+
 def export_excel(data, output_path, price_alerts=None):
     import xlsxwriter
 
     workbook = xlsxwriter.Workbook(output_path)
     try:
         sheet = workbook.add_worksheet("Nabídka")
-        title = workbook.add_format({"font_name": "Calibri", "bold": True, "font_size": 16})
-        label = workbook.add_format({"font_name": "Calibri", "bold": True, "border": 1})
-        cell = workbook.add_format({"font_name": "Calibri", "border": 1, "valign": "top"})
-        wrap = workbook.add_format({"font_name": "Calibri", "border": 1, "text_wrap": True, "valign": "top"})
-        money = workbook.add_format({"font_name": "Calibri", "border": 1, "num_format": '#,##0.00 "Kč"'})
-        header = workbook.add_format({"font_name": "Calibri", "bold": True, "border": 1, "align": "center", "valign": "vcenter"})
+        sheet.hide_gridlines(2)
 
-        sheet.write("A1", f'Nabídka {data.get("offer_no", "")}', title)
+        formats = {
+            "title": workbook.add_format(
+                {"font_name": "Calibri", "bold": True, "font_size": 16}
+            ),
+            "label": workbook.add_format(
+                {"font_name": "Calibri", "bold": True, "border": 1}
+            ),
+            "cell": workbook.add_format(
+                {"font_name": "Calibri", "border": 1, "valign": "top"}
+            ),
+            "wrap": workbook.add_format(
+                {
+                    "font_name": "Calibri",
+                    "border": 1,
+                    "text_wrap": True,
+                    "valign": "top",
+                }
+            ),
+            "money": workbook.add_format(
+                {
+                    "font_name": "Calibri",
+                    "border": 1,
+                    "num_format": '#,##0.00 "Kč"',
+                    "valign": "top",
+                }
+            ),
+            "head": workbook.add_format(
+                {
+                    "font_name": "Calibri",
+                    "bold": True,
+                    "border": 1,
+                    "align": "center",
+                    "valign": "vcenter",
+                }
+            ),
+            "normal": workbook.add_format({"font_name": "Calibri"}),
+            "bold": workbook.add_format({"font_name": "Calibri", "bold": True}),
+            "red": workbook.add_format(
+                {"font_name": "Calibri", "font_color": "#FF0000"}
+            ),
+            "red_bold": workbook.add_format(
+                {"font_name": "Calibri", "font_color": "#FF0000", "bold": True}
+            ),
+        }
+
+        sheet.write("A1", f"Cenová nabídka {data.get('offer_no', '')}", formats["title"])
         meta = (
             ("Dodavatel", data.get("supplier") or SUPPLIER),
             ("Datum", data.get("date") or ""),
             ("Akce / projekt", data.get("reference") or ""),
-            ("Celkem", float(data.get("total") or 0)),
+            ("Celkem bez DPH", float(data.get("net") or 0)),
         )
         for row, (name, value) in enumerate(meta, 2):
-            sheet.write(row - 1, 0, name, label)
-            sheet.write(row - 1, 1, value, money if name == "Celkem" else cell)
+            sheet.write(row - 1, 0, name, formats["label"])
+            sheet.write(
+                row - 1,
+                1,
+                value,
+                formats["money"] if name == "Celkem bez DPH" else formats["cell"],
+            )
 
-        headers = ("Poz.", "Kód", "Název", "Množství", "MJ", "Cena/ks", "Cena za metr", "Celkem", "Obrázek")
-        start = 7
+        sheet.write(
+            6,
+            0,
+            "Červený text = hodnota upravená výrobcem oproti zadání.",
+            formats["red_bold"],
+        )
+
+        headers = ("Poz.", "Kód", "Popis výrobku", "Obrázek", "Množství", "MJ", "Cena/ks", "Celkem")
+        start = 8
         for col, text in enumerate(headers):
-            sheet.write(start, col, text, header)
+            sheet.write(start, col, text, formats["head"])
 
         for offset, item in enumerate(data.get("items") or [], 1):
             row = start + offset
-            sheet.set_row(row, 86)
-            values = (
-                item.get("position") or offset,
-                item.get("product") or "",
-                item.get("description") or "",
-                float(item.get("quantity") or 0),
-                item.get("unit") or "",
-                float(item.get("unit_price") or 0),
-                float(item.get("price_per_meter") or 0),
-                float(item.get("item_total") or 0),
-            )
-            for col, value in enumerate(values):
-                sheet.write(row, col, value, money if col in (5, 6, 7) else (wrap if col == 2 else cell))
+            sheet.write(row, 0, item.get("position") or offset, formats["cell"])
+            sheet.write(row, 1, item.get("product") or "", formats["cell"])
+            _write_rich_description(sheet, row, 2, item, formats)
+
             image = item.get("image_bytes")
             if image:
+                image_data = io.BytesIO(image)
                 sheet.insert_image(
-                    row, 8, "typ.png",
-                    {"image_data": io.BytesIO(image), "x_scale": 0.38, "y_scale": 0.38, "x_offset": 3, "y_offset": 3, "object_position": 1},
+                    row,
+                    3,
+                    f"product.{item.get('image_ext') or 'png'}",
+                    {
+                        "image_data": image_data,
+                        "x_scale": 0.42,
+                        "y_scale": 0.42,
+                        "x_offset": 4,
+                        "y_offset": 4,
+                        "object_position": 1,
+                    },
                 )
+            sheet.write_number(row, 4, float(item.get("quantity") or 0), formats["cell"])
+            sheet.write(row, 5, item.get("unit") or "ks", formats["cell"])
+            sheet.write_number(row, 6, float(item.get("unit_price") or 0), formats["money"])
+            sheet.write_number(row, 7, float(item.get("item_total") or 0), formats["money"])
+            sheet.set_row(row, 82)
 
         sheet.set_column("A:A", 7)
         sheet.set_column("B:B", 22)
-        sheet.set_column("C:C", 66)
-        sheet.set_column("D:E", 11)
-        sheet.set_column("F:H", 16)
-        sheet.set_column("I:I", 18)
+        sheet.set_column("C:C", 75)
+        sheet.set_column("D:D", 20)
+        sheet.set_column("E:F", 11)
+        sheet.set_column("G:H", 16)
         sheet.freeze_panes(start + 1, 0)
     finally:
         workbook.close()
