@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""TURTO CRM 7.6.10+ / 7.6.14: exact Nevoga Excel and automatic archive routing."""
+"""TURTO CRM 7.6.10+ / 7.6.15: exact Nevoga Excel and automatic archive routing."""
 from __future__ import annotations
 
 import base64
@@ -64,7 +64,10 @@ def _inspect_xlsx(output: pathlib.Path, expected_red=("40",)) -> None:
         ]
         assert 6 in from_cols, from_cols  # zero-based G column
 
-        shared = ET.fromstring(book.read("xl/sharedStrings.xml"))
+        shared_xml = book.read("xl/sharedStrings.xml")
+        assert b"Cena/m" in shared_xml
+        assert b">m<" in shared_xml
+        shared = ET.fromstring(shared_xml)
         ns_s = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
         red_runs = []
         for run in shared.findall(".//s:r", ns_s):
@@ -138,9 +141,9 @@ def main():
                 "product": "BWSP26/0906/02",
                 "description": description,
                 "rich_segments": rich_segments,
-                "quantity": 2,
-                "unit": "ks",
-                "unit_price": 501.585,
+                "quantity": 1.6,
+                "unit": "m",
+                "unit_price": 1003.17 / 1.6,
                 "item_total": 1003.17,
                 "image_bytes": png,
                 "image_ext": "png",
@@ -155,7 +158,7 @@ def main():
         _inspect_xlsx(direct_output)
 
         # Reproduce the real 7.6.13 failure mode: the old automatic MSG layer
-        # first writes a legacy file. The 7.6.14 layer must overwrite the same
+        # first writes a legacy file. The 7.6.14+ layer must overwrite the same
         # target by resolving the final Nevoga exporter at CALL TIME.
         route_path = source / "v7614_nevoga_canonical_export.py"
         route_spec = importlib.util.spec_from_file_location("_turto_nevoga_7614", route_path)
@@ -233,8 +236,8 @@ def main():
     _validate_final_ui_routing(source)
 
     print(
-        "OK 7.6.14: manual + automatic PDF/MSG Nevoga extraction uses the final "
-        "4+2 exporter with PLEXUS image and only exact supplier-red fragments"
+        "OK 7.6.15: manual + automatic PDF/MSG Nevoga extraction uses metres, "
+        "the final 4+2 exporter, PLEXUS image and only exact supplier-red fragments"
     )
 
 
