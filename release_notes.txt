@@ -2,6 +2,6 @@
 • Technické parametry výrobku se neukládají do nových databázových sloupců. Verze, typ, průměr výztuže, rozteče a rozměry se skládají do jednoho přehledného pole Popis výrobku.
 • Červené hodnoty z originální nabídky se zachovávají jako formátovací metadata u popisu. V detailu přijaté nabídky je změněná položka červeně zvýrazněna a v Excel exportu zůstává červená právě konkrétní hodnota upravená výrobcem.
 • Podporovány jsou i alternativní položky označené výrobcem červeným textem; alternativa zůstane evidována, ale není omylem započtena do hlavního součtu nabídky.
-• Zdrojová cena za metr se zachovává jako informace k položce, zatímco množství zůstává v kusech a cena/ks odpovídá skutečnému řádkovému součtu nabídky. Příplatek/sleva se odvozuje z ceny výrobce.
+• Zdrojová cena za metr se zachovává jako doplňující cenová informace k položce, zatímco množství zůstává v kusech a cena/ks odpovídá skutečnému řádkovému součtu nabídky. Příplatek/sleva se odvozuje z ceny výrobce.
 • Obrázek typu prvku se přebírá z katalogu tvarů v horní části nabídky a ukládá se standardně k položce.
 • Dodavatel se v CRM sjednocuje na název Nevoga; starší interní označení Nevegar je při importu automaticky normalizováno.
