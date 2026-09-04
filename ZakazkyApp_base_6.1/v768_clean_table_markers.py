@@ -62,3 +62,13 @@ def apply(M):
     M.App._refresh_action_deadline_highlights = clean_action_deadline_highlights
     M.App._refresh_request_date_highlights = clean_request_date_highlights
     M.V768_TABLE_MARKERS_CLEAN = True
+
+    # 7.6.9 is chained here as a packaging bridge. The current release builder
+    # already ships new root-level compatibility layers even before its explicit
+    # runtime list is extended; v767 imports v768, and v768 therefore activates
+    # the Nevoga rich-offer layer in the packaged launcher as well.
+    try:
+        import v769_nevoga_offer
+        v769_nevoga_offer.apply(M)
+    except Exception:
+        pass
