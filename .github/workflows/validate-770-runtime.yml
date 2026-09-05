@@ -1,0 +1,60 @@
+name: Validate TURTO CRM 7.7 runtime policy
+
+on:
+  pull_request:
+    paths:
+      - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
+      - 'ZakazkyApp_base_6.1/v770_runtime_policy.py'
+      - 'ZakazkyApp_base_6.1/v768_clean_table_markers.py'
+      - 'ZakazkyApp_base_6.1/crm_updater.pyw'
+      - 'ZakazkyApp_base_6.1/ZakazkyCRM.pyw'
+      - 'scripts/validate-770-runtime-policy.py'
+      - 'scripts/validate-768-clean-table-markers.py'
+      - 'scripts/validate-7610-nevoga-exact-red-excel.py'
+      - 'scripts/publish-update.sh'
+      - 'release_version.txt'
+      - '.github/workflows/validate-770-runtime.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
+      - 'ZakazkyApp_base_6.1/v770_runtime_policy.py'
+      - 'ZakazkyApp_base_6.1/v768_clean_table_markers.py'
+      - 'ZakazkyApp_base_6.1/crm_updater.pyw'
+      - 'ZakazkyApp_base_6.1/ZakazkyCRM.pyw'
+      - 'scripts/validate-770-runtime-policy.py'
+      - 'scripts/validate-768-clean-table-markers.py'
+      - 'scripts/validate-7610-nevoga-exact-red-excel.py'
+      - 'scripts/publish-update.sh'
+      - 'release_version.txt'
+      - '.github/workflows/validate-770-runtime.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.12', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install parser/runtime dependencies
+        run: python -m pip install 'PyMuPDF<2,>=1.24' 'XlsxWriter<4,>=3.2' 'Pillow>=12.2' 'openpyxl>=3.1'
+      - name: Compile explicit runtime policy
+        run: >-
+          python -m compileall -q
+          ZakazkyApp_base_6.1/runtime_bootstrap.py
+          ZakazkyApp_base_6.1/v770_runtime_policy.py
+          ZakazkyApp_base_6.1/v768_clean_table_markers.py
+          ZakazkyApp_base_6.1/crm_updater.pyw
+          ZakazkyApp_base_6.1/ZakazkyCRM.pyw
+      - name: Validate clean dates and explicit composition
+        run: python scripts/validate-768-clean-table-markers.py ZakazkyApp_base_6.1
+      - name: Validate Nevoga Excel and PLEXUS routing
+        run: python scripts/validate-7610-nevoga-exact-red-excel.py ZakazkyApp_base_6.1
+      - name: Validate 7.7 policy and reversible updater
+        run: python scripts/validate-770-runtime-policy.py ZakazkyApp_base_6.1
+      - name: Validate release script syntax
+        run: bash -n scripts/publish-update.sh
