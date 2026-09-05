@@ -96,10 +96,10 @@ jobs:
         if: matrix.python-version == '3.14'
         shell: bash
         run: |
-          # Python 3.14 + Tk/Xvfb on hosted Ubuntu occasionally aborts inside
-          # Tcl/Tk itself with "alloc: invalid block" (exit 134) before Python
-          # can report an application exception. Retry only that native allocator
-          # abort; any normal test failure keeps failing immediately.
+          # Hosted Ubuntu with Python 3.14/Tk/Xvfb can fail natively before
+          # Python can report an application assertion. Retry only process-level
+          # Tcl/Tk aborts (134) or segmentation faults (139); ordinary test
+          # failures still stop immediately.
           set +e
           rc=1
           for attempt in 1 2 3; do
@@ -109,10 +109,10 @@ jobs:
             if [ "$rc" -eq 0 ]; then
               exit 0
             fi
-            if [ "$rc" -ne 134 ]; then
+            if [ "$rc" -ne 134 ] && [ "$rc" -ne 139 ]; then
               exit "$rc"
             fi
-            echo "Transient Tcl/Tk allocator abort (134); retrying..."
+            echo "Transient native Tk failure (${rc}); retrying..."
             sleep 2
           done
           exit "$rc"
