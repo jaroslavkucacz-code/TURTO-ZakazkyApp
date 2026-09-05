@@ -1,8 +1,38 @@
-# TURTO CRM 7.6.13 - reprocess offers and keep legacy offer schema compatible.
+# TURTO CRM 7.7.2 - reprocess offers and retain already available images.
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
+
+
+_TYPE_RE = re.compile(r"(?:^|[|,;\s])(?:typ|type)\s*[:=\-]?\s*([A-Z]{1,3})(?=\s|[|,;]|$)", re.I)
+
+
+def _get(row, key, default=None):
+    try:
+        return row[key]
+    except Exception:
+        return default
+
+
+def _norm(value):
+    return ' '.join(re.sub(r'[^\w]+', ' ', str(value or '').casefold()).split())
+
+
+def _type_code(*values):
+    for value in values:
+        match = _TYPE_RE.search(str(value or '').upper())
+        if match:
+            return match.group(1).upper()
+    return ''
+
+
+def _columns(con, table):
+    try:
+        return {str(row[1]) for row in con.execute(f'PRAGMA table_info({table})')}
+    except Exception:
+        return set()
 
 
 def apply(M):
@@ -80,15 +110,11 @@ def apply(M):
     ):
         """Import a new PDF or refresh extraction for an identical stored PDF.
 
-        Source hash still prevents duplicate offer records. The important
-        difference is that a matching hash no longer returns immediately with
-        stale supplier_offer_items: the PDF is parsed by the current parser and
-        its extracted rows are transactionally replaced under the same offer ID.
-        Offer/customer/action links and user-entered offer metadata stay intact.
+        Source hash still prevents duplicate offer records. A matching hash is
+        parsed by the current parser and its extracted rows are transactionally
+        replaced under the same offer ID. If a repeated MSG/PDF pass omits image
+        bytes, the previous item, canonical image or shared PLEXUS asset is reused.
         """
-        # Repeat the tiny additive guard immediately before every import as well
-        # as at startup. This makes Outlook .msg processing safe even for a DB
-        # created by an older release whose offer tables were never migrated.
         ensure_offer_import_schema()
 
         parsed, raw = M.extract_offer_pdf(pdf_path)
@@ -100,10 +126,17 @@ def apply(M):
                 'SELECT * FROM supplier_offers WHERE source_hash=?',
                 (source_hash,),
             ).fetchone()
+            previous_rows = (
+                con.execute(
+                    'SELECT * FROM supplier_offer_items WHERE offer_id=? ORDER BY position,id',
+                    (int(existing['id']),),
+                ).fetchall()
+                if existing is not None
+                else []
+            )
+            item_columns = _columns(con, 'supplier_offer_items')
 
         if existing is None:
-            # New source: keep the proven original creation path. It will parse
-            # once more, which is preferable to duplicating all new-offer logic.
             return previous_save(
                 pdf_path,
                 supplier_name=supplier_name,
@@ -116,8 +149,6 @@ def apply(M):
 
         items = list(parsed.get('items') or [])
         if not items:
-            # Never destroy a previously usable offer because a newer parser
-            # unexpectedly returned an empty result.
             raise ValueError(
                 'Opětovné zpracování nabídky nevrátilo žádné položky. '
                 'Původní uložená data zůstala beze změny.'
@@ -153,8 +184,82 @@ def apply(M):
         discount_pct = float(parsed.get('discount_pct') or 0)
         net_value = float(parsed.get('net') or parsed.get('total') or 0)
 
-        # One transaction: either every freshly parsed row replaces the stale
-        # extraction, or SQLite rolls the whole refresh back on any error.
+        by_key = {str(_get(row, 'item_key') or '').casefold(): row for row in previous_rows if _get(row, 'item_key')}
+        by_product = {str(_get(row, 'product_code') or '').casefold(): row for row in previous_rows if _get(row, 'product_code')}
+        by_name = {_norm(_get(row, 'original_name')): row for row in previous_rows if _get(row, 'original_name')}
+        by_position = {int(_get(row, 'position') or 0): row for row in previous_rows if int(_get(row, 'position') or 0)}
+        by_type = {}
+        for row in previous_rows:
+            code = str(_get(row, 'plexus_type') or '').upper() or _type_code(
+                _get(row, 'original_name'), _get(row, 'item_key'), _get(row, 'details')
+            )
+            if code:
+                by_type.setdefault(code, row)
+
+        def prior_row(item, key, pos):
+            code = str(item.get('plexus_type') or '').upper() or _type_code(
+                item.get('description'), item.get('item_key'), item.get('details')
+            )
+            return (
+                (by_type.get(code) if code else None)
+                or by_key.get(str(key or '').casefold())
+                or by_product.get(str(item.get('product') or '').casefold())
+                or by_name.get(_norm(item.get('description') or item.get('item_key')))
+                or by_position.get(int(item.get('position') or pos))
+            )
+
+        def recover_image(con, item, key, pos):
+            image = item.get('image_bytes')
+            ext = str(item.get('image_ext') or '')
+            code = str(item.get('plexus_type') or '').upper() or _type_code(
+                item.get('description'), item.get('item_key'), item.get('details')
+            )
+            if image:
+                return bytes(image), ext, '', code, False
+
+            old = prior_row(item, key, pos)
+            asset_key = str(_get(old, 'image_asset_key') or '') if old else ''
+            code = code or (str(_get(old, 'plexus_type') or '').upper() if old else '')
+            if old and _get(old, 'image_blob'):
+                return bytes(old['image_blob']), str(_get(old, 'image_ext') or ext), asset_key, code, True
+
+            if asset_key:
+                try:
+                    asset = con.execute(
+                        'SELECT image_blob,image_ext FROM offer_image_assets WHERE asset_key=?',
+                        (asset_key,),
+                    ).fetchone()
+                except Exception:
+                    asset = None
+                if asset and asset['image_blob']:
+                    return bytes(asset['image_blob']), str(asset['image_ext'] or ext), asset_key, code, True
+
+            try:
+                canonical = con.execute(
+                    '''SELECT image_blob,image_ext FROM offer_product_images
+                       WHERE supplier=? AND item_key=? AND image_blob IS NOT NULL''',
+                    (stored_supplier or parsed_supplier, key),
+                ).fetchone()
+            except Exception:
+                canonical = None
+            if canonical and canonical['image_blob']:
+                return bytes(canonical['image_blob']), str(canonical['image_ext'] or ext), asset_key, code, True
+
+            if code:
+                key_by_type = f'nevoga:plexus:{code}'
+                try:
+                    asset = con.execute(
+                        'SELECT image_blob,image_ext FROM offer_image_assets WHERE asset_key=?',
+                        (key_by_type,),
+                    ).fetchone()
+                except Exception:
+                    asset = None
+                if asset and asset['image_blob']:
+                    return bytes(asset['image_blob']), str(asset['image_ext'] or ext), key_by_type, code, True
+            return None, ext, asset_key, code, False
+
+        restored_images = 0
+        stored_images = 0
         with M.db() as con:
             con.execute('DELETE FROM supplier_offer_items WHERE offer_id=?', (oid,))
 
@@ -178,10 +283,13 @@ def apply(M):
                 )
                 disc = float(item.get('discount_pct') or 0)
                 total = float(item.get('item_total') or (qty * unit_price))
-                image = item.get('image_bytes')
-                ext = str(item.get('image_ext') or '')
+                image, ext, asset_key, plexus_type, restored = recover_image(
+                    con, item, key, pos
+                )
+                stored_images += int(bool(image))
+                restored_images += int(bool(restored and image))
 
-                con.execute(
+                cursor = con.execute(
                     '''INSERT INTO supplier_offer_items(
                         offer_id,position,original_name,item_key,quantity,unit,
                         unit_price,discount,net_price,total_price,
@@ -208,19 +316,30 @@ def apply(M):
                         disc,
                     ),
                 )
+                if asset_key and 'image_asset_key' in item_columns:
+                    con.execute(
+                        'UPDATE supplier_offer_items SET image_asset_key=? WHERE id=?',
+                        (asset_key, int(cursor.lastrowid)),
+                    )
+                if plexus_type and 'plexus_type' in item_columns:
+                    con.execute(
+                        'UPDATE supplier_offer_items SET plexus_type=? WHERE id=?',
+                        (plexus_type, int(cursor.lastrowid)),
+                    )
                 con.execute(
                     'INSERT OR IGNORE INTO offer_item_aliases(item_key,alias) VALUES(?,?)',
                     (key, original),
                 )
-                M._save_canonical_image(
-                    con,
-                    stored_supplier or parsed_supplier,
-                    key,
-                    image,
-                    ext,
-                    stored_number,
-                    stored_date,
-                )
+                if image:
+                    M._save_canonical_image(
+                        con,
+                        stored_supplier or parsed_supplier,
+                        key,
+                        image,
+                        ext,
+                        stored_number,
+                        stored_date,
+                    )
 
             item_total = con.execute(
                 'SELECT COALESCE(SUM(total_price),0) FROM supplier_offer_items WHERE offer_id=?',
@@ -257,17 +376,13 @@ def apply(M):
 
         parsed['reprocessed_existing'] = True
         parsed['existing_offer_id'] = oid
-        parsed['images_preserved'] = any(
-            bool(item.get('image_bytes')) for item in items
-        )
+        parsed['images_preserved'] = bool(stored_images)
+        parsed['images_restored_from_previous'] = restored_images
+        parsed['program_images_available'] = stored_images
         return oid, False, len(items), parsed
 
     M.save_offer_import = save_offer_import
 
-    # 7.6.8 is intentionally chained here as well so packaged launchers from
-    # the 7.6.7 release script get the table-date cleanup even before that
-    # script is refactored to list the new tiny layer explicitly. v768 itself
-    # chains the later Nevoga layer, preserving the existing packaged order.
     try:
         import v768_clean_table_markers
         v768_clean_table_markers.apply(M)
