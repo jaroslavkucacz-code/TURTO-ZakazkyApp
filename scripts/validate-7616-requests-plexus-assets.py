@@ -312,7 +312,6 @@ def main():
         assert bootstrap.index('"v7615_nevoga_meter_units"') < bootstrap.index(
             '"v7616_requests_plexus_assets"'
         )
-        assert '"v7616_requests_plexus_assets"' < 'z'
     else:
         bridge = (source / "v768_clean_table_markers.py").read_text(encoding="utf-8")
         assert "import v7616_requests_plexus_assets" in bridge
