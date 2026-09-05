@@ -209,7 +209,6 @@ def main() -> None:
         def __init__(self):
             self.exists = True
             self.callbacks = {}
-            self.cancelled = []
             self.counter = 0
             self.sync_calls = 0
             self._sync_filter_bar = self.sync
@@ -220,42 +219,30 @@ def main() -> None:
         def sync(self):
             self.sync_calls += 1
 
-        def _store(self, prefix, callback):
+        def after(self, delay, callback):
             self.counter += 1
-            token = f"{prefix}-{self.counter}"
+            token = f"after-{delay}-{self.counter}"
             self.callbacks[token] = callback
             return token
 
-        def after_idle(self, callback):
-            return self._store("idle", callback)
-
-        def after(self, delay, callback):
-            return self._store(f"after-{delay}", callback)
-
-        def after_cancel(self, token):
-            self.cancelled.append(token)
-            self.callbacks.pop(token, None)
-
     scheduled = FakeScheduledTree()
     module.schedule_v750_filter_sync(scheduled)
-    first_idle = scheduled._v750_filter_sync_idle
+    first_tick = scheduled._v750_filter_sync_tick
     module.schedule_v750_filter_sync(scheduled)
-    second_idle = scheduled._v750_filter_sync_idle
-    assert first_idle != second_idle
-    assert first_idle in scheduled.cancelled
-    assert first_idle not in scheduled.callbacks
-    scheduled.callbacks.pop(second_idle)()
+    assert scheduled._v750_filter_sync_tick == first_tick
+    assert list(scheduled.callbacks) == [first_tick]
+    scheduled.callbacks.pop(first_tick)()
     assert scheduled.sync_calls == 1
-    assert scheduled._v750_filter_sync_idle is None
+    assert scheduled._v750_filter_sync_tick is None
 
     module.schedule_v750_filter_sync(scheduled)
-    idle_token = scheduled._v750_filter_sync_idle
+    tick_token = scheduled._v750_filter_sync_tick
     module.schedule_v750_filter_sync(scheduled, 80)
     delayed_token = scheduled._v750_filter_sync_after
-    assert idle_token in scheduled.callbacks
+    assert tick_token in scheduled.callbacks
     assert delayed_token in scheduled.callbacks
     scheduled.exists = False
-    scheduled.callbacks.pop(idle_token)()
+    scheduled.callbacks.pop(tick_token)()
     scheduled.callbacks.pop(delayed_token)()
     assert scheduled.sync_calls == 1
 
@@ -264,12 +251,16 @@ def main() -> None:
     )
     assert "tree.update_idletasks()" not in layer
     assert "filter_frame.update_idletasks()" not in layer
+    assert "filter_frame.bind(" not in layer
+    assert "after_idle(" not in layer
     for safety_token in (
-        "_v750_filter_sync_idle",
+        "_v750_filter_sync_tick",
         "_v750_filter_sync_after",
         "_v750_filter_sync_running",
-        "after_idle(run)",
-        "Never invoke a geometry redraw synchronously as a fallback",
+        "geometry_matches",
+        "_v750_filter_events_bound",
+        "_v750_filter_sync_cleanup",
+        "A failed schedule must never fall back",
     ):
         assert safety_token in layer, safety_token
 

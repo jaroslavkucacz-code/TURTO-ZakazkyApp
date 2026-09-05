@@ -137,48 +137,50 @@ def apply(M: Any) -> None:
     # trigger a synchronized redraw.
     # ------------------------------------------------------------------
     def schedule_filter_sync(tree: Any, delay: int = 0) -> None:
-        """Coalesce redraws without entering a nested Tcl/Tk idle loop."""
-        if not _widget_exists(tree):
+        """Queue at most one redraw per timing slot; never nest the Tk loop."""
+        if (
+            not _widget_exists(tree)
+            or getattr(tree, "_v750_filter_sync_closing", False)
+        ):
             return
         callback = getattr(tree, "_sync_filter_bar", None)
         if not callable(callback):
             return
         try:
-            delay = max(0, int(delay))
-            token_name = (
-                "_v750_filter_sync_after"
-                if delay
-                else "_v750_filter_sync_idle"
-            )
-            pending = getattr(tree, token_name, None)
-            if pending is not None:
-                try:
-                    tree.after_cancel(pending)
-                except Exception:
-                    pass
-                try:
-                    setattr(tree, token_name, None)
-                except Exception:
-                    pass
-
-            def run() -> None:
-                try:
-                    setattr(tree, token_name, None)
-                except Exception:
-                    pass
-                if not _widget_exists(tree):
-                    return
-                current = getattr(tree, "_sync_filter_bar", None)
-                if callable(current):
-                    current()
-
-            token = tree.after(delay, run) if delay else tree.after_idle(run)
-            setattr(tree, token_name, token)
+            requested = max(0, int(delay))
         except Exception:
-            # Never invoke a geometry redraw synchronously as a fallback.
-            # This function is itself called from Configure/xscroll events;
-            # immediate re-entry into Tcl/Tk is the native crash condition.
-            pass
+            requested = 0
+        token_name = (
+            "_v750_filter_sync_after"
+            if requested
+            else "_v750_filter_sync_tick"
+        )
+        if getattr(tree, token_name, None) is not None:
+            return
+        wait = max(12, requested)
+
+        def run() -> None:
+            try:
+                setattr(tree, token_name, None)
+            except Exception:
+                pass
+            if (
+                getattr(tree, "_v750_filter_sync_closing", False)
+                or not _widget_exists(tree)
+            ):
+                return
+            current = getattr(tree, "_sync_filter_bar", None)
+            if callable(current):
+                current()
+
+        try:
+            setattr(tree, token_name, tree.after(wait, run))
+        except Exception:
+            # A failed schedule must never fall back to a synchronous redraw.
+            try:
+                setattr(tree, token_name, None)
+            except Exception:
+                pass
 
     def attach_filter_bar(tree: Any, filter_frame: Any) -> None:
         try:
@@ -214,15 +216,12 @@ def apply(M: Any) -> None:
                 if (
                     not _widget_exists(tree)
                     or not _widget_exists(filter_frame)
+                    or getattr(tree, "_v750_filter_sync_closing", False)
                     or getattr(tree, "_v750_filter_sync_running", False)
                 ):
                     return
                 tree._v750_filter_sync_running = True
                 try:
-                    # Never call update_idletasks() here. sync() is reached from
-                    # Configure, xscrollcommand and after callbacks; a nested Tcl
-                    # event loop can execute another layout callback while the
-                    # current Treeview command is still active on Windows/Tk 8.6.
                     visible = displayed_columns(tree)
                     widths: dict[str, int] = {}
                     for column in visible:
@@ -246,22 +245,36 @@ def apply(M: Any) -> None:
                     for column in visible:
                         starts[column] = cursor
                         cursor += widths[column]
+
+                    def geometry_matches(widget: Any, x: int, width: int) -> bool:
+                        try:
+                            info = widget.place_info()
+                            return bool(info) and all(
+                                int(float(info.get(name, -1))) == value
+                                for name, value in (
+                                    ("x", x), ("y", 0),
+                                    ("width", width), ("height", height),
+                                )
+                            )
+                        except Exception:
+                            return False
+
                     for column, widget in cells:
                         if not _widget_exists(widget):
                             continue
                         if column not in starts:
                             try:
-                                widget.place_forget()
+                                if widget.place_info():
+                                    widget.place_forget()
                             except Exception:
                                 pass
                             continue
+                        x = starts[column] - offset
+                        width = widths[column]
+                        if geometry_matches(widget, x, width):
+                            continue
                         try:
-                            widget.place(
-                                x=starts[column] - offset,
-                                y=0,
-                                width=widths[column],
-                                height=height,
-                            )
+                            widget.place(x=x, y=0, width=width, height=height)
                         except Exception:
                             pass
                 except Exception:
@@ -277,18 +290,30 @@ def apply(M: Any) -> None:
             tree._filter_cell_columns = [column for column, _widget in cells]
             tree._sync_filter_bar = sync
             tree._v750_filter_displaycolumns = True
+            tree._v750_filter_sync_closing = False
 
-            for sequence in ("<Configure>", "<B1-Motion>", "<ButtonRelease-1>", "<Map>"):
-                tree.bind(
-                    sequence,
-                    lambda _event, current=tree: schedule_filter_sync(current),
-                    add="+",
-                )
-            filter_frame.bind(
-                "<Configure>",
-                lambda _event, current=tree: schedule_filter_sync(current),
-                add="+",
-            )
+            if not getattr(tree, "_v750_filter_events_bound", False):
+                tree._v750_filter_events_bound = True
+                for sequence in (
+                    "<Configure>", "<B1-Motion>",
+                    "<ButtonRelease-1>", "<Map>",
+                ):
+                    tree.bind(
+                        sequence,
+                        lambda _event, current=tree: schedule_filter_sync(current),
+                        add="+",
+                    )
+
+                def closing(event: Any = None) -> None:
+                    if event is not None and getattr(event, "widget", tree) is not tree:
+                        return
+                    tree._v750_filter_sync_closing = True
+                    tree._v750_filter_sync_tick = None
+                    tree._v750_filter_sync_after = None
+                    tree._sync_filter_bar = None
+
+                tree.bind("<Destroy>", closing, add="+")
+                tree._v750_filter_sync_cleanup = closing
 
             # A Treeview reports every xview change through xscrollcommand.
             # Preserve the already connected scrollbar command and add only the
