@@ -63,17 +63,20 @@ jobs:
           python scripts/validate-7610-nevoga-exact-red-excel.py ZakazkyApp_base_6.1
           python scripts/validate-770-runtime-policy.py ZakazkyApp_base_6.1
           bash -n scripts/publish-update.sh
-      - name: Remove all one-shot transport files
+      - name: Remove transport files and generated caches
         if: steps.gate.outputs.apply == 'true'
         shell: bash
         run: |
           rm -rf scripts/_770_apply2 scripts/_770_payload
           rm -f scripts/_apply_770_payload2.py scripts/_apply_770_chunks.py
-          rm -f .github/workflows/apply-770-payload.yml
-          rm -f .github/workflows/audit-runtime-composition.yml
-          rm -f .github/workflows/audit-runtime.yml
           rm -f release_plan_7.7.tmp notes/README.md
           rmdir notes 2>/dev/null || true
+          find ZakazkyApp_base_6.1 scripts -type d -name '__pycache__' -prune -exec rm -rf {} +
+          find ZakazkyApp_base_6.1 scripts -type f -name '*.pyc' -delete
+          # A GitHub App token cannot alter workflow files. Keep the branch's
+          # existing workflows untouched here; they are finalized by the PR owner.
+          git restore .github/workflows
+          rm -f .github/workflows/validate-770-runtime.yml
       - name: Commit consolidated runtime
         if: steps.gate.outputs.apply == 'true'
         shell: bash
