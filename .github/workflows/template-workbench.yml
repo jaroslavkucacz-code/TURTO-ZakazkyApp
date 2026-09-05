@@ -1,0 +1,23 @@
+name: Template workbench source snapshot
+on:
+  push:
+    branches: [feature/7.9.0-corporate-offer-templates]
+    paths: [.github/workflows/template-workbench.yml]
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: template-workbench-source
+          include-hidden-files: true
+          path: |
+            ZakazkyApp_base_6.1/
+            scripts/
+            .github/workflows/
+            release_version.txt
+            release_notes.txt
+          retention-days: 2
