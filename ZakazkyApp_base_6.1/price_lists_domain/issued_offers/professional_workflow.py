@@ -2196,7 +2196,7 @@ def _confirm_sent(
 ) -> bool:
     from price_lists_domain.issued_offers import service
 
-    document, _items = service.load_document(M, int(document_id))
+    document, items = service.load_document(M, int(document_id))
     if _text(document.get("status")) == "Odesláno":
         M.messagebox.showinfo(
             "Vydaná nabídka",
@@ -2204,10 +2204,34 @@ def _confirm_sent(
             parent=parent or app,
         )
         return False
+    report = offer_preflight(document, items, for_email=False)
+    if report.errors:
+        M.messagebox.showwarning(
+            "Potvrzení odeslání",
+            report.headline
+            + "\n\nPřed potvrzením odeslání opravte povinné údaje nabídky.",
+            parent=parent or app,
+        )
+        return False
+    state = pdf_state(M, int(document_id))
+    if state.status != "current" or state.path is None or not state.path.is_file():
+        M.messagebox.showwarning(
+            "Potvrzení odeslání",
+            "Odeslání lze potvrdit pouze k aktuální archivované PDF revizi.\n\n"
+            + state.label
+            + "\n\nNejprve použijte Zkontrolovat a vydat.",
+            parent=parent or app,
+        )
+        return False
+    revision = (
+        f"R{int(state.revision_no):02d}"
+        if state.revision_no is not None
+        else "bez označení revize"
+    )
     if not M.messagebox.askyesno(
         "Potvrdit skutečné odeslání",
         f"Potvrzujete, že nabídka {document.get('document_number') or ''} "
-        "byla skutečně odeslána zákazníkovi?\n\n"
+        f"({revision}) byla skutečně odeslána zákazníkovi?\n\n"
         "Tuto volbu použijte až po kontrole složky Odeslaná pošta. "
         "Dokument se označí jako Odesláno a uzamkne proti změnám.",
         parent=parent or app,

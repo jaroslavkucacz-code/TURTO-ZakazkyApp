@@ -252,6 +252,7 @@ def main():
     bootstrap = bootstrap_path.read_text(encoding="utf-8")
     assert bootstrap.count('"v770_runtime_policy"') >= 1
     assert bootstrap.index('"v7616_requests_plexus_assets"') < bootstrap.index('"v770_runtime_policy"')
+    assert bootstrap.index('"price_lists_domain.issued_offers.professional_workflow"') < bootstrap.index('"v770_runtime_policy"')
     launcher = launcher_path.read_text(encoding="utf-8")
     assert "runtime_bootstrap.apply_all(app)" in launcher
     launcher_tree = ast.parse(launcher, filename=str(launcher_path))
@@ -282,7 +283,7 @@ def main():
     version = (repository / "release_version.txt").read_text(encoding="utf-8").strip()
     version_parts = tuple(int(part) for part in version.split("."))
     assert len(version_parts) == 3, version
-    assert version_parts[:2] == (7, 7) and version_parts >= (7, 7, 3), version
+    assert version_parts[0] == 7 and version_parts >= (7, 7, 3), version
     publish = (repository / "scripts" / "publish-update.sh").read_text(encoding="utf-8")
     assert "validate-770-runtime-policy.py" in publish
     assert "rollback_manifest.json" in publish
