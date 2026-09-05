@@ -1,0 +1,333 @@
+name: Apply TURTO CRM 7.7.4 minimal filter redraw stability patch
+
+on:
+  push:
+    branches:
+      - fix/7.7.4-filter-sync-native-crash
+    paths:
+      - .github/workflows/apply-774-filter-sync-stability-v5.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/7.7.4-filter-sync-native-crash
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Replace idle-loop redraws with one queued timer per slot
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          root = Path('.')
+          layer_path = root / 'ZakazkyApp_base_6.1' / 'v750_context_filters_offer_format.py'
+          validation_path = root / 'scripts' / 'validate-7500-context-filters-offer-format.py'
+
+          layer = layer_path.read_text(encoding='utf-8')
+          schedule_start = layer.index(
+              '    def schedule_filter_sync(tree: Any, delay: int = 0) -> None:\n'
+          )
+          schedule_end = layer.index('\n    def attach_filter_bar', schedule_start)
+          schedule_body = textwrap.dedent('''\
+          def schedule_filter_sync(tree: Any, delay: int = 0) -> None:
+              """Queue at most one redraw per timing slot; never nest the Tk loop."""
+              if (
+                  not _widget_exists(tree)
+                  or getattr(tree, "_v750_filter_sync_closing", False)
+              ):
+                  return
+              callback = getattr(tree, "_sync_filter_bar", None)
+              if not callable(callback):
+                  return
+              try:
+                  requested = max(0, int(delay))
+              except Exception:
+                  requested = 0
+              token_name = (
+                  "_v750_filter_sync_after"
+                  if requested
+                  else "_v750_filter_sync_tick"
+              )
+              if getattr(tree, token_name, None) is not None:
+                  return
+              wait = max(12, requested)
+
+              def run() -> None:
+                  try:
+                      setattr(tree, token_name, None)
+                  except Exception:
+                      pass
+                  if (
+                      getattr(tree, "_v750_filter_sync_closing", False)
+                      or not _widget_exists(tree)
+                  ):
+                      return
+                  current = getattr(tree, "_sync_filter_bar", None)
+                  if callable(current):
+                      current()
+
+              try:
+                  setattr(tree, token_name, tree.after(wait, run))
+              except Exception:
+                  # A failed schedule must never fall back to a synchronous redraw.
+                  try:
+                      setattr(tree, token_name, None)
+                  except Exception:
+                      pass
+          ''')
+          layer = (
+              layer[:schedule_start]
+              + textwrap.indent(schedule_body, '    ')
+              + layer[schedule_end:]
+          )
+
+          sync_start = layer.index('            def sync(*_args: Any) -> None:\n')
+          sync_end = layer.index('\n            tree._filter_frame =', sync_start)
+          sync_body = textwrap.dedent('''\
+          def sync(*_args: Any) -> None:
+              if (
+                  not _widget_exists(tree)
+                  or not _widget_exists(filter_frame)
+                  or getattr(tree, "_v750_filter_sync_closing", False)
+                  or getattr(tree, "_v750_filter_sync_running", False)
+              ):
+                  return
+              tree._v750_filter_sync_running = True
+              try:
+                  visible = displayed_columns(tree)
+                  widths: dict[str, int] = {}
+                  for column in visible:
+                      try:
+                          widths[column] = max(
+                              1, int(tree.column(column, "width"))
+                          )
+                      except Exception:
+                          continue
+                  visible = [column for column in visible if column in widths]
+                  if not visible:
+                      return
+                  total = max(1, sum(widths.values()))
+                  try:
+                      first = float(tree.xview()[0])
+                  except Exception:
+                      first = 0.0
+                  offset = int(round(first * total))
+                  starts: dict[str, int] = {}
+                  cursor = 0
+                  for column in visible:
+                      starts[column] = cursor
+                      cursor += widths[column]
+
+                  def geometry_matches(widget: Any, x: int, width: int) -> bool:
+                      try:
+                          info = widget.place_info()
+                          return bool(info) and all(
+                              int(float(info.get(name, -1))) == value
+                              for name, value in (
+                                  ("x", x), ("y", 0),
+                                  ("width", width), ("height", height),
+                              )
+                          )
+                      except Exception:
+                          return False
+
+                  for column, widget in cells:
+                      if not _widget_exists(widget):
+                          continue
+                      if column not in starts:
+                          try:
+                              if widget.place_info():
+                                  widget.place_forget()
+                          except Exception:
+                              pass
+                          continue
+                      x = starts[column] - offset
+                      width = widths[column]
+                      if geometry_matches(widget, x, width):
+                          continue
+                      try:
+                          widget.place(x=x, y=0, width=width, height=height)
+                      except Exception:
+                          pass
+              except Exception:
+                  pass
+              finally:
+                  try:
+                      tree._v750_filter_sync_running = False
+                  except Exception:
+                      pass
+          ''')
+          layer = (
+              layer[:sync_start]
+              + textwrap.indent(sync_body, '            ')
+              + layer[sync_end:]
+          )
+
+          state_anchor = '''            tree._sync_filter_bar = sync
+              tree._v750_filter_displaycolumns = True
+          '''
+          state_replacement = '''            tree._sync_filter_bar = sync
+              tree._v750_filter_displaycolumns = True
+              tree._v750_filter_sync_closing = False
+          '''
+          if state_anchor not in layer:
+              raise SystemExit('filter state anchor missing')
+          layer = layer.replace(state_anchor, state_replacement, 1)
+
+          bindings_start = layer.index(
+              '            for sequence in ("<Configure>", "<B1-Motion>", "<ButtonRelease-1>", "<Map>"):\n'
+          )
+          bindings_end = layer.index(
+              '\n            # A Treeview reports every xview change through xscrollcommand.',
+              bindings_start,
+          )
+          bindings_body = textwrap.dedent('''\
+          if not getattr(tree, "_v750_filter_events_bound", False):
+              tree._v750_filter_events_bound = True
+              for sequence in (
+                  "<Configure>", "<B1-Motion>",
+                  "<ButtonRelease-1>", "<Map>",
+              ):
+                  tree.bind(
+                      sequence,
+                      lambda _event, current=tree: schedule_filter_sync(current),
+                      add="+",
+                  )
+
+              def closing(event: Any = None) -> None:
+                  if event is not None and getattr(event, "widget", tree) is not tree:
+                      return
+                  tree._v750_filter_sync_closing = True
+                  tree._v750_filter_sync_tick = None
+                  tree._v750_filter_sync_after = None
+                  tree._sync_filter_bar = None
+
+              tree.bind("<Destroy>", closing, add="+")
+              tree._v750_filter_sync_cleanup = closing
+          ''')
+          layer = (
+              layer[:bindings_start]
+              + textwrap.indent(bindings_body, '            ')
+              + layer[bindings_end:]
+          )
+          layer_path.write_text(layer, encoding='utf-8')
+
+          validation = validation_path.read_text(encoding='utf-8')
+          fake_start = validation.index('    class FakeScheduledTree:\n')
+          fake_end = validation.index(
+              '\n    layer = (source / "v750_context_filters_offer_format.py").read_text(',
+              fake_start,
+          )
+          fake_block = textwrap.dedent('''\
+          class FakeScheduledTree:
+              def __init__(self):
+                  self.exists = True
+                  self.callbacks = {}
+                  self.counter = 0
+                  self.sync_calls = 0
+                  self._sync_filter_bar = self.sync
+
+              def winfo_exists(self):
+                  return self.exists
+
+              def sync(self):
+                  self.sync_calls += 1
+
+              def after(self, delay, callback):
+                  self.counter += 1
+                  token = f"after-{delay}-{self.counter}"
+                  self.callbacks[token] = callback
+                  return token
+
+          scheduled = FakeScheduledTree()
+          module.schedule_v750_filter_sync(scheduled)
+          first_tick = scheduled._v750_filter_sync_tick
+          module.schedule_v750_filter_sync(scheduled)
+          assert scheduled._v750_filter_sync_tick == first_tick
+          assert list(scheduled.callbacks) == [first_tick]
+          scheduled.callbacks.pop(first_tick)()
+          assert scheduled.sync_calls == 1
+          assert scheduled._v750_filter_sync_tick is None
+
+          module.schedule_v750_filter_sync(scheduled)
+          tick_token = scheduled._v750_filter_sync_tick
+          module.schedule_v750_filter_sync(scheduled, 80)
+          delayed_token = scheduled._v750_filter_sync_after
+          assert tick_token in scheduled.callbacks
+          assert delayed_token in scheduled.callbacks
+          scheduled.exists = False
+          scheduled.callbacks.pop(tick_token)()
+          scheduled.callbacks.pop(delayed_token)()
+          assert scheduled.sync_calls == 1
+          ''')
+          validation = (
+              validation[:fake_start]
+              + textwrap.indent(fake_block, '    ')
+              + validation[fake_end:]
+          )
+
+          checks_start = validation.index(
+              '    assert "tree.update_idletasks()" not in layer\n'
+          )
+          checks_end = validation.index('\n    for token in (', checks_start)
+          checks = '''    assert "tree.update_idletasks()" not in layer
+              assert "filter_frame.update_idletasks()" not in layer
+              assert "filter_frame.bind(" not in layer
+              assert "after_idle(" not in layer
+              for safety_token in (
+                  "_v750_filter_sync_tick",
+                  "_v750_filter_sync_after",
+                  "_v750_filter_sync_running",
+                  "geometry_matches",
+                  "_v750_filter_events_bound",
+                  "_v750_filter_sync_cleanup",
+                  "A failed schedule must never fall back",
+              ):
+                  assert safety_token in layer, safety_token
+          '''
+          validation = validation[:checks_start] + checks + validation[checks_end:]
+          validation_path.write_text(validation, encoding='utf-8')
+          PY
+
+      - name: Run focused and real Tk checks
+        shell: bash
+        run: |
+          python -m compileall -q \
+            ZakazkyApp_base_6.1/v750_context_filters_offer_format.py \
+            scripts/validate-7500-context-filters-offer-format.py
+          python scripts/validate-7500-context-filters-offer-format.py ZakazkyApp_base_6.1
+          python scripts/validate-770-runtime-policy.py ZakazkyApp_base_6.1
+          python scripts/validate-771-runtime-bootstrap-stability.py ZakazkyApp_base_6.1
+          command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
+          for attempt in 1 2 3; do
+            echo "Candidate real-Tk attempt ${attempt}/3"
+            if timeout 180s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1; then
+              exit 0
+            fi
+          done
+          exit 1
+
+      - name: Commit candidate after real-Tk success
+        shell: bash
+        run: |
+          git config user.name "TURTO Update Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            ZakazkyApp_base_6.1/v750_context_filters_offer_format.py \
+            scripts/validate-7500-context-filters-offer-format.py
+          git commit -m "Stabilize queued filter redraws without idle-loop feedback"
+          git push origin HEAD:fix/7.7.4-filter-sync-native-crash
