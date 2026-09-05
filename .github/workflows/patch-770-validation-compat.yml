@@ -1,0 +1,40 @@
+name: Apply TURTO CRM 7.7 validation compatibility patch
+
+on:
+  push:
+    branches:
+      - refactor/7.7.0-runtime-simplification
+    paths:
+      - scripts/patch-770-validation-compat.py
+      - .github/workflows/patch-770-validation-compat.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/7.7.0-runtime-simplification
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply compatibility changes
+        run: python scripts/patch-770-validation-compat.py
+      - name: Validate edited files
+        run: |
+          python -m compileall -q scripts/validate-7616-requests-plexus-assets.py
+          bash -n scripts/publish-update.sh
+      - name: Commit changes
+        run: |
+          rm scripts/patch-770-validation-compat.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/publish-update.sh scripts/validate-7616-requests-plexus-assets.py scripts/patch-770-validation-compat.py
+          git commit -m 'Update historical validators for explicit 7.7 runtime'
+          git push origin HEAD:refactor/7.7.0-runtime-simplification
