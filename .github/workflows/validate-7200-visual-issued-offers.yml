@@ -18,7 +18,6 @@ on:
       - scripts/validate-7200-visual-issued-offers.py
       - scripts/validate-7300-polish.py
       - scripts/validate-7400-issued-pricing-columns.py
-      - scripts/validate-real-ui.py
       - scripts/publish-update.sh
       - release_version.txt
       - release_notes.txt
@@ -75,13 +74,8 @@ jobs:
       - name: Validate received-offer catalogue separation
         run: python scripts/validate-6341-offer-catalog-separation.py ZakazkyApp_base_6.1
 
-      - name: Ensure virtual display
-        if: matrix.python-version == '3.14'
-        run: command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
-
-      - name: Validate the real Tk visual editor and column persistence
-        if: matrix.python-version == '3.14'
-        run: timeout 150s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
-
+      # The native Tk application is exercised once by validate-6330.yml on
+      # every pull request. Keeping that process in one workflow avoids several
+      # concurrent Tcl/Tk interpreters producing host-level Xvfb crashes.
       - name: Validate release script syntax
         run: bash -n scripts/publish-update.sh

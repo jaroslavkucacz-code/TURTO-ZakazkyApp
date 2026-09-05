@@ -59,12 +59,17 @@ def main():
     assert 'gold = (214, 169, 0, 255)' in policy
 
     version = (repository / "release_version.txt").read_text(encoding="utf-8").strip()
-    assert version == "7.7.0", version
+    version_parts = tuple(int(part) for part in version.split("."))
+    assert len(version_parts) == 3, version
+    assert version_parts[:2] == (7, 7) and version_parts >= (7, 7, 0), version
     publish = (repository / "scripts" / "publish-update.sh").read_text(encoding="utf-8")
     assert "validate-770-runtime-policy.py" in publish
     assert "rollback_manifest.json" in publish
     assert "ZakazkyApp_v7.6.16.zip" in publish
-    print("OK 7.7: identity, PLEXUS assets, deadlines, monitor policy and reversible updater")
+    print(
+        f"OK {version}: identity, PLEXUS assets, deadlines, monitor policy "
+        "and reversible updater"
+    )
 
 
 if __name__ == "__main__":

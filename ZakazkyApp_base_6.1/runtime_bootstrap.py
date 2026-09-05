@@ -36,6 +36,16 @@ EARLY_LAYERS = (
     "v640_warning_cleanup",
 )
 
+# v644 installs the native-Tk stability bridge by wrapping the apply() functions
+# of these two historical layers. Under the old launcher all modules were
+# imported before any apply() call; the explicit bootstrap imports sequentially.
+# Prime the modules before v644 runs so its proven sandbox/scan suppression is
+# installed before either historical layer can modify Tkinter process-wide.
+STABILITY_PRIMED_LAYERS = (
+    "v710_cleanup",
+    "v760_table_activity_performance",
+)
+
 LATE_LAYERS = (
     "v710_cleanup",
     "v720_visual_offer",
@@ -60,6 +70,11 @@ def _apply(module_name: str, target: Any) -> None:
         function(target)
 
 
+def _prime_startup_stability_layers() -> None:
+    for module_name in STABILITY_PRIMED_LAYERS:
+        import_module(module_name)
+
+
 def apply_all(M: Any) -> None:
     if getattr(M, "_turto_runtime_bootstrap_complete", False):
         return
@@ -69,6 +84,11 @@ def apply_all(M: Any) -> None:
 
     _apply("post_baseline", M)
     _apply("v631_diskdrop", M)
+
+    # This import-only step is deliberately before v644. v644 then wraps the
+    # two apply() entry points, and the normal LATE_LAYERS loop invokes only
+    # those safe wrappers. No Treeview or Toplevel is created at this stage.
+    _prime_startup_stability_layers()
     _apply("v644_default_date_sort", M)
 
     crm_features = import_module("crm_features")
@@ -86,6 +106,7 @@ def apply_all(M: Any) -> None:
         *EARLY_LAYERS,
         "post_baseline",
         "v631_diskdrop",
+        *(f"import:{name}" for name in STABILITY_PRIMED_LAYERS),
         "v644_default_date_sort",
         "crm_features.install_offer_ui",
         "crm_price_lists",
