@@ -204,9 +204,66 @@ def main() -> None:
         "A",
     ]
 
+
+    class FakeScheduledTree:
+        def __init__(self):
+            self.exists = True
+            self.callbacks = {}
+            self.counter = 0
+            self.sync_calls = 0
+            self._sync_filter_bar = self.sync
+
+        def winfo_exists(self):
+            return self.exists
+
+        def sync(self):
+            self.sync_calls += 1
+
+        def after(self, delay, callback):
+            self.counter += 1
+            token = f"after-{delay}-{self.counter}"
+            self.callbacks[token] = callback
+            return token
+
+    scheduled = FakeScheduledTree()
+    module.schedule_v750_filter_sync(scheduled)
+    first_tick = scheduled._v750_filter_sync_tick
+    module.schedule_v750_filter_sync(scheduled)
+    assert scheduled._v750_filter_sync_tick == first_tick
+    assert list(scheduled.callbacks) == [first_tick]
+    scheduled.callbacks.pop(first_tick)()
+    assert scheduled.sync_calls == 1
+    assert scheduled._v750_filter_sync_tick is None
+
+    module.schedule_v750_filter_sync(scheduled)
+    tick_token = scheduled._v750_filter_sync_tick
+    module.schedule_v750_filter_sync(scheduled, 80)
+    delayed_token = scheduled._v750_filter_sync_after
+    assert tick_token in scheduled.callbacks
+    assert delayed_token in scheduled.callbacks
+    scheduled.exists = False
+    scheduled.callbacks.pop(tick_token)()
+    scheduled.callbacks.pop(delayed_token)()
+    assert scheduled.sync_calls == 1
+
     layer = (source / "v750_context_filters_offer_format.py").read_text(
         encoding="utf-8"
     )
+    assert "tree.update_idletasks()" not in layer
+    assert "filter_frame.update_idletasks()" not in layer
+    assert "filter_frame.bind(" not in layer
+    assert "after_idle(" not in layer
+    for safety_token in (
+        "_v750_filter_sync_tick",
+        "_v750_filter_sync_after",
+        "_v750_filter_sync_running",
+        "geometry_matches",
+        "_v750_filter_events_bound",
+        "_v750_filter_sync_cleanup",
+        "A failed schedule must never fall back",
+    ):
+        assert safety_token in layer, safety_token
+
     for token in (
         "displayed_columns(tree)",
         "widget.place_forget()",
@@ -239,14 +296,14 @@ def main() -> None:
         version_tuple = tuple(int(part) for part in version.split("."))
     except ValueError as exc:
         raise AssertionError(version) from exc
-    assert version_tuple >= (7, 5, 0), version
+    assert version_tuple >= (7, 7, 4), version
     publish = (repository / "scripts" / "publish-update.sh").read_text(
         encoding="utf-8"
     )
     assert "validate-7500-context-filters-offer-format.py" in publish
     assert "v750_context_filters_offer_format.py" in publish
     print(
-        "OK 7.5.0: filter cells follow visible columns, row actions use context "
+        "OK 7.7.4: filter cells follow visible columns, row actions use context "
         "menus, supplier names remain intact and A4 is visible"
     )
 

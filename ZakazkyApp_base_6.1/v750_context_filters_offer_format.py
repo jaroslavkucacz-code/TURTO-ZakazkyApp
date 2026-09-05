@@ -137,16 +137,48 @@ def apply(M: Any) -> None:
     # trigger a synchronized redraw.
     # ------------------------------------------------------------------
     def schedule_filter_sync(tree: Any, delay: int = 0) -> None:
-        if not _widget_exists(tree):
+        """Queue at most one redraw per timing slot; never nest the Tk loop."""
+        if (
+            not _widget_exists(tree)
+            or getattr(tree, "_v750_filter_sync_closing", False)
+        ):
             return
         callback = getattr(tree, "_sync_filter_bar", None)
         if not callable(callback):
             return
         try:
-            tree.after(max(0, int(delay)), callback)
+            requested = max(0, int(delay))
         except Exception:
+            requested = 0
+        token_name = (
+            "_v750_filter_sync_after"
+            if requested
+            else "_v750_filter_sync_tick"
+        )
+        if getattr(tree, token_name, None) is not None:
+            return
+        wait = max(12, requested)
+
+        def run() -> None:
             try:
-                callback()
+                setattr(tree, token_name, None)
+            except Exception:
+                pass
+            if (
+                getattr(tree, "_v750_filter_sync_closing", False)
+                or not _widget_exists(tree)
+            ):
+                return
+            current = getattr(tree, "_sync_filter_bar", None)
+            if callable(current):
+                current()
+
+        try:
+            setattr(tree, token_name, tree.after(wait, run))
+        except Exception:
+            # A failed schedule must never fall back to a synchronous redraw.
+            try:
+                setattr(tree, token_name, None)
             except Exception:
                 pass
 
@@ -172,7 +204,6 @@ def apply(M: Any) -> None:
             if not cells or not columns:
                 return
 
-            filter_frame.update_idletasks()
             height = max(
                 [int(widget.winfo_reqheight()) for _column, widget in cells] + [34]
             ) + 2
@@ -182,13 +213,27 @@ def apply(M: Any) -> None:
                 pass
 
             def sync(*_args: Any) -> None:
+                if (
+                    not _widget_exists(tree)
+                    or not _widget_exists(filter_frame)
+                    or getattr(tree, "_v750_filter_sync_closing", False)
+                    or getattr(tree, "_v750_filter_sync_running", False)
+                ):
+                    return
+                tree._v750_filter_sync_running = True
                 try:
-                    tree.update_idletasks()
                     visible = displayed_columns(tree)
-                    widths = {
-                        column: max(1, int(tree.column(column, "width")))
-                        for column in visible
-                    }
+                    widths: dict[str, int] = {}
+                    for column in visible:
+                        try:
+                            widths[column] = max(
+                                1, int(tree.column(column, "width"))
+                            )
+                        except Exception:
+                            continue
+                    visible = [column for column in visible if column in widths]
+                    if not visible:
+                        return
                     total = max(1, sum(widths.values()))
                     try:
                         first = float(tree.xview()[0])
@@ -200,36 +245,75 @@ def apply(M: Any) -> None:
                     for column in visible:
                         starts[column] = cursor
                         cursor += widths[column]
+
+                    def geometry_matches(widget: Any, x: int, width: int) -> bool:
+                        try:
+                            info = widget.place_info()
+                            return bool(info) and all(
+                                int(float(info.get(name, -1))) == value
+                                for name, value in (
+                                    ("x", x), ("y", 0),
+                                    ("width", width), ("height", height),
+                                )
+                            )
+                        except Exception:
+                            return False
+
                     for column, widget in cells:
-                        if column not in starts:
-                            widget.place_forget()
+                        if not _widget_exists(widget):
                             continue
-                        widget.place(
-                            x=starts[column] - offset,
-                            y=0,
-                            width=widths[column],
-                            height=height,
-                        )
+                        if column not in starts:
+                            try:
+                                if widget.place_info():
+                                    widget.place_forget()
+                            except Exception:
+                                pass
+                            continue
+                        x = starts[column] - offset
+                        width = widths[column]
+                        if geometry_matches(widget, x, width):
+                            continue
+                        try:
+                            widget.place(x=x, y=0, width=width, height=height)
+                        except Exception:
+                            pass
                 except Exception:
                     pass
+                finally:
+                    try:
+                        tree._v750_filter_sync_running = False
+                    except Exception:
+                        pass
 
             tree._filter_frame = filter_frame
             tree._filter_cells = [widget for _column, widget in cells]
             tree._filter_cell_columns = [column for column, _widget in cells]
             tree._sync_filter_bar = sync
             tree._v750_filter_displaycolumns = True
+            tree._v750_filter_sync_closing = False
 
-            for sequence in ("<Configure>", "<B1-Motion>", "<ButtonRelease-1>", "<Map>"):
-                tree.bind(
-                    sequence,
-                    lambda _event, current=tree: schedule_filter_sync(current),
-                    add="+",
-                )
-            filter_frame.bind(
-                "<Configure>",
-                lambda _event, current=tree: schedule_filter_sync(current),
-                add="+",
-            )
+            if not getattr(tree, "_v750_filter_events_bound", False):
+                tree._v750_filter_events_bound = True
+                for sequence in (
+                    "<Configure>", "<B1-Motion>",
+                    "<ButtonRelease-1>", "<Map>",
+                ):
+                    tree.bind(
+                        sequence,
+                        lambda _event, current=tree: schedule_filter_sync(current),
+                        add="+",
+                    )
+
+                def closing(event: Any = None) -> None:
+                    if event is not None and getattr(event, "widget", tree) is not tree:
+                        return
+                    tree._v750_filter_sync_closing = True
+                    tree._v750_filter_sync_tick = None
+                    tree._v750_filter_sync_after = None
+                    tree._sync_filter_bar = None
+
+                tree.bind("<Destroy>", closing, add="+")
+                tree._v750_filter_sync_cleanup = closing
 
             # A Treeview reports every xview change through xscrollcommand.
             # Preserve the already connected scrollbar command and add only the
@@ -253,6 +337,7 @@ def apply(M: Any) -> None:
             pass
 
     M.attach_filter_bar = attach_filter_bar
+    M.schedule_v750_filter_sync = schedule_filter_sync
     M.v750_displayed_columns = displayed_columns
 
     for api_name in (

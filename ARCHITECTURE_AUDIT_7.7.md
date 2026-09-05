@@ -34,3 +34,13 @@ přijaté nabídky. Finální politika `v770` už nevytváří druhý panel; dod
 společný resolver obrázků, obnovu vazby podle typu PLEXUS a konečné pořadí prvků
 dialogu. Výsledkem je jeden panel, jeden zdroj obrazových dat a zavírací lišta až
 na konci okna.
+
+
+## Stabilizace filtrovacích lišt ve verzi 7.7.4
+
+Synchronizace filtrovacích buněk nad tabulkami již nevstupuje z událostí
+`Configure` ani `xscrollcommand` do vnořeného Tcl/Tk idle loopu. Požadavky na
+překreslení se slučují do jednoho `after_idle` callbacku a jednoho volitelného
+závěrečného časovače; souběžný redraw je blokovaný a zaniklé widgety se
+ignorují. Tím je odstraněn nativní pád Windows/Python 3.14 zachycený po startu
+verze 7.7.3 v `update_idletasks()`.
