@@ -1,0 +1,139 @@
+name: Apply TURTO CRM 7.7.3 single-image-panel patch
+
+on:
+  push:
+    branches:
+      - fix/7.7.3-single-offer-image-panel
+    paths:
+      - .github/workflows/apply-773-single-image-panel.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/7.7.3-single-offer-image-panel
+          fetch-depth: 0
+
+      - name: Consolidate the received-offer image panel
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path(".")
+          policy_path = root / "ZakazkyApp_base_6.1" / "v770_runtime_policy.py"
+          legacy_path = root / "ZakazkyApp_base_6.1" / "v619_fixes.py"
+          validate_path = root / "scripts" / "validate-770-runtime-policy.py"
+          workflow_path = root / ".github" / "workflows" / "validate-770-runtime.yml"
+          audit_path = root / "ARCHITECTURE_AUDIT_7.7.md"
+
+          policy = policy_path.read_text(encoding="utf-8")
+          start = policy.index("def _install_plexus_ui(M: Any) -> None:\n")
+          end = policy.index("\ndef _schedule_plexus_backfill", start)
+          replacement = 'def _install_plexus_ui(M: Any) -> None:\n    """Keep one offer-image panel and route it through the final PLEXUS resolver."""\n\n    try:\n        import crm_features\n    except Exception:\n        crm_features = None\n    classes = []\n    for cls in (\n        getattr(crm_features, "OfferDetailDialog", None) if crm_features else None,\n        getattr(M, "OfferDetailDialog", None),\n    ):\n        if cls is not None and cls not in classes:\n            classes.append(cls)\n\n    def widget_exists(widget: Any) -> bool:\n        try:\n            return bool(widget is not None and widget.winfo_exists())\n        except Exception:\n            return False\n\n    for cls in classes:\n        if getattr(cls, "_turto_v770_plexus_preview", False):\n            continue\n        previous_build = cls._build\n\n        def build(self, *args, __previous=previous_build, **kwargs):\n            result = __previous(self, *args, **kwargs)\n            try:\n                offer = getattr(self, "offer_row", None)\n                supplier = (\n                    _row_get(offer, "supplier", "")\n                    or _row_get(offer, "supplier_name", "")\n                ) if offer else ""\n                if not _is_nevoga(supplier):\n                    return result\n\n                _ensure_offer_plexus_images(M, int(self.oid))\n\n                # v619 owns the single fixed preview shell. v770 owns the final\n                # resolver and only refreshes/reorders that shell; it never adds\n                # a second image panel.\n                preview = getattr(self, "preview_image", None)\n                panel = preview\n                while (\n                    panel is not None\n                    and getattr(panel, "master", None) is not self.f\n                ):\n                    panel = getattr(panel, "master", None)\n\n                def refresh() -> None:\n                    callback = getattr(self, "refresh_preview", None)\n                    if callable(callback):\n                        callback()\n\n                def contains_close(widget: Any) -> bool:\n                    for child in _walk(widget):\n                        try:\n                            if (\n                                child.winfo_class().endswith("Button")\n                                and _text(child.cget("text")) == "Zavřít"\n                            ):\n                                return True\n                        except Exception:\n                            pass\n                    return False\n\n                def reorder() -> None:\n                    if widget_exists(panel):\n                        try:\n                            panel.pack_forget()\n                            tree = getattr(self, "tree", None)\n                            if widget_exists(tree):\n                                panel.pack(fill="x", pady=(8, 0), after=tree)\n                            else:\n                                panel.pack(fill="x", pady=(8, 0))\n                        except Exception:\n                            pass\n\n                    # The close bar originated in the base dialog and was packed\n                    # before later compatibility bars. Make it the final row.\n                    try:\n                        footer = next(\n                            (\n                                child\n                                for child in self.f.pack_slaves()\n                                if child is not panel and contains_close(child)\n                            ),\n                            None,\n                        )\n                    except Exception:\n                        footer = None\n                    if footer is not None:\n                        try:\n                            footer.pack_forget()\n                            footer.pack(fill="x", pady=(10, 0))\n                        except Exception:\n                            pass\n\n                tree = getattr(self, "tree", None)\n                if widget_exists(tree):\n                    tree.bind(\n                        "<<TreeviewSelect>>",\n                        lambda _event: self.after_idle(refresh),\n                        add="+",\n                    )\n                    try:\n                        if not tree.selection() and tree.get_children():\n                            first = tree.get_children()[0]\n                            tree.selection_set(first)\n                            tree.focus(first)\n                    except Exception:\n                        pass\n\n                reorder()\n                self.after_idle(reorder)\n                self.after_idle(refresh)\n            except Exception:\n                pass\n            return result\n\n        def open_image(self):\n            item = self._selected_item()\n            if not item:\n                return M.messagebox.showinfo(\n                    "Nabídky", "Vyberte položku nabídky.", parent=self\n                )\n            offer = getattr(self, "offer_row", None)\n            supplier = (\n                _row_get(offer, "supplier", "")\n                or _row_get(offer, "supplier_name", "")\n            ) if offer else ""\n            _ensure_offer_plexus_images(M, int(self.oid))\n            item_id = int(_row_get(item, "id", 0) or 0)\n            with M.db() as con:\n                refreshed = (\n                    con.execute(\n                        "SELECT * FROM supplier_offer_items WHERE id=?",\n                        (item_id,),\n                    ).fetchone()\n                    if item_id\n                    else None\n                )\n                image = _resolve_plexus_image(\n                    con, refreshed or item, supplier\n                )\n            if not image or not image.get("image_blob"):\n                return M.messagebox.showinfo(\n                    "Nabídky",\n                    "K této položce není uložen obrázek.",\n                    parent=self,\n                )\n            try:\n                from PIL import Image, ImageTk\n\n                pil = Image.open(\n                    io.BytesIO(bytes(image["image_blob"]))\n                ).convert("RGBA")\n                pil.thumbnail((1000, 680))\n                dialog = M.tk.Toplevel(self)\n                dialog.title("Obrázek PLEXUS")\n                dialog.transient(self)\n                dialog.grab_set()\n                M.enable_dialog_maximize(dialog, 720, 500)\n                photo = ImageTk.PhotoImage(pil)\n                label = M.ttk.Label(dialog, image=photo)\n                label.image = photo\n                label.pack(fill="both", expand=True, padx=14, pady=14)\n                M.ttk.Button(\n                    dialog, text="Zavřít", command=dialog.destroy\n                ).pack(pady=(0, 14))\n            except Exception as exc:\n                M.messagebox.showerror(\n                    "Nabídky",\n                    f"Obrázek se nepodařilo otevřít:\\n{exc}",\n                    parent=self,\n                )\n\n        cls._build = build\n        cls.open_image = open_image\n        cls._turto_v770_plexus_preview = True\n\n    previous_export = getattr(M, "export_offer_excel", None)\n    if callable(previous_export) and not getattr(\n        previous_export, "_turto_v770_plexus_guard", False\n    ):\n\n        def export_offer_excel(app, offer_id, parent=None):\n            try:\n                _ensure_offer_plexus_images(M, int(offer_id))\n            except Exception:\n                pass\n            return previous_export(app, offer_id, parent=parent)\n\n        export_offer_excel._turto_v770_plexus_guard = True\n        M.export_offer_excel = export_offer_excel\n'
+          policy = policy[:start] + replacement + policy[end:]
+          policy = policy.replace(
+              '"""TURTO CRM 7.7.0 final runtime policy.',
+              '"""TURTO CRM 7.7.3 final runtime policy.',
+              1,
+          )
+          policy_path.write_text(policy, encoding="utf-8")
+
+          legacy = legacy_path.read_text(encoding="utf-8")
+          pattern = re.compile(
+              r"        def _load_image_for\(self, item\):\n"
+              r".*?"
+              r"\n        def _fixed_preview_photo",
+              re.S,
+          )
+          legacy, count = pattern.subn(
+              '        def _load_image_for(self, item):\n            if not item:\n                return None\n            supplier = (\n                self.offer_row[\'supplier\']\n                or self.offer_row[\'supplier_name\']\n                or \'\'\n            )\n            with M.db() as con:\n                current = con.execute(\n                    \'SELECT * FROM supplier_offer_items WHERE id=?\',\n                    (item[\'id\'],),\n                ).fetchone()\n\n                # The final runtime policy owns image lookup. Calling it here\n                # keeps the original fixed preview shell but allows shared\n                # PLEXUS assets, canonical images and item blobs alike.\n                resolver = getattr(M, \'resolve_offer_item_image\', None)\n                if callable(resolver):\n                    try:\n                        resolved = resolver(con, current or item, supplier)\n                    except TypeError:\n                        resolved = resolver(con, current or item)\n                    if resolved:\n                        try:\n                            if resolved.get(\'image_blob\'):\n                                return dict(resolved)\n                        except Exception:\n                            try:\n                                if resolved[\'image_blob\']:\n                                    return dict(resolved)\n                            except Exception:\n                                pass\n\n                image = con.execute(\n                    \'\'\'SELECT image_blob,image_ext,source_offer_no,source_offer_date\n                       FROM offer_product_images\n                       WHERE supplier=? AND item_key=?\'\'\',\n                    (supplier, item[\'item_key\']),\n                ).fetchone()\n                if not image or not image[\'image_blob\']:\n                    embedded = current or con.execute(\n                        \'SELECT image_blob,image_ext FROM supplier_offer_items WHERE id=?\',\n                        (item[\'id\'],),\n                    ).fetchone()\n                    if embedded and embedded[\'image_blob\']:\n                        return {\n                            \'image_blob\': embedded[\'image_blob\'],\n                            \'image_ext\': embedded[\'image_ext\'],\n                            \'source_offer_no\': self.offer_row[\'offer_number\'],\n                            \'source_offer_date\': self.offer_row[\'offer_date\'],\n                        }\n            return dict(image) if image and image[\'image_blob\'] else None\n' + "\n        def _fixed_preview_photo",
+              legacy,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("Unable to replace v619 image loader")
+          legacy = legacy.replace(
+              'f"Cena/ks: {float(item.get(\'unit_price\') or 0):,.2f}"',
+              'f"Cena/{item.get(\'unit\') or \'MJ\'}: {float(item.get(\'unit_price\') or 0):,.2f}"',
+              1,
+          )
+          legacy_path.write_text(legacy, encoding="utf-8")
+
+          validation = validate_path.read_text(encoding="utf-8")
+          validation = validation.replace(
+              '    policy = policy_path.read_text(encoding="utf-8")\n',
+              '    policy = policy_path.read_text(encoding="utf-8")\n'
+              '    legacy = (source / "v619_fixes.py").read_text(encoding="utf-8")\n',
+              1,
+          )
+          anchor = '    assert "Obnovení předchozí verze" in policy\n'
+          addition = (
+              anchor
+              + '    assert "resolver = getattr(M, \'resolve_offer_item_image\', None)" in legacy\n'
+              + '    assert "legacy_preview" not in policy\n'
+              + '    assert "preview = getattr(self, \\"preview_image\\", None)" in policy\n'
+              + '    assert "it never adds" in policy\n'
+              + '    assert "panel.pack(fill=\\"x\\", pady=(8, 0), after=tree)" in policy\n'
+              + '    assert "footer.pack_forget()" in policy\n'
+              + '    assert "self.after_idle(refresh)" in policy\n'
+              + '    assert "Cena/{item.get(\'unit\') or \'MJ\'}" in legacy\n'
+          )
+          if anchor not in validation:
+              raise SystemExit("Validation insertion anchor missing")
+          validation = validation.replace(anchor, addition, 1)
+          validation = validation.replace(
+              'version_parts[:2] == (7, 7) and version_parts >= (7, 7, 0)',
+              'version_parts[:2] == (7, 7) and version_parts >= (7, 7, 3)',
+              1,
+          )
+          validate_path.write_text(validation, encoding="utf-8")
+
+          workflow = workflow_path.read_text(encoding="utf-8")
+          needle = "      - 'ZakazkyApp_base_6.1/v770_runtime_policy.py'\n"
+          replacement_path = (
+              "      - 'ZakazkyApp_base_6.1/v619_fixes.py'\n"
+              + needle
+          )
+          if "ZakazkyApp_base_6.1/v619_fixes.py" not in workflow:
+              workflow = workflow.replace(needle, replacement_path)
+          workflow_path.write_text(workflow, encoding="utf-8")
+
+          audit = audit_path.read_text(encoding="utf-8")
+          section = """
+          ## Konsolidace náhledu PLEXUS v 7.7.3
+
+          Starší vrstva `v619` nadále vytváří pouze jeden pevný náhledový obal v detailu
+          přijaté nabídky. Finální politika `v770` už nevytváří druhý panel; dodává
+          společný resolver obrázků, obnovu vazby podle typu PLEXUS a konečné pořadí prvků
+          dialogu. Výsledkem je jeden panel, jeden zdroj obrazových dat a zavírací lišta až
+          na konci okna.
+          """
+          if "## Konsolidace náhledu PLEXUS v 7.7.3" not in audit:
+              audit += section
+          audit_path.write_text(audit, encoding="utf-8")
+
+          (root / "release_version.txt").write_text("7.7.3\n", encoding="utf-8")
+          (root / "release_notes.txt").write_text('• Opraven detail přijaté nabídky Nevoga: obrázek PLEXUS se již nezobrazuje ve dvou různých panelech. Dialog nyní používá jediný pevný náhled obrázku.\n• Původní náhledový panel zůstává pouze jako prezentační obal; obrazová data získává výhradně přes finální společný resolver. Ten umí položkový obrázek, kanonické úložiště i sdílený asset typu PLEXUS.\n• Odstraněn stav zachycený v praxi, kdy horní panel hlásil „K této položce není uložen obrázek“, zatímco druhý panel pod ním stejný obrázek správně zobrazoval.\n• Náhled PLEXUS je nově umístěn bezprostředně pod tabulkou položek. Lišta se zavíracím tlačítkem je vždy až na konci dialogu.\n• Popisek ceny v náhledu respektuje skutečnou měrnou jednotku položky, například Cena/m u prvků PLEXUS.\n• Ukládání zůstává úsporné: v databázi je nadále pouze jeden společný obrázek pro každý typ PLEXUS a položky uchovávají jen vazbu na něj.\n• Doplněna regresní kontrola, která hlídá jediný obrazový panel, použití společného resolveru a správné pořadí panelu a zavírací lišty.\n• Všechny opravy verze 7.7.2 zůstávají zachované. Aktualizace je vratná; před instalací se automaticky vytvoří SQLite záloha databáze a ZIP snapshot současné verze programu.\n', encoding="utf-8")
+          PY
+
+      - name: Compile and run focused regression checks
+        shell: bash
+        run: |
+          python -m compileall -q             ZakazkyApp_base_6.1/v619_fixes.py             ZakazkyApp_base_6.1/v770_runtime_policy.py             scripts/validate-770-runtime-policy.py
+          python scripts/validate-770-runtime-policy.py ZakazkyApp_base_6.1
+
+      - name: Commit patch to the feature branch
+        shell: bash
+        run: |
+          git config user.name "TURTO Update Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add             ZakazkyApp_base_6.1/v619_fixes.py             ZakazkyApp_base_6.1/v770_runtime_policy.py             scripts/validate-770-runtime-policy.py             .github/workflows/validate-770-runtime.yml             ARCHITECTURE_AUDIT_7.7.md             release_version.txt             release_notes.txt
+          git commit -m "Consolidate received-offer PLEXUS image preview"
+          git push origin HEAD:fix/7.7.3-single-offer-image-panel
