@@ -225,6 +225,7 @@ def main():
         ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
     policy = policy_path.read_text(encoding="utf-8")
+    legacy = (source / "v619_fixes.py").read_text(encoding="utf-8")
     assert 'M.APP_NAME = "TURTO CRM"' in policy
     assert 'app.title("TURTO CRM")' in policy
     assert "turto_crm.ico" in policy and "turto_crm.png" in policy
@@ -238,6 +239,14 @@ def main():
     assert "offer_source_attachments" in policy and "source_pdf" in policy
     assert "offer_image_assets" in policy and "nevoga:plexus:" in policy
     assert "Obnovení předchozí verze" in policy
+    assert "resolver = getattr(M, 'resolve_offer_item_image', None)" in legacy
+    assert "legacy_preview" not in policy
+    assert "preview = getattr(self, \"preview_image\", None)" in policy
+    assert "it never adds" in policy
+    assert "panel.pack(fill=\"x\", pady=(8, 0), after=tree)" in policy
+    assert "footer.pack_forget()" in policy
+    assert "self.after_idle(refresh)" in policy
+    assert "Cena/{item.get('unit') or 'MJ'}" in legacy
     assert "rollback_preserves_database" in policy
 
     bootstrap = bootstrap_path.read_text(encoding="utf-8")
@@ -273,7 +282,7 @@ def main():
     version = (repository / "release_version.txt").read_text(encoding="utf-8").strip()
     version_parts = tuple(int(part) for part in version.split("."))
     assert len(version_parts) == 3, version
-    assert version_parts[:2] == (7, 7) and version_parts >= (7, 7, 0), version
+    assert version_parts[:2] == (7, 7) and version_parts >= (7, 7, 3), version
     publish = (repository / "scripts" / "publish-update.sh").read_text(encoding="utf-8")
     assert "validate-770-runtime-policy.py" in publish
     assert "rollback_manifest.json" in publish

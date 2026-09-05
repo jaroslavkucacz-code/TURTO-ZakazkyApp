@@ -26,3 +26,11 @@ Starší moduly zůstaly kvůli kompatibilitě databází a obchodních workflow
 ## Vratnost
 
 TURTO CRM 7.7.0 nese lokální, SHA-256 ověřený instalační balíček 7.6.16. Nový updater před každou výměnou programu vytvoří databázovou zálohu a ZIP snapshot současné instalace mimo instalační adresář. Návrat verze neobnovuje ani nemaže pracovní databázi; mění pouze programové soubory.
+
+## Konsolidace náhledu PLEXUS v 7.7.3
+
+Starší vrstva `v619` nadále vytváří pouze jeden pevný náhledový obal v detailu
+přijaté nabídky. Finální politika `v770` už nevytváří druhý panel; dodává
+společný resolver obrázků, obnovu vazby podle typu PLEXUS a konečné pořadí prvků
+dialogu. Výsledkem je jeden panel, jeden zdroj obrazových dat a zavírací lišta až
+na konci okna.

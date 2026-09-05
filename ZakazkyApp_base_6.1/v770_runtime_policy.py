@@ -1,4 +1,4 @@
-"""TURTO CRM 7.7.0 final runtime policy.
+"""TURTO CRM 7.7.3 final runtime policy.
 
 This module is deliberately applied last.  It does not reimplement the whole CRM;
 it gives one explicit final owner to the behaviours that historically accumulated
@@ -973,6 +973,8 @@ $s.Save()
 
 
 def _install_plexus_ui(M: Any) -> None:
+    """Keep one offer-image panel and route it through the final PLEXUS resolver."""
+
     try:
         import crm_features
     except Exception:
@@ -985,6 +987,12 @@ def _install_plexus_ui(M: Any) -> None:
         if cls is not None and cls not in classes:
             classes.append(cls)
 
+    def widget_exists(widget: Any) -> bool:
+        try:
+            return bool(widget is not None and widget.winfo_exists())
+        except Exception:
+            return False
+
     for cls in classes:
         if getattr(cls, "_turto_v770_plexus_preview", False):
             continue
@@ -994,48 +1002,93 @@ def _install_plexus_ui(M: Any) -> None:
             result = __previous(self, *args, **kwargs)
             try:
                 offer = getattr(self, "offer_row", None)
-                supplier = (_row_get(offer, "supplier", "") or _row_get(offer, "supplier_name", "")) if offer else ""
+                supplier = (
+                    _row_get(offer, "supplier", "")
+                    or _row_get(offer, "supplier_name", "")
+                ) if offer else ""
                 if not _is_nevoga(supplier):
                     return result
-                _ensure_offer_plexus_images(M, int(self.oid))
-                panel = M.ttk.Frame(self.f, style="Card.TFrame", padding=8)
-                title = M.tk.StringVar(value="Obrázek PLEXUS")
-                M.ttk.Label(panel, textvariable=title, style="PageSubtitle.TLabel").pack(anchor="w")
-                preview = M.ttk.Label(panel, text="Vyberte položku nabídky.", anchor="center")
-                preview.pack(fill="x", expand=True, pady=(5, 0))
-                panel.pack(fill="x", pady=(6, 0))
 
-                def render(_event=None):
-                    item = self._selected_item()
-                    if not item:
-                        preview.configure(image="", text="Vyberte položku nabídky.")
-                        return
-                    with M.db() as con:
-                        image = _resolve_plexus_image(con, item, supplier)
-                    if not image:
-                        _ensure_offer_plexus_images(M, int(self.oid))
-                        with M.db() as con:
-                            refreshed = con.execute("SELECT * FROM supplier_offer_items WHERE id=?", (int(item["id"]),)).fetchone()
-                            image = _resolve_plexus_image(con, refreshed or item, supplier)
-                    code = _text(_row_get(item, "plexus_type")) or _plexus_type(
-                        _row_get(item, "original_name"), _row_get(item, "item_key")
-                    )
-                    title.set(f"Obrázek PLEXUS – typ {code}" if code else "Obrázek PLEXUS")
-                    if not image or not image.get("image_blob"):
-                        preview.configure(image="", text="K této položce zatím není uložen obrázek PLEXUS.")
-                        preview.image = None
-                        return
-                    from PIL import Image, ImageTk
-                    pil = Image.open(io.BytesIO(bytes(image["image_blob"]))).convert("RGBA")
-                    pil.thumbnail((640, 210))
-                    photo = ImageTk.PhotoImage(pil)
-                    preview.configure(image=photo, text="")
-                    preview.image = photo
+                _ensure_offer_plexus_images(M, int(self.oid))
+
+                # v619 owns the single fixed preview shell. v770 owns the final
+                # resolver and only refreshes/reorders that shell; it never adds
+                # a second image panel.
+                preview = getattr(self, "preview_image", None)
+                panel = preview
+                while (
+                    panel is not None
+                    and getattr(panel, "master", None) is not self.f
+                ):
+                    panel = getattr(panel, "master", None)
+
+                def refresh() -> None:
+                    callback = getattr(self, "refresh_preview", None)
+                    if callable(callback):
+                        callback()
+
+                def contains_close(widget: Any) -> bool:
+                    for child in _walk(widget):
+                        try:
+                            if (
+                                child.winfo_class().endswith("Button")
+                                and _text(child.cget("text")) == "Zavřít"
+                            ):
+                                return True
+                        except Exception:
+                            pass
+                    return False
+
+                def reorder() -> None:
+                    if widget_exists(panel):
+                        try:
+                            panel.pack_forget()
+                            tree = getattr(self, "tree", None)
+                            if widget_exists(tree):
+                                panel.pack(fill="x", pady=(8, 0), after=tree)
+                            else:
+                                panel.pack(fill="x", pady=(8, 0))
+                        except Exception:
+                            pass
+
+                    # The close bar originated in the base dialog and was packed
+                    # before later compatibility bars. Make it the final row.
+                    try:
+                        footer = next(
+                            (
+                                child
+                                for child in self.f.pack_slaves()
+                                if child is not panel and contains_close(child)
+                            ),
+                            None,
+                        )
+                    except Exception:
+                        footer = None
+                    if footer is not None:
+                        try:
+                            footer.pack_forget()
+                            footer.pack(fill="x", pady=(10, 0))
+                        except Exception:
+                            pass
 
                 tree = getattr(self, "tree", None)
-                if tree is not None:
-                    tree.bind("<<TreeviewSelect>>", render, add="+")
-                render()
+                if widget_exists(tree):
+                    tree.bind(
+                        "<<TreeviewSelect>>",
+                        lambda _event: self.after_idle(refresh),
+                        add="+",
+                    )
+                    try:
+                        if not tree.selection() and tree.get_children():
+                            first = tree.get_children()[0]
+                            tree.selection_set(first)
+                            tree.focus(first)
+                    except Exception:
+                        pass
+
+                reorder()
+                self.after_idle(reorder)
+                self.after_idle(refresh)
             except Exception:
                 pass
             return result
@@ -1043,18 +1096,40 @@ def _install_plexus_ui(M: Any) -> None:
         def open_image(self):
             item = self._selected_item()
             if not item:
-                return M.messagebox.showinfo("Nabídky", "Vyberte položku nabídky.", parent=self)
+                return M.messagebox.showinfo(
+                    "Nabídky", "Vyberte položku nabídky.", parent=self
+                )
             offer = getattr(self, "offer_row", None)
-            supplier = (_row_get(offer, "supplier", "") or _row_get(offer, "supplier_name", "")) if offer else ""
+            supplier = (
+                _row_get(offer, "supplier", "")
+                or _row_get(offer, "supplier_name", "")
+            ) if offer else ""
             _ensure_offer_plexus_images(M, int(self.oid))
+            item_id = int(_row_get(item, "id", 0) or 0)
             with M.db() as con:
-                refreshed = con.execute("SELECT * FROM supplier_offer_items WHERE id=?", (int(item["id"]),)).fetchone()
-                image = _resolve_plexus_image(con, refreshed or item, supplier)
+                refreshed = (
+                    con.execute(
+                        "SELECT * FROM supplier_offer_items WHERE id=?",
+                        (item_id,),
+                    ).fetchone()
+                    if item_id
+                    else None
+                )
+                image = _resolve_plexus_image(
+                    con, refreshed or item, supplier
+                )
             if not image or not image.get("image_blob"):
-                return M.messagebox.showinfo("Nabídky", "K této položce není uložen obrázek.", parent=self)
+                return M.messagebox.showinfo(
+                    "Nabídky",
+                    "K této položce není uložen obrázek.",
+                    parent=self,
+                )
             try:
                 from PIL import Image, ImageTk
-                pil = Image.open(io.BytesIO(bytes(image["image_blob"]))).convert("RGBA")
+
+                pil = Image.open(
+                    io.BytesIO(bytes(image["image_blob"]))
+                ).convert("RGBA")
                 pil.thumbnail((1000, 680))
                 dialog = M.tk.Toplevel(self)
                 dialog.title("Obrázek PLEXUS")
@@ -1065,16 +1140,25 @@ def _install_plexus_ui(M: Any) -> None:
                 label = M.ttk.Label(dialog, image=photo)
                 label.image = photo
                 label.pack(fill="both", expand=True, padx=14, pady=14)
-                M.ttk.Button(dialog, text="Zavřít", command=dialog.destroy).pack(pady=(0, 14))
+                M.ttk.Button(
+                    dialog, text="Zavřít", command=dialog.destroy
+                ).pack(pady=(0, 14))
             except Exception as exc:
-                M.messagebox.showerror("Nabídky", f"Obrázek se nepodařilo otevřít:\n{exc}", parent=self)
+                M.messagebox.showerror(
+                    "Nabídky",
+                    f"Obrázek se nepodařilo otevřít:\n{exc}",
+                    parent=self,
+                )
 
         cls._build = build
         cls.open_image = open_image
         cls._turto_v770_plexus_preview = True
 
     previous_export = getattr(M, "export_offer_excel", None)
-    if callable(previous_export) and not getattr(previous_export, "_turto_v770_plexus_guard", False):
+    if callable(previous_export) and not getattr(
+        previous_export, "_turto_v770_plexus_guard", False
+    ):
+
         def export_offer_excel(app, offer_id, parent=None):
             try:
                 _ensure_offer_plexus_images(M, int(offer_id))
@@ -1084,7 +1168,6 @@ def _install_plexus_ui(M: Any) -> None:
 
         export_offer_excel._turto_v770_plexus_guard = True
         M.export_offer_excel = export_offer_excel
-
 
 def _schedule_plexus_backfill(M: Any, app: Any) -> None:
     try:
