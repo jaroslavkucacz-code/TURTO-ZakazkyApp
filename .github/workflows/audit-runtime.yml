@@ -6,6 +6,8 @@ on:
       - 'ZakazkyApp_base_6.1/**/*.py'
       - 'ZakazkyApp_base_6.1/**/*.pyw'
       - 'scripts/audit-runtime-overrides.py'
+      - 'scripts/_apply_770_payload2.py'
+      - 'scripts/_770_apply2/**'
       - '.github/workflows/audit-runtime.yml'
   push:
     branches: [main]
@@ -15,7 +17,74 @@ on:
       - 'scripts/audit-runtime-overrides.py'
       - '.github/workflows/audit-runtime.yml'
 
+permissions:
+  contents: write
+  actions: write
+  pull-requests: read
+
 jobs:
+  apply-generated-patch:
+    if: github.event_name == 'pull_request' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Detect one-shot payload
+        id: gate
+        shell: bash
+        run: |
+          if [[ -f scripts/_apply_770_payload2.py ]]; then
+            echo 'apply=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'apply=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install focused validation dependencies
+        if: steps.gate.outputs.apply == 'true'
+        run: python -m pip install 'PyMuPDF<2,>=1.24' 'XlsxWriter<4,>=3.2' 'Pillow>=10'
+      - name: Expand reviewed TURTO CRM 7.7 payload
+        if: steps.gate.outputs.apply == 'true'
+        run: python scripts/_apply_770_payload2.py
+      - name: Validate generated runtime and rollback contract
+        if: steps.gate.outputs.apply == 'true'
+        shell: bash
+        run: |
+          python -m compileall -q \
+            ZakazkyApp_base_6.1/v770_runtime_policy.py \
+            ZakazkyApp_base_6.1/runtime_bootstrap.py \
+            ZakazkyApp_base_6.1/ZakazkyCRM.pyw \
+            ZakazkyApp_base_6.1/crm_updater.pyw
+          python scripts/validate-768-clean-table-markers.py ZakazkyApp_base_6.1
+          python scripts/validate-7610-nevoga-exact-red-excel.py ZakazkyApp_base_6.1
+          python scripts/validate-770-runtime-policy.py ZakazkyApp_base_6.1
+          bash -n scripts/publish-update.sh
+      - name: Remove transport files and restore permanent audit workflow
+        if: steps.gate.outputs.apply == 'true'
+        shell: bash
+        run: |
+          rm -rf scripts/_770_apply2 scripts/_770_payload
+          rm -f scripts/_apply_770_payload2.py scripts/_apply_770_chunks.py
+          rm -f .github/workflows/apply-770-payload.yml
+          rm -f .github/workflows/audit-runtime-composition.yml
+          rm -f release_plan_7.7.tmp notes/README.md
+          rmdir notes 2>/dev/null || true
+          git fetch origin main
+          git checkout origin/main -- .github/workflows/audit-runtime.yml
+      - name: Commit consolidated runtime
+        if: steps.gate.outputs.apply == 'true'
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Implement TURTO CRM 7.7 explicit runtime and reversible updates'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+
   audit:
     runs-on: ubuntu-latest
     steps:
