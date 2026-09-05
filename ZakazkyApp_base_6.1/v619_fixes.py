@@ -241,8 +241,37 @@ def apply(M):
         def _load_image_for(self, item):
             if not item:
                 return None
-            supplier = self.offer_row['supplier'] or self.offer_row['supplier_name'] or ''
+            supplier = (
+                self.offer_row['supplier']
+                or self.offer_row['supplier_name']
+                or ''
+            )
             with M.db() as con:
+                current = con.execute(
+                    'SELECT * FROM supplier_offer_items WHERE id=?',
+                    (item['id'],),
+                ).fetchone()
+
+                # The final runtime policy owns image lookup. Calling it here
+                # keeps the original fixed preview shell but allows shared
+                # PLEXUS assets, canonical images and item blobs alike.
+                resolver = getattr(M, 'resolve_offer_item_image', None)
+                if callable(resolver):
+                    try:
+                        resolved = resolver(con, current or item, supplier)
+                    except TypeError:
+                        resolved = resolver(con, current or item)
+                    if resolved:
+                        try:
+                            if resolved.get('image_blob'):
+                                return dict(resolved)
+                        except Exception:
+                            try:
+                                if resolved['image_blob']:
+                                    return dict(resolved)
+                            except Exception:
+                                pass
+
                 image = con.execute(
                     '''SELECT image_blob,image_ext,source_offer_no,source_offer_date
                        FROM offer_product_images
@@ -250,7 +279,7 @@ def apply(M):
                     (supplier, item['item_key']),
                 ).fetchone()
                 if not image or not image['image_blob']:
-                    embedded = con.execute(
+                    embedded = current or con.execute(
                         'SELECT image_blob,image_ext FROM supplier_offer_items WHERE id=?',
                         (item['id'],),
                     ).fetchone()
@@ -285,7 +314,7 @@ def apply(M):
                     text=(
                         f"Kód: {item.get('product_code') or '—'}   •   "
                         f"Množství: {item.get('quantity') or 0} {item.get('unit') or ''}   •   "
-                        f"Cena/ks: {float(item.get('unit_price') or 0):,.2f}"
+                        f"Cena/{item.get('unit') or 'MJ'}: {float(item.get('unit_price') or 0):,.2f}"
                     )
                 )
                 image = _load_image_for(self, item)
