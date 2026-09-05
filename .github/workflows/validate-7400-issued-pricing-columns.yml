@@ -84,7 +84,28 @@ jobs:
 
       - name: Validate the composed Tk application
         if: matrix.python-version == '3.14'
-        run: timeout 150s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
+        shell: bash
+        run: |
+          # Hosted Ubuntu with Python 3.14/Tk/Xvfb can fail natively before
+          # Python can report an application assertion. Retry only process-level
+          # Tcl/Tk aborts (134) or segmentation faults (139); ordinary test
+          # failures still stop immediately.
+          set +e
+          rc=1
+          for attempt in 1 2 3; do
+            echo "Tk UI validation attempt ${attempt}/3"
+            timeout 150s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
+            rc=$?
+            if [ "$rc" -eq 0 ]; then
+              exit 0
+            fi
+            if [ "$rc" -ne 134 ] && [ "$rc" -ne 139 ]; then
+              exit "$rc"
+            fi
+            echo "Transient native Tk failure (${rc}); retrying..."
+            sleep 2
+          done
+          exit "$rc"
 
       - name: Validate release script syntax
         run: bash -n scripts/publish-update.sh
