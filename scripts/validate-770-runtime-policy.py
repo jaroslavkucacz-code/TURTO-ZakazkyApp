@@ -39,7 +39,13 @@ def main():
     assert bootstrap.index('"v7616_requests_plexus_assets"') < bootstrap.index('"v770_runtime_policy"')
     launcher = launcher_path.read_text(encoding="utf-8")
     assert "runtime_bootstrap.apply_all(app)" in launcher
-    assert ".apply(app)" not in launcher
+    launcher_tree = ast.parse(launcher, filename=str(launcher_path))
+    assert not any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "apply"
+        for node in ast.walk(launcher_tree)
+    )
 
     updater = updater_path.read_text(encoding="utf-8")
     for token in ("_database_backup", "_snapshot_program", "latest.json", "--install", "rollback"):
