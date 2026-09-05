@@ -1,0 +1,40 @@
+name: Update TURTO CRM 7.7 validator gates
+
+on:
+  push:
+    branches:
+      - refactor/7.7.0-runtime-simplification
+    paths:
+      - scripts/fix-770-version-gates.py
+      - .github/workflows/patch-770-version-gates.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/7.7.0-runtime-simplification
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Update validator version gate
+        run: python scripts/fix-770-version-gates.py
+      - name: Run affected validations
+        run: |
+          python -m compileall -q scripts/validate-7600-table-activity-performance.py
+          python scripts/validate-7600-table-activity-performance.py ZakazkyApp_base_6.1
+      - name: Commit compatibility update
+        run: |
+          rm scripts/fix-770-version-gates.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/validate-7600-table-activity-performance.py scripts/fix-770-version-gates.py
+          git commit -m 'Extend table regression contract through TURTO CRM 7.x'
+          git push origin HEAD:refactor/7.7.0-runtime-simplification
