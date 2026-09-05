@@ -63,7 +63,7 @@ jobs:
           python scripts/validate-7610-nevoga-exact-red-excel.py ZakazkyApp_base_6.1
           python scripts/validate-770-runtime-policy.py ZakazkyApp_base_6.1
           bash -n scripts/publish-update.sh
-      - name: Remove transport files and restore permanent audit workflow
+      - name: Remove all one-shot transport files
         if: steps.gate.outputs.apply == 'true'
         shell: bash
         run: |
@@ -71,10 +71,9 @@ jobs:
           rm -f scripts/_apply_770_payload2.py scripts/_apply_770_chunks.py
           rm -f .github/workflows/apply-770-payload.yml
           rm -f .github/workflows/audit-runtime-composition.yml
+          rm -f .github/workflows/audit-runtime.yml
           rm -f release_plan_7.7.tmp notes/README.md
           rmdir notes 2>/dev/null || true
-          git fetch origin main
-          git checkout origin/main -- .github/workflows/audit-runtime.yml
       - name: Commit consolidated runtime
         if: steps.gate.outputs.apply == 'true'
         shell: bash
