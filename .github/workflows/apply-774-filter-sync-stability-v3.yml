@@ -1,0 +1,204 @@
+name: Apply TURTO CRM 7.7.4 filter synchronization stability patch v3
+
+on:
+  push:
+    branches:
+      - fix/7.7.4-filter-sync-native-crash
+    paths:
+      - .github/workflows/apply-774-filter-sync-stability-v3.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/7.7.4-filter-sync-native-crash
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Apply source patch and index-based regression additions
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          root = Path('.')
+
+          # Reuse the already reviewed source transformation from v1. It writes
+          # the runtime layer before intentionally stopping at its brittle test
+          # insertion anchor; the remaining test/release edits are done below.
+          workflow = (
+              root / '.github' / 'workflows' /
+              'apply-774-filter-sync-stability.yml'
+          ).read_text(encoding='utf-8')
+          start_marker = "          python - <<'PY'\n"
+          end_marker = "\n          PY"
+          block = workflow.split(start_marker, 1)[1].split(end_marker, 1)[0]
+          try:
+              exec(compile(textwrap.dedent(block), 'apply-774-source', 'exec'), {})
+          except SystemExit as exc:
+              if str(exc) != 'FakeTree validation anchor missing':
+                  raise
+
+          validation_path = root / 'scripts' / 'validate-7500-context-filters-offer-format.py'
+          validation = validation_path.read_text(encoding='utf-8')
+
+          layer_marker = (
+              '\n    layer = (source / "v750_context_filters_offer_format.py").read_text(\n'
+          )
+          layer_position = validation.index(layer_marker)
+
+          scheduler_test = '''
+
+              class FakeScheduledTree:
+                  def __init__(self):
+                      self.exists = True
+                      self.callbacks = {}
+                      self.cancelled = []
+                      self.counter = 0
+                      self.sync_calls = 0
+                      self._sync_filter_bar = self.sync
+
+                  def winfo_exists(self):
+                      return self.exists
+
+                  def sync(self):
+                      self.sync_calls += 1
+
+                  def _store(self, prefix, callback):
+                      self.counter += 1
+                      token = f"{prefix}-{self.counter}"
+                      self.callbacks[token] = callback
+                      return token
+
+                  def after_idle(self, callback):
+                      return self._store("idle", callback)
+
+                  def after(self, delay, callback):
+                      return self._store(f"after-{delay}", callback)
+
+                  def after_cancel(self, token):
+                      self.cancelled.append(token)
+                      self.callbacks.pop(token, None)
+
+              scheduled = FakeScheduledTree()
+              module.schedule_v750_filter_sync(scheduled)
+              first_idle = scheduled._v750_filter_sync_idle
+              module.schedule_v750_filter_sync(scheduled)
+              second_idle = scheduled._v750_filter_sync_idle
+              assert first_idle != second_idle
+              assert first_idle in scheduled.cancelled
+              assert first_idle not in scheduled.callbacks
+              scheduled.callbacks.pop(second_idle)()
+              assert scheduled.sync_calls == 1
+              assert scheduled._v750_filter_sync_idle is None
+
+              # Immediate and delayed redraws retain distinct debounce slots.
+              module.schedule_v750_filter_sync(scheduled)
+              idle_token = scheduled._v750_filter_sync_idle
+              module.schedule_v750_filter_sync(scheduled, 80)
+              delayed_token = scheduled._v750_filter_sync_after
+              assert idle_token in scheduled.callbacks
+              assert delayed_token in scheduled.callbacks
+              scheduled.exists = False
+              scheduled.callbacks.pop(idle_token)()
+              scheduled.callbacks.pop(delayed_token)()
+              assert scheduled.sync_calls == 1
+          '''
+          validation = (
+              validation[:layer_position]
+              + scheduler_test
+              + validation[layer_position:]
+          )
+
+          layer_position = validation.index(layer_marker)
+          token_position = validation.index('\n    for token in (', layer_position)
+          safety_checks = '''
+              assert "tree.update_idletasks()" not in layer
+              assert "filter_frame.update_idletasks()" not in layer
+              for safety_token in (
+                  "_v750_filter_sync_idle",
+                  "_v750_filter_sync_after",
+                  "_v750_filter_sync_running",
+                  "after_idle(run)",
+                  "Never invoke a geometry redraw synchronously as a fallback",
+              ):
+                  assert safety_token in layer, safety_token
+          '''
+          validation = (
+              validation[:token_position]
+              + safety_checks
+              + validation[token_position:]
+          )
+          validation = validation.replace(
+              '    assert version_tuple >= (7, 5, 0), version\n',
+              '    assert version_tuple >= (7, 7, 4), version\n',
+              1,
+          )
+          validation = validation.replace('OK 7.5.0:', 'OK 7.7.4:', 1)
+          validation_path.write_text(validation, encoding='utf-8')
+
+          audit_path = root / 'ARCHITECTURE_AUDIT_7.7.md'
+          audit = audit_path.read_text(encoding='utf-8')
+          section = '''
+
+          ## Stabilizace filtrovacích lišt ve verzi 7.7.4
+
+          Synchronizace filtrovacích buněk nad tabulkami již nevstupuje z událostí
+          `Configure` ani `xscrollcommand` do vnořeného Tcl/Tk idle loopu. Požadavky na
+          překreslení se slučují do jednoho `after_idle` callbacku a jednoho volitelného
+          závěrečného časovače; souběžný redraw je blokovaný a zaniklé widgety se
+          ignorují. Tím je odstraněn nativní pád Windows/Python 3.14 zachycený po startu
+          verze 7.7.3 v `update_idletasks()`.
+          '''
+          if '## Stabilizace filtrovacích lišt ve verzi 7.7.4' not in audit:
+              audit += section
+          audit_path.write_text(audit, encoding='utf-8')
+
+          (root / 'release_version.txt').write_text('7.7.4\n', encoding='utf-8')
+          (root / 'release_notes.txt').write_text(
+              '• Opraven nativní pád TURTO CRM bezprostředně po startu ve Windows s Pythonem 3.14. Záznam ukázal access violation uvnitř Tkinter update_idletasks při synchronizaci filtrovací lišty tabulky.\n'
+              '• Synchronizace filtrovacích buněk již nevolá update_idletasks z událostí Configure, posunu tabulky ani časovaného callbacku. Tím se nevytváří vnořená smyčka Tcl/Tk během rozpracované změny geometrie.\n'
+              '• Opakované požadavky na překreslení se slučují: pro okamžitý redraw zůstává jediný after_idle callback a pro závěrečnou korekci jediný časovač. Žádný neúspěšný plánovací pokus už nespouští synchronní náhradní překreslení.\n'
+              '• Doplněna ochrana proti souběžnému redraw a proti práci se zaniklým Treeview, filtrovacím rámem nebo buňkou.\n'
+              '• Regresní kontrola ověřuje slučování callbacků, jejich zrušení, bezpečné chování po zániku widgetu a nepřítomnost update_idletasks v této cestě.\n'
+              '• Oprava nemění databázi, uložené nabídky ani obrázky. Sjednocený náhled PLEXUS a všechny změny verze 7.7.3 zůstávají zachované.\n'
+              '• Aktualizace je vratná; před instalací se automaticky vytvoří SQLite záloha pracovní databáze a ZIP snapshot současné verze programu.\n',
+              encoding='utf-8',
+          )
+          PY
+
+      - name: Compile and run focused regression checks
+        shell: bash
+        run: |
+          python -m compileall -q \
+            ZakazkyApp_base_6.1/v750_context_filters_offer_format.py \
+            scripts/validate-7500-context-filters-offer-format.py
+          python scripts/validate-7500-context-filters-offer-format.py ZakazkyApp_base_6.1
+          python scripts/validate-770-runtime-policy.py ZakazkyApp_base_6.1
+          python scripts/validate-771-runtime-bootstrap-stability.py ZakazkyApp_base_6.1
+
+      - name: Commit patch to the feature branch
+        shell: bash
+        run: |
+          git config user.name "TURTO Update Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            ZakazkyApp_base_6.1/v750_context_filters_offer_format.py \
+            scripts/validate-7500-context-filters-offer-format.py \
+            ARCHITECTURE_AUDIT_7.7.md \
+            release_version.txt \
+            release_notes.txt
+          git commit -m "Prevent native Tk filter synchronization re-entry"
+          git push origin HEAD:fix/7.7.4-filter-sync-native-crash
