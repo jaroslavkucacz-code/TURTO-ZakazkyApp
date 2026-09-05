@@ -137,18 +137,48 @@ def apply(M: Any) -> None:
     # trigger a synchronized redraw.
     # ------------------------------------------------------------------
     def schedule_filter_sync(tree: Any, delay: int = 0) -> None:
+        """Coalesce redraws without entering a nested Tcl/Tk idle loop."""
         if not _widget_exists(tree):
             return
         callback = getattr(tree, "_sync_filter_bar", None)
         if not callable(callback):
             return
         try:
-            tree.after(max(0, int(delay)), callback)
+            delay = max(0, int(delay))
+            token_name = (
+                "_v750_filter_sync_after"
+                if delay
+                else "_v750_filter_sync_idle"
+            )
+            pending = getattr(tree, token_name, None)
+            if pending is not None:
+                try:
+                    tree.after_cancel(pending)
+                except Exception:
+                    pass
+                try:
+                    setattr(tree, token_name, None)
+                except Exception:
+                    pass
+
+            def run() -> None:
+                try:
+                    setattr(tree, token_name, None)
+                except Exception:
+                    pass
+                if not _widget_exists(tree):
+                    return
+                current = getattr(tree, "_sync_filter_bar", None)
+                if callable(current):
+                    current()
+
+            token = tree.after(delay, run) if delay else tree.after_idle(run)
+            setattr(tree, token_name, token)
         except Exception:
-            try:
-                callback()
-            except Exception:
-                pass
+            # Never invoke a geometry redraw synchronously as a fallback.
+            # This function is itself called from Configure/xscroll events;
+            # immediate re-entry into Tcl/Tk is the native crash condition.
+            pass
 
     def attach_filter_bar(tree: Any, filter_frame: Any) -> None:
         try:
@@ -172,7 +202,6 @@ def apply(M: Any) -> None:
             if not cells or not columns:
                 return
 
-            filter_frame.update_idletasks()
             height = max(
                 [int(widget.winfo_reqheight()) for _column, widget in cells] + [34]
             ) + 2
@@ -182,13 +211,30 @@ def apply(M: Any) -> None:
                 pass
 
             def sync(*_args: Any) -> None:
+                if (
+                    not _widget_exists(tree)
+                    or not _widget_exists(filter_frame)
+                    or getattr(tree, "_v750_filter_sync_running", False)
+                ):
+                    return
+                tree._v750_filter_sync_running = True
                 try:
-                    tree.update_idletasks()
+                    # Never call update_idletasks() here. sync() is reached from
+                    # Configure, xscrollcommand and after callbacks; a nested Tcl
+                    # event loop can execute another layout callback while the
+                    # current Treeview command is still active on Windows/Tk 8.6.
                     visible = displayed_columns(tree)
-                    widths = {
-                        column: max(1, int(tree.column(column, "width")))
-                        for column in visible
-                    }
+                    widths: dict[str, int] = {}
+                    for column in visible:
+                        try:
+                            widths[column] = max(
+                                1, int(tree.column(column, "width"))
+                            )
+                        except Exception:
+                            continue
+                    visible = [column for column in visible if column in widths]
+                    if not visible:
+                        return
                     total = max(1, sum(widths.values()))
                     try:
                         first = float(tree.xview()[0])
@@ -201,17 +247,30 @@ def apply(M: Any) -> None:
                         starts[column] = cursor
                         cursor += widths[column]
                     for column, widget in cells:
-                        if column not in starts:
-                            widget.place_forget()
+                        if not _widget_exists(widget):
                             continue
-                        widget.place(
-                            x=starts[column] - offset,
-                            y=0,
-                            width=widths[column],
-                            height=height,
-                        )
+                        if column not in starts:
+                            try:
+                                widget.place_forget()
+                            except Exception:
+                                pass
+                            continue
+                        try:
+                            widget.place(
+                                x=starts[column] - offset,
+                                y=0,
+                                width=widths[column],
+                                height=height,
+                            )
+                        except Exception:
+                            pass
                 except Exception:
                     pass
+                finally:
+                    try:
+                        tree._v750_filter_sync_running = False
+                    except Exception:
+                        pass
 
             tree._filter_frame = filter_frame
             tree._filter_cells = [widget for _column, widget in cells]
@@ -253,6 +312,7 @@ def apply(M: Any) -> None:
             pass
 
     M.attach_filter_bar = attach_filter_bar
+    M.schedule_v750_filter_sync = schedule_filter_sync
     M.v750_displayed_columns = displayed_columns
 
     for api_name in (

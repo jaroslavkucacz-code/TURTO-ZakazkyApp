@@ -1,8 +1,7 @@
-• Opraven detail přijaté nabídky Nevoga: obrázek PLEXUS se již nezobrazuje ve dvou různých panelech. Dialog nyní používá jediný pevný náhled obrázku.
-• Původní náhledový panel zůstává pouze jako prezentační obal; obrazová data získává výhradně přes finální společný resolver. Ten umí položkový obrázek, kanonické úložiště i sdílený asset typu PLEXUS.
-• Odstraněn stav zachycený v praxi, kdy horní panel hlásil „K této položce není uložen obrázek“, zatímco druhý panel pod ním stejný obrázek správně zobrazoval.
-• Náhled PLEXUS je nově umístěn bezprostředně pod tabulkou položek. Lišta se zavíracím tlačítkem je vždy až na konci dialogu.
-• Popisek ceny v náhledu respektuje skutečnou měrnou jednotku položky, například Cena/m u prvků PLEXUS.
-• Ukládání zůstává úsporné: v databázi je nadále pouze jeden společný obrázek pro každý typ PLEXUS a položky uchovávají jen vazbu na něj.
-• Doplněna regresní kontrola, která hlídá jediný obrazový panel, použití společného resolveru a správné pořadí panelu a zavírací lišty.
-• Všechny opravy verze 7.7.2 zůstávají zachované. Aktualizace je vratná; před instalací se automaticky vytvoří SQLite záloha databáze a ZIP snapshot současné verze programu.
+• Opraven nativní pád TURTO CRM bezprostředně po startu ve Windows s Pythonem 3.14. Záznam ukázal access violation uvnitř Tkinter update_idletasks při synchronizaci filtrovací lišty tabulky.
+• Synchronizace filtrovacích buněk již nevolá update_idletasks z událostí Configure, posunu tabulky ani časovaného callbacku. Tím se nevytváří vnořená smyčka Tcl/Tk během rozpracované změny geometrie.
+• Opakované požadavky na překreslení se slučují: pro okamžitý redraw zůstává jediný after_idle callback a pro závěrečnou korekci jediný časovač. Žádný neúspěšný plánovací pokus už nespouští synchronní náhradní překreslení.
+• Doplněna ochrana proti souběžnému redraw a proti práci se zaniklým Treeview, filtrovacím rámem nebo buňkou.
+• Regresní kontrola ověřuje slučování callbacků, jejich zrušení, bezpečné chování po zániku widgetu a nepřítomnost update_idletasks v této cestě.
+• Oprava nemění databázi, uložené nabídky ani obrázky. Sjednocený náhled PLEXUS a všechny změny verze 7.7.3 zůstávají zachované.
+• Aktualizace je vratná; před instalací se automaticky vytvoří SQLite záloha pracovní databáze a ZIP snapshot současné verze programu.

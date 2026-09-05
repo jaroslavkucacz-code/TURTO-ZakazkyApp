@@ -204,9 +204,75 @@ def main() -> None:
         "A",
     ]
 
+
+    class FakeScheduledTree:
+        def __init__(self):
+            self.exists = True
+            self.callbacks = {}
+            self.cancelled = []
+            self.counter = 0
+            self.sync_calls = 0
+            self._sync_filter_bar = self.sync
+
+        def winfo_exists(self):
+            return self.exists
+
+        def sync(self):
+            self.sync_calls += 1
+
+        def _store(self, prefix, callback):
+            self.counter += 1
+            token = f"{prefix}-{self.counter}"
+            self.callbacks[token] = callback
+            return token
+
+        def after_idle(self, callback):
+            return self._store("idle", callback)
+
+        def after(self, delay, callback):
+            return self._store(f"after-{delay}", callback)
+
+        def after_cancel(self, token):
+            self.cancelled.append(token)
+            self.callbacks.pop(token, None)
+
+    scheduled = FakeScheduledTree()
+    module.schedule_v750_filter_sync(scheduled)
+    first_idle = scheduled._v750_filter_sync_idle
+    module.schedule_v750_filter_sync(scheduled)
+    second_idle = scheduled._v750_filter_sync_idle
+    assert first_idle != second_idle
+    assert first_idle in scheduled.cancelled
+    assert first_idle not in scheduled.callbacks
+    scheduled.callbacks.pop(second_idle)()
+    assert scheduled.sync_calls == 1
+    assert scheduled._v750_filter_sync_idle is None
+
+    module.schedule_v750_filter_sync(scheduled)
+    idle_token = scheduled._v750_filter_sync_idle
+    module.schedule_v750_filter_sync(scheduled, 80)
+    delayed_token = scheduled._v750_filter_sync_after
+    assert idle_token in scheduled.callbacks
+    assert delayed_token in scheduled.callbacks
+    scheduled.exists = False
+    scheduled.callbacks.pop(idle_token)()
+    scheduled.callbacks.pop(delayed_token)()
+    assert scheduled.sync_calls == 1
+
     layer = (source / "v750_context_filters_offer_format.py").read_text(
         encoding="utf-8"
     )
+    assert "tree.update_idletasks()" not in layer
+    assert "filter_frame.update_idletasks()" not in layer
+    for safety_token in (
+        "_v750_filter_sync_idle",
+        "_v750_filter_sync_after",
+        "_v750_filter_sync_running",
+        "after_idle(run)",
+        "Never invoke a geometry redraw synchronously as a fallback",
+    ):
+        assert safety_token in layer, safety_token
+
     for token in (
         "displayed_columns(tree)",
         "widget.place_forget()",
@@ -239,14 +305,14 @@ def main() -> None:
         version_tuple = tuple(int(part) for part in version.split("."))
     except ValueError as exc:
         raise AssertionError(version) from exc
-    assert version_tuple >= (7, 5, 0), version
+    assert version_tuple >= (7, 7, 4), version
     publish = (repository / "scripts" / "publish-update.sh").read_text(
         encoding="utf-8"
     )
     assert "validate-7500-context-filters-offer-format.py" in publish
     assert "v750_context_filters_offer_format.py" in publish
     print(
-        "OK 7.5.0: filter cells follow visible columns, row actions use context "
+        "OK 7.7.4: filter cells follow visible columns, row actions use context "
         "menus, supplier names remain intact and A4 is visible"
     )
 
