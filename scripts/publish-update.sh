@@ -23,6 +23,7 @@ python scripts/validate-767-offer-reprocess-images.py "$BASE_DIR"
 python scripts/validate-768-clean-table-markers.py "$BASE_DIR"
 python scripts/validate-769-nevoga-rich-description.py "$BASE_DIR"
 python scripts/validate-7610-nevoga-exact-red-excel.py "$BASE_DIR"
+python scripts/validate-7800-professional-offer-workflow.py "$BASE_DIR"
 python scripts/validate-770-runtime-policy.py "$BASE_DIR"
 
 rm -rf "$STAGE"
@@ -137,6 +138,7 @@ test -e "$RUNTIME/v760_table_activity_performance.py"
 test -e "$RUNTIME/v631_diskdrop.py"
 test -e "$RUNTIME/crm_price_lists.py"
 test -d "$RUNTIME/price_lists_domain"
+test -e "$RUNTIME/price_lists_domain/issued_offers/professional_workflow.py"
 test -e "$STAGE/offers_engine/Gerotop_Parser_767.py"
 test ! -e "$STAGE/runtime_bootstrap.py"
 test ! -e "$STAGE/v770_runtime_policy.py"
@@ -172,6 +174,7 @@ grep -q "CREATE TABLE IF NOT EXISTS product_subgroups" "$RUNTIME/price_lists_dom
 grep -q "CREATE TABLE IF NOT EXISTS catalog_products" "$RUNTIME/price_lists_domain/platform/database.py"
 grep -q "_turto_commercial_workspace_v6339" "$RUNTIME/price_lists_domain/platform/commercial_workspace.py"
 grep -q "Windows.Media.Ocr" "$RUNTIME/price_lists_domain/ocr.py"
+grep -q "Kontrola a řízené vydání" "$RUNTIME/price_lists_domain/issued_offers/professional_workflow.py"
 grep -qi "openpyxl" "$STAGE/requirements.txt"
 
 # One native drop owner and one DB-first archive pipeline.
