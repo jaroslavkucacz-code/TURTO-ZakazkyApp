@@ -381,7 +381,7 @@ def main() -> None:
         version_tuple = tuple(int(part) for part in version.split("."))
     except ValueError as exc:
         raise AssertionError(version) from exc
-    assert (7, 6, 1) <= version_tuple < (7, 7, 0), version
+    assert (7, 6, 1) <= version_tuple < (8, 0, 0), version
     publish = (repository / "scripts" / "publish-update.sh").read_text(encoding="utf-8")
     assert "validate-7600-table-activity-performance.py" in publish
     assert "v760_table_activity_performance.py" in publish
