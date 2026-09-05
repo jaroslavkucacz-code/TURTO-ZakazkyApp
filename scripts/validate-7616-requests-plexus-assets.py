@@ -302,17 +302,25 @@ def main():
         assert layer.OVERDUE_TAG not in tree.rows["r2"]["tags"]
         assert tree.tags[layer.OVERDUE_TAG]["font"][-1] == "bold"
 
-    bridge = (source / "v768_clean_table_markers.py").read_text(encoding="utf-8")
-    assert "import v7616_requests_plexus_assets" in bridge
-    assert "v7616_requests_plexus_assets.apply(M)" in bridge
-    assert bridge.index("v7615_nevoga_meter_units.apply(M)") < bridge.index(
-        "v7616_requests_plexus_assets.apply(M)"
-    )
-
     version = (repository / "release_version.txt").read_text(encoding="utf-8").strip()
-    assert version == "7.6.16", version
+    version_tuple = tuple(int(part) for part in version.split("."))
+    assert version_tuple >= (7, 6, 16), version
+    if version_tuple >= (7, 7, 0):
+        bootstrap = (source / "runtime_bootstrap.py").read_text(encoding="utf-8")
+        assert '"v7615_nevoga_meter_units"' in bootstrap
+        assert '"v7616_requests_plexus_assets"' in bootstrap
+        assert bootstrap.index('"v7615_nevoga_meter_units"') < bootstrap.index(
+            '"v7616_requests_plexus_assets"'
+        )
+    else:
+        bridge = (source / "v768_clean_table_markers.py").read_text(encoding="utf-8")
+        assert "import v7616_requests_plexus_assets" in bridge
+        assert "v7616_requests_plexus_assets.apply(M)" in bridge
+        assert bridge.index("v7615_nevoga_meter_units.apply(M)") < bridge.index(
+            "v7616_requests_plexus_assets.apply(M)"
+        )
     print(
-        "OK 7.6.16: Poptavky headings align with rows, long waits are bold, "
+        f"OK {version}: Poptavky headings align with rows, long waits are bold, "
         "and PLEXUS drawings are deduplicated per type in the database"
     )
 

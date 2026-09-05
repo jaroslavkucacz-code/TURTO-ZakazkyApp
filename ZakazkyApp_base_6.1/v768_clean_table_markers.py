@@ -1,16 +1,14 @@
-"""TURTO CRM 7.6.8 - keep table dates free of emoji/status markers.
+"""TURTO CRM 7.6.8+ compatibility: keep date text free of glyph markers.
 
-Older table code prefixed warning symbols (⚠ / ●) to date text. On Windows/Tk
-those glyphs can be rendered by the colour emoji font as a magenta/pink box.
-Urgency remains represented by the existing row/status colours; dates stay plain.
+Runtime composition is explicit in runtime_bootstrap.py.  This module no longer
+imports or applies later release layers; it owns only its small compatibility job.
+The final 7.7 policy may add font emphasis without changing stored/displayed dates.
 """
 
 
 def _plain_date(value):
     text = str(value or "")
-    # Strip both text and emoji-presentation variants. Only date cells are passed
-    # through this helper, so legitimate note/description text is untouched.
-    for marker in ("⚠️ ", "⚠ ", "⚠️", "⚠", "● ", "●"):
+    for marker in ("⚠️ ", "⚠ ", "⚠️", "⚠", "● ", "●", "▲ ", "△ "):
         text = text.replace(marker, "")
     return text.strip()
 
@@ -21,7 +19,6 @@ def apply(M):
     M._turto_v768_clean_table_markers = True
 
     def clean_action_deadline_highlights(self, rows):
-        """Legacy compatibility hook: clean Deadline text, never add symbols."""
         tree = getattr(self, "action_tree", None)
         if tree is None:
             return
@@ -30,17 +27,15 @@ def apply(M):
             if not iid:
                 continue
             try:
-                if not tree.exists(iid):
-                    continue
-                raw = str(tree.set(iid, "Deadline") or "")
-                clean = _plain_date(raw)
-                if clean != raw:
-                    tree.set(iid, "Deadline", clean)
+                if tree.exists(iid):
+                    raw = str(tree.set(iid, "Deadline") or "")
+                    clean = _plain_date(raw)
+                    if clean != raw:
+                        tree.set(iid, "Deadline", clean)
             except Exception:
-                continue
+                pass
 
     def clean_request_date_highlights(self, tree, rows):
-        """Legacy compatibility hook: clean Poptáno text, never add symbols."""
         if tree is None:
             return
         for item in rows or ():
@@ -48,32 +43,14 @@ def apply(M):
             if not iid:
                 continue
             try:
-                if not tree.exists(iid):
-                    continue
-                raw = str(tree.set(iid, "Poptáno") or "")
-                clean = _plain_date(raw)
-                if clean != raw:
-                    tree.set(iid, "Poptáno", clean)
+                if tree.exists(iid):
+                    raw = str(tree.set(iid, "Poptáno") or "")
+                    clean = _plain_date(raw)
+                    if clean != raw:
+                        tree.set(iid, "Poptáno", clean)
             except Exception:
-                continue
+                pass
 
-    # These callbacks first establish the clean-text baseline. Later 7.6 layers
-    # may add presentation-only emphasis without reintroducing warning glyphs.
     M.App._refresh_action_deadline_highlights = clean_action_deadline_highlights
     M.App._refresh_request_date_highlights = clean_request_date_highlights
     M.V768_TABLE_MARKERS_CLEAN = True
-
-    # 7.6.9+ layers are chained here as a packaging bridge. The current release
-    # builder ships these root-level compatibility layers; v767 imports v768,
-    # which activates the final Nevoga and request-table layers in this order.
-    try:
-        import v769_nevoga_offer
-        v769_nevoga_offer.apply(M)
-        import v7614_nevoga_canonical_export
-        v7614_nevoga_canonical_export.apply(M)
-        import v7615_nevoga_meter_units
-        v7615_nevoga_meter_units.apply(M)
-        import v7616_requests_plexus_assets
-        v7616_requests_plexus_assets.apply(M)
-    except Exception:
-        pass
