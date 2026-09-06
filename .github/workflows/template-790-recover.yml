@@ -1,0 +1,31 @@
+name: Recover editable template workbench
+on:
+  push:
+    branches: [feature/7.9.0-editable-standard-offer]
+    paths: [.github/workflows/template-790-recover.yml]
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: baseline
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/7.9.0-corporate-offer-templates
+          path: previous
+      - name: Collect source only
+        run: |
+          mkdir -p transfer/previous
+          cp -a baseline/ZakazkyApp_base_6.1 baseline/scripts baseline/.github baseline/release_version.txt baseline/release_notes.txt baseline/post_baseline.py baseline/ARCHITECTURE_AUDIT_7.7.md transfer/
+          cp -a previous/_template_workbench transfer/previous/
+          git -C baseline rev-parse HEAD > transfer/BASE_SHA.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: templates-source-recovered
+          include-hidden-files: true
+          path: transfer/
+          retention-days: 2
