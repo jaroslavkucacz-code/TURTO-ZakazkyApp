@@ -1,0 +1,50 @@
+name: Repair legacy test fixture portability
+on:
+  push:
+    branches: [feature/7.9.0-editable-standard-offer]
+    paths: [.github/workflows/repair-test-portability790.yml]
+permissions:
+  contents: write
+jobs:
+  fixtures:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/7.9.0-editable-standard-offer
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Apply reviewed fixture-only changes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          expected={
+            'scripts/validate-6337-issued-offers.py':('3ade2269be72cda6d80d1d16fc601064f0b63de226bea6ff47fad93f3f960a05','787368b40f42091d9d2c5bb29087c0c0eae49cff6ca4d4020bd758f6186ddfc8'),
+            'scripts/validate-7800-professional-offer-workflow.py':('7e674237a6fa2130e37b7a339f6d902e2ddc7d2610559f814ccdc5b8da0be8bf','e89cdc13ab404e661cd7439192ec89cfd9e815162220426bd952814e269a511b')}
+          for filename,(before,after) in expected.items():
+              p=Path(filename)
+              assert hashlib.sha256(p.read_bytes()).hexdigest()==before,filename
+              s=p.read_text(encoding='utf-8')
+              addition='\n\nclass ClosingTestConnection(sqlite3.Connection):\n    """Close fake-owner SQLite handles deterministically on Windows too."""\n    def __exit__(self, *args):\n        try:\n            return super().__exit__(*args)\n        finally:\n            self.close()\n\n\ndef '
+              s=s.replace('\n\ndef ',addition,1)
+              for arg in ('self.DB','self.path','database'):
+                  s=s.replace(f'sqlite3.connect({arg})',f'sqlite3.connect({arg}, factory=ClosingTestConnection)')
+              if '6337' in filename:
+                  s=s.replace('        pdf.close()\n','        pdf.close()\n        # Windows font ToUnicode maps visible spaces/hyphens to Unicode equivalents.\n        text = " ".join(text.split()).replace("\\u2010", "-").replace("\\u2011", "-")\n',1)
+              p.write_text(s,encoding='utf-8')
+              assert hashlib.sha256(p.read_bytes()).hexdigest()==after,filename
+          PY
+      - name: Validate unchanged business assertions
+        run: |
+          python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+          python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
+          python scripts/validate-7800-professional-offer-workflow.py ZakazkyApp_base_6.1
+      - name: Commit fixture changes only
+        run: |
+          git config user.name 'TURTO Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add scripts/validate-6337-issued-offers.py scripts/validate-7800-professional-offer-workflow.py
+          git commit -m 'Close regression fixture connections and normalize Windows font text extraction'
+          git push origin HEAD:feature/7.9.0-editable-standard-offer
