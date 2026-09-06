@@ -1,0 +1,25 @@
+name: Offer workspace source snapshot
+on:
+  push:
+    branches: [feature/7.9.1-offer-workspace-inline-margin]
+    paths: [.github/workflows/offer-workspace-snapshot.yml]
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: offer-workspace-baseline
+          include-hidden-files: true
+          path: |
+            ZakazkyApp_base_6.1/
+            scripts/
+            .github/workflows/
+            release_version.txt
+            release_notes.txt
+            post_baseline.py
+            ARCHITECTURE_AUDIT_7.7.md
+          retention-days: 3
