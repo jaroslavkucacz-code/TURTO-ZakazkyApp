@@ -1,8 +1,9 @@
-• Nová firemní PDF šablona podle schváleného návrhu: původní grafické záhlaví a zápatí TURTO, čistší sazba, obrazový sloupec a přehledné podmínky.
-• Editor vlastních šablon: stránka, typografie, pořadí/popisky/poměrné šířky sloupců, obrázky, kontakty a dolní bloky. Živý náhled, kopie, reset a přenosný export/import.
-• Výchozí firemní šablona je chráněná; vlastní varianty a starší šablony zůstávají zachované při aktualizaci.
-• Náhled i vydání používají stejný generátor a skutečné souřadnice položek. Nezávislé odhady klikacích oblastí se u nové šablony nepoužívají.
-• Obrázky PLEXUS ve vydaných nabídkách využívají společné databázové obrázky. Nákupní ceny a marže se do zákaznického PDF nedostanou.
-• Kontrola aktuálnosti PDF sleduje i ruční změny vzhledu a obrázků; historické PDF revize se nemění. Doplněna nápověda k šablonám.
-• Aktualizace zachovává stávající zálohování databáze a vratné programové aktualizace.
-• Při ruční úpravě šablony přímo z nabídky zobrazuje náhled její aktuální položky, obrázky a ceny, nikoli pouze ukázková data. Náhled nevytváří číslo ani PDF revizi.
+• Editor vydané nabídky má kompaktnější pracovní plochu: blok základních údajů je ve výchozím stavu sbalený, takže živý náhled PDF dostává výrazně více místa.
+• Vedle náhledu je nový interní panel Cenotvorba se všemi řádky nabídky. U každé položky jsou vidět NC/MJ, Marže %, Sleva % a absolutní Zisk řádku.
+• Nákupní cenu, marži a slevu lze upravit přímo v tabulce bez otevírání detailu položky. Po potvrzení se okamžitě přepočítá doporučená/prodejní cena, zisk, souhrn i živý PDF náhled.
+• Zisk se počítá z reálné prodejní ceny po řádkových i celkových slevách proti nákupní ceně. V souhrnu editoru jsou přímo Prodej, Nákup a Zisk; DPH se v interní cenotvorbě nezobrazuje.
+• Interní cenotvorba je pouze pracovní vrstva editoru. Nákupní ceny, marže a zisk se nikdy nepřenášejí do zákaznického PDF ani do vzhledu schválené šablony TURTO – Standard.
+• Kliknutí na řádek interní cenotvorby pouze zvýrazní odpovídající položku v náhledu; pro samotné zobrazení hodnot není nutné jednotlivé produkty rozklikávat.
+• Obchodní podmínky a poznámky zůstávají dostupné přepínačem vedle Cenotvorby a blok základních údajů lze kdykoli zobrazit tlačítkem Údaje nabídky….
+• Schválený vzhled zákaznického PDF, logo, původní grafické záhlaví a zápatí TURTO se touto aktualizací nemění.
+• Aktualizace nemění strukturu pracovní databáze ani historické PDF revize a zachovává stávající vratné aktualizace se zálohou databáze a programu.
