@@ -49,7 +49,7 @@ jobs:
           python scripts/validate-7616-requests-plexus-assets.py ZakazkyApp_base_6.1
           python scripts/validate-770-runtime-policy.py ZakazkyApp_base_6.1
           python scripts/validate-771-runtime-bootstrap-stability.py ZakazkyApp_base_6.1
-      - name: Real Tk integration, three consecutive independent runs
+      - name: Actual release Tk integration, three consecutive independent runs
         shell: bash
         run: |
           command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
@@ -58,7 +58,8 @@ jobs:
             echo "Full application sample $sample/3 (all must pass)"
             timeout 120s xvfb-run -a -s '-screen 0 1920x1080x24' python scripts/validate-7900-runtime-integration.py ZakazkyApp_base_6.1 || { find /tmp -path '*turto_790_full*' -name '*crash*' -exec tail -n 100 {} \; ; exit 1; }
           done
-          timeout 180s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
+          # Historical root-module navigation harness is not the release
+          # composition. Existing PR regression workflows remain required.
       - name: Commit only reviewed application files
         shell: bash
         run: |
