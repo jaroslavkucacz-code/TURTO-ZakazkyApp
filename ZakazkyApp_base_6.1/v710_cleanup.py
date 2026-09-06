@@ -774,6 +774,10 @@ def apply(M):
             return result
 
         def render_offer_pdf(module, document_id, output_path=None, open_after=False):
+            from price_lists_domain.issued_offers.template_layout import is_corporate
+            document, _items = service.load_document(module, document_id)
+            if is_corporate(service.load_template(module, document.get("template_id"))):
+                return original_render_offer_pdf(module, document_id, output_path, open_after)
             with pdf_lock:
                 current_load = service.load_document
 

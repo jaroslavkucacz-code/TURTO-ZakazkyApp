@@ -78,6 +78,9 @@ def ensure_business_documents_schema(M) -> None:
             """
         )
 
+        _add_column(con, "business_document_templates", "layout_json TEXT NOT NULL DEFAULT '{}'")
+        _add_column(con, "business_document_templates", "builtin_key TEXT NOT NULL DEFAULT ''")
+
         # Extend the foundation created by the Ceníky platform. All fields have
         # safe defaults so existing future-facing rows remain readable.
         for declaration in (
@@ -140,6 +143,12 @@ def ensure_business_documents_schema(M) -> None:
         ):
             _add_column(con, "business_document_items", declaration)
 
+        for declaration in (
+            "image_asset_key_snapshot TEXT NOT NULL DEFAULT ''",
+            "image_file_snapshot TEXT NOT NULL DEFAULT ''",
+        ):
+            _add_column(con, "business_document_items", declaration)
+
         # The Ceníky foundation already provides these in current databases, but
         # installations upgraded from an earlier path receive them here too.
         for declaration in (
@@ -183,6 +192,9 @@ def ensure_business_documents_schema(M) -> None:
                    SELECT 1 FROM business_document_templates WHERE document_type='issued_offer'
                )"""
         )
+
+        from .template_layout import ensure_builtin
+        ensure_builtin(con)
 
 
 __all__ = ["ensure_business_documents_schema"]

@@ -107,7 +107,7 @@ def _contact_lines(document: dict[str, Any], prefix: str) -> list[str]:
     return [line for line in lines if line.strip()]
 
 
-def render_offer_pdf(M, document_id: int, output_path: str | Path | None = None, open_after: bool = False) -> Path:
+def _render_legacy_offer_pdf(M, document_id: int, output_path: str | Path | None = None, open_after: bool = False) -> Path:
     import fitz
 
     document, items = service.load_document(M, int(document_id))
@@ -310,6 +310,29 @@ def render_offer_pdf(M, document_id: int, output_path: str | Path | None = None,
     snapshot = dict(document)
     snapshot["items"] = items
     snapshot["totals"] = totals.__dict__
+    service.record_revision(M, int(document_id), revision, target, snapshot)
+    if open_after:
+        service.open_path(target)
+    return target
+
+
+def render_offer_snapshot(M, document, items, template, output_path):
+    """An unsaved snapshot uses exactly the production layout, with no DB writes."""
+    from .corporate_renderer import render
+    return render(M, document, items, template, output_path)
+
+
+def render_offer_pdf(M, document_id: int, output_path=None, open_after=False):
+    from .template_layout import is_corporate
+    document, items = service.load_document(M, int(document_id))
+    template = service.load_template(M, document.get("template_id"))
+    if not is_corporate(template):
+        return _render_legacy_offer_pdf(M, document_id, output_path, open_after)
+    revision = service.next_revision_no(M, int(document_id))
+    target = Path(output_path) if output_path else service.document_archive_dir(M, document) / f"{service.safe_filename(document['document_number'])}_R{revision:02d}.pdf"
+    result = render_offer_snapshot(M, document, items, template, target)
+    snapshot = dict(document)
+    snapshot.update(items=items, totals=result["totals"].__dict__, template_snapshot=template)
     service.record_revision(M, int(document_id), revision, target, snapshot)
     if open_after:
         service.open_path(target)

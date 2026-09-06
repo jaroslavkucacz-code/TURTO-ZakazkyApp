@@ -609,8 +609,8 @@ def _place_dialog(win: Any, parent: Any = None, preferred: tuple[int, int] | Non
         parent = parent or getattr(win, "master", None)
         if parent is None or not parent.winfo_exists():
             parent = win
-        win.update_idletasks()
-        parent.update_idletasks()
+        # Placement already runs in a deferred callback. Never nest the Tk
+        # event loop while a child window or its font resources are changing.
         left, top, right, bottom = _workarea_for_window(parent)
         area_w, area_h = max(420, right - left), max(320, bottom - top)
         pref = preferred or getattr(win, "_v770_preferred_size", None) or getattr(win, "_preferred_dialog_size", None) or (0, 0)
@@ -673,7 +673,7 @@ def _install_dialog_policy(M: Any) -> None:
                 popup = self.popup
                 if not popup or not popup.winfo_exists() or not popup.winfo_viewable():
                     return
-                popup.update_idletasks()
+                # Read settled geometry without re-entering a widget event.
                 entry_x = int(self.winfo_rootx())
                 entry_y = int(self.winfo_rooty())
                 entry_w = max(120, int(self.winfo_width()))

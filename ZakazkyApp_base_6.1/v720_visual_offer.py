@@ -81,6 +81,8 @@ def apply(M) -> None:
 
     def row_regions(document, items):
         """Simulate only the production renderer's item rectangles."""
+        if "_render_regions" in document:
+            return list(document["_render_regions"])
         template = service.load_template(M, document.get("template_id"))
         MM = pdf_renderer.MM
         page_width = pdf_renderer.A4_WIDTH
@@ -157,6 +159,12 @@ def apply(M) -> None:
         """Render an unsaved snapshot through the real final-PDF function."""
         document = preview_document(instance)
         items = [dict(item or {}) for item in getattr(instance, "items", [])]
+        from price_lists_domain.issued_offers.template_layout import is_corporate
+        template = service.load_template(M, document.get("template_id"))
+        if is_corporate(template):
+            result = pdf_renderer.render_offer_snapshot(M, document, items, template, target)
+            document["_render_regions"] = result["regions"]
+            return document, items
         with _PREVIEW_LOCK:
             original_load = service.load_document
             original_next = service.next_revision_no
