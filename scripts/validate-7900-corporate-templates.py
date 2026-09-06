@@ -115,7 +115,7 @@ def main():
             assert final[0].get_pixmap().samples==preview[0].get_pixmap().samples
             text=''.join(p.get_text() for p in final)
             assert '9876543' not in text and '9876' not in text and 'Marže' not in text
-            # Wrapped headings remain complete; OS font metrics can change line breaks.
+            # OS fonts may extract a visible space as NBSP or wrap a heading.
             normalized_text=' '.join(text.split())
             for heading in ('Název / popis','Cena celkem','Množ.'):
                 assert heading in normalized_text, (ascii(heading),ascii(text),final[0].get_fonts())
@@ -159,7 +159,10 @@ def main():
         assert len(extreme['regions'])==9
         with fitz.open(root/'extreme.pdf') as pdf:
             for i,r in enumerate(extreme['regions']):
-                assert 'Oddíl '+str(i) in pdf[r['page']].get_text(),'Orphaned group heading'
+                # Still check the item's exact page, never search the whole PDF.
+                # Windows Calibri maps its regular-space glyph back to NBSP.
+                page_text=' '.join(pdf[r['page']].get_text().split())
+                assert 'Oddíl '+str(i) in page_text,('Orphaned group heading',i,r,ascii(page_text))
         longheading=[dict(stored[0],subgroup_name_snapshot='Dlouhý název oddílu '*300)]
         longres=pdf_renderer.render_offer_snapshot(M,document,longheading,changed,root/'heading.pdf')
         with fitz.open(root/'heading.pdf') as pdf:
