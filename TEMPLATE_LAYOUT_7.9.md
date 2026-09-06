@@ -16,8 +16,8 @@ Nevzniká další runtime patch ani změna pořadí bootstrapu.
 
 Migrace pouze přidává výchozí JSON/builtin klíč k šablonám a dva odkazy na obrázek
 k položkám. Existující přiřazení šablon, dokumenty a PDF revize se nepřepisují.
-Firemní předloha se vloží jednou. Jako výchozí nahradí pouze nepersonalizovaný
-původní preset bez nahrané grafiky. Vlastní výchozí šablona zůstává výchozí.
+Firemní předloha TURTO – Standard se vloží jednou. Jako výchozí nahradí pouze
+nepersonalizovaný původní preset bez nahrané grafiky. Vlastní výchozí šablona zůstává výchozí.
 
 Firemní předlohu nelze uložením ani deaktivací odstranit. Uživatel vytváří vlastní
 kopie. Reset je pouze rozpracovaná změna do výslovného uložení. Uživatelská grafika
@@ -44,7 +44,9 @@ Logo se při změně barvy těla dokumentu nepřebarvuje ani nepřekresluje.
 
 Export/import ZIP obsahuje pouze validované JSON a obrázky s SHA-256. Import
 nepoužívá extractall, odmítá traversal/duplicitní cesty a neprovádí žádný kód.
-F1 obsahuje samostatný návod. Náhled používá zřetelně označené ukázkové údaje.
+F1 obsahuje samostatný návod. Při otevření z editoru nabídky náhled zobrazuje
+její skutečné položky, obrázky, ceny a dosud neuložený obsah. Samostatný správce
+šablon používá označené ukázkové údaje. Ani jeden náhled nevydává obchodní dokument.
 
 ## Regresní kontrola
 
@@ -55,4 +57,11 @@ shared PLEXUS, PDF pixelová shoda náhledu a vydání, revizní otisk, dlouhé 
 
 validate-7900-runtime-integration: skutečný runtime_bootstrap, živý editor nabídky,
 přechod do modalního editoru šablony, uložení, návrat focus/grab a nový náhled.
+Test kontroluje původ všech načtených vrstev: stejně jako instalační balíček používá
+ZakazkyApp_base_6.1 a explicitně jediný post_baseline.py z kořene repozitáře.
+Historické duplicitní moduly v kořeni nesmějí přepsat testovaný současný runtime.
 CI matice zahrnuje Python 3.12/3.14 Linux a Python 3.14 Windows.
+
+Umístění navazujícího dialogu a našeptávače ve v770 již nevolá update_idletasks
+z odloženého callbacku; měření geometrie tak neotevírá vnořenou smyčku událostí.
+Monitorová politika i obchodní funkce zůstávají zachované.
