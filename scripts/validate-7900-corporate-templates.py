@@ -115,7 +115,10 @@ def main():
             assert final[0].get_pixmap().samples==preview[0].get_pixmap().samples
             text=''.join(p.get_text() for p in final)
             assert '9876543' not in text and '9876' not in text and 'Marže' not in text
-            assert 'Název / popis' in text and 'Cena celkem' in text and 'Množ.' in text
+            # Wrapped headings remain complete; OS font metrics can change line breaks.
+            normalized_text=' '.join(text.split())
+            for heading in ('Název / popis','Cena celkem','Množ.'):
+                assert heading in normalized_text, (ascii(heading),ascii(text),final[0].get_fonts())
             assert len(final[0].get_images())>=3
         old_hash=hashlib.sha256(target.read_bytes()).hexdigest()
         fp1=wf.template_fingerprint(M,tid)
