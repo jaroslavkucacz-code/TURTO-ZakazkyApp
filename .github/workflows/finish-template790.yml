@@ -1,0 +1,62 @@
+name: Finalize reviewed TURTO 7.9 templates
+on:
+  push:
+    branches: [feature/7.9.0-editable-standard-offer]
+    paths:
+      - .github/workflows/finish-template790.yml
+      - _template790/finalize.py
+permissions:
+  contents: write
+jobs:
+  reviewed-patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      TURTO_DISABLE_AUTO_UPDATE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/7.9.0-editable-standard-offer
+          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with:
+          ref: 2ba16f3357dd1ec30fd2e498e0aca10f455b9413
+          path: .old-template790
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Restore exactly the locally reviewed source and original artwork
+        run: python _template790/finalize.py
+      - name: Install dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+      - name: Focused PDF, template and compatibility checks
+        run: |
+          python scripts/validate-7900-corporate-templates.py ZakazkyApp_base_6.1
+          python scripts/validate-7800-professional-offer-workflow.py ZakazkyApp_base_6.1
+          python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
+          python scripts/validate-7200-visual-issued-offers.py ZakazkyApp_base_6.1
+          python scripts/validate-7616-requests-plexus-assets.py ZakazkyApp_base_6.1
+          python scripts/validate-771-runtime-bootstrap-stability.py ZakazkyApp_base_6.1
+      - name: Real Tk integration
+        shell: bash
+        run: |
+          command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
+          timeout 120s xvfb-run -a -s '-screen 0 1920x1080x24' python scripts/validate-7900-corporate-templates.py ZakazkyApp_base_6.1 --ui
+          timeout 120s xvfb-run -a -s '-screen 0 1920x1080x24' python scripts/validate-7900-runtime-integration.py ZakazkyApp_base_6.1
+          timeout 180s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
+      - name: Commit only reviewed files and remove temporary transport
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          files=json.loads(Path('.applied790.json').read_text())
+          subprocess.run(['git','add','--',*files],check=True)
+          for path in ('_template790','.github/workflows/template-790-workbench.yml','.github/workflows/template-790-recover.yml','.github/workflows/finish-template790.yml'):
+              subprocess.run(['git','rm','-rf','--ignore-unmatch','--',path],check=True)
+          PY
+          git config user.name 'TURTO Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git diff --cached --stat
+          git commit -m 'Add TURTO Standard quotation layout and editable templates with exact original branding'
+          git push origin HEAD:feature/7.9.0-editable-standard-offer
