@@ -1,0 +1,57 @@
+name: Validate TURTO CRM 7.9 corporate templates
+on:
+  pull_request:
+    paths:
+      - 'ZakazkyApp_base_6.1/**'
+      - 'scripts/**'
+      - 'release_version.txt'
+      - '.github/workflows/validate-7900-corporate-templates.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ZakazkyApp_base_6.1/**'
+      - 'scripts/**'
+      - 'release_version.txt'
+permissions:
+  contents: read
+jobs:
+  templates:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            python: '3.12'
+          - os: ubuntu-24.04
+            python: '3.14'
+          - os: windows-latest
+            python: '3.14'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    env:
+      TURTO_DISABLE_AUTO_UPDATE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+      - name: PDF, immutable artwork, templates, images and revision tests
+        run: python scripts/validate-7900-corporate-templates.py ZakazkyApp_base_6.1
+      - name: Previous release compatibility
+        run: |
+          python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
+          python scripts/validate-7800-professional-offer-workflow.py ZakazkyApp_base_6.1
+      - name: Real Linux Tk template editor and full CRM composition
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
+          timeout 120s xvfb-run -a -s '-screen 0 1920x1080x24' python scripts/validate-7900-corporate-templates.py ZakazkyApp_base_6.1 --ui
+          timeout 120s xvfb-run -a -s '-screen 0 1920x1080x24' python scripts/validate-7900-runtime-integration.py ZakazkyApp_base_6.1
+      - name: Real Windows Tk template editor and full CRM composition
+        if: runner.os == 'Windows'
+        run: |
+          python scripts/validate-7900-corporate-templates.py ZakazkyApp_base_6.1 --ui
+          python scripts/validate-7900-runtime-integration.py ZakazkyApp_base_6.1
