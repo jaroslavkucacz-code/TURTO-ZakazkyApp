@@ -345,6 +345,10 @@ class IssuedOfferEditor:
                 widget = M.AutocompleteEntry(header, textvariable=variable, values=list(self.project_map))
             elif kind == "template":
                 widget = M.safe_combobox(header, textvariable=variable, values=list(self.template_map), state="readonly")
+                self.template_box = widget
+                self.template_settings_button = M.ttk.Button(header, text="Upravit šablony…", command=self.edit_pdf_template)
+                self.template_settings_button.grid(row=row*2, column=col+1, sticky="e", padx=(0,12))
+                self.widgets.append(self.template_settings_button)
             else:
                 widget = M.ttk.Entry(header, textvariable=variable)
             widget.grid(row=row * 2 + 1, column=col, sticky="ew", padx=(0, 12), pady=(0, 6))
@@ -458,6 +462,30 @@ class IssuedOfferEditor:
                 widget.configure(state="disabled")
             except Exception:
                 pass
+
+    def edit_pdf_template(self):
+        """Modal child of this offer, with refreshed choices after editing."""
+        from .template_settings import manage_templates
+        old_id = self.template_map.get(self.template.get())
+        dialog = manage_templates(self.M, self.win, preview_document=self.collect(), preview_items=self.items)
+        if old_id:
+            dialog.refresh_list(old_id)
+            dialog.load(service.load_template(self.M, old_id))
+        self.win.wait_window(dialog.win)
+        if not self.win.winfo_exists():
+            return
+        self.win.grab_set()
+        templates = service.list_templates(self.M)
+        self.template_map = {str(t["name"]):int(t["id"]) for t in templates}
+        self.template_box.configure(values=list(self.template_map))
+        selected = getattr(dialog,"selected",None)
+        wanted = selected if selected in self.template_map.values() else old_id
+        name = next((n for n,i in self.template_map.items() if i==wanted),None)
+        if name:
+            self.template.set(name)
+        preview = getattr(self,"_v720_preview",None)
+        if preview is not None:
+            preview.schedule()
 
     def company_changed(self, *_):
         self.refresh_contacts()

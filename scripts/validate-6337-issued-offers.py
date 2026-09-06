@@ -11,6 +11,15 @@ import tempfile
 from datetime import date, timedelta
 
 
+class ClosingTestConnection(sqlite3.Connection):
+    """Close fake-owner SQLite handles deterministically on Windows too."""
+    def __exit__(self, *args):
+        try:
+            return super().__exit__(*args)
+        finally:
+            self.close()
+
+
 def main() -> None:
     source = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "ZakazkyApp_base_6.1").resolve()
     sys.path.insert(0, str(source))
@@ -30,7 +39,7 @@ def main() -> None:
             self._settings = {"active_user": "TEST"}
 
         def db(self):
-            con = sqlite3.connect(self.DB)
+            con = sqlite3.connect(self.DB, factory=ClosingTestConnection)
             con.row_factory = sqlite3.Row
             con.create_collation("CZECH", lambda a, b: (str(a) > str(b)) - (str(a) < str(b)))
             con.execute("PRAGMA foreign_keys=ON")
@@ -187,6 +196,8 @@ def main() -> None:
         assert pdf.page_count >= 2, pdf.page_count
         text = "\n".join(page.get_text() for page in pdf)
         pdf.close()
+        # Windows font ToUnicode maps visible spaces/hyphens to Unicode equivalents.
+        text = " ".join(text.split()).replace("\u2010", "-").replace("\u2011", "-")
         assert "CENOVÁ NABÍDKA" in text
         assert document["document_number"] in text
         assert "Hinton, a.s." in text

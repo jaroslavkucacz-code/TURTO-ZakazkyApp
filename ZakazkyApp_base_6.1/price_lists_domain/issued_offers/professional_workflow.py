@@ -193,6 +193,8 @@ DOCUMENT_FINGERPRINT_FIELDS = (
 )
 
 ITEM_FINGERPRINT_FIELDS = (
+    "image_asset_key_snapshot",
+    "image_file_snapshot",
     "row_type",
     "product_code",
     "name",
@@ -303,10 +305,16 @@ def template_fingerprint(M: Any, template_id: Any) -> str:
         "body_bottom_gap_mm",
         "header_every_page",
         "footer_every_page",
+        "layout_json",
     )
     payload = {field: _canonical(template.get(field)) for field in fields}
-    payload["header_asset"] = _asset_digest(template.get("header_path"))
-    payload["footer_asset"] = _asset_digest(template.get("footer_path"))
+    from price_lists_domain.issued_offers.template_layout import asset_path
+    payload["header_asset"] = _asset_digest(asset_path(template.get("header_path")))
+    payload["footer_asset"] = _asset_digest(asset_path(template.get("footer_path")))
+    from price_lists_domain.issued_offers.template_layout import is_corporate, normalize
+    if is_corporate(template):
+        layout = normalize(template.get("layout_json"))
+        payload["signature_asset"] = _asset_digest(asset_path(layout.get("signature_path")))
     encoded = json.dumps(
         payload,
         ensure_ascii=False,
@@ -321,8 +329,13 @@ def release_fingerprint(
     document: dict[str, Any],
     items: Iterable[dict[str, Any]],
 ) -> str:
+    items = list(items)
     commercial = commercial_fingerprint(document, items)
     template = template_fingerprint(M, (document or {}).get("template_id"))
+    from price_lists_domain.issued_offers import service, offer_images, template_layout
+    settings = service.load_template(M, (document or {}).get("template_id"))
+    if template_layout.is_corporate(settings):
+        commercial += "|" + offer_images.fingerprint(M, items)
     return hashlib.sha256(
         (commercial + "|" + template).encode("utf-8")
     ).hexdigest()
@@ -825,6 +838,37 @@ def ensure_current_pdf(
 
 
 HELP_TOPICS: dict[str, dict[str, Any]] = {
+    "help_templates": {
+        "category": "Vydané nabídky",
+        "title": "Firemní vzhled a vlastní PDF šablony",
+        "summary": "Výchozí firemní šablona, vlastní kopie, šířky sloupců a živý náhled.",
+        "keywords": "šablona logo hlavička patička písmo obrázky sloupce vzhled kopie PDF",
+        "body": """## Základní postup
+
+V záložce Vydané nabídky otevřete Šablony PDF. Vyberte TURTO – Standard a použijte Uložit jako kopii. Vlastní kopii pojmenujte například TURTO – akustika. V editoru cenové nabídky poté zvolte tuto šablonu.
+
+## Co lze upravovat
+
+Stránka: okraje, výška a odstup záhlaví i zápatí, opakování na dalších stránkách. Typografie: velikost písma, výška obrázků, odsazení řádků a barvy těla dokumentu. Sloupce: pořadí, popisky a poměrné šířky, volitelný kód, pořadové číslo, obrázek, doporučená cena a sleva. Povinný popis, množství, MJ a prodejní ceny nelze omylem skrýt. Šířky se přepočítají na dostupnou šířku A4; příliš úzké sloupce se odmítnou.
+
+Dolní bloky: obchodní podmínky vedle sebe nebo pod sebou, kontakty, vystavitel, poznámka, volitelné vlastní razítko/podpis a rozpis DPH. Text obchodních podmínek konkrétní zakázky se upravuje v nabídce, nikoli v šabloně.
+
+## Logo zůstává originální
+
+Výchozí záhlaví a zápatí jsou převzaté přímo z dodaných firemních podkladů. Mění se pouze jejich velikost při zachování poměru stran. Změna barvy těla dokumentu nepřebarvuje logo. Vlastní grafiku PNG/JPG/PDF lze nahrát zvlášť; výchozí originál zůstává dostupný.
+
+## Náhled, ukládání a návrat
+
+Náhled používá stejný generátor jako finální PDF. Při otevření přes Upravit šablony v editoru nabídky vidíte přímo aktuální položky, ceny a obrázky této nabídky, včetně dosud neuložených úprav. Při otevření ze záložky Vydané nabídky se zobrazí označené ukázkové údaje. Náhled nikdy nezaloží číslo ani revizi a nemění obchodní data. Uložit uloží vlastní šablonu, Uložit jako kopii vytvoří jinou variantu. Obnovit firemní vzhled vrátí rozpracované nastavení na původní předlohu, ale do uložení se databáze nemění. Výchozí firemní šablonu nelze přepsat.
+
+Vlastní nastavení je uložené v databázi, nahraná grafika ve složce Dokumenty/TURTO Zakazky/Sablony/Vydane nabidky. Aktualizace programu tyto údaje nepřepisuje. Pro přenos na jiný počítač použijte Export šablony; balíček obsahuje i grafické soubory. Import vždy založí novou kopii, nikdy nepřepíše původní šablonu.
+
+Změna šablony označí PDF rozpracované nabídky jako neaktuální. Nové vydání vytvoří další revizi. Již vydaná historická PDF se nepřekreslují. Starší šablony zůstávají dostupné jako původní vzhled.
+
+## Obrázky produktů
+
+Položky převzaté z přijaté nabídky používají uložené obrázky. PLEXUS odkazuje na společný obrázek typu v databázi – každá vydaná nabídka nevytváří další kopii stejného schématu. U jiných obrázků se při převzetí uloží obsahově identifikovaná kopie. Změna pořadí nebo výšky řádků nezmění přiřazení obrázku ani dvojklik na položku v náhledu.""",
+    },
     "help_start": {
         "category": "Začínáme",
         "title": "Rychlý start a logika TURTO CRM",

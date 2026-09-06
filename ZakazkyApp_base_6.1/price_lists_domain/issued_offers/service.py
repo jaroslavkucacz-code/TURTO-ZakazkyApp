@@ -223,15 +223,27 @@ def list_templates(M, include_inactive: bool = False) -> list[dict[str, Any]]:
 
 
 def save_template(M, values: dict[str, Any], template_id: int | None = None) -> int:
+    from . import template_layout
+    previous = load_template(M, template_id) if template_id else {}
+    values = {**previous, **values}
+    if template_id and previous.get("builtin_key"):
+        raise ValueError("Výchozí firemní šablona je chráněná. Použijte Uložit jako kopii.")
+    if template_layout.is_corporate(values):
+        layout = template_layout.normalize(values.get("layout_json"))
+        values = template_layout.validate_geometry(values, layout)
+        values["layout_json"] = json.dumps(layout, ensure_ascii=False, sort_keys=True)
+    elif values.get("layout_json") not in (None, "", "{}", {}):
+        raise ValueError("Neznámý formát šablony.")
     name = str(values.get("name") or "").strip()
     if not name:
         raise ValueError("Vyplňte název šablony.")
     fields = (
         "name", "active", "is_default", "header_path", "footer_path",
         "header_height_mm", "footer_height_mm", "margin_left_mm", "margin_right_mm",
-        "body_top_gap_mm", "body_bottom_gap_mm", "header_every_page", "footer_every_page",
+        "body_top_gap_mm", "body_bottom_gap_mm", "header_every_page", "footer_every_page", "layout_json",
     )
     data = {
+        "layout_json": values.get("layout_json") or "{}",
         "name": name,
         "active": 1 if values.get("active", True) else 0,
         "is_default": 1 if values.get("is_default", False) else 0,
@@ -271,8 +283,19 @@ def save_template(M, values: dict[str, Any], template_id: int | None = None) -> 
     return result
 
 
+def set_default_template(M, template_id):
+    with M.db() as con:
+        row = con.execute("SELECT active FROM business_document_templates WHERE id=? AND document_type=?", (int(template_id),DOCUMENT_TYPE)).fetchone()
+        if not row or not row[0]:
+            raise ValueError("Výchozí šablona musí být aktivní.")
+        con.execute("UPDATE business_document_templates SET is_default=CASE WHEN id=? THEN 1 ELSE 0 END WHERE document_type=?", (int(template_id),DOCUMENT_TYPE))
+
+
 def deactivate_template(M, template_id: int) -> None:
     with M.db() as con:
+        protected = con.execute("SELECT builtin_key FROM business_document_templates WHERE id=?", (template_id,)).fetchone()
+        if protected and protected[0]:
+            raise ValueError("Výchozí firemní předlohu nelze odstranit. Použijte vlastní kopii.")
         used = con.execute("SELECT COUNT(*) FROM business_documents WHERE template_id=?", (template_id,)).fetchone()[0]
         if used:
             con.execute(
@@ -537,7 +560,8 @@ def draft_from_supplier_offer(M, offer_id: int) -> tuple[dict[str, Any], list[di
             },
             position,
         )
-        items.append(item)
+        from .offer_images import capture
+        items.append(capture(M, item, row))
     return document, items
 
 
@@ -610,6 +634,8 @@ def save_document(M, values: dict[str, Any], items: Iterable[dict[str, Any]], do
     data["locked"] = 1 if data["status"] in TERMINAL_STATUSES else 0
     data["vat_mode"] = str(data.get("vat_mode") or "without")
     normalized_items = [normalize_item(dict(item), index) for index, item in enumerate(items, 1)]
+    from .offer_images import capture
+    normalized_items = [capture(M, item) for item in normalized_items]
     totals = calculate_totals(normalized_items, data["global_discount_pct"])
     data.update(
         items_subtotal=totals.items_subtotal,
@@ -676,11 +702,14 @@ def save_document(M, values: dict[str, Any], items: Iterable[dict[str, Any]], do
             "show_recommended_price", "category_id", "subgroup_id", "catalog_product_id",
             "internal_code_snapshot", "internal_name_snapshot", "price_source_label",
             "source_price_list_item_id", "source_supplier_offer_item_id", "line_note",
+            "image_asset_key_snapshot", "image_file_snapshot",
         )
         placeholders = ",".join("?" for _ in item_fields)
         for item in normalized_items:
             row = dict(item)
             row["document_id"] = result
+            row["image_asset_key_snapshot"] = row.get("image_asset_key_snapshot") or ""
+            row["image_file_snapshot"] = row.get("image_file_snapshot") or ""
             con.execute(
                 f"INSERT INTO business_document_items({','.join(item_fields)}) VALUES({placeholders})",
                 tuple(row.get(field) for field in item_fields),
