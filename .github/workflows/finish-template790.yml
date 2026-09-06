@@ -13,6 +13,8 @@ jobs:
     timeout-minutes: 12
     env:
       TURTO_DISABLE_AUTO_UPDATE: '1'
+      PYTHONFAULTHANDLER: '1'
+      PYTHONUNBUFFERED: '1'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,12 +39,27 @@ jobs:
           python scripts/validate-7200-visual-issued-offers.py ZakazkyApp_base_6.1
           python scripts/validate-7616-requests-plexus-assets.py ZakazkyApp_base_6.1
           python scripts/validate-771-runtime-bootstrap-stability.py ZakazkyApp_base_6.1
-      - name: Real Tk integration
+      - name: Real Tk integration with native-crash diagnostics
         shell: bash
         run: |
           command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/validate-7900-runtime-integration.py')
+          s=p.read_text()
+          s=s.replace('import os\n','import os\nimport faulthandler\n',1)
+          s=s.replace('        def pump(seconds=.3):','        def pump(seconds=.3):\n            faulthandler.enable(file=sys.stderr)')
+          for marker in ('root=M.App();','            root.show_page(', '            view=editor.IssuedOfferEditor(', '            view.edit_pdf_template();', '                        controller.save();', '            view.win.destroy();', '            root.destroy()'):
+              lines=s.splitlines(keepends=True)
+              for i,line in enumerate(lines):
+                  if marker in line:
+                      indent=line[:len(line)-len(line.lstrip())]
+                      lines[i]=indent+'print('+repr('PHASE: '+marker.strip())+',flush=True)\n'+line
+              s=''.join(lines)
+          Path('/tmp/validate-7900-debug.py').write_text(s)
+          PY
           timeout 120s xvfb-run -a -s '-screen 0 1920x1080x24' python scripts/validate-7900-corporate-templates.py ZakazkyApp_base_6.1 --ui
-          timeout 120s xvfb-run -a -s '-screen 0 1920x1080x24' python scripts/validate-7900-runtime-integration.py ZakazkyApp_base_6.1
+          timeout 120s xvfb-run -a -s '-screen 0 1920x1080x24' python /tmp/validate-7900-debug.py ZakazkyApp_base_6.1 || { find /tmp -path '*turto_790_full*' -name '*crash*' -exec tail -n 100 {} \; ; exit 1; }
           timeout 180s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
       - name: Commit only reviewed files and remove temporary transport
         shell: bash
