@@ -60,6 +60,7 @@ LATE_LAYERS = (
     "v7615_nevoga_meter_units",
     "v7616_requests_plexus_assets",
     "price_lists_domain.issued_offers.professional_workflow",
+    "price_lists_domain.issued_offers.inline_pricing_workspace",
     "v770_runtime_policy",
 )
 
