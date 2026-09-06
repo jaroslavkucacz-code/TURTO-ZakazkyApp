@@ -11,6 +11,15 @@ import tempfile
 from types import SimpleNamespace
 
 
+class ClosingTestConnection(sqlite3.Connection):
+    """Close fake-owner SQLite handles deterministically on Windows too."""
+    def __exit__(self, *args):
+        try:
+            return super().__exit__(*args)
+        finally:
+            self.close()
+
+
 def load_layer(source: Path):
     path = source / "price_lists_domain" / "issued_offers" / "professional_workflow.py"
     spec = importlib.util.spec_from_file_location(
@@ -77,7 +86,7 @@ class DbOwner:
         self.path = path
 
     def db(self):
-        con = sqlite3.connect(self.path)
+        con = sqlite3.connect(self.path, factory=ClosingTestConnection)
         con.row_factory = sqlite3.Row
         return con
 
@@ -209,7 +218,7 @@ def main() -> None:
         assert first_template != second_template
 
         database = temp_path / "test.db"
-        with sqlite3.connect(database) as con:
+        with sqlite3.connect(database, factory=ClosingTestConnection) as con:
             con.execute(
                 """CREATE TABLE business_document_revisions(
                        id INTEGER PRIMARY KEY,
@@ -235,7 +244,7 @@ def main() -> None:
             "_template_fingerprint": layer.template_fingerprint(owner, 1),
             "_release_fingerprint": release_hash,
         }
-        with sqlite3.connect(database) as con:
+        with sqlite3.connect(database, factory=ClosingTestConnection) as con:
             con.execute(
                 """INSERT INTO business_document_revisions(
                        document_id,revision_no,pdf_path,data_json,created_at
