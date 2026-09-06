@@ -27,8 +27,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      - name: Restore exactly the locally reviewed source and original artwork
-        run: python _template790/finalize.py
+      - name: Restore reviewed source without modifying existing workflow files
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('_template790/finalize.py');s=p.read_text()
+          s=s.replace("'apply', '--check', handle.name", "'apply', '--exclude=.github/workflows/*', '--check', handle.name")
+          s=s.replace("'apply', handle.name", "'apply', '--exclude=.github/workflows/*', handle.name")
+          exec(compile(s,str(p),'exec'))
+          PY
+          python _template790/dialog_safety.py
       - name: Install dependencies
         run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
       - name: Focused PDF, template and compatibility checks
@@ -38,42 +46,30 @@ jobs:
           python scripts/validate-6337-issued-offers.py ZakazkyApp_base_6.1
           python scripts/validate-7200-visual-issued-offers.py ZakazkyApp_base_6.1
           python scripts/validate-7616-requests-plexus-assets.py ZakazkyApp_base_6.1
+          python scripts/validate-770-runtime-policy.py ZakazkyApp_base_6.1
           python scripts/validate-771-runtime-bootstrap-stability.py ZakazkyApp_base_6.1
-      - name: Real Tk integration with native-crash diagnostics
+      - name: Real Tk integration, three consecutive independent runs
         shell: bash
         run: |
           command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('scripts/validate-7900-runtime-integration.py')
-          s=p.read_text()
-          s=s.replace('import os\n','import os\nimport faulthandler\n',1)
-          s=s.replace('        def pump(seconds=.3):','        def pump(seconds=.3):\n            faulthandler.enable(file=sys.stderr)')
-          for marker in ('root=M.App();','            root.show_page(', '            view=editor.IssuedOfferEditor(', '            view.edit_pdf_template();', '                        controller.save();', '            view.win.destroy();', '            root.destroy()'):
-              lines=s.splitlines(keepends=True)
-              for i,line in enumerate(lines):
-                  if marker in line:
-                      indent=line[:len(line)-len(line.lstrip())]
-                      lines[i]=indent+'print('+repr('PHASE: '+marker.strip())+',flush=True)\n'+line
-              s=''.join(lines)
-          Path('/tmp/validate-7900-debug.py').write_text(s)
-          PY
           timeout 120s xvfb-run -a -s '-screen 0 1920x1080x24' python scripts/validate-7900-corporate-templates.py ZakazkyApp_base_6.1 --ui
-          timeout 120s xvfb-run -a -s '-screen 0 1920x1080x24' python /tmp/validate-7900-debug.py ZakazkyApp_base_6.1 || { find /tmp -path '*turto_790_full*' -name '*crash*' -exec tail -n 100 {} \; ; exit 1; }
+          for sample in 1 2 3; do
+            echo "Full application sample $sample/3 (all must pass)"
+            timeout 120s xvfb-run -a -s '-screen 0 1920x1080x24' python scripts/validate-7900-runtime-integration.py ZakazkyApp_base_6.1 || { find /tmp -path '*turto_790_full*' -name '*crash*' -exec tail -n 100 {} \; ; exit 1; }
+          done
           timeout 180s xvfb-run -a python scripts/validate-real-ui.py ZakazkyApp_base_6.1
-      - name: Commit only reviewed files and remove temporary transport
+      - name: Commit only reviewed application files
         shell: bash
         run: |
           python - <<'PY'
           import json, subprocess
           from pathlib import Path
-          files=json.loads(Path('.applied790.json').read_text())
+          files=[p for p in json.loads(Path('.applied790.json').read_text()) if not p.startswith('.github/')]
           subprocess.run(['git','add','--',*files],check=True)
-          for path in ('_template790','.github/workflows/template-790-workbench.yml','.github/workflows/template-790-recover.yml','.github/workflows/finish-template790.yml'):
-              subprocess.run(['git','rm','-rf','--ignore-unmatch','--',path],check=True)
+          subprocess.run(['git','rm','-rf','--','_template790'],check=True)
           PY
           git config user.name 'TURTO Update Bot'
           git config user.email 'actions@users.noreply.github.com'
           git diff --cached --stat
-          git commit -m 'Add TURTO Standard quotation layout and editable templates with exact original branding'
+          git commit -m 'Add TURTO Standard quotations and editable templates; avoid nested dialog event loops'
           git push origin HEAD:feature/7.9.0-editable-standard-offer
