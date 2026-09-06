@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Exercise the new template in the complete, real Tk runtime composition."""
 from __future__ import annotations
+from contextlib import nullcontext
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import time
@@ -11,7 +13,20 @@ import traceback
 
 def main():
     source=Path(sys.argv[1] if len(sys.argv)>1 else 'ZakazkyApp_base_6.1').resolve()
-    with tempfile.TemporaryDirectory(prefix='turto_790_full_') as tmp:
+    if '--worker' not in sys.argv:
+        # A normal CRM exit ends the Python process and releases its SQLite/OLE
+        # handles. Do not delete its working database while that process exists.
+        # Run all real UI assertions unchanged, without monkeypatching M.db.
+        with tempfile.TemporaryDirectory(prefix='turto_790_full_') as tmp:
+            try:
+                subprocess.run([sys.executable,str(Path(__file__).resolve()),str(source),'--worker',tmp],check=True,timeout=120)
+            except (subprocess.CalledProcessError,subprocess.TimeoutExpired):
+                for log in Path(tmp).rglob('*crash*.log'):
+                    print(log.read_text(encoding='utf-8',errors='replace')[-12000:],file=sys.stderr)
+                raise
+        return
+    workspace=sys.argv[sys.argv.index('--worker')+1]
+    with nullcontext(workspace) as tmp:
         os.environ.update(HOME=tmp,USERPROFILE=tmp,TURTO_DISABLE_AUTO_UPDATE='1')
         sys.path.insert(0,str(source));os.chdir(source)
         # publish-update.sh explicitly copies this one root module into the
