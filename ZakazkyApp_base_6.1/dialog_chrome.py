@@ -60,10 +60,20 @@ def is_maximized(win):
 
 
 def prepare_dialog(win):
+    if getattr(win, '_turto_chrome_busy', False):
+        return
     try:
         if not win.winfo_exists() or win.overrideredirect():
             return
-        win.resizable(True, True)
+        win._turto_chrome_busy = True
+        # Setting wm resizable even to its current value recreates the native
+        # wrapper on Windows and emits another Map event. Query before writing
+        # so this Map callback cannot feed an unbounded map/resizable loop.
+        if not all(win.tk.getboolean(value) for value in win.resizable()):
+            win.resizable(True, True)
         native_maximize_button(win)
     except Exception:
         pass
+    finally:
+        try: win._turto_chrome_busy = False
+        except Exception: pass
