@@ -27,6 +27,9 @@ python scripts/validate-7800-professional-offer-workflow.py "$BASE_DIR"
 python scripts/validate-7900-corporate-templates.py "$BASE_DIR"
 python scripts/validate-770-runtime-policy.py "$BASE_DIR"
 
+command -v xvfb-run >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq xvfb)
+timeout 160s xvfb-run -a -s '-screen 0 1920x1080x24' python scripts/validate-792-customer-output.py "$BASE_DIR"
+
 rm -rf "$STAGE"
 cp -a "$BASE_DIR" "$STAGE"
 cp post_baseline.py "$STAGE/post_baseline.py"
@@ -63,7 +66,7 @@ fi
 RUNTIME="$STAGE/_runtime"
 mkdir -p "$RUNTIME"
 for f in \
-  runtime_bootstrap.py \
+  runtime_bootstrap.py dialog_chrome.py \
   crm_features.py crm_runtime.py crm_v605.py crm_price_lists.py \
   v606_features.py v608_stability.py v611_audit.py v613_ui.py v614_next.py \
   v615_input.py v616_stability.py v617_offerhub.py v618_inputfix.py v619_fixes.py \
@@ -129,6 +132,8 @@ python -m compileall -q "$STAGE"
 test -d "$RUNTIME"
 test -e "$RUNTIME/runtime_bootstrap.py"
 test -e "$RUNTIME/v770_runtime_policy.py"
+test -e "$RUNTIME/dialog_chrome.py"
+test -e "$RUNTIME/price_lists_domain/issued_offers/customer_text.py"
 test -e "$RUNTIME/v7616_requests_plexus_assets.py"
 test -e "$RUNTIME/v7614_nevoga_canonical_export.py"
 test -e "$RUNTIME/v7615_nevoga_meter_units.py"

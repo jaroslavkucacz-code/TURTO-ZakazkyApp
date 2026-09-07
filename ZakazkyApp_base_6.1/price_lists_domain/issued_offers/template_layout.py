@@ -23,6 +23,8 @@ DEFAULT = {
     "engine": ENGINE, "version": 1, "font_size": 9.0,
     "row_padding_mm": 1.6, "image_height_mm": 13.5,
     "title": "CENOVÁ NABÍDKA", "show_images": True,
+    "number_in_header": True, "edit_opening_hours": False,
+    "opening_hours": "Po – Čt: 7:30 – 15:30\nPá: 8:30 – 15:00",
     "show_vat_summary": False, "show_contacts": True,
     "show_salesperson": True, "closing_columns": True,
     "show_group_subtotals": False, "zebra_rows": False,
@@ -83,14 +85,17 @@ def normalize(value=None):
     for key in ("primary_color", "section_color", "subsection_color"):
         if not re.fullmatch(r"#[0-9a-fA-F]{6}", str(result[key])):
             raise ValueError("Barva musí být zapsaná jako #RRGGBB.")
-    for key in ("title", "contacts_text", "closing_note", "signature_path"):
+    for key in ("title", "contacts_text", "closing_note", "signature_path", "opening_hours"):
         result[key] = str(result[key] or "").strip()
         if len(result[key]) > 6000:
             raise ValueError("Text šablony je příliš dlouhý (max. 6000 znaků).")
+    if len(result["opening_hours"].splitlines()) > 4 or len(result["opening_hours"]) > 160:
+        raise ValueError("Otevírací doba: nejvýše 4 řádky a 160 znaků.")
     if not result["title"] or len(result["title"]) > 100:
         raise ValueError("Nadpis nabídky musí mít 1 až 100 znaků.")
     for key in ("show_images", "show_vat_summary", "show_contacts", "show_salesperson",
-                "closing_columns", "show_group_subtotals", "zebra_rows"):
+                "closing_columns", "show_group_subtotals", "zebra_rows",
+                "number_in_header", "edit_opening_hours"):
         if result[key] not in (True, False, 0, 1):
             raise ValueError(f"Neplatná volba: {key}")
         result[key] = bool(result[key])
@@ -165,3 +170,15 @@ def ensure_builtin(con):
         con.execute("UPDATE business_document_templates SET is_default=0 WHERE document_type='issued_offer'")
     keys = tuple(data)
     con.execute(f"INSERT INTO business_document_templates({','.join(keys)}) VALUES({','.join('?' for _ in keys)})", tuple(data[k] for k in keys))
+
+
+def is_original_asset(value, key):
+    """Only overlay known TURTO art, never an unrelated user's graphic."""
+    import hashlib
+    if value == key:
+        return True
+    try:
+        original = Path(asset_path(key)).read_bytes()
+        return hashlib.sha256(Path(asset_path(value)).read_bytes()).digest() == hashlib.sha256(original).digest()
+    except (OSError, TypeError):
+        return False

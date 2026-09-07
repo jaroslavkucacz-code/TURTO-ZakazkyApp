@@ -22,7 +22,13 @@ def main() -> None:
     os.environ["TURTO_DISABLE_AUTO_UPDATE"] = "1"
     os.chdir(source)
     sys.path.insert(0, str(source))
-    sys.path.insert(0, str(repository))
+    # Only post_baseline is shipped from root. Root historical module copies
+    # must not shadow the current canonical source in this runtime regression.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('post_baseline', repository/'post_baseline.py')
+    module = importlib.util.module_from_spec(spec)
+    sys.modules['post_baseline'] = module
+    spec.loader.exec_module(module)
 
     import app
     import crm_features
@@ -80,42 +86,10 @@ def main() -> None:
     app.cleanup_stale_test_session()
     app.ensure_schema()
 
-    # Match the generated ZakazkyCRM.pyw layer order.
-    crm_features.apply(app)
-    crm_runtime.apply(app)
-    crm_v605.apply(app)
-    v606_features.apply(app)
-    v608_stability.apply(app)
-    v611_audit.apply(app)
-    v613_ui.apply(app)
-    v614_next.apply(app)
-    v615_input.apply(app)
-    v616_stability.apply(app)
-    v617_offerhub.apply(app)
-    v618_inputfix.apply(app)
-    v619_fixes.apply(app)
-    v620_outlookdrop.apply(app)
-    v621_prices.apply(app)
-    v623_exports.apply(app)
-    v625_stability.apply(app)
-    v628_modernui_resize.apply(app)
-    v632_offerlinks.apply(app)
-    v633_offerassign_deadlines.apply(app)
-    v636_action_offers_stabletable.apply(app)
-    v637_project_offer_model.apply(app)
-    v638_table_updatefix.apply(app)
-    v640_warning_cleanup.apply(app)
-    post_baseline.apply(app)
-    v631_diskdrop.apply(app)
-    v644_default_date_sort.apply(app)
-    crm_features.install_offer_ui(app)
-    crm_price_lists.apply(app)
-    v710_cleanup.apply(app)
-    v720_visual_offer.apply(app)
-    v730_polish.apply(app)
-    v740_offer_defaults.apply(app)
-    v750_context_filters_offer_format.apply(app)
-    v760_table_activity_performance.apply(app)
+    # Exercise exactly the bootstrap shipped by the current launcher, including
+    # the stability bridge and final dialog/filter policy, not a pre-7.7 subset.
+    import runtime_bootstrap
+    runtime_bootstrap.apply_all(app)
 
     # Run the fully wrapped schema owner once more for additive platform tables.
     app.ensure_schema()
@@ -271,8 +245,12 @@ def main() -> None:
         assert len(getattr(root, "_v760_task_archive_controls", ())) == 3
         assert getattr(root.project_tree, "_v760_context_owner", None) == "projects"
         assert getattr(root.task_tree, "_v760_context_owner", None) == "tasks"
-        assert bool(getattr(root.request_tree, "_v760_requests_resize_guard", False))
-        assert bool(getattr(root.mivo_tree, "_v760_mivo_resize_guard", False))
+        # These obsolete Configure->full-refresh guards were deliberately
+        # disabled by the 7.7 stability bridge. The shipped bootstrap must keep
+        # them disabled; responsive navigation below tests their replacement.
+        assert app._turto_v762_reentrant_table_refresh_disabled
+        assert not getattr(root.request_tree, "_v760_requests_resize_guard", False)
+        assert not getattr(root.mivo_tree, "_v760_mivo_resize_guard", False)
         assert app.V760_PERFORMANCE_CHANGES["action_waiting_query"] == "grouped_cte"
         assert app.V760_PERFORMANCE_CHANGES["project_activity"] == "single_union_query"
 

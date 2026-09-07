@@ -144,6 +144,8 @@ class PdfState:
             if self.revision_no is not None
             else "bez revize"
         )
+        if self.status == "unsafe":
+            return "Starší PDF obsahuje interní cenu – vytvořte nový výstup"
         if self.status == "current":
             return f"Aktuální PDF · {revision}"
         if self.status == "stale":
@@ -308,6 +310,7 @@ def template_fingerprint(M: Any, template_id: Any) -> str:
         "layout_json",
     )
     payload = {field: _canonical(template.get(field)) for field in fields}
+    payload["customer_output_policy"] = "7.9.2"
     from price_lists_domain.issued_offers.template_layout import asset_path
     payload["header_asset"] = _asset_digest(asset_path(template.get("header_path")))
     payload["footer_asset"] = _asset_digest(asset_path(template.get("footer_path")))
@@ -782,8 +785,11 @@ def pdf_state(M: Any, document_id: int) -> PdfState:
                 snapshot, list(snapshot.get("items") or [])
             )
         matching = revision_fingerprint == current_commercial
+    from price_lists_domain.issued_offers.customer_text import has_private_text
     if path is None or not path.is_file():
         status = "missing"
+    elif has_private_text(snapshot, snapshot.get("items") or []):
+        status = "unsafe"
     elif bool(document.get("locked")):
         # A terminal document is immutable; its archived PDF remains the
         # authoritative historical output even if the global template changes.
@@ -815,6 +821,8 @@ def ensure_current_pdf(
     state = pdf_state(M, int(document_id))
     document, _items = service.load_document(M, int(document_id))
     locked = bool(document.get("locked"))
+    if locked and state.status == "unsafe":
+        raise ValueError("Archivované PDF obsahuje interní zdrojovou cenu. Vytvořte kopii nabídky a vydejte nové PDF; původní archiv se nepřepisuje.")
     if (
         not force_revision
         and state.status == "current"
@@ -852,6 +860,16 @@ V záložce Vydané nabídky otevřete Šablony PDF. Vyberte TURTO – Standard 
 Stránka: okraje, výška a odstup záhlaví i zápatí, opakování na dalších stránkách. Typografie: velikost písma, výška obrázků, odsazení řádků a barvy těla dokumentu. Sloupce: pořadí, popisky a poměrné šířky, volitelný kód, pořadové číslo, obrázek, doporučená cena a sleva. Povinný popis, množství, MJ a prodejní ceny nelze omylem skrýt. Šířky se přepočítají na dostupnou šířku A4; příliš úzké sloupce se odmítnou.
 
 Dolní bloky: obchodní podmínky vedle sebe nebo pod sebou, kontakty, vystavitel, poznámka, volitelné vlastní razítko/podpis a rozpis DPH. Text obchodních podmínek konkrétní zakázky se upravuje v nabídce, nikoli v šabloně.
+
+## Záhlaví, číslo nabídky a otevírací doba
+
+V Šablonách PDF otevřete vlastní kopii šablony a záložku Záhlaví a zápatí. Volba Číslo nabídky do horního pruhu vloží číslo vedle původního nápisu CENOVÁ NABÍDKA a vynechá jeho duplicitu v těle. Datum zůstává. U jiné vlastní grafiky se číslo bezpečně zobrazí v těle stránky.
+
+Zaškrtněte Nahradit původní otevírací dobu vlastním textem. Zadejte nejvýše 4 řádky dnů a časů; prázdný text dobu skryje. Vypnutím volby obnovíte původní podobu. Uložte vlastní kopii šablony a zvolte ji v nabídce. Změna platí pro nově vytvořené PDF, nikoli starší archiv.
+
+## Ochrana interních cen
+
+Označené zdrojové a nákupní ceny se z popisu při převzetí, načtení a výstupu oddělují do interní poznámky. Technické rozměry ani nákupní hodnoty pro výpočet marže se nemění. Již vytvořená PDF se sama neopraví: u konceptu vytvořte nový výstup; u uzamčené nabídky použijte kopii. Starší PDF se zjištěnou interní cenou nelze znovu použít pro odeslání.
 
 ## Logo zůstává originální
 

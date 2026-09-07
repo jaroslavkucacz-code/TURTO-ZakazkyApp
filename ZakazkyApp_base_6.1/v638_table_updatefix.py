@@ -25,7 +25,7 @@ def apply(M):
             else:
                 tree.configure(show='headings')
             for c in cols:
-                tree.heading(c,text=c,command=lambda col=c,t=tree:app.sort_tree(t,col))
+                tree.heading(c,text=c,anchor=tree.column(c,'anchor'),command=lambda col=c,t=tree:app.sort_tree(t,col))
         except Exception:pass
 
     def _project_offer_counts():
@@ -72,7 +72,11 @@ def apply(M):
         # Akce are the central place for offers.
         pt=getattr(app,'project_tree',None)
         if pt is not None:
-            _heading_contract(app,pt,PROJECT_COLS)
+            # A delayed legacy pass must not remove the current activity column.
+            cols=PROJECT_COLS
+            if 'Poslední pohyb' in pt.cget('columns'):
+                cols=(*PROJECT_COLS,'Poslední pohyb')
+            _heading_contract(app,pt,cols)
             try:
                 pt.column('Nabídky',width=82,minwidth=70,anchor='center',stretch=False)
                 counts=_project_offer_counts()
