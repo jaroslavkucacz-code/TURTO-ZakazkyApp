@@ -1,0 +1,19 @@
+{
+  "ZakazkyApp_base_6.1/dialog_chrome.py": "cfed7466dcc3a69e46c9d470bb0f7c436e9b939fa40e728483b3f42585d574db",
+  "ZakazkyApp_base_6.1/price_lists_domain/issued_offers/corporate_renderer.py": "c72f382dab12c48ecc2fa9602c823e6e18cadb654d5ce017da34888f97d8792d",
+  "ZakazkyApp_base_6.1/price_lists_domain/issued_offers/customer_text.py": "b58ebe04a670d7365be2c48f9e47afc8a0614b185c41cbec7f9a8f9657910026",
+  "ZakazkyApp_base_6.1/price_lists_domain/issued_offers/professional_workflow.py": "ba6167595f56a9f9be0c311f8c9ce85fe7e02aff8bf877d631c0cbd9a65fa107",
+  "ZakazkyApp_base_6.1/price_lists_domain/issued_offers/service.py": "1b1c9f8b2b6e91c6e94ef0cf90c64b36062e7f5420f300ee2e086354b9e67284",
+  "ZakazkyApp_base_6.1/price_lists_domain/issued_offers/template_layout.py": "1cecf875078fb5056394377ba50be1d76162d11cf127a36e270c59f8350e0b8e",
+  "ZakazkyApp_base_6.1/price_lists_domain/issued_offers/template_settings.py": "6b9c9849703f580dc1e0f8af433fa2f527a51ba1605e1cbbfe153168f155bef4",
+  "ZakazkyApp_base_6.1/price_lists_domain/platform/commercial_workspace.py": "f8c548e1c8aa1a48ec46e4b8df6cb78bda1397427414d5f7f351b79686e8e0b4",
+  "ZakazkyApp_base_6.1/v638_table_updatefix.py": "88c171846961eee180ab2b8987bd7b97ce1586e3dfba488a725cb9806602e5b6",
+  "ZakazkyApp_base_6.1/v644_default_date_sort.py": "3770bbed237d4bf840b4b56903b9a67eae37ad7314c0349f93c087b0524d6c0a",
+  "ZakazkyApp_base_6.1/v750_context_filters_offer_format.py": "019d01ca8f6557c51a519dfa6800aefee775f79207924107fa1e70534b6b18ee",
+  "ZakazkyApp_base_6.1/v770_runtime_policy.py": "2e03601e38768474aaec3348b5b576470cb5a61fe067821b82d2c5f0efc4f9de",
+  "release_version.txt": "ed9435c3e8bf6771aa360667b6ce0be473ba490ff55af5bef9035ba2849644cf",
+  "scripts/publish-update.sh": "73d1d0ad3ba383e745b0dcb07a6d6de1c7872ed91896ffdad7025bf670c8d2c7",
+  "scripts/validate-7600-table-activity-performance.py": "10e3f232e3f94042a54222d465fc50a050cccc06b65c3e6551396231acd36d2f",
+  "scripts/validate-792-customer-output.py": "64dbb3c83ae490f69af722a7c9c14ed94d58be21a35a8190963e76910cb3c7f5",
+  "scripts/validate-real-ui.py": "e410253925ea1eac863b244c2e5838d442e27a556d01cec734c34f2e0822461f"
+}
