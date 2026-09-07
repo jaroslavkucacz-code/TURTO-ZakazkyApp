@@ -320,8 +320,9 @@ def main() -> None:
     assert "validate-7100-commercial-cleanup.py" in publish
 
     real_ui = read(REPOSITORY / "scripts" / "validate-real-ui.py")
-    assert "import v710_cleanup" in real_ui
-    assert "v710_cleanup.apply(app)" in real_ui
+    import runtime_bootstrap
+    assert "runtime_bootstrap.apply_all(app)" in real_ui
+    assert "v710_cleanup" in runtime_bootstrap.LATE_LAYERS
 
     version = read(REPOSITORY / "release_version.txt").strip()
     assert tuple(int(part) for part in version.split(".")) >= (7, 1, 0), version

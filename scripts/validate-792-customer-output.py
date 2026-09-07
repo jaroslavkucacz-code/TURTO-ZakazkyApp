@@ -13,6 +13,12 @@ import time
 import traceback
 
 
+def normalized_pdf_text(value):
+    # Calibri's PDF ToUnicode may map an ASCII hyphen to U+2010 and spaces to
+    # NBSP on Windows. Normalize typography only; keep every number and label.
+    return value.translate(str.maketrans({'\u2010':'-', '\u2011':'-', '\u00a0':' ', '\u202f':' '}))
+
+
 def main():
     source=Path(sys.argv[1]).resolve()
     if '--worker' not in sys.argv:
@@ -79,11 +85,13 @@ def main():
         output=qa/'offer792.pdf'
         pdf_renderer.render_offer_snapshot(M,doc,[item],copy_template,output)
         with fitz.open(output) as pdf:
-            text='\n'.join(p.get_text() for p in pdf)
+            text=normalized_pdf_text('\n'.join(p.get_text() for p in pdf))
             assert 'Zdrojová cena' not in text and '614,85' not in text,text
             assert '922,28' in text and 'Ø10' in text
             assert text.count('CN26-00042')==1,text
-            bounds=pdf[0].search_for('CN26-00042');assert len(bounds)==1 and bounds[0].y1<90,bounds
+            bounds=[fitz.Rect(word[:4]) for word in pdf[0].get_text('words')
+                    if normalized_pdf_text(word[4])=='CN26-00042']
+            assert len(bounds)==1 and bounds[0].y1<90,bounds
             assert '8:00' in text and 'Sobota' in text,text
             pdf[0].get_pixmap(matrix=fitz.Matrix(1.4,1.4)).save(qa/'offer792.png')
         portable=qa/'template.zip';template_bundle.export_template(M,copy_template,portable)
@@ -94,7 +102,7 @@ def main():
         with fitz.open(qa/'multipage.pdf') as pdf:
             assert len(pdf)>1
             for page in pdf:
-                assert page.get_text().count('CN26-00042')==1
+                assert normalized_pdf_text(page.get_text()).count('CN26-00042')==1
                 assert '614,85' not in page.get_text()
         # Existing unsanitized concept: no database mutation on read, internal preservation on save.
         doc['template_id']=tid
