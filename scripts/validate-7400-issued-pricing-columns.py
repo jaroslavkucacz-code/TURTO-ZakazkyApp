@@ -29,6 +29,13 @@ def main() -> None:
         def build_offers(self):
             return None
 
+    class ClosingConnection(sqlite3.Connection):
+        def __exit__(self, *args):
+            try:
+                return super().__exit__(*args)
+            finally:
+                self.close()
+
     class Module:
         App = StubApp
         ProductPriceBrowser = None
@@ -37,7 +44,7 @@ def main() -> None:
             self.DB = pathlib.Path(root) / "test.db"
 
         def db(self):
-            con = sqlite3.connect(self.DB)
+            con = sqlite3.connect(self.DB, factory=ClosingConnection)
             con.row_factory = sqlite3.Row
             con.create_collation(
                 "CZECH",

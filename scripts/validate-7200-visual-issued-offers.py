@@ -117,7 +117,9 @@ def main() -> None:
     assert "v710_cleanup.apply(app);v720_visual_offer.apply(app)" in launcher
     assert "v720_visual_offer.py" in publish
     assert "validate-7200-visual-issued-offers.py" in publish
-    assert "v720_visual_offer.apply(app)" in real_ui
+    import runtime_bootstrap
+    assert "runtime_bootstrap.apply_all(app)" in real_ui
+    assert "v720_visual_offer" in runtime_bootstrap.LATE_LAYERS
     assert "Vizuální editor nevykreslil produkční PDF" in real_ui
 
     version = read(REPOSITORY / "release_version.txt").strip()

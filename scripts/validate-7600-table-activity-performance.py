@@ -386,7 +386,7 @@ def main() -> None:
     assert "validate-7600-table-activity-performance.py" in publish
     assert "v760_table_activity_performance.py" in publish
     real_ui = (repository / "scripts" / "validate-real-ui.py").read_text(encoding="utf-8")
-    assert "v760_table_activity_performance.apply(app)" in real_ui
+    assert "runtime_bootstrap.apply_all(app)" in real_ui
     print(
         "OK 7.6.x: Akce opens with a canonical last-activity column, "
         "legacy layouts use a safe full-view fallback and all 7.6 contracts remain valid"

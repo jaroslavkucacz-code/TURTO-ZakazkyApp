@@ -136,9 +136,9 @@ def _make_tree(M, app, parent, columns, widths, anchors=None, selectmode="extend
     sorter = getattr(app, "sort_tree", None)
     for column, width in zip(columns, widths):
         if callable(sorter):
-            tree.heading(column, text=column, command=lambda col=column: sorter(tree, col))
+            tree.heading(column, text=column, anchor=anchors.get(column, "w"), command=lambda col=column: sorter(tree, col))
         else:
-            tree.heading(column, text=column)
+            tree.heading(column, text=column, anchor=anchors.get(column, "w"))
         tree.column(
             column, width=width, minwidth=min(90, max(45, width // 2)),
             anchor=anchors.get(column, "w"), stretch=False,
@@ -1018,7 +1018,7 @@ def build_price_lists(M, app) -> None:
         taxonomy_side, columns=("Cen",), show="tree headings", selectmode="browse", height=24,
     )
     app.price_taxonomy_tree.heading("#0", text="Skupina / podskupina")
-    app.price_taxonomy_tree.heading("Cen", text="Cen")
+    app.price_taxonomy_tree.heading("Cen", text="Cen", anchor="e")
     app.price_taxonomy_tree.column("#0", width=285, minwidth=190, anchor="w", stretch=True)
     app.price_taxonomy_tree.column("Cen", width=55, minwidth=45, anchor="e", stretch=False)
     app.price_taxonomy_tree.grid(row=2, column=0, sticky="nsew")

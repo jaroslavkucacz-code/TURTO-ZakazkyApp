@@ -18,6 +18,7 @@ PAGE_SORTS = {
 _TREE_ATTRIBUTES = (
     "dash_tree",
     "dash_tasks_tree",
+    "dash_requests_tree",
     "action_tree",
     "request_tree",
     "mivo_tree",
@@ -79,6 +80,16 @@ def _known_trees(app: Any):
 def _safe_auxiliary_redraw(app: Any) -> None:
     """Refresh only lightweight overlays on explicitly known live tables."""
     for tree in _known_trees(app):
+        # Older delayed column-contract changes recreate headings with Tk's
+        # default centre anchor. Keep the row anchor authoritative here, in the
+        # existing bounded redraw owner (never a global Treeview hook or scan).
+        try:
+            for column in tree.cget("columns"):
+                anchor = str(tree.column(column, "anchor"))
+                if str(tree.heading(column, "anchor")) != anchor:
+                    tree.heading(column, anchor=anchor)
+        except Exception:
+            pass
         for attribute in ("_sync_filter_bar", "_date_cell_redraw"):
             function = getattr(tree, attribute, None)
             if callable(function):

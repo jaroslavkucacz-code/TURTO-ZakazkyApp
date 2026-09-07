@@ -59,7 +59,7 @@ class TemplateEditor:
         M.ttk.Entry(form,textvariable=self.name).grid(row=1,column=0,sticky="ew",pady=(2,8))
         self.notebook=M.ttk.Notebook(form);self.notebook.grid(row=2,column=0,sticky="nsew")
         self.tabs={}
-        for key,title in (("page","Stránka"),("type","Písmo"),("columns","Sloupce"),("blocks","Dolní bloky")):
+        for key,title in (("page","Stránka"),("type","Písmo"),("columns","Sloupce"),("blocks","Dolní bloky"),("branding","Záhlaví a zápatí")):
             tab=M.ttk.Frame(self.notebook,padding=10);tab.columnconfigure(1,weight=1)
             self.notebook.add(tab,text=title);self.tabs[key]=tab
         self.vars={};self.layout_vars={}
@@ -106,6 +106,15 @@ class TemplateEditor:
             text.bind("<<Modified>>",self.text_changed)
         entry(tab,8,"Vlastní podpis / razítko","signature_path",layout=True,file=True)
         M.ttk.Label(tab,text="Ceny a podmínky konkrétní nabídky se mění v editoru nabídky. Toto je pouze vzhled a společné texty.",wraplength=320).grid(row=9,column=0,columnspan=3,sticky="w",pady=8)
+        tab=self.tabs["branding"]
+        check(tab,0,"Číslo nabídky do horního pruhu TURTO","number_in_header")
+        check(tab,1,"Nahradit původní otevírací dobu vlastním textem","edit_opening_hours")
+        M.ttk.Label(tab,text="Otevírací doba (max. 4 řádky)").grid(row=2,column=0,columnspan=3,sticky="w",pady=(12,4))
+        text=M.tk.Text(tab,height=5,width=32,font=("Calibri",10),wrap="word",undo=True)
+        text.grid(row=3,column=0,columnspan=3,sticky="ew")
+        self.texts["opening_hours"]=text
+        text.bind("<<Modified>>",self.text_changed)
+        M.ttk.Label(tab,text="Zaškrtněte nahrazení a zadejte dny a časy. Prázdný text otevírací dobu skryje. Logo a ostatní grafika se nemění. Úprava platí pro původní grafiku TURTO a její přesné kopie; u vlastní jiné grafiky se nic nepřekrývá.",wraplength=320).grid(row=4,column=0,columnspan=3,sticky="w",pady=12)
         preview=M.ttk.Frame(outer);preview.grid(row=1,column=2,sticky="nsew")
         preview.columnconfigure(0,weight=1);preview.rowconfigure(1,weight=1)
         self.status=M.tk.StringVar()
@@ -213,7 +222,7 @@ class TemplateEditor:
         for k,v in self.vars.items():v.set(data.get(k,True if k in {"active","header_every_page","footer_every_page"} else ""))
         for k,v in self.layout_vars.items():v.set(self.layout[k])
         for k,t in self.texts.items():t.delete("1.0","end");t.insert("1.0",self.layout[k]);t.edit_modified(False)
-        for key in ("type","columns","blocks"):self.notebook.tab(self.tabs[key],state="disabled" if self.legacy else "normal")
+        for key in ("type","columns","blocks","branding"):self.notebook.tab(self.tabs[key],state="disabled" if self.legacy else "normal")
         self.refresh_columns();self.preview_page=0
         self.hint.set("Původní vzhled: geometrie zůstává upravitelná. Pro nový vzhled vytvořte firemní šablonu." if self.legacy else "Chráněná firemní předloha. Úpravy uložte jako vlastní kopii." if data.get("builtin_key") else "Vlastní šablona. Ukládá se do databáze a aktualizace programu ji nepřepisuje.")
         self.baseline=self.signature();self.loading=False;self.schedule()

@@ -207,12 +207,16 @@ def apply(M: Any) -> None:
             height = max(
                 [int(widget.winfo_reqheight()) for _column, widget in cells] + [34]
             ) + 2
+            height = max(52, height)
             try:
+                filter_frame.pack_propagate(False)
+                filter_frame.grid_propagate(False)
                 filter_frame.configure(height=height)
             except Exception:
                 pass
 
             def sync(*_args: Any) -> None:
+                nonlocal height
                 if (
                     not _widget_exists(tree)
                     or not _widget_exists(filter_frame)
@@ -222,6 +226,11 @@ def apply(M: Any) -> None:
                     return
                 tree._v750_filter_sync_running = True
                 try:
+                    measured = max([52] + [int(widget.winfo_reqheight()) + 2
+                        for _column, widget in cells if _widget_exists(widget)])
+                    if measured != height:
+                        height = measured
+                        filter_frame.configure(height=height)
                     visible = displayed_columns(tree)
                     widths: dict[str, int] = {}
                     for column in visible:
@@ -333,6 +342,9 @@ def apply(M: Any) -> None:
 
                 tree.configure(xscrollcommand=xscroll)
             schedule_filter_sync(tree)
+            # Let fonts, DatePicker and combo children finish requesting space.
+            for delay in (60, 180):
+                tree.after(delay, lambda current=tree: schedule_filter_sync(current))
         except Exception:
             pass
 
@@ -541,7 +553,8 @@ def apply(M: Any) -> None:
                     _v740_missing_internal_identity=False,
                 )
             prepared.append(normalize_item(item, index))
-        return document, prepared
+        from price_lists_domain.issued_offers.customer_text import sanitize_snapshot
+        return sanitize_snapshot(document, prepared)
 
     service.draft_from_supplier_offer = draft_from_supplier_offer
 

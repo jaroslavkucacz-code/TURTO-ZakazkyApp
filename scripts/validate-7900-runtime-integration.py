@@ -25,6 +25,8 @@ def main():
                     print(log.read_text(encoding='utf-8',errors='replace')[-12000:],file=sys.stderr)
                 raise
         return
+    import faulthandler
+    faulthandler.dump_traceback_later(30, repeat=True)
     workspace=sys.argv[sys.argv.index('--worker')+1]
     with nullcontext(workspace) as tmp:
         os.environ.update(HOME=tmp,USERPROFILE=tmp,TURTO_DISABLE_AUTO_UPDATE='1')
@@ -60,6 +62,12 @@ def main():
         for name in ('showwarning','showerror'):
             setattr(M.messagebox,name,lambda *a,**kw:errors.append(str(a)))
         M.messagebox.showinfo=lambda *a,**kw:None
+        # An unexpected modal question must fail the test, not hang CI unseen.
+        def unexpected_question(*args, **kwargs):
+            errors.append("Unexpected confirmation: " + repr(args))
+            print(errors[-1], file=sys.stderr, flush=True)
+            return False
+        M.messagebox.askyesno=unexpected_question
         root=M.App();root.report_callback_exception=lambda *e:errors.append(''.join(traceback.format_exception(*e)))
         root.geometry('1480x920')
         def pump(seconds=.3):
@@ -96,7 +104,15 @@ def main():
                             box=(w.winfo_rootx(),w.winfo_rooty(),w.winfo_rootx()+w.winfo_width(),w.winfo_rooty()+w.winfo_height())
                             ImageGrab.grab(box).save(os.environ['TURTO_TEMPLATE_SCREENSHOT'])
                         controller.layout_vars['font_size'].set('10')
-                        controller.save();controller.close();return
+                        controller.save()
+                        if errors:
+                            controller.win.destroy()
+                            return
+                        controller.close()
+                        if controller.win.winfo_exists():
+                            errors.append("Template did not close: " + controller.status.get())
+                            controller.win.destroy()
+                        return
                 view.win.after(100,visit_child)
             view.win.after(500,visit_child)
             view.edit_pdf_template();pump()

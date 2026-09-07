@@ -600,11 +600,15 @@ def _workarea_for_point(win: Any, x: int, y: int) -> tuple[int, int, int, int]:
 
 
 def _place_dialog(win: Any, parent: Any = None, preferred: tuple[int, int] | None = None) -> None:
+    from dialog_chrome import is_maximized, prepare_dialog
     try:
-        if bool(win.overrideredirect()):
+        if not win.winfo_exists() or bool(win.overrideredirect()):
+            return
+        prepare_dialog(win)
+        if is_maximized(win):
             return
     except Exception:
-        pass
+        return
     try:
         parent = parent or getattr(win, "master", None)
         if parent is None or not parent.winfo_exists():
@@ -623,7 +627,8 @@ def _place_dialog(win: Any, parent: Any = None, preferred: tuple[int, int] | Non
         x = min(max(left + 10, px - width // 2), right - width - 10)
         y = min(max(top + 10, py - height // 2), bottom - height - 10)
         win.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
-        win.maxsize(max(360, area_w - 10), max(220, area_h - 10))
+        # Allow the entire work area on maximize, including native frame bounds.
+        win.maxsize(max(360, area_w + 32), max(220, area_h + 32))
     except Exception:
         pass
 
@@ -654,6 +659,11 @@ def _install_dialog_policy(M: Any) -> None:
 
         def init(self, *args, **kwargs):
             previous_init(self, *args, **kwargs)
+            from dialog_chrome import prepare_dialog
+            def mapped(event):
+                if event.widget is self:
+                    self.after_idle(lambda: prepare_dialog(self))
+            self.bind("<Map>", mapped, add="+")
             for delay in (20, 140, 260):
                 try:
                     self.after(delay, lambda current=self: _place_dialog(current, getattr(current, "master", None)))

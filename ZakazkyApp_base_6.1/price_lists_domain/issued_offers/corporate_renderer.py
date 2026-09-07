@@ -29,7 +29,9 @@ def _qty(value):
 
 class Layout:
     def __init__(self, M, document, items, template):
-        self.M, self.document, self.items = M, dict(document), [dict(i) for i in items]
+        from .customer_text import sanitize_snapshot
+        self.M = M
+        self.document, self.items = sanitize_snapshot(document, items)
         self.style = template_layout.normalize(template.get("layout_json"))
         self.template = template_layout.validate_geometry(template, self.style)
         self.left = self.template["margin_left_mm"] * MM
@@ -37,6 +39,8 @@ class Layout:
         self.width = self.right - self.left
         self.top = 8 + (self.template["header_height_mm"] + self.template["body_top_gap_mm"]) * MM
         self.bottom = HEIGHT - 12 - (self.template["footer_height_mm"] + self.template["body_bottom_gap_mm"]) * MM
+        self.number_in_header = bool(self.style["number_in_header"] and self.template["header_height_mm"]
+            and template_layout.is_original_asset(self.template.get("header_path"), "builtin:turto-offer-header"))
         self.size = self.style["font_size"]
         self.pad = self.style["row_padding_mm"] * MM
         self.ink = (0.08, 0.10, 0.12)
@@ -126,6 +130,51 @@ class Layout:
         else:
             self.page.insert_image(rect, stream=path.read_bytes(), keep_proportion=True)
 
+    def artwork_rect(self, value, rect):
+        # insert_image(keep_proportion=True) centers inside this rectangle.
+        with fitz.open(template_layout.asset_path(value)) as art:
+            source = art[0].rect
+        factor = min(rect.width/source.width, rect.height/source.height)
+        w, h = source.width*factor, source.height*factor
+        return fitz.Rect(rect.x0+(rect.width-w)/2, rect.y0+(rect.height-h)/2,
+                         rect.x0+(rect.width+w)/2, rect.y0+(rect.height+h)/2)
+
+    def header_number(self, rect):
+        value = str(self.document.get("document_number") or "KONCEPT")
+        r = self.artwork_rect(self.template["header_path"], rect)
+        # Free right-hand portion of the original red stripe, away from logo/title.
+        box = fitz.Rect(r.x0+r.width*.282, r.y0+r.height*.505,
+                        r.x0+r.width*.483, r.y0+r.height*.85)
+        size = min(11.0, box.height/(self.fonts[1].ascender-self.fonts[1].descender))
+        while self.fonts[1].text_length(value, fontsize=size)>box.width and size>5:
+            size -= .25
+        if self.fonts[1].text_length(value, fontsize=size)>box.width:
+            raise ValueError("Číslo je příliš dlouhé pro horní pruh. Vypněte číslo v záhlaví v nastavení šablony.")
+        self.text(box.x0,box.y0,value,True,size,(1,1,1),"right",box.width)
+        # Make the caption embedded in the original bitmap searchable without
+        # drawing a second title or changing the corporate artwork.
+        self.page.insert_text((r.x0+r.width*.10, box.y0+size), "CENOVÁ NABÍDKA",
+                              fontname="TRBold", fontsize=8, render_mode=3)
+
+    def footer_hours(self, rect):
+        r = self.artwork_rect(self.template["footer_path"], rect)
+        # Only the warehouse hours to the right of the original red separator.
+        box = fitz.Rect(r.x0+r.width*.647,r.y0+r.height*.345,
+                        r.x1,r.y0+r.height*.965)
+        self.page.draw_rect(box,color=None,fill=(1,1,1))
+        hours = self.style["opening_hours"]
+        if not hours:
+            return
+        lines = ["Prodejní sklad"] + hours.splitlines()
+        size = min(7.0, box.height/(len(lines)*1.22))
+        width = box.width-5
+        while max(self.fonts[0].text_length(s,fontsize=size) for s in lines)>width and size>4.5:
+            size -= .25
+        if size<4.5:
+            raise ValueError("Otevírací doba je příliš dlouhá pro zápatí; zkraťte text nebo zvětšete zápatí.")
+        for i,line in enumerate(lines):
+            self.text(box.x0+3,box.y0+i*size*1.22,line,size=size)
+
     def new_page(self, table=False):
         self.page = self.pdf.new_page(width=WIDTH, height=HEIGHT)
         for n, (name, p) in enumerate(zip(("TRRegular", "TRBold"), self.font_files)):
@@ -137,13 +186,20 @@ class Layout:
         t = self.template
         if first or t.get("header_every_page", True):
             if t["header_height_mm"]:
-                self.asset(t.get("header_path"), fitz.Rect(self.left,8,self.right,8+t["header_height_mm"]*MM))
+                rect = fitz.Rect(self.left,8,self.right,8+t["header_height_mm"]*MM)
+                self.asset(t.get("header_path"), rect)
+                if self.number_in_header:
+                    self.header_number(rect)
         if first or t.get("footer_every_page", True):
             if t["footer_height_mm"]:
-                self.asset(t.get("footer_path"), fitz.Rect(self.left,HEIGHT-12-t["footer_height_mm"]*MM,self.right,HEIGHT-12))
+                rect = fitz.Rect(self.left,HEIGHT-12-t["footer_height_mm"]*MM,self.right,HEIGHT-12)
+                self.asset(t.get("footer_path"), rect)
+                if self.style["edit_opening_hours"] and template_layout.is_original_asset(t.get("footer_path"), "builtin:turto-offer-footer"):
+                    self.footer_hours(rect)
         self.y = self.top
         if not first:
-            self.text(self.left,self.y,self.document.get("document_number",""),True,size=8,color=self.navy)
+            if not self.number_in_header or not t.get("header_every_page",True):
+                self.text(self.left,self.y,self.document.get("document_number",""),True,size=8,color=self.navy)
             self.text(self.right-180,self.y,"Pokračování cenové nabídky",size=8,color=self.muted,align="right",width=180)
             self.y += self.leading + 7
         if table:
@@ -163,13 +219,17 @@ class Layout:
 
     def intro(self):
         self.new_page()
-        title=self.wrap(self.style["title"],self.width*.6,True,17)
-        # The normal title is a single line; long custom titles remain searchable.
-        for i,line in enumerate(title):
-            self.text(self.left,self.y+i*21,line,True,17,self.navy)
-        self.text(self.right-170,self.y,self.document.get("document_number",""),True,10,align="right",width=170)
-        self.text(self.right-170,self.y+16,"Datum: "+str(self.M.fmt_date(self.document.get("issue_date"))),size=8.5,align="right",width=170)
-        self.y += max(36,21*len(title)+9)
+        if self.number_in_header:
+            self.text(self.right-170,self.y,"Datum: "+str(self.M.fmt_date(self.document.get("issue_date"))),size=8.5,align="right",width=170)
+            self.y += 20
+        else:
+            title=self.wrap(self.style["title"],self.width*.6,True,17)
+            # The normal title is a single line; long custom titles remain searchable.
+            for i,line in enumerate(title):
+                self.text(self.left,self.y+i*21,line,True,17,self.navy)
+            self.text(self.right-170,self.y,self.document.get("document_number",""),True,10,align="right",width=170)
+            self.text(self.right-170,self.y+16,"Datum: "+str(self.M.fmt_date(self.document.get("issue_date"))),size=8.5,align="right",width=170)
+            self.y += max(36,21*len(title)+9)
         self.line(self.y,color=self.navy)
         self.y += 11
         w=(self.width-24)/2

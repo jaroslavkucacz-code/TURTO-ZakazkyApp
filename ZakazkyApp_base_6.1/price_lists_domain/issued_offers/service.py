@@ -562,7 +562,8 @@ def draft_from_supplier_offer(M, offer_id: int) -> tuple[dict[str, Any], list[di
         )
         from .offer_images import capture
         items.append(capture(M, item, row))
-    return document, items
+    from .customer_text import sanitize_snapshot
+    return sanitize_snapshot(document, items)
 
 
 def format_document_number(year: int, sequence: int) -> str:
@@ -620,6 +621,8 @@ def _sequence_number(con, M, issue_date: str) -> str:
 
 
 def save_document(M, values: dict[str, Any], items: Iterable[dict[str, Any]], document_id: int | None = None) -> int:
+    from .customer_text import sanitize_snapshot
+    values, items = sanitize_snapshot(values, items)
     data = offer_defaults(M)
     data.update(values or {})
     data["document_type"] = DOCUMENT_TYPE
@@ -751,7 +754,8 @@ def load_document(M, document_id: int) -> tuple[dict[str, Any], list[dict[str, A
         ).fetchall()
     if not row:
         raise ValueError("Vydaná nabídka nebyla nalezena.")
-    return dict(row), [dict(item) for item in items]
+    from .customer_text import sanitize_snapshot
+    return sanitize_snapshot(dict(row), [dict(item) for item in items])
 
 
 def next_revision_no(M, document_id: int) -> int:
