@@ -1,0 +1,14 @@
+# Python runtime/cache artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local test/runtime artifacts
+runtime-audit.json
+*.log
+
+# Editor/OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
