@@ -1,0 +1,38 @@
+name: Apply TURTO CRM 8.0 cleanup patch
+on:
+  push:
+    branches: [refactor/8.0.0-big-cleanup]
+    paths:
+      - '_cleanup800/cleanup.patch.gz.b64'
+      - '.github/workflows/apply-cleanup-800.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/8.0.0-big-cleanup
+          fetch-depth: 0
+      - name: Apply verified local cleanup patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d _cleanup800/cleanup.patch.gz.b64 | gzip -dc > /tmp/cleanup.patch
+          git apply --check -p1 /tmp/cleanup.patch
+          git apply -p1 /tmp/cleanup.patch
+          rm -f _cleanup800/cleanup.patch.gz.b64
+          rmdir _cleanup800 2>/dev/null || true
+          rm -f .github/workflows/apply-cleanup-800.yml
+          git status --short
+      - name: Commit cleanup source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'TURTO Cleanup Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'TURTO CRM 8.0: consolidate runtime ownership and hidden layer chaining'
+          git push origin HEAD:refactor/8.0.0-big-cleanup
