@@ -3,7 +3,7 @@ on:
   push:
     branches: [refactor/8.0.0-big-cleanup]
     paths:
-      - '_cleanup800/cleanup.patch.gz.b64'
+      - '_cleanup800/p*'
       - '.github/workflows/apply-cleanup-800.yml'
 permissions:
   contents: write
@@ -19,11 +19,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base64 -d _cleanup800/cleanup.patch.gz.b64 | gzip -dc > /tmp/cleanup.patch
+          cat _cleanup800/p1 _cleanup800/p2 _cleanup800/p3 _cleanup800/p4 _cleanup800/p5 _cleanup800/p6 > /tmp/cleanup.patch.gz.b64
+          base64 -d /tmp/cleanup.patch.gz.b64 | gzip -dc > /tmp/cleanup.patch
           git apply --check -p1 /tmp/cleanup.patch
           git apply -p1 /tmp/cleanup.patch
-          rm -f _cleanup800/cleanup.patch.gz.b64
-          rmdir _cleanup800 2>/dev/null || true
+          rm -rf _cleanup800
           rm -f .github/workflows/apply-cleanup-800.yml
           git status --short
       - name: Commit cleanup source
