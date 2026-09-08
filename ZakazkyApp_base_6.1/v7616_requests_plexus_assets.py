@@ -13,6 +13,7 @@ suppliers are untouched.
 from __future__ import annotations
 
 import hashlib
+from contextlib import closing
 import io
 import re
 import sqlite3
@@ -60,7 +61,7 @@ def _asset_key(type_code):
 
 
 def _ensure_asset_schema(M):
-    with M.db() as con:
+    with closing(M.db()) as con, con:
         con.execute(
             """CREATE TABLE IF NOT EXISTS offer_image_assets(
                  asset_key TEXT PRIMARY KEY,
@@ -170,7 +171,7 @@ def _delete_legacy_canonical(con, item_key):
 def _migrate_existing_plexus_images(M):
     """Collapse legacy Nevoga item blobs to one asset per PLEXUS type."""
     _ensure_asset_schema(M)
-    with M.db() as con:
+    with closing(M.db()) as con, con:
         rows = con.execute(
             """SELECT i.id,i.item_key,i.original_name,i.image_blob,i.image_ext,
                       o.supplier_name,o.offer_number,o.offer_date
@@ -213,7 +214,7 @@ def _centralize_parsed_plexus(M, offer_id, parsed):
     if not items:
         return 0
     _ensure_asset_schema(M)
-    with M.db() as con:
+    with closing(M.db()) as con, con:
         offer = con.execute(
             "SELECT offer_number,offer_date FROM supplier_offers WHERE id=?",
             (int(offer_id),),
@@ -421,7 +422,7 @@ def apply(M):
                     "Nabídky", "Vyberte položku nabídky.", parent=self
                 )
             supplier = self.offer_row["supplier"] or self.offer_row["supplier_name"] or ""
-            with M.db() as con:
+            with closing(M.db()) as con, con:
                 image = _resolve_image(con, item, supplier)
             if not image or not image.get("image_blob"):
                 return M.messagebox.showinfo(
@@ -462,7 +463,7 @@ def apply(M):
     if callable(previous_export):
 
         def export_offer_excel(app, offer_id, parent=None):
-            with M.db() as con:
+            with closing(M.db()) as con, con:
                 offer = con.execute(
                     """SELECT o.*,
                               coalesce(nullif(trim(s.official_name),''),
@@ -498,7 +499,7 @@ def apply(M):
                 except Exception:
                     decode = lambda _raw: []
 
-                with M.db() as con:
+                with closing(M.db()) as con, con:
                     items = con.execute(
                         "SELECT * FROM supplier_offer_items "
                         "WHERE offer_id=? ORDER BY position,id",

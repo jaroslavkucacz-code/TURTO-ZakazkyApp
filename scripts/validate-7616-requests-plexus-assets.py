@@ -7,6 +7,7 @@ import pathlib
 import sqlite3
 import sys
 import tempfile
+from contextlib import closing
 
 
 def _load_layer(source: pathlib.Path):
@@ -118,7 +119,7 @@ class Module:
         return con
 
     def ensure_schema(self):
-        with self.db() as con:
+        with closing(self.db()) as con, con:
             con.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS supplier_offers(
@@ -189,7 +190,7 @@ def main():
         module.ensure_schema()
         image = b"PLEXUS-B-IMAGE"
         other = b"OTHER-SUPPLIER-IMAGE"
-        with module.db() as con:
+        with closing(module.db()) as con, con:
             con.executemany(
                 "INSERT INTO supplier_offers(id,supplier_name,offer_number,offer_date) VALUES(?,?,?,?)",
                 (
@@ -224,7 +225,7 @@ def main():
         layer.apply(module)
         module.ensure_schema()
 
-        with module.db() as con:
+        with closing(module.db()) as con, con:
             assets = con.execute(
                 "SELECT * FROM offer_image_assets ORDER BY asset_key"
             ).fetchall()
@@ -272,7 +273,7 @@ def main():
             ],
         }
         assert layer._centralize_parsed_plexus(module, 4, parsed) == 1
-        with module.db() as con:
+        with closing(module.db()) as con, con:
             assert con.execute("SELECT COUNT(*) FROM offer_image_assets").fetchone()[0] == 2
             c_row = con.execute(
                 "SELECT * FROM supplier_offer_items WHERE id=14"
