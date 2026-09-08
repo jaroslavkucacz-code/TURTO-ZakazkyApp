@@ -1,5 +1,5 @@
 name: Apply TURTO CRM 8.0 late App lifecycle consolidation
-# retry after standalone lifecycle registration fix
+# retry with runtime-faithful professional workflow loader
 on:
   push:
     branches: [refactor/8.0.0-big-cleanup]
