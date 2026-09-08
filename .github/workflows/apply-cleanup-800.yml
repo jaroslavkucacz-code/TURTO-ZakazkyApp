@@ -3,7 +3,6 @@ on:
   push:
     branches: [refactor/8.0.0-big-cleanup]
     paths:
-      - '_cleanup800/p*'
       - '.github/workflows/apply-cleanup-800.yml'
 permissions:
   contents: write
@@ -23,8 +22,10 @@ jobs:
           base64 -d /tmp/cleanup.patch.gz.b64 | gzip -dc > /tmp/cleanup.patch
           git apply --check -p1 /tmp/cleanup.patch
           git apply -p1 /tmp/cleanup.patch
-          rm -rf _cleanup800
-          rm -f .github/workflows/apply-cleanup-800.yml
+          # The Actions token may write source files but may not create/update workflow files.
+          # Keep workflow changes out of this commit; they are managed separately via the connector.
+          rm -f .github/workflows/validate-800-architecture.yml
+          git restore --worktree .github/workflows
           git status --short
       - name: Commit cleanup source
         shell: bash
