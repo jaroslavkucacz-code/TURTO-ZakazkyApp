@@ -160,12 +160,7 @@ def _force_calibri(app):
         except:pass
     walk(app);app.after(1200,lambda:_force_calibri(app))
 
-def _safe_dialog_sizer(module):
-    def safe(win,w=900,h=650):
-        try:
-            win.update_idletasks();sw=win.winfo_screenwidth();sh=win.winfo_screenheight();mw=max(420,min(int(w),sw-80));mh=max(260,min(int(h),sh-120));x=max(10,(sw-mw)//2);y=max(10,(sh-mh)//2);win.geometry(f"{mw}x{mh}+{x}+{y}");win.minsize(min(420,mw),min(260,mh));win.resizable(True,True)
-        except:pass
-    module.enable_dialog_maximize=safe
+# Dialog sizing/maximize is owned by v770/dialog_chrome.
 
 def _window_identity_sweep(app):
     import tkinter as tk
@@ -271,7 +266,7 @@ def _live_update_checks(app):
 
 # ---------- apply ----------
 def apply(module):
-    global M;M=module;_activate(module);_db_wrapper(module);_safe_dialog_sizer(module);_ensure();_patch_users(module);_patch_theme(module);module.App.open_admin=open_admin;module.App.create_desktop_shortcut=create_windows_shortcuts
+    global M;M=module;_activate(module);_db_wrapper(module);_ensure();_patch_users(module);_patch_theme(module);module.App.open_admin=open_admin;module.App.create_desktop_shortcut=create_windows_shortcuts
     old=module.App.__init__
     def init(self,*a,**k):
         M._active_app=self

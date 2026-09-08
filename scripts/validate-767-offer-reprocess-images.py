@@ -272,8 +272,10 @@ def main():
     assert "('supplier_offers', 'offer_product_images')" in layer
     assert "ADD COLUMN updated_at TEXT DEFAULT ''" in layer
     assert 'ensure_offer_import_schema()' in layer
-    assert 'import v768_clean_table_markers' in layer
-    assert 'v768_clean_table_markers.apply(M)' in layer
+    assert 'import v768_clean_table_markers' not in layer
+    assert 'v768_clean_table_markers.apply(M)' not in layer
+    bootstrap = (source / 'runtime_bootstrap.py').read_text(encoding='utf-8')
+    assert bootstrap.index('"v767_offer_reprocess_images"') < bootstrap.index('"v768_clean_table_markers"')
 
     print(
         'TURTO CRM 7.6.13 legacy offer schema migration / '

@@ -83,9 +83,12 @@ def audit_file(path: pathlib.Path, root: pathlib.Path) -> list[Hit]:
             if func.endswith(".apply") and node.args:
                 owner = dotted(node.func.value) if isinstance(node.func, ast.Attribute) else ""
                 argument = dotted(node.args[0])
-                hits.append(
-                    Hit(rel, node.lineno, "apply-call", f"{owner}.apply", argument)
-                )
+                # Only cross-layer apply chaining is architectural composition.
+                # Calls such as self.apply(...) inside a widget/controller are ordinary methods.
+                if owner.startswith("v") or owner in {"crm_features", "crm_runtime", "post_baseline"}:
+                    hits.append(
+                        Hit(rel, node.lineno, "apply-call", f"{owner}.apply", argument)
+                    )
             if func.endswith((".geometry", ".place", ".wm_geometry")):
                 hits.append(Hit(rel, node.lineno, "geometry-call", func))
             if func.endswith((".transient", ".grab_set", ".grab_set_global")):
@@ -127,14 +130,26 @@ def audit_file(path: pathlib.Path, root: pathlib.Path) -> list[Hit]:
                 else:
                     names = [f"{node.module or ''}.{alias.name}" for alias in node.names]
                 for name in names:
-                    if name.startswith("v") or name in {"crm_features", "crm_runtime"}:
+                    # Version-to-version imports inside functions are the dangerous
+                    # hidden composition we want to eliminate. Canonical domain imports
+                    # (e.g. crm_features helpers) are dependencies, not startup ordering.
+                    top = name.split(".", 1)[0]
+                    if top.startswith("v") and len(top) > 1 and top[1].isdigit():
                         hits.append(Hit(rel, node.lineno, "hidden-runtime-import", name))
 
     return hits
 
 
+CRITICAL_OWNER_BUDGETS = {
+    "M.App.build_help": 1,
+    "M.enable_dialog_maximize": 1,
+}
+
+
 def main() -> None:
-    repo = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
+    args = [arg for arg in sys.argv[1:] if arg != "--check"]
+    check = "--check" in sys.argv[1:]
+    repo = pathlib.Path(args[0] if args else ".").resolve()
     source = repo / "ZakazkyApp_base_6.1"
     paths = sorted(
         path
@@ -196,6 +211,28 @@ def main() -> None:
 
     if report["parse_errors"]:
         raise SystemExit("Static audit could not parse every Python file")
+
+    if check:
+        failures: list[str] = []
+        # runtime_bootstrap is the only place allowed to compose version layers.
+        forbidden_hidden = [
+            item for item in hidden
+            if item.file != "ZakazkyApp_base_6.1/runtime_bootstrap.py"
+        ]
+        if forbidden_hidden:
+            failures.append(
+                f"hidden version-layer composition outside runtime_bootstrap: {len(forbidden_hidden)}"
+            )
+        for target, budget in CRITICAL_OWNER_BUDGETS.items():
+            owners = assignments.get(target, [])
+            if len(owners) > budget:
+                failures.append(f"{target} has {len(owners)} owners (budget {budget})")
+        if failures:
+            print("ARCHITECTURE CHECK: FAILED")
+            for failure in failures:
+                print(f"  - {failure}")
+            raise SystemExit(2)
+        print("ARCHITECTURE CHECK: OK")
 
 
 if __name__ == "__main__":

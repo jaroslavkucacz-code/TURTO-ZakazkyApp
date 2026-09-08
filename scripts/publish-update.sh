@@ -195,7 +195,8 @@ grep -q "MAIN_ATTACHMENT_EXTS" "$RUNTIME/post_baseline.py"
 grep -q "def is_main_attachment" "$RUNTIME/post_baseline.py"
 grep -q "M.App._start_offer_batch = start_offer_batch" "$RUNTIME/post_baseline.py"
 grep -q "M.App.delete_offer = delete_offer" "$RUNTIME/post_baseline.py"
-test "$(grep -o "v624_legacy_exports.apply" "$RUNTIME/post_baseline.py" | wc -l)" -eq 1
+! grep -q "v624_legacy_exports.apply" "$RUNTIME/post_baseline.py"
+grep -q '_apply("v624_legacy_exports", M)' "$RUNTIME/runtime_bootstrap.py"
 
 # Reversible update contract.
 grep -q "_snapshot_program" "$STAGE/crm_updater.pyw"

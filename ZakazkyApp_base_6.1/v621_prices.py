@@ -412,36 +412,4 @@ def apply(M):
 
     M.App.delete_action = delete_action
 
-    # Help note.
-    try:
-        old_help = M.App.build_help
-
-        def help_page(self):
-            result = old_help(self)
-            try:
-                import tkinter as tk
-
-                def walk(widget):
-                    if isinstance(widget, tk.Text):
-                        widget.configure(state='normal')
-                        widget.insert(
-                            'end',
-                            '\n\nNABÍDKY – PRODUKTY / CENY\n'
-                            'Přehled Produkty / ceny zobrazuje poslední a předchozí '
-                            'cenu, změnu, dodavatele, Akci a Poptávku. Fyzický archiv '
-                            'Nabídek spravuje výhradně aktuální archivní pipeline; tento '
-                            'modul již nevytváří pomocnou složku Dokumenty/Nabidky ani '
-                            'do ní nekopíruje části e-mailů.',
-                        )
-                        widget.configure(state='disabled')
-                    for child in widget.winfo_children():
-                        walk(child)
-
-                walk(self.tabs['help'])
-            except Exception:
-                pass
-            return result
-
-        M.App.build_help = help_page
-    except Exception:
-        pass
+    # Legacy help composition removed in 8.0; professional_workflow owns help.

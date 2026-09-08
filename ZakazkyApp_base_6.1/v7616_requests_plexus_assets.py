@@ -532,8 +532,7 @@ def apply(M):
                 return None
             try:
                 try:
-                    import v769_nevoga_offer as nevoga_layer
-                    decode = nevoga_layer._decode_segments
+                    from offers_engine.rich_text import decode_segments as decode
                 except Exception:
                     decode = lambda _raw: []
 

@@ -9,48 +9,15 @@ from __future__ import annotations
 
 import json
 
+from offers_engine.rich_text import (
+    decode_segments as _decode_segments,
+    normalized_segments as _normalized_segments,
+)
+
 
 def _is_nevoga_name(value):
     folded = str(value or "").strip().casefold()
     return any(token in folded for token in ("nevoga", "nevegar", "reinforcement systems"))
-
-
-def _normalized_segments(raw_segments):
-    result = []
-    for segment in raw_segments or ():
-        if not isinstance(segment, dict):
-            continue
-        text = str(segment.get("text") or "")
-        if not text:
-            continue
-        color = str(segment.get("color") or "").strip()
-        changed = bool(segment.get("changed")) or color.upper() in {
-            "#FF0000", "FF0000", "#C62828", "C62828",
-        }
-        current = {
-            "text": text,
-            "bold": bool(segment.get("bold")),
-            "color": "#FF0000" if changed else color,
-            "changed": changed,
-        }
-        if (
-            result
-            and result[-1]["bold"] == current["bold"]
-            and result[-1]["color"] == current["color"]
-            and result[-1]["changed"] == current["changed"]
-        ):
-            result[-1]["text"] += current["text"]
-        else:
-            result.append(current)
-    return result
-
-
-def _decode_segments(raw):
-    try:
-        value = json.loads(str(raw or ""))
-    except Exception:
-        return []
-    return _normalized_segments(value if isinstance(value, list) else [])
 
 
 def _has_supplier_change(raw):

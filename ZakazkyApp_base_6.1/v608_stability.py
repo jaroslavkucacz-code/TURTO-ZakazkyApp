@@ -27,12 +27,7 @@ def apply(M):
     def theme(self,*a,**k):r=old_theme(self,*a,**k);self.after_idle(lambda:recolor(self));return r
     M.App.apply_theme=theme
 
-    # Large dialogs, always within screen.
-    def safe_size(win,w=980,h=800):
-        try:
-            win.update_idletasks();sw=max(800,win.winfo_screenwidth());sh=max(600,win.winfo_screenheight());target_w=max(int(w),int(sw*.84));target_h=max(int(h),int(sh*.88));ww=min(target_w,max(560,sw-40));hh=min(target_h,max(500,sh-75));win.geometry(f'{ww}x{hh}+{max(0,(sw-ww)//2)}+{max(0,(sh-hh)//2)}');win.minsize(min(760,ww),min(560,hh));win.resizable(True,True)
-        except:pass
-    M.enable_dialog_maximize=safe_size
+    # Dialog sizing/maximize is owned by v770/dialog_chrome.
 
     # MIVO: one triangle after >10 days, no age coloring of whole row.
     old_mivo=M.App.refresh_mivo_requests

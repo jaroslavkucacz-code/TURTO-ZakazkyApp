@@ -383,8 +383,4 @@ def apply(M):
 
     M.save_offer_import = save_offer_import
 
-    try:
-        import v768_clean_table_markers
-        v768_clean_table_markers.apply(M)
-    except Exception:
-        pass
+    # v768 follows explicitly in runtime_bootstrap; no hidden layer chaining.

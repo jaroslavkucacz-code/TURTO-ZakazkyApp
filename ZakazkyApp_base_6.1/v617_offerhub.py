@@ -205,21 +205,4 @@ def apply(M):
         except:pass
     M.App.build_offers=build_offers
 
-    # ------------------------------------------------------------------
-    # 4) Help: append Offer Hub process description.
-    # ------------------------------------------------------------------
-    old_help=M.App.build_help
-    def help_page(self):
-        r=old_help(self)
-        try:
-            import tkinter as tk
-            p=self.tabs['help']
-            def walk(w):
-                if isinstance(w,tk.Text):
-                    w.configure(state='normal');w.insert('end','\n\nNABÍDKY – ZPRACOVÁNÍ PDF / MSG\nV záložce Nabídky lze zpracovat přímo PDF nebo Outlook .MSG. CRM uchová metadata zprávy i přílohy pro pozdější opětovné zpracování. PDF nabídky Leviat a GEROtop jsou rozpoznány automaticky, položky, ceny, slevy a dostupné obrázky se ukládají do databáze a vstupují do historie cen. Import stejného PDF je chráněn hashem proti duplicitě. Architektura parserů je oddělená podle dodavatele, aby bylo možné postupně přidávat další formáty bez přepisování databáze a Nabídek. Excelové a jiné přílohy z MSG se zatím bezpečně uchovají; parser se k nim může doplnit pro konkrétního dodavatele.')
-                    w.configure(state='disabled')
-                for c in w.winfo_children():walk(c)
-            walk(p)
-        except:pass
-        return r
-    M.App.build_help=help_page
+    # Legacy help composition removed in 8.0; professional_workflow owns help.

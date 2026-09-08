@@ -387,24 +387,4 @@ def apply(M):
             return wrapped
         setattr(M.App, refresh_name, make_wrapper(old))
 
-    try:
-        old_help = M.App.build_help
-        def help_page(self):
-            result = old_help(self)
-            try:
-                import tkinter as tk
-                page = self.tabs['help']
-                def walk(widget):
-                    if isinstance(widget, tk.Text):
-                        widget.configure(state='normal')
-                        widget.insert('end', '\n\nBAREVNOST 6.0.29\nStavove barvy maji vyssi kontrast a Poptavky jsou zahrnuty stejnym systemem. Cekajici poptavky pouzivaji jantarovy akcent, prijata odpoved tyrkysovy a archiv/zruseno vinovy. Optimalizace resize hlavniho okna zustava zachovana.')
-                        widget.configure(state='disabled')
-                    for child in widget.winfo_children():
-                        walk(child)
-                walk(page)
-            except Exception:
-                pass
-            return result
-        M.App.build_help = help_page
-    except Exception:
-        pass
+    # Legacy help composition removed in 8.0; professional_workflow owns help.

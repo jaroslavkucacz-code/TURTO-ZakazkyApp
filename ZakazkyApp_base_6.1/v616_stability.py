@@ -77,29 +77,7 @@ def apply(M):
     except:pass
 
     # --- 2) Dialog geometry based on Windows WORK AREA (excludes taskbar) on the actual monitor. ---
-    def _work_area(win):
-        if sys.platform.startswith('win'):
-            try:
-                import ctypes
-                class RECT(ctypes.Structure):
-                    _fields_=[('left',ctypes.c_long),('top',ctypes.c_long),('right',ctypes.c_long),('bottom',ctypes.c_long)]
-                class MONITORINFO(ctypes.Structure):
-                    _fields_=[('cbSize',ctypes.c_ulong),('rcMonitor',RECT),('rcWork',RECT),('dwFlags',ctypes.c_ulong)]
-                hwnd=win.winfo_id();mon=ctypes.windll.user32.MonitorFromWindow(hwnd,2);mi=MONITORINFO();mi.cbSize=ctypes.sizeof(MONITORINFO)
-                if ctypes.windll.user32.GetMonitorInfoW(mon,ctypes.byref(mi)):
-                    r=mi.rcWork;return r.left,r.top,r.right,r.bottom
-            except:pass
-        return 0,0,win.winfo_screenwidth(),win.winfo_screenheight()
-    def safe_dialog(win,w=980,h=800):
-        try:
-            win.update_idletasks();left,top,right,bottom=_work_area(win.master or win);aw=max(640,right-left);ah=max(480,bottom-top)
-            # large dialogs, but keep a real margin inside the usable desktop, not behind taskbar
-            ww=min(max(int(w),int(aw*.84)),max(560,aw-30));hh=min(max(int(h),int(ah*.88)),max(460,ah-30))
-            x=left+max(10,(aw-ww)//2);y=top+max(10,(ah-hh)//2)
-            win.geometry(f'{ww}x{hh}+{x}+{y}');win.maxsize(max(560,aw-10),max(460,ah-10));win.minsize(min(760,ww),min(540,hh));win.resizable(True,True)
-            win._preferred_dialog_size=(ww,hh)
-        except:pass
-    M.enable_dialog_maximize=safe_dialog
+    # Dialog sizing/maximize is owned by v770/dialog_chrome.
 
     # --- 3) Request contacts: most-used in THIS company, then last used, then Czech alphabetic name/email. ---
     try:
@@ -139,21 +117,4 @@ def apply(M):
             c.execute('CREATE INDEX IF NOT EXISTS idx_audit_active_archive ON audit_history(created_at DESC,undone)')
     except:pass
 
-    # Help note for this release.
-    try:
-        old_help=M.App.build_help
-        def help_page(self):
-            r=old_help(self)
-            try:
-                import tkinter as tk
-                p=self.tabs['help'];texts=[]
-                def walk(w):
-                    if isinstance(w,tk.Text):texts.append(w)
-                    for c in w.winfo_children():walk(c)
-                walk(p)
-                for txt in texts:
-                    txt.configure(state='normal');txt.insert('end','\n\nOVLÁDÁNÍ 6.0.16\nNašeptávače: při psaní zůstává kurzor v poli. První nabídka je aktivní, ↑/↓ ji mění a Enter ji potvrdí; interní ID/vazba se nastaví stejně jako po kliknutí myší. Dialogy respektují pracovní plochu monitoru včetně hlavního panelu Windows. Příjemci Poptávky se řadí v rámci vybrané společnosti podle četnosti použití, při shodě podle posledního použití a poté abecedně.');txt.configure(state='disabled')
-            except:pass
-            return r
-        M.App.build_help=help_page
-    except:pass
+    # Legacy help composition removed in 8.0; professional_workflow owns help.

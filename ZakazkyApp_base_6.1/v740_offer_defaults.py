@@ -52,7 +52,6 @@ def apply(M) -> None:
         from price_lists_domain.issued_offers import editor as issued_editor
         from price_lists_domain.issued_offers import service
         from price_lists_domain.platform import commercial_workspace
-        import v710_cleanup
     except Exception:
         M._turto_v740_offer_defaults_installed = True
         return
@@ -284,7 +283,6 @@ def apply(M) -> None:
         flush()
         return result
 
-    v710_cleanup.group_offer_items = group_offer_items
     service.group_offer_items = group_offer_items
     M.group_issued_offer_items = group_offer_items
 

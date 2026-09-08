@@ -86,6 +86,13 @@ def apply(M):
     if getattr(M, "_turto_v710_installed", False):
         return
 
+    def active_group_offer_items(items):
+        """Resolve the current canonical grouper without patching this module."""
+        current = getattr(M, "group_issued_offer_items", None)
+        if callable(current) and current is not active_group_offer_items:
+            return current(items)
+        return group_offer_items(items)
+
     # ------------------------------------------------------------------
     # Shared helpers.
     # ------------------------------------------------------------------
@@ -607,7 +614,7 @@ def apply(M):
             ]
             group_no = 0
             display_no = 0
-            for token in group_offer_items(normalized):
+            for token in active_group_offer_items(normalized):
                 if token["kind"] == "group":
                     group_no += 1
                     instance.tree.insert(
@@ -759,7 +766,7 @@ def apply(M):
 
         def grouped_pdf_items(items):
             result = []
-            for token in group_offer_items(enrich_taxonomy(items)):
+            for token in active_group_offer_items(enrich_taxonomy(items)):
                 if token["kind"] == "group":
                     result.append(
                         {

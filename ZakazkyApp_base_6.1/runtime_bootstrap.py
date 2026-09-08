@@ -84,6 +84,8 @@ def apply_all(M: Any) -> None:
     for name in EARLY_LAYERS:
         _apply(name, M)
 
+    # Legacy Excel routing is still required, but its ownership/order is explicit.
+    _apply("v624_legacy_exports", M)
     _apply("post_baseline", M)
     _apply("v631_diskdrop", M)
 
@@ -106,6 +108,7 @@ def apply_all(M: Any) -> None:
     M._turto_runtime_bootstrap_complete = True
     M.RUNTIME_BOOTSTRAP_ORDER = (
         *EARLY_LAYERS,
+        "v624_legacy_exports",
         "post_baseline",
         "v631_diskdrop",
         *(f"import:{name}" for name in STABILITY_PRIMED_LAYERS),

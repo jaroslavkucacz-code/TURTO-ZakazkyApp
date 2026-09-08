@@ -78,6 +78,8 @@ def main() -> None:
         "v760_table_activity_performance"
     )
     assert target._turto_runtime_bootstrap_complete is True
+    assert "v624_legacy_exports" in target.RUNTIME_BOOTSTRAP_ORDER
+    assert target.RUNTIME_BOOTSTRAP_ORDER.index("v624_legacy_exports") < target.RUNTIME_BOOTSTRAP_ORDER.index("post_baseline")
     assert "import:v710_cleanup" in target.RUNTIME_BOOTSTRAP_ORDER
     assert "import:v760_table_activity_performance" in target.RUNTIME_BOOTSTRAP_ORDER
 

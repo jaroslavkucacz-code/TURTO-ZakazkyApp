@@ -765,15 +765,10 @@ def apply(M):
     M.ensure_offer_rich_details = ensure_offer_rich_details
 
     # ------------------------------------------------------------------
-    # Exact proven supplier exporter. v624 remains canonical.
+    # Exact proven supplier exporter. v624 is applied explicitly by
+    # runtime_bootstrap before this compatibility bridge. Do not apply
+    # versioned layers from here: runtime_bootstrap is the sole order owner.
     # ------------------------------------------------------------------
-    try:
-        import v624_legacy_exports
-
-        v624_legacy_exports.apply(M)
-    except Exception:
-        pass
-
     manual_export = getattr(M, 'export_offer_excel', None)
 
     def export_to_path(app, offer_id, target):

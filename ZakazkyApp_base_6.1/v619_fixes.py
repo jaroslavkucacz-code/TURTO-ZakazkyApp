@@ -395,35 +395,4 @@ def apply(M):
     except Exception:
         pass
 
-    # Help note.
-    try:
-        old_help = M.App.build_help
-
-        def help_page(self):
-            result = old_help(self)
-            try:
-                import tkinter as tk
-                page = self.tabs['help']
-
-                def walk(widget):
-                    if isinstance(widget, tk.Text):
-                        widget.configure(state='normal')
-                        widget.insert(
-                            'end',
-                            '\n\nNABÍDKY – NÁHLED OBRÁZKŮ\n'
-                            'Obrázky položek se zobrazují přímo v detailu nabídky '
-                            'v pevném náhledovém poli. Různé poměry stran už nemění '
-                            'výšku panelu; obrázek se proporčně zmenší a vycentruje.',
-                        )
-                        widget.configure(state='disabled')
-                    for child in widget.winfo_children():
-                        walk(child)
-
-                walk(page)
-            except Exception:
-                pass
-            return result
-
-        M.App.build_help = help_page
-    except Exception:
-        pass
+    # Legacy help composition removed in 8.0; professional_workflow owns help.

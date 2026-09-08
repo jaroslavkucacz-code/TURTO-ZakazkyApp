@@ -266,37 +266,4 @@ def apply(M):
     except Exception:
         pass
 
-    # 5) Help note.
-    try:
-        old_help = M.App.build_help
-
-        def help_page(self):
-            result = old_help(self)
-            try:
-                import tkinter as tk
-                texts = []
-
-                def walk(widget):
-                    if isinstance(widget, tk.Text):
-                        texts.append(widget)
-                    for child in widget.winfo_children():
-                        walk(child)
-
-                walk(self.tabs['help'])
-                for text in texts:
-                    text.configure(state='normal')
-                    text.insert(
-                        'end',
-                        '\n\nAKTUÁLNÍ OVLÁDÁNÍ VÝBĚRŮ\n'
-                        'Našeptávače Dodavatele, Odběratele, Akce, Poptávaného zboží '
-                        'a Obchodníka používají stejný model: ↑/↓ opakovaně mění '
-                        'zvýrazněnou položku, Enter ji potvrdí a fokus zůstává v poli.',
-                    )
-                    text.configure(state='disabled')
-            except Exception:
-                pass
-            return result
-
-        M.App.build_help = help_page
-    except Exception:
-        pass
+    # Legacy help composition removed in 8.0; professional_workflow owns help.

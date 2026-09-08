@@ -284,21 +284,4 @@ def apply(M):
         except Exception:pass
     M.App.__init__=app_init
 
-    # Help note.
-    try:
-        old_help=M.App.build_help
-        def help_page(self):
-            r=old_help(self)
-            try:
-                import tkinter as tk
-                p=self.tabs['help']
-                def walk(w):
-                    if isinstance(w,tk.Text):
-                        w.configure(state='normal');w.insert('end','\n\nNABÍDKY / EXCEL 6.0.23\nVybranou nabídku lze exportovat do XLSX včetně položek a dostupných obrázků. Přehled Produkty / ceny má vlastní export aktuálního filtru a druhý list s historií cen. Vybraný produkt zároveň zobrazuje dostupný obrázek v pevném náhledovém poli, takže různé poměry stran nemění výšku panelu. Předmět Poptávky se po změně dodavatele, Akce, položky nebo data vždy znovu sestaví z aktuálních hodnot. Stavové barvy jsou centrálně sjednocené pro Přehled i Příležitosti. Hlavní okno se při startu umístí na monitor pod kurzorem a až potom maximalizuje.')
-                        w.configure(state='disabled')
-                    for c in w.winfo_children():walk(c)
-                walk(p)
-            except Exception:pass
-            return r
-        M.App.build_help=help_page
-    except Exception:pass
+    # Legacy help composition removed in 8.0; professional_workflow owns help.

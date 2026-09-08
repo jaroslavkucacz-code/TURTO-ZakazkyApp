@@ -62,22 +62,4 @@ def apply(M):
         I._navigate=inav;I._accept_entry=iaccept
     except:pass
 
-    # Help remains version-aware; append current keyboard/audit behavior without replacing the branched help structure.
-    old_help=M.App.build_help
-    def help_page(self):
-        r=old_help(self)
-        try:
-            p=self.tabs['help']
-            import tkinter as tk
-            texts=[]
-            def walk(w):
-                if isinstance(w,tk.Text):texts.append(w)
-                for c in w.winfo_children():walk(c)
-            walk(p)
-            for txt in texts:
-                txt.configure(state='normal')
-                txt.insert('end','\n\nAKTUÁLNÍ OVLÁDÁNÍ 6.0.15\nNašeptávače: první výsledek je zvýrazněný už při psaní, kurzor zůstává v textovém poli. ↑/↓ mění zvýrazněný výsledek a Enter jej potvrdí včetně interní vazby/ID. Po potvrzení lze dalším Enterem potvrdit celý dialog.\nADMIN HISTORIE: aktivní změny jsou 14 dní; starší audit je read-only archiv. U jednoduchých Úkolů a Poptávek se rozšiřuje bezpečné Undo také na vytvoření a smazání, pokud databázové vazby návrat dovolí.')
-                txt.configure(state='disabled')
-        except:pass
-        return r
-    M.App.build_help=help_page
+    # Legacy help composition removed in 8.0; professional_workflow owns help.
