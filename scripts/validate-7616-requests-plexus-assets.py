@@ -253,7 +253,7 @@ def main():
                 "SELECT COUNT(*) FROM offer_product_images WHERE supplier='Leviat'"
             ).fetchone()[0] == 1
 
-            resolved = module.resolve_offer_item_image(con, nevoga_rows[0], "Nevoga")
+            resolved = layer._resolve_image(con, nevoga_rows[0], "Nevoga")
             assert resolved and bytes(resolved["image_blob"]) == image
             assert resolved["type_code"] == "B"
 
@@ -280,7 +280,7 @@ def main():
             assert c_row["image_asset_key"] == "nevoga:plexus:C"
             assert c_row["plexus_type"] == "C"
             assert c_row["image_blob"] is None
-            resolved_c = module.resolve_offer_item_image(con, c_row, "Nevoga")
+            resolved_c = layer._resolve_image(con, c_row, "Nevoga")
             assert bytes(resolved_c["image_blob"]) == b"PLEXUS-C-IMAGE"
 
         app = App()
@@ -292,15 +292,11 @@ def main():
         assert set(tree._filter_frame.columns) == set(range(9))
         assert tree.sync_calls >= 1
 
-        app._refresh_request_date_highlights(
-            tree,
-            (("r1", True), ("r2", False)),
-        )
-        assert tree.rows["r1"]["Poptáno"] == "01.08.2026"
-        assert "req_old" in tree.rows["r1"]["tags"]
-        assert layer.OVERDUE_TAG in tree.rows["r1"]["tags"]
-        assert layer.OVERDUE_TAG not in tree.rows["r2"]["tags"]
-        assert tree.tags[layer.OVERDUE_TAG]["font"][-1] == "bold"
+        # v7616 prepares request geometry/assets only. Final date highlighting and
+        # public PLEXUS resolver ownership belong to v770_runtime_policy.
+        assert not hasattr(App, "_refresh_request_date_highlights")
+        assert not hasattr(module, "resolve_offer_item_image")
+        assert not hasattr(module, "plexus_image_asset_key")
 
     version = (repository / "release_version.txt").read_text(encoding="utf-8").strip()
     version_tuple = tuple(int(part) for part in version.split("."))

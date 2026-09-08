@@ -17,16 +17,6 @@ def main():
     assert layer._plain_date("● 03.09.2026") == "03.09.2026"
     assert layer._plain_date("▲ 04.09.2026") == "04.09.2026"
 
-    class FakeTree:
-        def __init__(self):
-            self.rows = {"a1": {"Deadline": "⚠ 03.09.2026"}, "r1": {"Poptáno": "● 28.08.2026"}}
-        def exists(self, iid):
-            return iid in self.rows
-        def set(self, iid, column, value=None):
-            if value is None:
-                return self.rows[iid].get(column, "")
-            self.rows[iid][column] = value
-
     class App:
         pass
     class Module:
@@ -34,13 +24,9 @@ def main():
     Module.App = App
     module = Module()
     layer.apply(module)
-    app = App()
-    app.action_tree = FakeTree()
-    app._refresh_action_deadline_highlights([("a1", True, False)])
-    assert app.action_tree.set("a1", "Deadline") == "03.09.2026"
-    request_tree = FakeTree()
-    app._refresh_request_date_highlights(request_tree, [("r1", True)])
-    assert request_tree.set("r1", "Poptáno") == "28.08.2026"
+    assert module.V768_TABLE_MARKERS_CLEAN is True
+    assert not hasattr(App, "_refresh_action_deadline_highlights")
+    assert not hasattr(App, "_refresh_request_date_highlights")
 
     text = (source / "v768_clean_table_markers.py").read_text(encoding="utf-8")
     for hidden in (
@@ -61,6 +47,9 @@ def main():
     assert bootstrap.index('"v768_clean_table_markers"') < bootstrap.index('"v769_nevoga_offer"')
     assert bootstrap.index('"v769_nevoga_offer"') < bootstrap.index('"v7614_nevoga_canonical_export"')
     assert bootstrap.index('"v7616_requests_plexus_assets"') < bootstrap.index('"v770_runtime_policy"')
+    policy = (source / "v770_runtime_policy.py").read_text(encoding="utf-8")
+    assert "M.App._refresh_action_deadline_highlights = _attention_callback" in policy
+    assert "M.App._refresh_request_date_highlights = _request_attention_callback" in policy
 
     launcher = (source / "ZakazkyCRM.pyw").read_text(encoding="utf-8")
     assert "runtime_bootstrap.apply_all(app)" in launcher

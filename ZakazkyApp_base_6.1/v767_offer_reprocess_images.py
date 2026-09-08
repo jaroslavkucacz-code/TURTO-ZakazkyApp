@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from contextlib import closing
 from pathlib import Path
 
 
@@ -74,7 +75,7 @@ def apply(M):
         return changed
 
     def ensure_offer_import_schema():
-        with M.db() as con:
+        with closing(M.db()) as con, con:
             changed = []
             for table_name in ('supplier_offers', 'offer_product_images'):
                 if _ensure_updated_at_column(con, table_name):
@@ -83,7 +84,7 @@ def apply(M):
 
     # Compatibility name retained for any older runtime layer/tests that call it.
     def ensure_offer_product_images_schema():
-        with M.db() as con:
+        with closing(M.db()) as con, con:
             return _ensure_updated_at_column(con, 'offer_product_images')
 
     M.ensure_offer_import_schema = ensure_offer_import_schema
@@ -121,7 +122,7 @@ def apply(M):
         source_bytes = Path(pdf_path).read_bytes()
         source_hash = hashlib.sha256(source_bytes).hexdigest()
 
-        with M.db() as con:
+        with closing(M.db()) as con, con:
             existing = con.execute(
                 'SELECT * FROM supplier_offers WHERE source_hash=?',
                 (source_hash,),
@@ -260,7 +261,7 @@ def apply(M):
 
         restored_images = 0
         stored_images = 0
-        with M.db() as con:
+        with closing(M.db()) as con, con:
             con.execute('DELETE FROM supplier_offer_items WHERE offer_id=?', (oid,))
 
             for pos, item in enumerate(items, 1):

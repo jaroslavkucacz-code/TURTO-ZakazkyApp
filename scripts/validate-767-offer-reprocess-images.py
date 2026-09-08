@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+from contextlib import closing
 import io
 import pathlib
 import sqlite3
@@ -204,7 +205,7 @@ def main():
         mod.apply(M)
         M.ensure_schema()
 
-        with db() as c:
+        with closing(db()) as c, c:
             image_cols = {
                 row[1] for row in c.execute('PRAGMA table_info(offer_product_images)')
             }
@@ -231,7 +232,7 @@ def main():
         assert result[3]['images_preserved'] is True
         assert calls['old_save'] == 0, 'Duplicate source must be refreshed, not delegated.'
 
-        with db() as c:
+        with closing(db()) as c, c:
             offer = c.execute('SELECT * FROM supplier_offers WHERE id=?', (offer_id,)).fetchone()
             rows = c.execute(
                 'SELECT * FROM supplier_offer_items WHERE offer_id=? ORDER BY position,id',

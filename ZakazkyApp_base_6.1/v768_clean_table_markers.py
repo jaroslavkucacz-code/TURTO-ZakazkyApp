@@ -14,43 +14,14 @@ def _plain_date(value):
 
 
 def apply(M):
+    """Retain the legacy layer marker without owning UI callbacks.
+
+    Since 7.7 the final runtime policy owns both deadline/request highlighting
+    and also strips historical glyph markers. Keeping another callback owner
+    here only creates ordering-dependent behavior, so v768 is intentionally a
+    compatibility marker plus the reusable _plain_date helper.
+    """
     if getattr(M, "_turto_v768_clean_table_markers", False):
         return
     M._turto_v768_clean_table_markers = True
-
-    def clean_action_deadline_highlights(self, rows):
-        tree = getattr(self, "action_tree", None)
-        if tree is None:
-            return
-        for item in rows or ():
-            iid = item[0] if item else None
-            if not iid:
-                continue
-            try:
-                if tree.exists(iid):
-                    raw = str(tree.set(iid, "Deadline") or "")
-                    clean = _plain_date(raw)
-                    if clean != raw:
-                        tree.set(iid, "Deadline", clean)
-            except Exception:
-                pass
-
-    def clean_request_date_highlights(self, tree, rows):
-        if tree is None:
-            return
-        for item in rows or ():
-            iid = item[0] if item else None
-            if not iid:
-                continue
-            try:
-                if tree.exists(iid):
-                    raw = str(tree.set(iid, "Poptáno") or "")
-                    clean = _plain_date(raw)
-                    if clean != raw:
-                        tree.set(iid, "Poptáno", clean)
-            except Exception:
-                pass
-
-    M.App._refresh_action_deadline_highlights = clean_action_deadline_highlights
-    M.App._refresh_request_date_highlights = clean_request_date_highlights
     M.V768_TABLE_MARKERS_CLEAN = True

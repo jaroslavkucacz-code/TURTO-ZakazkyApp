@@ -142,7 +142,12 @@ def audit_file(path: pathlib.Path, root: pathlib.Path) -> list[Hit]:
 
 CRITICAL_OWNER_BUDGETS = {
     "M.App.build_help": 1,
+    "M.App.show_help_topic": 1,
     "M.enable_dialog_maximize": 1,
+    "M.resolve_offer_item_image": 1,
+    "M.plexus_image_asset_key": 1,
+    "M.App._refresh_action_deadline_highlights": 1,
+    "M.App._refresh_request_date_highlights": 1,
 }
 
 

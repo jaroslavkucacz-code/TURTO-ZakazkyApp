@@ -1337,39 +1337,7 @@ def apply(M) -> None:
             return result
         M.App.build_offers = build_offers
 
-    # ------------------------------------------------------------------
-    # Help additions.
-    # ------------------------------------------------------------------
-    old_show_help = getattr(M.App, "show_help_topic", None)
-    if callable(old_show_help):
-        def show_help_topic(self, key):
-            result = old_show_help(self, key)
-            additions = {
-                "help_directory": (
-                    "\n\nSloučení duplicitních společností\n"
-                    "Ve Společnostech označte dva řádky pomocí Ctrl a zvolte "
-                    "„Sloučit společnosti“. Vyberete záznam, který zůstane; "
-                    "kontakty a živé vazby se přesunou a prázdné firemní údaje "
-                    "se doplní. Historické PDF a textové snímky se nemění."
-                ),
-                "help_colors": (
-                    "\n\nPřijaté nabídky\n"
-                    "Žlutá upozorňuje na chybějící vazbu, oranžová na nezařazené "
-                    "položky, modrá označuje nabídku evidovanou také jako Ceník "
-                    "a šedá archiv. Barva není obchodní výsledek nabídky."
-                ),
-            }
-            extra = additions.get(key)
-            text = getattr(self, "help_text", None)
-            if extra and text is not None:
-                try:
-                    text.configure(state="normal")
-                    text.insert("end", extra)
-                    text.configure(state="disabled")
-                except Exception:
-                    pass
-            return result
-        M.App.show_help_topic = show_help_topic
+    # Help ownership moved to issued_offers.professional_workflow.
 
     M._turto_v730_polish_installed = True
 

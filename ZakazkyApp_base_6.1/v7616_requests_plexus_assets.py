@@ -31,7 +31,6 @@ REQUEST_COLUMNS = (
 )
 # Fallbacks only. Existing/persisted widths are deliberately preserved.
 REQUEST_WIDTHS = (100, 150, 90, 90, 190, 280, 220, 300, 280)
-OVERDUE_TAG = "req_overdue_bold"
 _TYPE_RE = re.compile(r"(?:^|\|)\s*typ\s+([A-Z]{1,2})(?=\s|\||$)", re.I)
 
 
@@ -48,13 +47,6 @@ def _row_get(row, key, default=None):
             return getattr(row, key)
         except Exception:
             return default
-
-
-def _clean_date_text(value):
-    text = str(value or "")
-    for marker in ("⚠️ ", "⚠ ", "⚠️", "⚠", "● ", "●"):
-        text = text.replace(marker, "")
-    return text.strip()
 
 
 def _plexus_type(value):
@@ -370,8 +362,6 @@ def apply(M):
     M.ensure_schema = ensure_schema
     M.ensure_plexus_image_assets = lambda: _ensure_asset_schema(M)
     M.migrate_plexus_image_assets = lambda: _migrate_existing_plexus_images(M)
-    M.resolve_offer_item_image = _resolve_image
-    M.plexus_image_asset_key = _asset_key
 
     try:
         _ensure_asset_schema(M)
@@ -406,34 +396,6 @@ def apply(M):
 
     M.App.build_requests = build_requests
 
-    def request_date_highlights(self, tree, rows):
-        """Keep Poptáno plain text and restore bold emphasis for long waits."""
-        if tree is None:
-            return
-        try:
-            tree.tag_configure(OVERDUE_TAG, font=("Calibri", 10, "bold"))
-        except Exception:
-            pass
-        for item in rows or ():
-            iid = item[0] if item else None
-            overdue = bool(item[1]) if len(item) > 1 else False
-            if not iid:
-                continue
-            try:
-                if not tree.exists(iid):
-                    continue
-                raw = str(tree.set(iid, "Poptáno") or "")
-                clean = _clean_date_text(raw)
-                if clean != raw:
-                    tree.set(iid, "Poptáno", clean)
-                tags = [tag for tag in (tree.item(iid, "tags") or ()) if tag != OVERDUE_TAG]
-                if overdue:
-                    tags.append(OVERDUE_TAG)
-                tree.item(iid, tags=tuple(tags))
-            except Exception:
-                continue
-
-    M.App._refresh_request_date_highlights = request_date_highlights
 
     try:
         import crm_features
