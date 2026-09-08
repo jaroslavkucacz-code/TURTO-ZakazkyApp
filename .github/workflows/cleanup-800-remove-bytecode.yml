@@ -1,0 +1,44 @@
+name: Remove tracked Python bytecode from TURTO CRM 8.0 cleanup
+on:
+  push:
+    branches: [refactor/8.0.0-big-cleanup]
+    paths: ['.github/workflows/cleanup-800-remove-bytecode.yml']
+permissions:
+  contents: write
+jobs:
+  clean:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/8.0.0-big-cleanup
+          fetch-depth: 0
+      - name: Remove tracked cache artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git ls-files -z | python -c 'import sys; data=sys.stdin.buffer.read().split(b"\0"); [sys.stdout.buffer.write(p+b"\0") for p in data if p and (b"/__pycache__/" in p or p.endswith((b".pyc",b".pyo")))]' > /tmp/bytecode.zlist
+          if [ -s /tmp/bytecode.zlist ]; then
+            xargs -0 git rm -f -- < /tmp/bytecode.zlist
+          fi
+          find ZakazkyApp_base_6.1 scripts -type d -name __pycache__ -prune -exec rm -rf {} + || true
+          find ZakazkyApp_base_6.1 scripts -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete || true
+          if git ls-files | grep -E '(^|/)__pycache__/|\.py[co]$'; then
+            echo 'Tracked bytecode remains' >&2
+            exit 1
+          fi
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'TURTO Cleanup Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git restore --worktree .github/workflows
+          git add -u
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'No tracked bytecode to remove.'
+          else
+            git commit -m 'TURTO CRM 8.0: remove tracked Python bytecode artifacts'
+            git push origin HEAD:refactor/8.0.0-big-cleanup
+          fi
