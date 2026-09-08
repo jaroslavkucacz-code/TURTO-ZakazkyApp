@@ -7,7 +7,10 @@ on:
       - 'ZakazkyApp_base_6.1/**'
       - 'post_baseline.py'
       - 'scripts/audit-runtime-overrides.py'
+      - 'scripts/validate-7616-requests-plexus-assets.py'
       - 'scripts/validate-767-offer-reprocess-images.py'
+      - 'scripts/validate-768-clean-table-markers.py'
+      - 'scripts/validate-770-runtime-policy.py'
       - 'scripts/validate-771-runtime-bootstrap-stability.py'
       - 'ARCHITECTURE_AUDIT_8.0.md'
       - '.github/workflows/validate-800-architecture.yml'
@@ -33,7 +36,13 @@ jobs:
         run: python -m compileall -q ZakazkyApp_base_6.1 post_baseline.py scripts
       - name: Architecture ownership guard
         run: python scripts/audit-runtime-overrides.py . --check
-      - name: Reprocess compatibility
+      - name: PLEXUS ownership and request UI
+        run: python scripts/validate-7616-requests-plexus-assets.py ZakazkyApp_base_6.1
+      - name: Reprocess compatibility and connection lifecycle
         run: python scripts/validate-767-offer-reprocess-images.py ZakazkyApp_base_6.1
+      - name: Clean dates ownership
+        run: python scripts/validate-768-clean-table-markers.py ZakazkyApp_base_6.1
+      - name: Final runtime policy
+        run: python scripts/validate-770-runtime-policy.py ZakazkyApp_base_6.1
       - name: Bootstrap stability contract
         run: python scripts/validate-771-runtime-bootstrap-stability.py ZakazkyApp_base_6.1
