@@ -4,6 +4,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -18,8 +19,14 @@ def main():
         # handles. Do not delete its working database while that process exists.
         # Run all real UI assertions unchanged, without monkeypatching M.db.
         with tempfile.TemporaryDirectory(prefix='turto_790_full_') as tmp:
+            worker=[sys.executable,str(Path(__file__).resolve()),str(source),'--worker',tmp]
+            # Linux CI may invoke this validator directly. Give the worker a real
+            # X server instead of requiring every calling workflow to remember
+            # an xvfb-run prefix. Windows keeps using its native desktop session.
+            if sys.platform.startswith('linux') and not os.environ.get('DISPLAY') and shutil.which('xvfb-run'):
+                worker=['xvfb-run','-a',*worker]
             try:
-                subprocess.run([sys.executable,str(Path(__file__).resolve()),str(source),'--worker',tmp],check=True,timeout=120)
+                subprocess.run(worker,check=True,timeout=120)
             except (subprocess.CalledProcessError,subprocess.TimeoutExpired):
                 for log in Path(tmp).rglob('*crash*.log'):
                     print(log.read_text(encoding='utf-8',errors='replace')[-12000:],file=sys.stderr)
