@@ -7,6 +7,7 @@ Action-table sizing, PLEXUS image resolution and rollback entry points.
 """
 from __future__ import annotations
 
+from contextlib import closing
 from datetime import date, datetime, timedelta
 import hashlib
 import io
@@ -72,7 +73,7 @@ def _columns(con: sqlite3.Connection, table: str) -> set[str]:
 
 
 def _ensure_plexus_schema(M: Any) -> None:
-    with M.db() as con:
+    with closing(M.db()) as con, con:
         con.execute(
             """CREATE TABLE IF NOT EXISTS offer_image_assets(
                  asset_key TEXT PRIMARY KEY,
@@ -238,7 +239,7 @@ def _stored_pdf_bytes(con: sqlite3.Connection, offer_id: int) -> tuple[str, byte
 
 
 def _parsed_assets(M: Any, offer_id: int) -> dict[str, dict[str, Any]]:
-    with M.db() as con:
+    with closing(M.db()) as con, con:
         offer = con.execute(
             "SELECT source_pdf,offer_number,offer_date,supplier_name FROM supplier_offers WHERE id=?",
             (int(offer_id),),
@@ -287,7 +288,7 @@ def _centralize_parsed(M: Any, offer_id: int, parsed: Any) -> int:
     parsed_items = list((parsed or {}).get("items") or [])
     if not parsed_items:
         return 0
-    with M.db() as con:
+    with closing(M.db()) as con, con:
         offer = con.execute(
             "SELECT offer_number,offer_date FROM supplier_offers WHERE id=?", (int(offer_id),)
         ).fetchone()
@@ -329,7 +330,7 @@ def _ensure_offer_plexus_images(M: Any, offer_id: int) -> int:
     _ensure_plexus_schema(M)
     offer_id = int(offer_id)
     linked = 0
-    with M.db() as con:
+    with closing(M.db()) as con, con:
         offer = con.execute(
             "SELECT supplier_name,offer_number,offer_date FROM supplier_offers WHERE id=?",
             (offer_id,),
@@ -366,7 +367,7 @@ def _ensure_offer_plexus_images(M: Any, offer_id: int) -> int:
     if missing_codes:
         parsed = _parsed_assets(M, offer_id)
         if parsed:
-            with M.db() as con:
+            with closing(M.db()) as con, con:
                 offer = con.execute(
                     "SELECT offer_number,offer_date FROM supplier_offers WHERE id=?", (offer_id,)
                 ).fetchone()
@@ -1116,7 +1117,7 @@ def _install_plexus_ui(M: Any) -> None:
             ) if offer else ""
             _ensure_offer_plexus_images(M, int(self.oid))
             item_id = int(_row_get(item, "id", 0) or 0)
-            with M.db() as con:
+            with closing(M.db()) as con, con:
                 refreshed = (
                     con.execute(
                         "SELECT * FROM supplier_offer_items WHERE id=?",
@@ -1181,7 +1182,7 @@ def _install_plexus_ui(M: Any) -> None:
 
 def _schedule_plexus_backfill(M: Any, app: Any) -> None:
     try:
-        with M.db() as con:
+        with closing(M.db()) as con, con:
             rows = con.execute(
                 """SELECT DISTINCT o.id FROM supplier_offers o
                    JOIN supplier_offer_items i ON i.offer_id=o.id

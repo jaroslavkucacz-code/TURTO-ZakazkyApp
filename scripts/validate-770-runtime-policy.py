@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+from contextlib import closing
 import hashlib
 import importlib.util
 import io
@@ -201,7 +202,7 @@ def _validate_same_hash_image_recovery(source: pathlib.Path) -> None:
 
         layer.apply(M)
         result = M.save_offer_import(pdf_path)
-        with db() as con:
+        with closing(db()) as con, con:
             row = con.execute(
                 "SELECT image_blob,image_ext FROM supplier_offer_items WHERE offer_id=?",
                 (offer_id,),
