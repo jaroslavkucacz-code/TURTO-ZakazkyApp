@@ -11,6 +11,18 @@ def replace(path: str, old: str, new: str) -> None:
     p.write_text(text.replace(old, new, 1), encoding="utf-8")
 
 
+def ensure_lifecycle_helper(path: str) -> None:
+    p = ROOT / path
+    text = p.read_text(encoding="utf-8")
+    marker = "from __future__ import annotations\n"
+    if "import app_lifecycle\n" not in text:
+        if marker not in text:
+            raise SystemExit(f"future import marker not found: {path}")
+        text = text.replace(marker, marker + "\nimport app_lifecycle\n", 1)
+    text = text.replace("M.register_app_init_hook(", "app_lifecycle.register(M, ")
+    p.write_text(text, encoding="utf-8")
+
+
 replace(
     "v740_offer_defaults.py",
     '''    previous_app_init = M.App.__init__
@@ -161,13 +173,26 @@ replace(
     M.register_app_init_hook("v770.final_runtime_policy", after=after_app_init)''',
 )
 
+for lifecycle_path in (
+    "v740_offer_defaults.py",
+    "v750_context_filters_offer_format.py",
+    "price_lists_domain/issued_offers/professional_workflow.py",
+    "v770_runtime_policy.py",
+):
+    ensure_lifecycle_helper(lifecycle_path)
+
 p = Path("scripts/validate-800-app-lifecycle.py")
 text = p.read_text(encoding="utf-8")
 old = '''        "v631_diskdrop.py",\n    )'''
 new = '''        "v631_diskdrop.py",\n        "v740_offer_defaults.py",\n        "v750_context_filters_offer_format.py",\n        "price_lists_domain/issued_offers/professional_workflow.py",\n        "v770_runtime_policy.py",\n    )'''
 if old not in text:
     raise SystemExit("lifecycle migrated tuple marker not found")
-p.write_text(text.replace(old, new, 1), encoding="utf-8")
+text = text.replace(old, new, 1)
+text = text.replace(
+    '        assert "register_app_init_hook(" in text, filename\n',
+    '        assert ("register_app_init_hook(" in text or "app_lifecycle.register(" in text), filename\n',
+)
+p.write_text(text, encoding="utf-8")
 
 p = Path("scripts/audit-runtime-overrides.py")
 text = p.read_text(encoding="utf-8")
@@ -178,4 +203,4 @@ if '    "M.App.__init__": 3,\n' not in text:
     text = text.replace(marker, marker + '    "M.App.__init__": 3,\n', 1)
 p.write_text(text, encoding="utf-8")
 
-print("OK: prepared safe late App lifecycle migration")
+print("OK: prepared independently testable late App lifecycle migration")
