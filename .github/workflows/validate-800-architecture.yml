@@ -15,6 +15,7 @@ on:
       - 'scripts/validate-7900-runtime-integration.py'
       - 'scripts/validate-800-app-lifecycle.py'
       - 'ARCHITECTURE_AUDIT_8.0.md'
+      - '.gitignore'
       - '.github/workflows/validate-800-architecture.yml'
 permissions:
   contents: read
@@ -32,6 +33,14 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+      - name: Reject tracked Python bytecode
+        shell: python
+        run: |
+          import subprocess
+          paths = subprocess.check_output(['git', 'ls-files'], text=True).splitlines()
+          bad = [p for p in paths if '/__pycache__/' in p or p.endswith(('.pyc', '.pyo'))]
+          if bad:
+              raise SystemExit('Tracked Python bytecode is forbidden:\n' + '\n'.join(bad))
       - name: Install dependencies
         run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
       - name: Compile runtime
