@@ -80,10 +80,14 @@ def main() -> None:
         "v638_table_updatefix.py",
         "v640_warning_cleanup.py",
         "v631_diskdrop.py",
+        "v740_offer_defaults.py",
+        "v750_context_filters_offer_format.py",
+        "price_lists_domain/issued_offers/professional_workflow.py",
+        "v770_runtime_policy.py",
     )
     for filename in migrated:
         text = (source / filename).read_text(encoding="utf-8")
-        assert "register_app_init_hook(" in text, filename
+        assert ("register_app_init_hook(" in text or "app_lifecycle.register(" in text), filename
         assert "M.App.__init__ =" not in text, filename
         assert "module.App.__init__=" not in text.replace(" ", ""), filename
 

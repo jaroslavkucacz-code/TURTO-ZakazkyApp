@@ -7,6 +7,8 @@ Action-table sizing, PLEXUS image resolution and rollback entry points.
 """
 from __future__ import annotations
 
+import app_lifecycle
+
 from contextlib import closing
 from datetime import date, datetime, timedelta
 import hashlib
@@ -1286,9 +1288,7 @@ def apply(M: Any) -> None:
         _configure_identity(M, win)
     M.configure_windows_app_identity = configure_windows_app_identity
 
-    previous_init = M.App.__init__
-    def app_init(self, *args, **kwargs):
-        result = previous_init(self, *args, **kwargs)
+    def after_app_init(self, _result, _args, _kwargs):
         _configure_identity(M, self)
         try:
             self.title("TURTO CRM")
@@ -1298,8 +1298,7 @@ def apply(M: Any) -> None:
         self.after_idle(lambda current=self: _install_action_layout(current))
         self.after(250, lambda current=self: _install_action_layout(current))
         _schedule_plexus_backfill(M, self)
-        return result
-    M.App.__init__ = app_init
+    app_lifecycle.register(M, "v770.final_runtime_policy", after=after_app_init)
 
     _install_plexus_ui(M)
 

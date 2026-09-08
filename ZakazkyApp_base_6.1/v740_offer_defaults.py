@@ -14,6 +14,8 @@ workflow explicit:
 """
 from __future__ import annotations
 
+import app_lifecycle
+
 import types
 from collections import OrderedDict
 from typing import Any, Iterable
@@ -1900,11 +1902,7 @@ def apply(M) -> None:
     # ------------------------------------------------------------------
     # Remove redundant toolbar buttons after all delayed legacy installers.
     # ------------------------------------------------------------------
-    previous_app_init = M.App.__init__
-
-    def app_init(self, *args, **kwargs):
-        result = previous_app_init(self, *args, **kwargs)
-
+    def after_app_init(self, _result, _args, _kwargs):
         def tidy():
             try:
                 mivo = getattr(self, "tabs", {}).get("mivo")
@@ -1928,9 +1926,8 @@ def apply(M) -> None:
                 self.after(delay, tidy)
             except Exception:
                 pass
-        return result
 
-    M.App.__init__ = app_init
+    app_lifecycle.register(M, "v740.offer_toolbar_tidy", after=after_app_init)
     M._turto_v740_offer_defaults_installed = True
 
 

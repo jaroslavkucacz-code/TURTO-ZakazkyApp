@@ -14,6 +14,8 @@ and PDF renderer while making five UI contracts explicit:
 """
 from __future__ import annotations
 
+import app_lifecycle
+
 from datetime import datetime
 from typing import Any, Iterable
 
@@ -1264,18 +1266,14 @@ def apply(M: Any) -> None:
 
         setattr(M.App, method_name, make_build_wrapper(previous, key))
 
-    previous_app_init = M.App.__init__
-
-    def app_init(self: Any, *args: Any, **kwargs: Any):
-        result = previous_app_init(self, *args, **kwargs)
+    def after_app_init(self: Any, _result: Any, _args: tuple[Any, ...], _kwargs: dict[str, Any]) -> None:
         for delay in (0, 80, 260, 760, 1650):
             try:
                 self.after(delay, lambda current=self: configure_workspaces(current))
             except Exception:
                 pass
-        return result
 
-    M.App.__init__ = app_init
+    app_lifecycle.register(M, "v750.configure_workspaces", after=after_app_init)
     M._turto_v750_context_filters_offer_format_installed = True
 
 

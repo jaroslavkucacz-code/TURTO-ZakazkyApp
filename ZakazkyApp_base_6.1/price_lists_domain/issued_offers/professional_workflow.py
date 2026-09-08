@@ -6,6 +6,8 @@ detection, explicit sent confirmation and a searchable in-application handbook.
 """
 from __future__ import annotations
 
+import app_lifecycle
+
 from dataclasses import dataclass
 from datetime import date, datetime
 import hashlib
@@ -3097,10 +3099,7 @@ def _install_help(M: Any) -> None:
         M, app, key
     )
 
-    previous_init = M.App.__init__
-
-    def app_init(self: Any, *args: Any, **kwargs: Any):
-        result = previous_init(self, *args, **kwargs)
+    def after_app_init(self: Any, _result: Any, _args: tuple[Any, ...], _kwargs: dict[str, Any]) -> None:
         try:
             self.bind(
                 "<F1>",
@@ -3112,9 +3111,8 @@ def _install_help(M: Any) -> None:
             )
         except Exception:
             pass
-        return result
 
-    M.App.__init__ = app_init
+    app_lifecycle.register(M, "v780.help_shortcut", after=after_app_init)
 
 
 def apply(M: Any) -> None:
