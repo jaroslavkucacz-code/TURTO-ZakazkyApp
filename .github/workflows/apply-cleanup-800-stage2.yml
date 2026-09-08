@@ -16,6 +16,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
+      - name: Install dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
       - name: Apply stage 2 ownership cleanup
         shell: bash
         run: |
