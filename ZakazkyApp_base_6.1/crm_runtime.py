@@ -267,11 +267,10 @@ def _live_update_checks(app):
 # ---------- apply ----------
 def apply(module):
     global M;M=module;_activate(module);_db_wrapper(module);_ensure();_patch_users(module);_patch_theme(module);module.App.open_admin=open_admin;module.App.create_desktop_shortcut=create_windows_shortcuts
-    old=module.App.__init__
-    def init(self,*a,**k):
+    def before_app_init(self, _args, _kwargs):
         M._active_app=self
-        r=old(self,*a,**k);_restore_local_user(self);_force_calibri(self);_set_taskbar_identity(self);_window_identity_sweep(self);_apply_tree_palette(self);_live_update_checks(self)
+    def after_app_init(self, _result, _args, _kwargs):
+        _restore_local_user(self);_force_calibri(self);_set_taskbar_identity(self);_window_identity_sweep(self);_apply_tree_palette(self);_live_update_checks(self)
         try:self.footer_db.configure(text=f"Databáze: {'SÍŤOVÁ' if NETWORK_MODE else 'LOKÁLNÍ'} • {M.DB}")
         except:pass
-        return r
-    module.App.__init__=init
+    module.register_app_init_hook("crm_runtime.integrations", before=before_app_init, after=after_app_init)

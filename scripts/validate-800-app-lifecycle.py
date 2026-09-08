@@ -77,7 +77,7 @@ def main() -> None:
     )
     for filename in migrated:
         text = (source / filename).read_text(encoding="utf-8")
-        assert "app_lifecycle.register(" in text, filename
+        assert "register_app_init_hook(" in text, filename
         assert "M.App.__init__ =" not in text, filename
         assert "module.App.__init__=" not in text.replace(" ", ""), filename
 

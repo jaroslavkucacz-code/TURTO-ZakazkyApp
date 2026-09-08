@@ -274,14 +274,12 @@ def apply(M):
         except Exception:pass
     M.App.build_offers=build_offers
 
-    # App init last: canonical palette + monitor-aware maximization.
-    old_app_init=M.App.__init__
-    def app_init(self,*a,**k):
-        old_app_init(self,*a,**k)
+    # App startup: canonical palette + monitor-aware maximization.
+    def after_app_init(self, _result, _args, _kwargs):
         try:self.after(80,lambda:maximize_current_monitor(self))
         except Exception:pass
         try:self.after_idle(lambda:recolor(self))
         except Exception:pass
-    M.App.__init__=app_init
+    M.register_app_init_hook("v623.palette_and_monitor", after=after_app_init)
 
     # Legacy help composition removed in 8.0; professional_workflow owns help.

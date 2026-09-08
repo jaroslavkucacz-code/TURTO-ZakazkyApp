@@ -91,14 +91,10 @@ def apply(M):
         except Exception:
             pass
 
-    old_init = M.App.__init__
-
-    def init(self, *args, **kwargs):
-        result = old_init(self, *args, **kwargs)
+    def after_app_init(self, _result, _args, _kwargs):
         try:
             self.after(1000, lambda: modal_safety(self))
         except Exception:
             pass
-        return result
 
-    M.App.__init__ = init
+    M.register_app_init_hook("v625.modal_safety", after=after_app_init)

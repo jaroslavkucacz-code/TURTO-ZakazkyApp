@@ -92,14 +92,10 @@ def apply(M):
         except Exception:
             pass
 
-    old_init = M.App.__init__
-
-    def init(self, *args, **kwargs):
-        result = old_init(self, *args, **kwargs)
+    def after_app_init(self, _result, _args, _kwargs):
         try:
             self.after_idle(lambda: setup_drop_area(self))
         except Exception:
             pass
-        return result
 
-    M.App.__init__ = init
+    M.register_app_init_hook("v620.offer_drop_area", after=after_app_init)

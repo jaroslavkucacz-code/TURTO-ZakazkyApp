@@ -419,9 +419,7 @@ def apply(module):
     module.OfferActionLinkDialog=OfferActionLinkDialog
     install_offer_ui(module)
     module.App.build_settings=build_settings
-    orig_init=module.App.__init__
-    def init(self,*a,**kw):
+    def before_app_init(self, _args, _kwargs):
         try:module.set_setting("update_source",GITHUB_UPDATE)
         except Exception:pass
-        return orig_init(self,*a,**kw)
-    module.App.__init__=init
+    module.register_app_init_hook("crm_features.update_source", before=before_app_init)

@@ -117,10 +117,7 @@ def apply(M):
                     except:pass
         self._v608_page=key;return r
     M.App.show_page=show
-    old_init=M.App.__init__
-    def init(self,*a,**k):
-        r=old_init(self,*a,**k)
+    def after_app_init(self, _result, _args, _kwargs):
         try:self.after(120,lambda:self.state('zoomed'));self.after(250,lambda:recolor(self))
         except:pass
-        return r
-    M.App.__init__=init
+    M.register_app_init_hook("v608.startup_style", after=after_app_init)
