@@ -81,6 +81,10 @@ def apply_all(M: Any) -> None:
     if getattr(M, "_turto_runtime_bootstrap_complete", False):
         return
 
+    # App.__init__ has one explicit owner. Early compatibility layers only
+    # register named before/after hooks into this lifecycle.
+    _apply("app_lifecycle", M)
+
     for name in EARLY_LAYERS:
         _apply(name, M)
 
@@ -107,6 +111,7 @@ def apply_all(M: Any) -> None:
 
     M._turto_runtime_bootstrap_complete = True
     M.RUNTIME_BOOTSTRAP_ORDER = (
+        "app_lifecycle",
         *EARLY_LAYERS,
         "v624_legacy_exports",
         "post_baseline",
