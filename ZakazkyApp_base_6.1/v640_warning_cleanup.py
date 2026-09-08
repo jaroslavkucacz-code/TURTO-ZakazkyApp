@@ -75,11 +75,8 @@ def apply(M):
             return wrapped
         setattr(M.App,name,make(old))
 
-    old_init=M.App.__init__
-    def init(self,*a,**k):
-        r=old_init(self,*a,**k)
+    def after_app_init(self, _result, _args, _kwargs):
         for ms in (1200,2600,4200):
             try:self.after(ms,lambda s=self:_cleanup(s))
             except Exception:pass
-        return r
-    M.App.__init__=init
+    M.register_app_init_hook("v640.warning_cleanup", after=after_app_init)

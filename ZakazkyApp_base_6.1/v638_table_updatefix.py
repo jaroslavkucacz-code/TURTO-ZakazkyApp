@@ -222,11 +222,8 @@ def apply(M):
                 if not silent:M.messagebox.showerror('Aktualizace',f'Kontrola aktualizací se nezdařila:\n\n{e}',parent=self)
         M.App.check_for_updates=check_for_updates
 
-    old_init=M.App.__init__
-    def init(self,*a,**k):
-        r=old_init(self,*a,**k)
+    def after_app_init(self, _result, _args, _kwargs):
         for ms in (900,2200,3800):
             try:self.after(ms,lambda s=self:_stabilize(s,sort_projects=True))
             except Exception:pass
-        return r
-    M.App.__init__=init
+    M.register_app_init_hook("v638.table_stabilize", after=after_app_init)

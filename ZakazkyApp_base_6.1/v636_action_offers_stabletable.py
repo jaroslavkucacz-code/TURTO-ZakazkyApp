@@ -131,10 +131,7 @@ def apply(M):
         A.__init__=init
     except Exception:pass
 
-    old_app_init=M.App.__init__
-    def app_init(self,*a,**k):
-        r=old_app_init(self,*a,**k)
+    def after_app_init(self, _result, _args, _kwargs):
         try:self.after(3000,lambda:remove_deadline_overlays(self))
         except Exception:pass
-        return r
-    M.App.__init__=app_init
+    M.register_app_init_hook("v636.remove_deadline_overlays", after=after_app_init)

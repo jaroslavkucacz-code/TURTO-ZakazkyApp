@@ -74,6 +74,12 @@ def main() -> None:
         "v623_exports.py",
         "v625_stability.py",
         "v628_modernui_resize.py",
+        "v632_offerlinks.py",
+        "v636_action_offers_stabletable.py",
+        "v637_project_offer_model.py",
+        "v638_table_updatefix.py",
+        "v640_warning_cleanup.py",
+        "v631_diskdrop.py",
     )
     for filename in migrated:
         text = (source / filename).read_text(encoding="utf-8")

@@ -192,17 +192,14 @@ def apply(M):
             return wrapped
         setattr(M.App,name,make(old))
 
-    old_init=M.App.__init__
-    def init(self,*a,**k):
-        r=old_init(self,*a,**k)
+    def after_app_init(self, _result, _args, _kwargs):
         def later():
             _refresh_counts(self)
             _install_context(self,getattr(self,'action_tree',None),'action')
             _install_context(self,getattr(self,'request_tree',None),'request')
         try:self.after(1800,later)
         except Exception:pass
-        return r
-    M.App.__init__=init
+    M.register_app_init_hook("v632.offer_links", after=after_app_init)
 
     # Make request linkage visually primary in offer detail: keep the v6.0.21
     # 'Přiřadit k Poptávce…' control and hide the older action-only button.

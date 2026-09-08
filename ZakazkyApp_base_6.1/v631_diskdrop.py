@@ -978,10 +978,7 @@ def apply(M):
             _log('Unified target registration failed', exc)
             return False
 
-    old_init = M.App.__init__
-
-    def init(self, *args, **kwargs):
-        result = old_init(self, *args, **kwargs)
+    def after_app_init(self, _result, _args, _kwargs):
         try:
             self.after(1700, lambda: _enable_faulthandler(self))
         except Exception:
@@ -994,6 +991,5 @@ def apply(M):
             self.after(3000, lambda: _install_unified_target(self))
         except Exception:
             pass
-        return result
 
-    M.App.__init__ = init
+    M.register_app_init_hook("v631.diskdrop_guards", after=after_app_init)

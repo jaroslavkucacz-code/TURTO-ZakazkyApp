@@ -342,12 +342,9 @@ def apply(M):
             return wrapped
         setattr(M.App,name,make2(old))
 
-    old_init=M.App.__init__
-    def init(self,*a,**k):
-        r=old_init(self,*a,**k)
+    def after_app_init(self, _result, _args, _kwargs):
         def later():
             _remove_offer_col_from_opportunities(self);_add_project_offer_column(self);_style_urgent_requests(self);_install_cleanup_events(self)
         try:self.after(3200,later)
         except Exception:pass
-        return r
-    M.App.__init__=init
+    M.register_app_init_hook("v637.project_offer_model", after=after_app_init)
