@@ -82,42 +82,89 @@ if not _baseline_schema_ready():
     _smoke_checkpoint("baseline-schema-ready", database=str(app.DB))
 
 # Frozen smoke mode records the exact runtime layer currently being composed.
-# This diagnostic wrapper is intentionally local to the launcher and only active
-# under --smoke-test, so the normal installed application keeps the proven
-# runtime bootstrap implementation unchanged.
+# These wrappers are intentionally active only under --smoke-test; normal
+# installed startup keeps the proven runtime owners unchanged.
 if SMOKE_TEST:
     _original_prime_layers = runtime_bootstrap._prime_startup_stability_layers
 
-    def _trace_crm_runtime_helpers(runtime_module):
-        if getattr(runtime_module, "_turto_smoke_helpers_traced", False):
+    def _wrap_callable(owner, attribute: str, label: str) -> None:
+        original = getattr(owner, attribute, None)
+        if not callable(original) or getattr(original, "_turto_smoke_trace", False):
             return
-        helper_names = (
+
+        def traced(*args, _original=original, _label=label, **kwargs):
+            _smoke_checkpoint(f"{_label}-before", database=str(getattr(app, "DB", "")))
+            result = _original(*args, **kwargs)
+            _smoke_checkpoint(f"{_label}-after", database=str(getattr(app, "DB", "")))
+            return result
+
+        traced._turto_smoke_trace = True
+        setattr(owner, attribute, traced)
+
+    def _trace_crm_runtime_helpers(runtime_module):
+        for helper_name in (
             "_activate",
             "_db_wrapper",
             "_safe_dialog_sizer",
             "_ensure",
             "_patch_users",
             "_patch_theme",
+        ):
+            _wrap_callable(runtime_module, helper_name, f"crm-runtime:{helper_name}")
+
+    def _trace_price_list_helpers(runtime_module):
+        # First distinguish the two public phases owned by crm_price_lists.
+        _wrap_callable(runtime_module, "_apply_price_lists", "crm-price-lists:domain")
+        _wrap_callable(runtime_module, "install_customer_pricing", "crm-price-lists:customer-pricing")
+
+        domain = importlib.import_module("price_lists_domain")
+        for helper_name in (
+            "_install_new_project_button",
+            "_install_offer_integration",
+            "_install_app_page",
+            "_install_settings",
+            "install_issued_offers",
+        ):
+            _wrap_callable(domain, helper_name, f"price-domain:{helper_name}")
+
+        # price_lists_domain.apply imports platform.install at call time, so
+        # wrapping the module attribute traces the complete platform phase.
+        platform = importlib.import_module("price_lists_domain.platform")
+        _wrap_callable(platform, "install", "price-platform:install")
+
+        # Trace every owner imported locally by platform.install so a single
+        # Windows run can identify the exact installer that blocks frozen start.
+        platform_steps = (
+            ("price_lists_domain.platform.database", "install_fast_db"),
+            ("price_lists_domain.platform.database", "patch_schema"),
+            ("price_lists_domain.platform.fast_ocr", "install"),
+            ("price_lists_domain.platform.integration", "install"),
+            ("price_lists_domain.platform.product_catalog", "install"),
+            ("price_lists_domain.platform.product_workspace", "install"),
+            ("price_lists_domain.platform.offers", "install"),
+            ("price_lists_domain.platform.archive", "install"),
+            ("price_lists_domain.platform.worksets", "install"),
+            ("price_lists_domain.platform.finalize", "install"),
+            ("price_lists_domain.platform.compat", "install"),
+            ("price_lists_domain.platform.clarity", "install"),
+            ("price_lists_domain.platform.commercial_workspace", "install"),
+            ("price_lists_domain.platform.lazy_refresh", "install"),
+            ("price_lists_domain.platform.project_table_stability", "install"),
+            ("price_lists_domain.platform.automatic_updates", "install"),
         )
-        for helper_name in helper_names:
-            original = getattr(runtime_module, helper_name, None)
-            if not callable(original):
-                continue
+        for module_name, attribute in platform_steps:
+            owner = importlib.import_module(module_name)
+            _wrap_callable(owner, attribute, f"price-platform:{module_name.rsplit('.', 1)[-1]}.{attribute}")
 
-            def traced(*args, _name=helper_name, _original=original, **kwargs):
-                _smoke_checkpoint(
-                    f"crm-runtime-before:{_name}",
-                    database=str(getattr(app, "DB", "")),
-                )
-                result = _original(*args, **kwargs)
-                _smoke_checkpoint(
-                    f"crm-runtime-after:{_name}",
-                    database=str(getattr(app, "DB", "")),
-                )
-                return result
-
-            setattr(runtime_module, helper_name, traced)
-        runtime_module._turto_smoke_helpers_traced = True
+        customer = importlib.import_module("price_lists_domain.platform.customer_pricing")
+        for helper_name in (
+            "ensure_schema",
+            "_patch_catalog_rows",
+            "_patch_workspace",
+            "_patch_document_service",
+            "_patch_pickers",
+        ):
+            _wrap_callable(customer, helper_name, f"customer-pricing:{helper_name}")
 
     def _diagnostic_runtime_apply(module_name, target):
         _smoke_checkpoint(f"runtime-before-import:{module_name}", database=str(getattr(target, "DB", "")))
@@ -125,6 +172,8 @@ if SMOKE_TEST:
         _smoke_checkpoint(f"runtime-after-import:{module_name}", database=str(getattr(target, "DB", "")))
         if module_name == "crm_runtime":
             _trace_crm_runtime_helpers(runtime_module)
+        elif module_name == "crm_price_lists":
+            _trace_price_list_helpers(runtime_module)
         _smoke_checkpoint(f"runtime-before-apply:{module_name}", database=str(getattr(target, "DB", "")))
         runtime_module.apply(target)
         _smoke_checkpoint(f"runtime-after-apply:{module_name}", database=str(getattr(target, "DB", "")))
