@@ -26,8 +26,7 @@ vlastníky s regresními testy.
    současný kanonický grouper dynamicky z runtime místo přepisování globálu v
    `v710_cleanup` z `v740_offer_defaults`.
 5. **Kompatibilitu nemažeme naslepo:** řetězce `App.__init__` a `ensure_schema`
-   jsou stále rozsáhlé. Jejich převod na lifecycle hooky a registr migrací bude
-   samostatná další etapa; tento první řez je záměrně nechává funkčně beze změny.
+   se převádějí po samostatných etapách s regresními testy, ne hromadným mazáním.
 
 ## Konkrétní konsolidace v první etapě
 
@@ -42,6 +41,23 @@ vlastníky s regresními testy.
 - Staré implementace `enable_dialog_maximize` v raných stabilizačních vrstvách se
   neinstalují; finální vlastník zůstává `v770_runtime_policy` / `dialog_chrome`.
 
+## Druhá etapa – lifecycle aplikace
+
+Řetězec startovacích wrapperů se převádí na jediný vlastník `App.__init__` v
+`app_lifecycle.py`. Jednotlivé moduly už nerebalí celý konstruktor, ale registrují
+pojmenované `before` / `after` hooky. To zachovává jejich pořadí a vedlejší efekty,
+ale odstraňuje closure surgery, rekurzivní startovací normalizaci a několik
+opakovaných časovačů.
+
+Převedeny jsou mimo jiné startovací části `post_baseline`, `v710_cleanup`,
+`v760_table_activity_performance`, automatické aktualizace a dříve migrované
+runtime/UI moduly. `v644_default_date_sort` už konstruktor nerozebírá a znovu
+neskládá; zůstává pouze stabilizačním mostem pro skutečně potřebné Tk operace.
+
+`scripts/validate-800-app-lifecycle.py` navíc kontroluje, že jediným statickým
+přiřazením `App.__init__` je kanonický lifecycle modul a že registry jsou
+idempotentní a deterministické.
+
 ## Automatická pojistka
 
 `scripts/audit-runtime-overrides.py --check` nyní blokuje:
@@ -54,11 +70,9 @@ vlastníky s regresními testy.
 Záměrně zatím neblokuje všechny historické multi-owner symboly. Jejich počet slouží
 jako metrika dalšího úklidu, nikoli jako důvod riskantně odstranit obchodní workflow.
 
-## Další etapy
+## Další etapa
 
-Po stabilizaci této etapy budou následovat dvě největší oblasti dluhu:
-
-- nahrazení mnoha wrapperů `App.__init__` deklarativními lifecycle hooky;
-- nahrazení řetězce wrapperů `ensure_schema` jedním registrem databázových migrací.
-
-Každá z nich musí mít vlastní kompatibilitní testy nad kopií reálné 7.9.2 databáze.
+Po potvrzení lifecycle matice na Linuxu a Windows následuje největší zbývající
+infrastrukturní dluh: nahrazení řetězce wrapperů `ensure_schema` jedním registrem
+pojmenovaných databázových migrací. Každá migrace zůstane aditivní a idempotentní;
+pracovní data ani historické dokumenty se nebudou přepisovat.
