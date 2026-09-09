@@ -153,6 +153,21 @@ def main() -> None:
     assert [delay for delay, _callback, _args in instance.calls] == [0, 125]
     assert instance._turto_v750_rebuilds_coalesced == (80, 260, 760, 1650)
 
+    # Cross-layer names are intentionally a small explicit contract.  If v7.6
+    # changes these storage attributes, the final UI policy must be updated in the
+    # same change rather than silently falling back to repeated recursive scans.
+    v760 = (root / "v760_table_activity_performance.py").read_text(encoding="utf-8")
+    for token in (
+        "tree._v760_row_menu = row",
+        "app._v760_project_archive_controls = (",
+        "app._v760_task_archive_controls = (",
+    ):
+        assert token in v760, token
+    assert ui.WORKSPACES["projects"]["menu_attr"] == "_v760_row_menu"
+    assert ui.WORKSPACES["projects"]["controls_attr"] == "_v760_project_archive_controls"
+    assert ui.WORKSPACES["tasks"]["menu_attr"] == "_v760_row_menu"
+    assert ui.WORKSPACES["tasks"]["controls_attr"] == "_v760_task_archive_controls"
+
     bootstrap = (root / "runtime_bootstrap.py").read_text(encoding="utf-8")
     assert '"price_lists_domain.platform.ui_cleanup_793"' in bootstrap
     assert bootstrap.index('"v770_runtime_policy"') < bootstrap.index(
