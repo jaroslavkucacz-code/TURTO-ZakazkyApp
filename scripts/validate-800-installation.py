@@ -2,6 +2,7 @@
 """Regression checks for the TURTO CRM 8.0 EXE/installer foundation."""
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -54,6 +55,14 @@ def table_names(path: Path) -> set[str]:
         con.close()
 
 
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def assert_renameable(path: Path) -> None:
     moved = path.with_name(path.stem + ".handle-check" + path.suffix)
     moved.unlink(missing_ok=True)
@@ -66,6 +75,64 @@ def main() -> None:
     base = repo / "ZakazkyApp_base_6.1"
     old_env = dict(os.environ)
     try:
+        # Migration contract: a 7.9.x database already in the historical
+        # standard Documents location is adopted automatically on first 8.0
+        # start, but only after a read-only safety backup. Adoption is one-shot.
+        with tempfile.TemporaryDirectory(prefix="turto800_adopt_") as td:
+            root = Path(td)
+            os.environ["USERPROFILE"] = str(root / "profile")
+            os.environ["LOCALAPPDATA"] = str(root / "local")
+            os.environ.pop("TURTO_CRM_DATA_ROOT", None)
+            os.environ.pop("TURTO_CRM_DATABASE", None)
+            adoption_data = load_data_location(base)
+            legacy_db = adoption_data.default_data_root() / "data" / adoption_data.DEFAULT_DB_NAME
+            create_crm_db(legacy_db, adoption_data._czech_collate)
+            original_sha = file_sha256(legacy_db)
+
+            adopted = adoption_data.adopt_existing_default()
+            assert adopted is not None
+            assert adopted["mode"] == "adopted-existing-standard"
+            assert Path(adopted["database_path"]).resolve() == legacy_db.resolve()
+            first_backup = Path(adopted["first_8_backup"])
+            assert first_backup.is_file()
+            assert adoption_data.validate_database(first_backup)["ok"]
+            assert file_sha256(legacy_db) == original_sha, "8.0 adoption changed the legacy DB"
+            assert adoption_data.validate_database(legacy_db)["ok"]
+            assert_renameable(legacy_db)
+            assert_renameable(first_backup)
+
+            adopted_cfg = json.loads(adoption_data.config_file().read_text(encoding="utf-8"))
+            assert adopted_cfg["mode"] == "adopted-existing-standard"
+            assert Path(adopted_cfg["first_8_backup"]).resolve() == first_backup.resolve()
+            backups_before_second_start = sorted(
+                adoption_data.default_data_root().joinpath("backup").glob(
+                    "zakazky_pred_prvnim_spustenim_8_0_*.db"
+                )
+            )
+            assert len(backups_before_second_start) == 1
+            assert adoption_data.adopt_existing_default() is None
+            backups_after_second_start = sorted(
+                adoption_data.default_data_root().joinpath("backup").glob(
+                    "zakazky_pred_prvnim_spustenim_8_0_*.db"
+                )
+            )
+            assert backups_after_second_start == backups_before_second_start
+            assert file_sha256(legacy_db) == original_sha
+
+        # Explicit environment-owned data locations must never be silently
+        # adopted from Documents, even when a legacy standard DB exists there.
+        with tempfile.TemporaryDirectory(prefix="turto800_adopt_override_") as td:
+            root = Path(td)
+            os.environ["USERPROFILE"] = str(root / "profile")
+            os.environ["LOCALAPPDATA"] = str(root / "local")
+            os.environ["TURTO_CRM_DATA_ROOT"] = str(root / "explicit-data")
+            os.environ.pop("TURTO_CRM_DATABASE", None)
+            override_data = load_data_location(base)
+            legacy_db = override_data.default_data_root() / "data" / override_data.DEFAULT_DB_NAME
+            create_crm_db(legacy_db, override_data._czech_collate)
+            assert override_data.adopt_existing_default() is None
+            assert not override_data.config_file().exists()
+
         with tempfile.TemporaryDirectory(prefix="turto800_install_") as td:
             root = Path(td)
             os.environ["USERPROFILE"] = str(root / "profile")
@@ -162,6 +229,8 @@ def main() -> None:
         assert 'label="pred_nahrazenim_databaze"' in onboarding
         assert "copy_database_to_standard(source_path, replace=True)" in onboarding
         assert "Před změnou databáze zavřete" in onboarding
+        assert "data_location.adopt_existing_default()" in onboarding
+        assert "_show_adoption_error" in onboarding
 
         platform_dir = base / "price_lists_domain" / "platform"
         shadowed = sorted(
@@ -212,8 +281,12 @@ def main() -> None:
         assert "def _czech_collate(" in data_source
         assert "def _register_sqlite_collations(" in data_source
         assert 'connection.create_collation("CZECH", _czech_collate)' in data_source
+        assert "def _readonly_sqlite_uri(" in data_source
         assert "def backup_database(" in data_source
+        assert "def adopt_existing_default(" in data_source
+        assert 'label="pred_prvnim_spustenim_8_0"' in data_source
         assert '"first_attach_backup"' in data_source
+        assert '"first_8_backup"' in data_source
         assert "con.close()" in data_source
 
         icon = base / "turto_logo.ico"
