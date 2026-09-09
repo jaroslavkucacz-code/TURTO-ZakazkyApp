@@ -23,6 +23,9 @@ import data_location
 
 WINDOWS_MANIFEST = "latest-windows.json"
 WINDOWS_MANIFEST_FORMAT = "turto-crm-windows-update-v1"
+WINDOWS_RELEASE_ROOT = (
+    "https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/releases/download"
+)
 UPDATER_EXE = "TURTO CRM Updater.exe"
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 _VERSION_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$")
@@ -53,6 +56,12 @@ def _validate_windows_manifest(data: dict) -> dict:
     if not _SHA256_RE.fullmatch(sha256):
         raise ValueError("Manifest aktualizace neobsahuje platný SHA-256 otisk.")
 
+    download_url = str(data.get("download_url") or "").strip()
+    if download_url:
+        expected_url = f"{WINDOWS_RELEASE_ROOT}/v{version}/{package}"
+        if download_url != expected_url:
+            raise ValueError("Manifest odkazuje na nepovolený zdroj Windows update balíčku.")
+
     normalized = dict(data)
     normalized.update(
         {
@@ -61,6 +70,7 @@ def _validate_windows_manifest(data: dict) -> dict:
             "version": version,
             "package": package,
             "sha256": sha256,
+            "download_url": download_url,
         }
     )
     return normalized
@@ -87,9 +97,14 @@ def _download_windows_package(M, updates, manifest: dict) -> Path:
     data = _validate_windows_manifest(manifest)
     package_name = data["package"]
     expected_sha = data["sha256"]
-    base = str(manifest.get("_base") or (updates.OFFICIAL_UPDATE_ROOT + "/"))
-    if base != updates.OFFICIAL_UPDATE_ROOT.rstrip("/") + "/":
-        raise ValueError("Windows update balíček nemá povolený oficiální zdroj.")
+    download_url = str(data.get("download_url") or "").strip()
+    if not download_url:
+        # Backward-compatible bridge for early 8.0 previews. Production 8.x
+        # manifests point to immutable GitHub Release assets instead.
+        base = str(manifest.get("_base") or (updates.OFFICIAL_UPDATE_ROOT + "/"))
+        if base != updates.OFFICIAL_UPDATE_ROOT.rstrip("/") + "/":
+            raise ValueError("Windows update balíček nemá povolený oficiální zdroj.")
+        download_url = base + quote(package_name)
 
     root = Path(getattr(M, "DATA_ROOT", data_location.data_root())) / "updates" / "downloads"
     root.mkdir(parents=True, exist_ok=True)
@@ -98,7 +113,7 @@ def _download_windows_package(M, updates, manifest: dict) -> Path:
     partial.unlink(missing_ok=True)
 
     request = urllib.request.Request(
-        base + quote(package_name),
+        download_url,
         headers={
             "User-Agent": "TURTO-CRM-Windows-Updater",
             "Cache-Control": "no-cache",
@@ -235,5 +250,6 @@ __all__ = [
     "apply",
     "WINDOWS_MANIFEST",
     "WINDOWS_MANIFEST_FORMAT",
+    "WINDOWS_RELEASE_ROOT",
     "UPDATER_EXE",
 ]
