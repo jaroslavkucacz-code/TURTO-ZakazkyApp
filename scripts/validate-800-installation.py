@@ -98,6 +98,13 @@ def main() -> None:
         assert launcher.index("ensure_data_location") < launcher.index("import app")
         assert 'app.APP_VERSION = "8.0.0-preview.1"' in launcher
         assert "data_location.apply_to_app(app)" in launcher
+        assert "def _baseline_schema_ready()" in launcher
+        assert '{"users", "settings", "companies", "actions"}.issubset(names)' in launcher
+        baseline_guard = launcher.index("if not _baseline_schema_ready():")
+        first_schema = launcher.index("app.ensure_schema()", baseline_guard)
+        runtime_apply = launcher.index("runtime_bootstrap.apply_all(app)")
+        final_schema = launcher.index("app.ensure_schema()", runtime_apply)
+        assert baseline_guard < first_schema < runtime_apply < final_schema
         assert "exe_distribution.apply(app)" in launcher
 
         exe_policy = (base / "price_lists_domain" / "platform" / "exe_distribution.py").read_text(encoding="utf-8")
