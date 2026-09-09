@@ -1,0 +1,4 @@
+{
+  "version": "7.9.3",
+  "notes": "TURTO CRM 7.9.3\n\n- Kontextové akce v Příležitostech, Poptávkách a MIVO nyní respektují skutečný výběr: Archivovat a Obnovit jsou dostupné jen tam, kde dávají smysl.\n- Akce určené pro jednu položku se při vícenásobném výběru deaktivují místo otevření nad náhodným záznamem.\n- Enter otevře právě jednu vybranou položku v hlavních evidencích a Escape bezpečně zruší výběr, pokud tabulka nemá vlastní klávesovou obsluhu.\n- Zachován bezpečný dvojklik pouze na datový řádek a všechny dosavadní ochrany 7.9.2."
+}
