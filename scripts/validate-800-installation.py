@@ -171,17 +171,32 @@ def main() -> None:
 
         exe_policy = (platform_dir / "exe_distribution.py").read_text(encoding="utf-8")
         assert 'WINDOWS_MANIFEST = "latest-windows.json"' in exe_policy
+        assert 'WINDOWS_MANIFEST_FORMAT = "turto-crm-windows-update-v1"' in exe_policy
         assert 'UPDATER_EXE = "TURTO CRM Updater.exe"' in exe_policy
+        assert "def _validate_windows_manifest" in exe_policy
+        assert "def _download_windows_package" in exe_policy
+        assert "actual_sha != expected_sha" in exe_policy
+        assert "M._turto_windows_expected_update_sha256" in exe_policy
         assert "tempfile.mkdtemp" in exe_policy
         assert "shutil.copy2(installed_updater, temp_updater)" in exe_policy
+        assert "M._download_update_package = download_package" in exe_policy
 
         updater = (repo / "build" / "windows" / "updater_800.pyw").read_text(encoding="utf-8")
         assert 'MAIN_EXE = "TURTO CRM.exe"' in updater
         assert "data_location.database_path()" in updater
+        assert "data_location.backup_database(" in updater
         assert 'path.name.casefold().startswith("unins")' in updater
         assert "_database_backup(label)" in updater
         assert "_snapshot_program(target, current_version)" in updater
-        assert "src.close()" in updater and "dst.close()" in updater
+        assert "def _verify_package_hash" in updater
+        assert "def _safe_extract" in updater
+        assert "def _restore_program_snapshot" in updater
+        assert "def _replace_program_with_rollback" in updater
+        assert "_validate_release(target, installed=True)" in updater
+        assert "původní verze byla automaticky obnovena" in updater
+
+        updater_behavior = repo / "scripts" / "validate-800-updater-transaction.py"
+        assert updater_behavior.is_file()
 
         data_source = (base / "data_location.py").read_text(encoding="utf-8")
         assert "def backup_database(" in data_source
@@ -217,6 +232,7 @@ def main() -> None:
         assert "needs: build-windows-preview" in workflow
         assert "actions/download-artifact@v4" in workflow
         assert "Cold frozen runtime first start" in workflow
+        assert "validate-800-updater-transaction.py" in workflow
         assert "TURTO_CRM_Diagnostic.spec" not in workflow
 
     finally:
