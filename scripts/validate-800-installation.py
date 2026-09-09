@@ -107,7 +107,24 @@ def main() -> None:
         assert baseline_guard < first_schema < runtime_apply < final_schema
         assert "exe_distribution.apply(app)" in launcher
 
-        exe_policy = (base / "price_lists_domain" / "platform" / "exe_distribution.py").read_text(encoding="utf-8")
+        platform_dir = base / "price_lists_domain" / "platform"
+        shadowed = sorted(
+            source.stem
+            for source in platform_dir.glob("*.py")
+            if source.name != "__init__.py" and (platform_dir / source.stem / "__init__.py").exists()
+        )
+        assert not shadowed, f"PyInstaller-unsafe platform file/package collisions: {shadowed}"
+
+        lazy_refresh = (platform_dir / "lazy_refresh.py").read_text(encoding="utf-8")
+        assert "def _install_safe_backup(module)" in lazy_refresh
+        assert "source.backup(destination" in lazy_refresh
+        assert not (platform_dir / "lazy_refresh" / "__init__.py").exists()
+        assert not (platform_dir / "worksets" / "__init__.py").exists()
+        assert not (platform_dir / "database" / "__init__.py").exists()
+        assert not (platform_dir / "compat.py").exists()
+        assert (platform_dir / "compat" / "__init__.py").is_file()
+
+        exe_policy = (platform_dir / "exe_distribution.py").read_text(encoding="utf-8")
         assert 'WINDOWS_MANIFEST = "latest-windows.json"' in exe_policy
         assert 'UPDATER_EXE = "TURTO CRM Updater.exe"' in exe_policy
         assert "tempfile.mkdtemp" in exe_policy
