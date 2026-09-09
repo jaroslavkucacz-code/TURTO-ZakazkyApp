@@ -27,6 +27,27 @@ SMOKE_RESULT = (
 )
 
 
+def _product_version() -> str:
+    """Read the single runtime version owned by the assembled Windows payload."""
+    if getattr(sys, "frozen", False):
+        manifest = ROOT / "version.json"
+        try:
+            data = json.loads(manifest.read_text(encoding="utf-8-sig"))
+        except Exception as exc:
+            raise RuntimeError(f"Chybí nebo je poškozený version.json instalace TURTO CRM: {exc}") from exc
+        version = str(data.get("version") or "").strip() if isinstance(data, dict) else ""
+        channel = str(data.get("channel") or "").strip().casefold() if isinstance(data, dict) else ""
+        if not version or channel != "windows":
+            raise RuntimeError("version.json neobsahuje platnou Windows verzi TURTO CRM.")
+        return version
+
+    version_file = Path(__file__).resolve().with_name("version.txt")
+    version = version_file.read_text(encoding="utf-8-sig").strip()
+    if not version:
+        raise RuntimeError("build/windows/version.txt neobsahuje verzi TURTO CRM.")
+    return version
+
+
 def _smoke_checkpoint(phase: str, **extra) -> None:
     if not SMOKE_TEST or SMOKE_RESULT is None:
         return
@@ -105,12 +126,12 @@ from price_lists_domain.platform import exe_distribution
 
 _smoke_checkpoint("app-runtime-imported")
 
-# The source baseline keeps its historical version; the frozen launcher owns the
-# 8.x product version and data-location override.
+# The source baseline keeps its historical version; the frozen Windows payload
+# owns the 8.x product version through version.json next to TURTO CRM.exe.
 app.APP_NAME = "TURTO CRM"
-app.APP_VERSION = "8.0.0-preview.1"
+app.APP_VERSION = _product_version()
 data_location.apply_to_app(app)
-_smoke_checkpoint("data-location-applied", database=str(app.DB))
+_smoke_checkpoint("data-location-applied", database=str(app.DB), version=app.APP_VERSION)
 
 _run_phase("cleanup-stale-test-session", app.cleanup_stale_test_session)
 
