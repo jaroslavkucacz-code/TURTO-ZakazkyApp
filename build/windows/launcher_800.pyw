@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import json
 import multiprocessing
 import os
@@ -59,13 +60,48 @@ _smoke_checkpoint("data-location-applied", database=str(app.DB))
 # under --smoke-test, so the normal installed application keeps the proven
 # runtime bootstrap implementation unchanged.
 if SMOKE_TEST:
-    _original_runtime_apply = runtime_bootstrap._apply
     _original_prime_layers = runtime_bootstrap._prime_startup_stability_layers
 
+    def _trace_crm_runtime_helpers(runtime_module):
+        if getattr(runtime_module, "_turto_smoke_helpers_traced", False):
+            return
+        helper_names = (
+            "_activate",
+            "_db_wrapper",
+            "_safe_dialog_sizer",
+            "_ensure",
+            "_patch_users",
+            "_patch_theme",
+        )
+        for helper_name in helper_names:
+            original = getattr(runtime_module, helper_name, None)
+            if not callable(original):
+                continue
+
+            def traced(*args, _name=helper_name, _original=original, **kwargs):
+                _smoke_checkpoint(
+                    f"crm-runtime-before:{_name}",
+                    database=str(getattr(app, "DB", "")),
+                )
+                result = _original(*args, **kwargs)
+                _smoke_checkpoint(
+                    f"crm-runtime-after:{_name}",
+                    database=str(getattr(app, "DB", "")),
+                )
+                return result
+
+            setattr(runtime_module, helper_name, traced)
+        runtime_module._turto_smoke_helpers_traced = True
+
     def _diagnostic_runtime_apply(module_name, target):
-        _smoke_checkpoint(f"runtime-before:{module_name}", database=str(getattr(target, "DB", "")))
-        _original_runtime_apply(module_name, target)
-        _smoke_checkpoint(f"runtime-after:{module_name}", database=str(getattr(target, "DB", "")))
+        _smoke_checkpoint(f"runtime-before-import:{module_name}", database=str(getattr(target, "DB", "")))
+        runtime_module = importlib.import_module(module_name)
+        _smoke_checkpoint(f"runtime-after-import:{module_name}", database=str(getattr(target, "DB", "")))
+        if module_name == "crm_runtime":
+            _trace_crm_runtime_helpers(runtime_module)
+        _smoke_checkpoint(f"runtime-before-apply:{module_name}", database=str(getattr(target, "DB", "")))
+        runtime_module.apply(target)
+        _smoke_checkpoint(f"runtime-after-apply:{module_name}", database=str(getattr(target, "DB", "")))
 
     def _diagnostic_prime_layers():
         _smoke_checkpoint("runtime-before:stability-prime", database=str(app.DB))
