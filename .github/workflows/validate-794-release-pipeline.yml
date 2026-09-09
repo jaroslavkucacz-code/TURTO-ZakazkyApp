@@ -1,0 +1,30 @@
+name: Validate TURTO CRM 7.9.4 release pipeline
+
+on:
+  pull_request:
+    paths:
+      - scripts/validate-release-version.py
+      - scripts/validate-794-release-pipeline.py
+      - .github/workflows/publish-update.yml
+      - .github/workflows/validate-794-release-pipeline.yml
+  push:
+    branches: [main]
+    paths:
+      - scripts/validate-release-version.py
+      - scripts/validate-794-release-pipeline.py
+      - .github/workflows/publish-update.yml
+      - .github/workflows/validate-794-release-pipeline.yml
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Validate release guard and workflow contract
+        run: python scripts/validate-794-release-pipeline.py
