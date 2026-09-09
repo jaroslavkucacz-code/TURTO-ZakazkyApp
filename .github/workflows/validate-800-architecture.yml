@@ -14,6 +14,7 @@ on:
       - 'scripts/validate-771-runtime-bootstrap-stability.py'
       - 'scripts/validate-7900-runtime-integration.py'
       - 'scripts/validate-800-app-lifecycle.py'
+      - 'scripts/validate-800-schema-lifecycle.py'
       - 'ARCHITECTURE_AUDIT_8.0.md'
       - '.gitignore'
       - '.github/workflows/validate-800-architecture.yml'
@@ -47,6 +48,8 @@ jobs:
         run: python -m compileall -q ZakazkyApp_base_6.1 post_baseline.py scripts
       - name: App initialization lifecycle
         run: python scripts/validate-800-app-lifecycle.py ZakazkyApp_base_6.1
+      - name: Database schema lifecycle
+        run: python scripts/validate-800-schema-lifecycle.py ZakazkyApp_base_6.1
       - name: Architecture ownership guard
         run: python scripts/audit-runtime-overrides.py . --check
       - name: PLEXUS ownership and request UI
