@@ -15,8 +15,12 @@ def main() -> None:
 
     from price_lists_domain.platform import categories, compat, database, finalize
 
+    class FakeApp:
+        def refresh_header(self, *args, **kwargs):
+            return None
+
     class Fake:
-        pass
+        App = FakeApp
 
     M = Fake()
     M.sqlite3 = sqlite3
