@@ -178,8 +178,30 @@ def configure_data_location(*, force: bool = False) -> bool:
     return bool(result["ok"])
 
 
+def _show_adoption_error(exc: BaseException) -> None:
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        messagebox.showerror(
+            "Převzetí databáze",
+            "TURTO CRM našlo stávající databázi z předchozí instalace, ale před prvním "
+            "spuštěním 8.0 se nepodařilo vytvořit bezpečnostní zálohu.\n\n"
+            f"Program databázi nezměnil.\n\n{exc}",
+            parent=root,
+        )
+    finally:
+        root.destroy()
+
+
 def ensure_data_location() -> bool:
     """Return True when main CRM startup may continue."""
+    try:
+        adopted = data_location.adopt_existing_default()
+    except Exception as exc:
+        _show_adoption_error(exc)
+        return False
+    if adopted:
+        return True
     return configure_data_location(force=False)
 
 
