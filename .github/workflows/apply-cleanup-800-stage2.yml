@@ -22,6 +22,8 @@ jobs:
           base64 -d /tmp/stage2.patch.gz.b64 | gzip -dc > /tmp/stage2.patch
           git apply --check /tmp/stage2.patch
           git apply /tmp/stage2.patch
+          git apply --check _cleanup800_stage2/auto.patch
+          git apply _cleanup800_stage2/auto.patch
           rm -rf _cleanup800_stage2
           git status --short
       - name: Run focused Linux checks
