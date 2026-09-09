@@ -6,7 +6,7 @@ used by the main EXE, the updater and validation tools.
 """
 from __future__ import annotations
 
-from contextlib import closing
+from datetime import datetime
 import json
 import os
 from pathlib import Path
@@ -116,16 +116,62 @@ def use_default_location() -> dict[str, str]:
     return data
 
 
-def attach_database(path: str | Path, *, data_root_path: str | Path | None = None) -> dict[str, str]:
+def _sqlite_backup(source: Path, target: Path) -> Path:
+    """Create a consistent SQLite backup and release both handles immediately."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    src = sqlite3.connect(source)
+    dst = sqlite3.connect(target)
+    try:
+        src.backup(dst)
+    finally:
+        try:
+            dst.close()
+        finally:
+            src.close()
+    return target
+
+
+def backup_database(
+    path: str | Path,
+    label: str = "pred_prvnim_pripojenim",
+    *,
+    backup_root: str | Path | None = None,
+) -> Path:
+    """Back up an existing TURTO database without changing the source file."""
+    source = Path(path).expanduser().resolve()
+    validation = validate_database(source)
+    if not validation["ok"]:
+        raise ValueError(str(validation["message"]))
+    root = Path(backup_root).expanduser().resolve() if backup_root else default_data_root()
+    backup_dir = root / "backup"
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_label = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in str(label or "zaloha"))
+    target = backup_dir / f"zakazky_{safe_label}_{stamp}.db"
+    _sqlite_backup(source, target)
+    copied = validate_database(target)
+    if not copied["ok"]:
+        target.unlink(missing_ok=True)
+        raise ValueError("Záloha databáze neprošla kontrolou: " + str(copied["message"]))
+    return target
+
+
+def attach_database(
+    path: str | Path,
+    *,
+    data_root_path: str | Path | None = None,
+    backup_before_use: bool = True,
+) -> dict[str, str]:
     db = Path(path).expanduser().resolve()
     validation = validate_database(db)
     if not validation["ok"]:
         raise ValueError(str(validation["message"]))
     root = Path(data_root_path).expanduser().resolve() if data_root_path else default_data_root()
+    backup = backup_database(db, backup_root=root) if backup_before_use else None
     data = {
         "mode": "external-database",
         "data_root": str(root),
         "database_path": str(db),
+        "first_attach_backup": str(backup) if backup else "",
     }
     _write_config(data)
     ensure_data_directories()
@@ -149,14 +195,7 @@ def copy_database_to_standard(path: str | Path, *, replace: bool = False) -> Pat
         temp.unlink(missing_ok=True)
     except Exception:
         pass
-
-    # sqlite3.Connection's context manager commits/rolls back but does not close
-    # the file handle.  Windows requires both handles to be closed before the
-    # validated temporary database can be atomically moved into place.
-    with closing(sqlite3.connect(source)) as src, closing(sqlite3.connect(temp)) as dst:
-        src.backup(dst)
-        dst.commit()
-
+    _sqlite_backup(source, temp)
     copied = validate_database(temp)
     if not copied["ok"]:
         temp.unlink(missing_ok=True)
@@ -180,19 +219,20 @@ def validate_database(path: str | Path) -> dict[str, Any]:
     if not db.is_file():
         result["message"] = "Soubor databáze neexistuje."
         return result
+    con = None
     try:
         uri = "file:" + quote(str(db.resolve()).replace("\\", "/"), safe="/:_") + "?mode=ro"
-        with closing(sqlite3.connect(uri, uri=True)) as con:
-            quick = con.execute("PRAGMA quick_check").fetchone()
-            if not quick or str(quick[0]).strip().casefold() != "ok":
-                result["message"] = "SQLite quick_check nevrátil stav OK."
-                return result
-            tables = {
-                str(row[0])
-                for row in con.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-                ).fetchall()
-            }
+        con = sqlite3.connect(uri, uri=True)
+        quick = con.execute("PRAGMA quick_check").fetchone()
+        if not quick or str(quick[0]).strip().casefold() != "ok":
+            result["message"] = "SQLite quick_check nevrátil stav OK."
+            return result
+        tables = {
+            str(row[0])
+            for row in con.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            ).fetchall()
+        }
         core = sorted(tables & CORE_TABLES)
         result["tables"] = sorted(tables)
         result["core_tables"] = core
@@ -205,6 +245,9 @@ def validate_database(path: str | Path) -> dict[str, Any]:
     except Exception as exc:
         result["message"] = f"Databázi se nepodařilo otevřít: {exc}"
         return result
+    finally:
+        if con is not None:
+            con.close()
 
 
 def apply_to_app(module: Any) -> None:
@@ -225,6 +268,7 @@ def apply_to_app(module: Any) -> None:
 __all__ = [
     "attach_database",
     "apply_to_app",
+    "backup_database",
     "config_file",
     "copy_database_to_standard",
     "data_root",
