@@ -1,7 +1,7 @@
 """Persistent data-location policy for TURTO CRM 8.0+.
 
 Program files may live under LocalAppData/Program Files while business data stay
-outside the installation.  This module is intentionally UI-free so it can be
+outside the installation. This module is intentionally UI-free so it can be
 used by the main EXE, the updater and validation tools.
 """
 from __future__ import annotations
@@ -27,6 +27,58 @@ CORE_TABLES = {
     "requests",
     "tasks",
 }
+
+# Keep this collation byte-for-byte compatible in behavior with the legacy CRM
+# app.db() connection. Real TURTO databases contain indexes that reference
+# COLLATE CZECH; SQLite integrity/quick_check therefore needs the collation to be
+# registered even when the standalone updater opens the database read-only.
+_CZ_ORDER = {
+    "a": 10, "á": 11, "b": 20, "c": 30, "č": 31, "d": 40, "ď": 41,
+    "e": 50, "é": 51, "ě": 52, "f": 60, "g": 70, "h": 80, "ch": 90,
+    "i": 100, "í": 101, "j": 110, "k": 120, "l": 130, "m": 140,
+    "n": 150, "ň": 151, "o": 160, "ó": 161, "p": 170, "q": 180,
+    "r": 190, "ř": 191, "s": 200, "š": 201, "t": 210, "ť": 211,
+    "u": 220, "ú": 221, "ů": 222, "v": 230, "w": 240, "x": 250,
+    "y": 260, "ý": 261, "z": 270, "ž": 271,
+}
+
+
+def _czech_sort_key(value: Any):
+    text = str(value or "").strip().casefold()
+    out = []
+    index = 0
+    while index < len(text):
+        if index + 1 < len(text) and text[index:index + 2] == "ch":
+            out.append((_CZ_ORDER["ch"], ""))
+            index += 2
+            continue
+        char = text[index]
+        if char in _CZ_ORDER:
+            out.append((_CZ_ORDER[char], ""))
+        elif char.isdigit():
+            end = index
+            while end < len(text) and text[end].isdigit():
+                end += 1
+            out.append((500, int(text[index:end])))
+            index = end
+            continue
+        elif char.isspace():
+            out.append((1, ""))
+        else:
+            out.append((400, char))
+        index += 1
+    return tuple(out)
+
+
+def _czech_collate(left: Any, right: Any) -> int:
+    left_key = _czech_sort_key(left)
+    right_key = _czech_sort_key(right)
+    return (left_key > right_key) - (left_key < right_key)
+
+
+def _register_sqlite_collations(connection: sqlite3.Connection) -> sqlite3.Connection:
+    connection.create_collation("CZECH", _czech_collate)
+    return connection
 
 
 def default_data_root() -> Path:
@@ -119,8 +171,8 @@ def use_default_location() -> dict[str, str]:
 def _sqlite_backup(source: Path, target: Path) -> Path:
     """Create a consistent SQLite backup and release both handles immediately."""
     target.parent.mkdir(parents=True, exist_ok=True)
-    src = sqlite3.connect(source)
-    dst = sqlite3.connect(target)
+    src = _register_sqlite_collations(sqlite3.connect(source))
+    dst = _register_sqlite_collations(sqlite3.connect(target))
     try:
         src.backup(dst)
     finally:
@@ -222,7 +274,7 @@ def validate_database(path: str | Path) -> dict[str, Any]:
     con = None
     try:
         uri = "file:" + quote(str(db.resolve()).replace("\\", "/"), safe="/:_") + "?mode=ro"
-        con = sqlite3.connect(uri, uri=True)
+        con = _register_sqlite_collations(sqlite3.connect(uri, uri=True))
         quick = con.execute("PRAGMA quick_check").fetchone()
         if not quick or str(quick[0]).strip().casefold() != "ok":
             result["message"] = "SQLite quick_check nevrátil stav OK."
