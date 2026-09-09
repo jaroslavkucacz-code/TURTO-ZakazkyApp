@@ -22,7 +22,8 @@ def load_data_location(base: Path):
 
 def create_crm_db(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(path) as con:
+    con = sqlite3.connect(path)
+    try:
         con.executescript(
             """
             CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT);
@@ -33,6 +34,17 @@ def create_crm_db(path: Path) -> None:
             CREATE TABLE actions(id INTEGER PRIMARY KEY,name TEXT);
             """
         )
+        con.commit()
+    finally:
+        con.close()
+
+
+def assert_renameable(path: Path) -> None:
+    """Windows-specific contract: no SQLite helper may leave a live file handle."""
+    moved = path.with_name(path.stem + ".handle-check" + path.suffix)
+    moved.unlink(missing_ok=True)
+    path.replace(moved)
+    moved.replace(path)
 
 
 def main() -> None:
@@ -57,17 +69,25 @@ def main() -> None:
             check = data.validate_database(source)
             assert check["ok"], check
             assert len(check["core_tables"]) >= 4
+            assert_renameable(source)
 
-            data.attach_database(source)
+            attached = data.attach_database(source)
             assert data.database_path() == source.resolve()
             cfg = json.loads(data.config_file().read_text(encoding="utf-8"))
             assert cfg["mode"] == "external-database"
+            backup = Path(attached["first_attach_backup"])
+            assert backup.is_file()
+            assert data.validate_database(backup)["ok"]
+            assert_renameable(source)
+            assert_renameable(backup)
 
             data.use_default_location()
             assert data.database_path() == expected_root / "data" / "zakazky.db"
             copied = data.copy_database_to_standard(source)
             assert copied == expected_root / "data" / "zakazky.db"
             assert data.validate_database(copied)["ok"]
+            assert_renameable(source)
+            assert_renameable(copied)
 
             fake = type("AppModule", (), {})()
             data.apply_to_app(fake)
@@ -93,6 +113,12 @@ def main() -> None:
         assert 'path.name.casefold().startswith("unins")' in updater
         assert "_database_backup(label)" in updater
         assert "_snapshot_program(target, current_version)" in updater
+        assert "src.close()" in updater and "dst.close()" in updater
+
+        data_source = (base / "data_location.py").read_text(encoding="utf-8")
+        assert "def backup_database(" in data_source
+        assert '"first_attach_backup"' in data_source
+        assert "con.close()" in data_source
 
         spec = (repo / "build" / "windows" / "TURTO_CRM.spec").read_text(encoding="utf-8")
         assert "exclude_binaries=True" in spec
