@@ -44,6 +44,10 @@ jobs:
         shell: pwsh
         run: pyinstaller --noconfirm --clean build/windows/TURTO_CRM.spec
 
+      - name: Build console diagnostic frozen application
+        shell: pwsh
+        run: pyinstaller --noconfirm --clean build/windows/TURTO_CRM_Diagnostic.spec
+
       - name: Build one-file updater
         shell: pwsh
         run: pyinstaller --noconfirm --clean build/windows/TURTO_CRM_Updater.spec
@@ -68,6 +72,27 @@ jobs:
           $updateZip = "dist/TURTO_CRM_Update_$version.zip"
           Remove-Item $updateZip -Force -ErrorAction SilentlyContinue
           Compress-Archive -Path $stage -DestinationPath $updateZip -CompressionLevel Optimal
+
+      - name: Run console diagnostic frozen startup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $diagnosticRoot = Join-Path $env:RUNNER_TEMP 'turto-crm-diagnostic-data'
+          $diagnosticResult = Join-Path $env:RUNNER_TEMP 'turto-crm-diagnostic-smoke.json'
+          Remove-Item $diagnosticRoot -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item $diagnosticResult -Force -ErrorAction SilentlyContinue
+          $env:TURTO_CRM_DATA_ROOT = $diagnosticRoot
+          $env:TURTO_CRM_SMOKE_RESULT = $diagnosticResult
+          $env:TURTO_DISABLE_AUTO_UPDATE = '1'
+          $diagnosticExe = (Resolve-Path 'dist/TURTO CRM Diagnostic/TURTO CRM Diagnostic.exe').Path
+          & $diagnosticExe --smoke-test
+          $code = $LASTEXITCODE
+          if (Test-Path $diagnosticResult) {
+            Write-Host '--- diagnostic frozen checkpoint ---'
+            Get-Content $diagnosticResult -Raw | Write-Host
+            Write-Host '------------------------------------'
+          }
+          if ($code -ne 0) { throw "Diagnostic frozen startup failed with exit code $code" }
 
       - name: Install Inno Setup compiler
         shell: pwsh
@@ -195,14 +220,16 @@ jobs:
           $hashAfter = (Get-FileHash $database -Algorithm SHA256).Hash
           if ($hashAfter -ne $hashBefore) { throw 'Uninstall modified the business database' }
 
-      - name: Upload frozen smoke checkpoint
+      - name: Upload frozen smoke checkpoints
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TURTO-CRM-8.0-smoke-checkpoint
+          name: TURTO-CRM-8.0-smoke-checkpoints
           if-no-files-found: warn
           retention-days: 7
-          path: ${{ runner.temp }}/turto-crm-smoke.json
+          path: |
+            ${{ runner.temp }}/turto-crm-smoke.json
+            ${{ runner.temp }}/turto-crm-diagnostic-smoke.json
 
       - uses: actions/upload-artifact@v4
         with:
