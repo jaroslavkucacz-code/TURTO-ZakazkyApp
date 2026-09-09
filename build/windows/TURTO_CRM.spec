@@ -12,7 +12,15 @@ ICON = BASE / "turto_crm.ico"
 sys.path.insert(0, str(BASE))
 import runtime_bootstrap
 
-hiddenimports = list(runtime_bootstrap.EARLY_LAYERS) + list(runtime_bootstrap.LATE_LAYERS)
+hiddenimports = list(runtime_bootstrap.EARLY_LAYERS)
+hiddenimports += list(runtime_bootstrap.STABILITY_PRIMED_LAYERS)
+hiddenimports += list(runtime_bootstrap.LATE_LAYERS)
+hiddenimports += [
+    "post_baseline",
+    "v631_diskdrop",
+    "v644_default_date_sort",
+    "crm_price_lists",
+]
 hiddenimports += collect_submodules("price_lists_domain")
 hiddenimports += collect_submodules("offers_engine")
 hiddenimports = sorted(set(hiddenimports))
