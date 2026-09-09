@@ -38,6 +38,17 @@ def create_crm_db(path: Path) -> None:
         con.close()
 
 
+def table_names(path: Path) -> set[str]:
+    con = sqlite3.connect(path)
+    try:
+        return {
+            str(row[0])
+            for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
+    finally:
+        con.close()
+
+
 def assert_renameable(path: Path) -> None:
     """Windows-specific contract: no SQLite helper may leave a live file handle."""
     moved = path.with_name(path.stem + ".handle-check" + path.suffix)
@@ -88,24 +99,58 @@ def main() -> None:
             assert_renameable(source)
             assert_renameable(copied)
 
+            # On-demand database management must be able to replace an existing
+            # standard DB only after preserving the previous valid DB first.
+            replacement = root / "transfer" / "replacement_zakazky.db"
+            create_crm_db(replacement)
+            con = sqlite3.connect(replacement)
+            try:
+                con.execute("CREATE TABLE replacement_marker(id INTEGER PRIMARY KEY)")
+                con.commit()
+            finally:
+                con.close()
+            previous_backup = data.backup_database(
+                copied,
+                label="pred_nahrazenim_databaze",
+                backup_root=expected_root,
+            )
+            replaced = data.copy_database_to_standard(replacement, replace=True)
+            assert replaced == copied
+            assert data.validate_database(previous_backup)["ok"]
+            assert data.validate_database(replaced)["ok"]
+            assert "replacement_marker" not in table_names(previous_backup)
+            assert "replacement_marker" in table_names(replaced)
+            assert_renameable(previous_backup)
+            assert_renameable(replaced)
+            assert_renameable(replacement)
+
             fake = type("AppModule", (), {})()
             data.apply_to_app(fake)
-            assert fake.DB == copied
-            assert fake.LIVE_DB == copied
+            assert fake.DB == replaced
+            assert fake.LIVE_DB == replaced
             assert fake.BACKUP_DIR == expected_root / "backup"
 
         launcher = (repo / "build" / "windows" / "launcher_800.pyw").read_text(encoding="utf-8")
-        assert launcher.index("ensure_data_location") < launcher.index("import app")
+        import_app = launcher.index("\nimport app")
+        assert launcher.index("ensure_data_location") < import_app
+        assert launcher.index('DATA_SETUP = "--data-setup"') < import_app
+        assert launcher.index("configure_data_location(force=True)") < import_app
         assert 'app.APP_VERSION = "8.0.0-preview.1"' in launcher
         assert "data_location.apply_to_app(app)" in launcher
-        assert "def _baseline_schema_ready()" in launcher
+        assert "def _baseline_schema_ready(app)" in launcher
         assert '{"users", "settings", "companies", "actions"}.issubset(names)' in launcher
-        baseline_guard = launcher.index("if not _baseline_schema_ready():")
-        first_schema = launcher.index("app.ensure_schema()", baseline_guard)
-        runtime_apply = launcher.index("runtime_bootstrap.apply_all(app)")
-        final_schema = launcher.index("app.ensure_schema()", runtime_apply)
+        baseline_guard = launcher.index("if not _baseline_schema_ready(app):")
+        first_schema = launcher.index('_run_phase("baseline-schema", app.ensure_schema)', baseline_guard)
+        runtime_apply = launcher.index('_run_phase("runtime-apply", lambda: runtime_bootstrap.apply_all(app))')
+        final_schema = launcher.index('_run_phase("schema-final", app.ensure_schema)', runtime_apply)
         assert baseline_guard < first_schema < runtime_apply < final_schema
         assert "exe_distribution.apply(app)" in launcher
+
+        onboarding = (base / "data_onboarding.py").read_text(encoding="utf-8")
+        assert "allow_replace_standard" in onboarding
+        assert 'label="pred_nahrazenim_databaze"' in onboarding
+        assert "copy_database_to_standard(source_path, replace=True)" in onboarding
+        assert "Před změnou databáze zavřete" in onboarding
 
         platform_dir = base / "price_lists_domain" / "platform"
         shadowed = sorted(
@@ -151,6 +196,8 @@ def main() -> None:
         assert 'collect_submodules("price_lists_domain")' in spec
         assert 'ICON = BASE / "turto_logo.ico"' in spec
         assert "icon=str(ICON)" in spec
+        assert not (repo / "build" / "windows" / "TURTO_CRM_Diagnostic.spec").exists()
+
         updater_spec = (repo / "build" / "windows" / "TURTO_CRM_Updater.spec").read_text(encoding="utf-8")
         assert 'name="TURTO CRM Updater"' in updater_spec
         assert "a.binaries" in updater_spec and "a.datas" in updater_spec
@@ -160,11 +207,17 @@ def main() -> None:
         assert "DefaultDirName={localappdata}\\Programs\\TURTO CRM" in installer
         assert "PrivilegesRequired=lowest" in installer
         assert 'Filename: "{app}\\{#MyAppExeName}"' in installer
+        assert 'Parameters: "--data-setup"' in installer
+        assert "Připojit nebo změnit databázi" in installer
         assert "SetupIconFile=..\\..\\ZakazkyApp_base_6.1\\turto_logo.ico" in installer
-        assert "TURTO Zakazky" not in installer.replace(
-            "{ Business data intentionally live outside {app}. The first-run wizard owns\n      creation or attachment of the SQLite database. Uninstall never removes it. }",
-            "",
-        )
+        assert "TURTO Zakazky" not in installer
+
+        workflow = (repo / ".github" / "workflows" / "validate-800-windows-installer.yml").read_text(encoding="utf-8")
+        assert "clean-install-smoke:" in workflow
+        assert "needs: build-windows-preview" in workflow
+        assert "actions/download-artifact@v4" in workflow
+        assert "Cold frozen runtime first start" in workflow
+        assert "TURTO_CRM_Diagnostic.spec" not in workflow
 
     finally:
         os.environ.clear()
