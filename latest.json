@@ -1,6 +1,6 @@
 {
-  "version": "7.9.3",
-  "file": "ZakazkyApp_v7.9.3.zip",
-  "sha256": "10b75cda6902cb490e4cc7554d31215ea831280caed7d94853af1d8663229b8d",
-  "notes": "TURTO CRM 7.9.3\n\n- Kontextové akce v Příležitostech, Poptávkách a MIVO nyní respektují skutečný výběr: Archivovat a Obnovit jsou dostupné jen tam, kde dávají smysl.\n- Akce určené pro jednu položku se při vícenásobném výběru deaktivují místo otevření nad náhodným záznamem.\n- Enter otevře právě jednu vybranou položku v hlavních evidencích a Escape bezpečně zruší výběr, pokud tabulka nemá vlastní klávesovou obsluhu.\n- Zachován bezpečný dvojklik pouze na datový řádek a všechny dosavadní ochrany 7.9.2.\n- Před vydáním ověřena kompatibilita nové UI policy s runtime bootstrapem a ochranou dialogů."
+  "version": "7.9.4",
+  "file": "ZakazkyApp_v7.9.4.zip",
+  "sha256": "9abfe6ec23718673fd30f6b64cda1f8af5ac9c08e0e4730c323c82a9a4b7b779",
+  "notes": "TURTO CRM 7.9.4\n\n- Zrychlené a sjednocené kontextové ovládání v Akcích, Příležitostech, Poptávkách, MIVO a Úkolech; archivace, obnova a jednořádkové akce respektují skutečný výběr.\n- Výběrové změny se slučují přes after_idle, odkazy na toolbar tlačítka a indexy statických menu se cachují místo opakovaného procházení celého UI.\n- Odstraněny redundantní pozdní rebuildy workspace z historických vrstev 7.5 a 7.6 při zachování prvních bezpečnostních fallbacků.\n- Startup PLEXUS/Nevoga backfill se omezuje na nabídky, kterým skutečně chybí uložený obrázek; starší databázové schéma automaticky používá původní kompatibilní postup.\n- Sjednocen aktivní post_baseline mezi zdrojovým a baleným runtime, takže CI ověřuje stejnou logiku, která jde do aktualizačního ZIPu.\n- Release pipeline nově hlídá zvýšení čísla verze, povinně spouští regresní kontroly 7.9.3/7.9.4 a sleduje celý platformní runtime.\n- Nové optimalizační CI je sloučeno do jedné validační sady bez snížení kontroly před vydáním."
 }
