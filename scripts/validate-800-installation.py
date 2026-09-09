@@ -19,9 +19,11 @@ def load_data_location(base: Path):
     return module
 
 
-def create_crm_db(path: Path) -> None:
+def create_crm_db(path: Path, czech_collate) -> None:
+    """Create a realistic TURTO-like DB including an index using COLLATE CZECH."""
     path.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(path)
+    con.create_collation("CZECH", czech_collate)
     try:
         con.executescript(
             """
@@ -31,6 +33,9 @@ def create_crm_db(path: Path) -> None:
             CREATE TABLE people(id INTEGER PRIMARY KEY,name TEXT);
             CREATE TABLE projects(id INTEGER PRIMARY KEY,name TEXT);
             CREATE TABLE actions(id INTEGER PRIMARY KEY,name TEXT);
+            CREATE TABLE czech_probe(name TEXT COLLATE CZECH);
+            CREATE INDEX idx_czech_probe_name ON czech_probe(name COLLATE CZECH);
+            INSERT INTO czech_probe(name) VALUES('hruška'),('chata'),('čáp'),('2'),('10');
             """
         )
         con.commit()
@@ -69,15 +74,22 @@ def main() -> None:
             os.environ.pop("TURTO_CRM_DATABASE", None)
             data = load_data_location(base)
 
+            # Standalone DB validation/updater must use the same deterministic
+            # CZECH ordering as the legacy app connection.
+            assert data._czech_collate("hruška", "chata") < 0
+            assert data._czech_collate("c", "č") < 0
+            assert data._czech_collate("2", "10") < 0
+
             expected_root = Path(os.environ["USERPROFILE"]) / "Documents" / "TURTO Zakazky"
             assert data.default_data_root() == expected_root
             assert data.database_path() == expected_root / "data" / "zakazky.db"
 
             source = root / "transfer" / "old_zakazky.db"
-            create_crm_db(source)
+            create_crm_db(source, data._czech_collate)
             check = data.validate_database(source)
             assert check["ok"], check
             assert len(check["core_tables"]) >= 4
+            assert "czech_probe" in check["tables"]
             assert_renameable(source)
 
             attached = data.attach_database(source)
@@ -97,7 +109,7 @@ def main() -> None:
             assert_renameable(copied)
 
             replacement = root / "transfer" / "replacement_zakazky.db"
-            create_crm_db(replacement)
+            create_crm_db(replacement, data._czech_collate)
             con = sqlite3.connect(replacement)
             try:
                 con.execute("CREATE TABLE replacement_marker(id INTEGER PRIMARY KEY)")
@@ -196,6 +208,10 @@ def main() -> None:
         assert (repo / "scripts" / "validate-800-updater-transaction.py").is_file()
 
         data_source = (base / "data_location.py").read_text(encoding="utf-8")
+        assert "def _czech_sort_key(" in data_source
+        assert "def _czech_collate(" in data_source
+        assert "def _register_sqlite_collations(" in data_source
+        assert 'connection.create_collation("CZECH", _czech_collate)' in data_source
         assert "def backup_database(" in data_source
         assert '"first_attach_backup"' in data_source
         assert "con.close()" in data_source
@@ -229,7 +245,9 @@ def main() -> None:
         assert "needs: build-windows-preview" in workflow
         assert "actions/download-artifact@v4" in workflow
         assert "Cold frozen runtime first start" in workflow
+        assert "Frozen updater integration" in workflow
         assert "validate-800-updater-transaction.py" in workflow
+        assert "latest-windows.preview.json" in workflow
         assert "TURTO_CRM_Diagnostic.spec" not in workflow
 
     finally:
