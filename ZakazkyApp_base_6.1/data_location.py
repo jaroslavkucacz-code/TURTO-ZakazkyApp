@@ -212,6 +212,40 @@ def backup_database(
     return target
 
 
+def adopt_existing_default() -> dict[str, str] | None:
+    """Adopt a legacy standard DB once, with a pre-8.0 safety backup."""
+    if config_file().is_file():
+        return None
+    if str(os.environ.get("TURTO_CRM_DATA_ROOT", "")).strip() or str(
+        os.environ.get("TURTO_CRM_DATABASE", "")
+    ).strip():
+        return None
+
+    root = default_data_root()
+    db = root / "data" / DEFAULT_DB_NAME
+    if not db.is_file():
+        return None
+    validation = validate_database(db)
+    if not validation["ok"]:
+        return None
+
+    backup = backup_database(
+        db,
+        label="pred_prvnim_spustenim_8_0",
+        backup_root=root,
+    )
+    data = {
+        "mode": "adopted-existing-standard",
+        "data_root": str(root),
+        "database_path": str(db),
+        "first_8_backup": str(backup),
+        "adopted_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    _write_config(data)
+    ensure_data_directories()
+    return data
+
+
 def attach_database(
     path: str | Path,
     *,
@@ -322,6 +356,7 @@ def apply_to_app(module: Any) -> None:
 
 
 __all__ = [
+    "adopt_existing_default",
     "attach_database",
     "apply_to_app",
     "backup_database",
