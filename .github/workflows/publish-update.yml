@@ -25,8 +25,13 @@ on:
       - scripts/validate-767-offer-reprocess-images.py
       - scripts/validate-769-nevoga-rich-description.py
       - scripts/validate-7610-nevoga-exact-red-excel.py
+      - scripts/validate-793-ui-cleanup.py
+      - scripts/validate-794-ui-optimization.py
+      - scripts/validate-794-startup-optimization.py
       - scripts/validate-real-ui.py
       - post_baseline.py
+      - ZakazkyApp_base_6.1/post_baseline.py
+      - ZakazkyApp_base_6.1/runtime_bootstrap.py
       - ZakazkyApp_base_6.1/crm_price_lists.py
       - ZakazkyApp_base_6.1/v638_table_updatefix.py
       - ZakazkyApp_base_6.1/v644_default_date_sort.py
@@ -38,16 +43,11 @@ on:
       - ZakazkyApp_base_6.1/v760_table_activity_performance.py
       - ZakazkyApp_base_6.1/v767_offer_reprocess_images.py
       - ZakazkyApp_base_6.1/v769_nevoga_offer.py
+      - ZakazkyApp_base_6.1/v770_runtime_policy.py
       - ZakazkyApp_base_6.1/offers_engine/**
       - ZakazkyApp_base_6.1/price_lists_domain/issued_offers/**
-      - ZakazkyApp_base_6.1/price_lists_domain/platform/categories.py
-      - ZakazkyApp_base_6.1/price_lists_domain/platform/product_catalog.py
-      - ZakazkyApp_base_6.1/price_lists_domain/platform/product_workspace.py
-      - ZakazkyApp_base_6.1/price_lists_domain/platform/commercial_workspace.py
-      - ZakazkyApp_base_6.1/price_lists_domain/platform/customer_pricing.py
-      - ZakazkyApp_base_6.1/price_lists_domain/platform/__init__.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/**
       - ZakazkyApp_base_6.1/price_lists_domain/__init__.py
-      - ZakazkyApp_base_6.1/price_lists_domain/platform/automatic_updates.py
       - .github/workflows/publish-update.yml
       - .github/workflows/validate-gerotop-parser.yml
       - .github/workflows/validate-6340-manual-pricing.yml
@@ -57,6 +57,8 @@ on:
       - .github/workflows/validate-7400-issued-pricing-columns.yml
       - .github/workflows/validate-7500-context-filters-offer-format.yml
       - .github/workflows/validate-7600-table-activity-performance.yml
+      - .github/workflows/validate-793-ui-cleanup.yml
+      - .github/workflows/validate-794-optimization.yml
       - .github/workflows/validate-nevegar-parser.yml
 permissions:
   contents: write
@@ -76,6 +78,10 @@ jobs:
           python-version: '3.14'
           cache: pip
           cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+
+      - name: Validate release version advances
+        shell: bash
+        run: python scripts/validate-release-version.py
 
       - name: Install runtime dependencies
         run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
@@ -151,6 +157,18 @@ jobs:
       - name: Validate Nevoga exact red and 4+2 Excel layout
         shell: bash
         run: python scripts/validate-7610-nevoga-exact-red-excel.py ZakazkyApp_base_6.1
+
+      - name: Validate 7.9.3 contextual UI policy
+        shell: bash
+        run: python scripts/validate-793-ui-cleanup.py ZakazkyApp_base_6.1
+
+      - name: Validate 7.9.4 UI optimization
+        shell: bash
+        run: python scripts/validate-794-ui-optimization.py ZakazkyApp_base_6.1
+
+      - name: Validate 7.9.4 startup optimization
+        shell: bash
+        run: python scripts/validate-794-startup-optimization.py ZakazkyApp_base_6.1
 
       - name: Build, validate and publish
         shell: bash
