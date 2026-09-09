@@ -2,7 +2,7 @@
 
 Older releases grew through hidden imports between compatibility layers.  The
 launcher now calls this single module, so startup order is visible and auditable.
-The final policy module is intentionally last and owns only cross-cutting rules.
+The final policy modules are intentionally last and own only cross-cutting rules.
 """
 from __future__ import annotations
 
@@ -63,6 +63,7 @@ LATE_LAYERS = (
     "price_lists_domain.issued_offers.inline_pricing_workspace",
     "v770_runtime_policy",
     "price_lists_domain.platform.ui_cleanup_793",
+    "price_lists_domain.platform.startup_optimization",
 )
 
 
