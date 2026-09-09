@@ -44,10 +44,6 @@ jobs:
         shell: pwsh
         run: pyinstaller --noconfirm --clean build/windows/TURTO_CRM.spec
 
-      - name: Build console diagnostic frozen application
-        shell: pwsh
-        run: pyinstaller --noconfirm --clean build/windows/TURTO_CRM_Diagnostic.spec
-
       - name: Build one-file updater
         shell: pwsh
         run: pyinstaller --noconfirm --clean build/windows/TURTO_CRM_Updater.spec
@@ -72,27 +68,6 @@ jobs:
           $updateZip = "dist/TURTO_CRM_Update_$version.zip"
           Remove-Item $updateZip -Force -ErrorAction SilentlyContinue
           Compress-Archive -Path $stage -DestinationPath $updateZip -CompressionLevel Optimal
-
-      - name: Run console diagnostic frozen startup
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $diagnosticRoot = Join-Path $env:RUNNER_TEMP 'turto-crm-diagnostic-data'
-          $diagnosticResult = Join-Path $env:RUNNER_TEMP 'turto-crm-diagnostic-smoke.json'
-          Remove-Item $diagnosticRoot -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item $diagnosticResult -Force -ErrorAction SilentlyContinue
-          $env:TURTO_CRM_DATA_ROOT = $diagnosticRoot
-          $env:TURTO_CRM_SMOKE_RESULT = $diagnosticResult
-          $env:TURTO_DISABLE_AUTO_UPDATE = '1'
-          $diagnosticExe = (Resolve-Path 'dist/TURTO CRM Diagnostic/TURTO CRM Diagnostic.exe').Path
-          & $diagnosticExe --smoke-test
-          $code = $LASTEXITCODE
-          if (Test-Path $diagnosticResult) {
-            Write-Host '--- diagnostic frozen checkpoint ---'
-            Get-Content $diagnosticResult -Raw | Write-Host
-            Write-Host '------------------------------------'
-          }
-          if ($code -ne 0) { throw "Diagnostic frozen startup failed with exit code $code" }
 
       - name: Install Inno Setup compiler
         shell: pwsh
@@ -143,12 +118,37 @@ jobs:
             $archive.Dispose()
           }
 
-      - name: Smoke-install setup, frozen runtime and uninstall
+      - name: Upload Windows preview packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: TURTO-CRM-8.0-Windows-preview
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            dist/installer/TURTO_CRM_Setup_*.exe
+            dist/TURTO_CRM_Update_*.zip
+
+  clean-install-smoke:
+    name: clean-install-smoke
+    needs: build-windows-preview
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - name: Download Windows preview packages
+        uses: actions/download-artifact@v4
+        with:
+          name: TURTO-CRM-8.0-Windows-preview
+          path: package
+
+      - name: Install, first-start frozen EXE and uninstall on clean runner
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $version = (Get-Content build/windows/version.txt -Raw).Trim()
-          $setup = (Resolve-Path "dist/installer/TURTO_CRM_Setup_$version.exe").Path
+          $setup = Get-ChildItem 'package' -Recurse -File -Filter 'TURTO_CRM_Setup_*.exe' | Select-Object -First 1
+          if (-not $setup) { throw 'Downloaded installer missing' }
+          if ($setup.BaseName -notmatch '^TURTO_CRM_Setup_(.+)$') { throw 'Cannot resolve preview version from installer name' }
+          $version = $Matches[1]
+
           $installRoot = Join-Path $env:RUNNER_TEMP 'turto-crm-installed'
           $dataRoot = Join-Path $env:RUNNER_TEMP 'turto-crm-data'
           $smokeResult = Join-Path $env:RUNNER_TEMP 'turto-crm-smoke.json'
@@ -185,9 +185,9 @@ jobs:
             return $process
           }
 
-          Invoke-BoundedProcess -FilePath $setup -Arguments @(
+          Invoke-BoundedProcess -FilePath $setup.FullName -Arguments @(
             '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=$installRoot"
-          ) -TimeoutSeconds 90 -Label 'Setup smoke install' | Out-Null
+          ) -TimeoutSeconds 90 -Label 'Setup clean install' | Out-Null
 
           $mainExe = Join-Path $installRoot 'TURTO CRM.exe'
           $updaterExe = Join-Path $installRoot 'TURTO CRM Updater.exe'
@@ -201,41 +201,37 @@ jobs:
           $env:TURTO_CRM_DATA_ROOT = $dataRoot
           $env:TURTO_CRM_SMOKE_RESULT = $smokeResult
           $env:TURTO_DISABLE_AUTO_UPDATE = '1'
-          Invoke-BoundedProcess -FilePath $mainExe -Arguments @('--smoke-test') -TimeoutSeconds 90 -Label 'Frozen runtime smoke test' | Out-Null
+          Invoke-BoundedProcess -FilePath $mainExe -Arguments @('--smoke-test') -TimeoutSeconds 90 -Label 'Cold frozen runtime first start' | Out-Null
+
           if (-not (Test-Path $smokeResult)) { throw 'Frozen runtime did not create smoke result' }
           $smoke = Get-Content $smokeResult -Raw | ConvertFrom-Json
-          if (-not $smoke.ok -or -not $smoke.frozen) { throw "Frozen runtime smoke result is invalid at phase '$($smoke.phase)'" }
+          if (-not $smoke.ok -or -not $smoke.frozen -or $smoke.phase -ne 'complete') {
+            throw "Frozen runtime smoke result is invalid at phase '$($smoke.phase)'"
+          }
           if ($smoke.version -ne $version) { throw "Frozen runtime version mismatch: $($smoke.version) != $version" }
           $database = [string]$smoke.database
           if (-not (Test-Path $database)) { throw 'Frozen runtime did not create the external test database' }
+          if ($database.StartsWith($installRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw 'Frozen runtime incorrectly created business database inside installation directory'
+          }
           $hashBefore = (Get-FileHash $database -Algorithm SHA256).Hash
 
           $uninstaller = Get-ChildItem $installRoot -File -Filter 'unins*.exe' | Select-Object -First 1
           if (-not $uninstaller) { throw 'Inno uninstaller was not created' }
           Invoke-BoundedProcess -FilePath $uninstaller.FullName -Arguments @(
             '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
-          ) -TimeoutSeconds 90 -Label 'Uninstall smoke test' | Out-Null
+          ) -TimeoutSeconds 90 -Label 'Clean uninstall' | Out-Null
+
           if (Test-Path $mainExe) { throw 'Main EXE remained after uninstall' }
           if (-not (Test-Path $database)) { throw 'Uninstall removed the business database' }
           $hashAfter = (Get-FileHash $database -Algorithm SHA256).Hash
           if ($hashAfter -ne $hashBefore) { throw 'Uninstall modified the business database' }
 
-      - name: Upload frozen smoke checkpoints
+      - name: Upload clean-runner smoke result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TURTO-CRM-8.0-smoke-checkpoints
+          name: TURTO-CRM-8.0-clean-runner-smoke
           if-no-files-found: warn
           retention-days: 7
-          path: |
-            ${{ runner.temp }}/turto-crm-smoke.json
-            ${{ runner.temp }}/turto-crm-diagnostic-smoke.json
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: TURTO-CRM-8.0-Windows-preview
-          if-no-files-found: error
-          retention-days: 14
-          path: |
-            dist/installer/TURTO_CRM_Setup_*.exe
-            dist/TURTO_CRM_Update_*.zip
+          path: ${{ runner.temp }}/turto-crm-smoke.json
