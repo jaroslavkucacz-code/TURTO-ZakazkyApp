@@ -40,6 +40,7 @@ Source: "..\..\dist\TURTO CRM\*"; DestDir: "{app}"; Flags: ignoreversion recurse
 
 [Icons]
 Name: "{group}\TURTO CRM"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
+Name: "{group}\TURTO CRM - Připojit nebo změnit databázi"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--data-setup"; WorkingDir: "{app}"
 Name: "{autodesktop}\TURTO CRM"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
