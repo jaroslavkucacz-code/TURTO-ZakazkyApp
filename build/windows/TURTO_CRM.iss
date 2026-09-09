@@ -44,18 +44,3 @@ Name: "{autodesktop}\TURTO CRM"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: 
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Spustit TURTO CRM"; Flags: nowait postinstall skipifsilent
-
-[Code]
-function InitializeSetup(): Boolean;
-begin
-  Result := True;
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-  if CurStep = ssPostInstall then
-  begin
-    { Business data intentionally live outside {app}. The first-run wizard owns
-      creation or attachment of the SQLite database. Uninstall never removes it. }
-  end;
-end;
