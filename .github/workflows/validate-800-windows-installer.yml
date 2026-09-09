@@ -19,6 +19,7 @@ permissions:
 jobs:
   build-windows-preview:
     runs-on: windows-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -130,10 +131,38 @@ jobs:
           Remove-Item $dataRoot -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item $smokeResult -Force -ErrorAction SilentlyContinue
 
-          $installer = Start-Process -FilePath $setup -ArgumentList @(
+          function Show-SmokeCheckpoint {
+            if (Test-Path $smokeResult) {
+              Write-Host '--- frozen runtime checkpoint ---'
+              Get-Content $smokeResult -Raw | Write-Host
+              Write-Host '---------------------------------'
+            }
+          }
+
+          function Invoke-BoundedProcess {
+            param(
+              [Parameter(Mandatory=$true)][string]$FilePath,
+              [string[]]$Arguments = @(),
+              [int]$TimeoutSeconds = 90,
+              [string]$Label = 'Process'
+            )
+            $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -PassThru
+            if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+              try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
+              Show-SmokeCheckpoint
+              throw "$Label timed out after $TimeoutSeconds seconds."
+            }
+            $process.Refresh()
+            if ($process.ExitCode -ne 0) {
+              Show-SmokeCheckpoint
+              throw "$Label failed with exit code $($process.ExitCode)."
+            }
+            return $process
+          }
+
+          Invoke-BoundedProcess -FilePath $setup -Arguments @(
             '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=$installRoot"
-          ) -Wait -PassThru
-          if ($installer.ExitCode -ne 0) { throw "Setup smoke install failed with exit code $($installer.ExitCode)" }
+          ) -TimeoutSeconds 90 -Label 'Setup smoke install' | Out-Null
 
           $mainExe = Join-Path $installRoot 'TURTO CRM.exe'
           $updaterExe = Join-Path $installRoot 'TURTO CRM Updater.exe'
@@ -147,11 +176,10 @@ jobs:
           $env:TURTO_CRM_DATA_ROOT = $dataRoot
           $env:TURTO_CRM_SMOKE_RESULT = $smokeResult
           $env:TURTO_DISABLE_AUTO_UPDATE = '1'
-          $runtime = Start-Process -FilePath $mainExe -ArgumentList '--smoke-test' -Wait -PassThru
-          if ($runtime.ExitCode -ne 0) { throw "Frozen runtime smoke test failed with exit code $($runtime.ExitCode)" }
+          Invoke-BoundedProcess -FilePath $mainExe -Arguments @('--smoke-test') -TimeoutSeconds 90 -Label 'Frozen runtime smoke test' | Out-Null
           if (-not (Test-Path $smokeResult)) { throw 'Frozen runtime did not create smoke result' }
           $smoke = Get-Content $smokeResult -Raw | ConvertFrom-Json
-          if (-not $smoke.ok -or -not $smoke.frozen) { throw 'Frozen runtime smoke result is invalid' }
+          if (-not $smoke.ok -or -not $smoke.frozen) { throw "Frozen runtime smoke result is invalid at phase '$($smoke.phase)'" }
           if ($smoke.version -ne $version) { throw "Frozen runtime version mismatch: $($smoke.version) != $version" }
           $database = [string]$smoke.database
           if (-not (Test-Path $database)) { throw 'Frozen runtime did not create the external test database' }
@@ -159,10 +187,9 @@ jobs:
 
           $uninstaller = Get-ChildItem $installRoot -File -Filter 'unins*.exe' | Select-Object -First 1
           if (-not $uninstaller) { throw 'Inno uninstaller was not created' }
-          $uninstall = Start-Process -FilePath $uninstaller.FullName -ArgumentList @(
+          Invoke-BoundedProcess -FilePath $uninstaller.FullName -Arguments @(
             '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
-          ) -Wait -PassThru
-          if ($uninstall.ExitCode -ne 0) { throw "Uninstall smoke test failed with exit code $($uninstall.ExitCode)" }
+          ) -TimeoutSeconds 90 -Label 'Uninstall smoke test' | Out-Null
           if (Test-Path $mainExe) { throw 'Main EXE remained after uninstall' }
           if (-not (Test-Path $database)) { throw 'Uninstall removed the business database' }
           $hashAfter = (Get-FileHash $database -Algorithm SHA256).Hash
