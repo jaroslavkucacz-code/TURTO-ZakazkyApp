@@ -13,9 +13,28 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 SMOKE_TEST = "--smoke-test" in sys.argv
+SMOKE_RESULT = Path(str(os.environ.get("TURTO_CRM_SMOKE_RESULT", "")).strip()) if SMOKE_TEST and str(os.environ.get("TURTO_CRM_SMOKE_RESULT", "")).strip() else None
+
+
+def _smoke_checkpoint(phase: str, **extra) -> None:
+    if not SMOKE_TEST or SMOKE_RESULT is None:
+        return
+    payload = {
+        "ok": False,
+        "phase": phase,
+        "frozen": bool(getattr(sys, "frozen", False)),
+        **extra,
+    }
+    SMOKE_RESULT.parent.mkdir(parents=True, exist_ok=True)
+    SMOKE_RESULT.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+_smoke_checkpoint("launcher-start")
 
 import data_location
 import data_onboarding
+
+_smoke_checkpoint("data-modules-imported")
 
 # Normal first start uses the interactive data wizard. CI smoke mode supplies a
 # temporary TURTO_CRM_DATA_ROOT and must never open a modal window.
@@ -26,26 +45,38 @@ import app
 import runtime_bootstrap
 from price_lists_domain.platform import exe_distribution
 
+_smoke_checkpoint("app-runtime-imported")
+
 # The source baseline keeps its historical version; the frozen launcher owns the
 # 8.x product version and data-location override.
 app.APP_NAME = "TURTO CRM"
 app.APP_VERSION = "8.0.0-preview.1"
 data_location.apply_to_app(app)
+_smoke_checkpoint("data-location-applied", database=str(app.DB))
+
 runtime_bootstrap.apply_all(app)
+_smoke_checkpoint("runtime-applied", database=str(app.DB))
 exe_distribution.apply(app)
+_smoke_checkpoint("exe-policy-applied", database=str(app.DB))
 
 app.cleanup_stale_test_session()
 app.ensure_schema()
+_smoke_checkpoint("schema-ready", database=str(app.DB))
 app.ensure_test_user()
+_smoke_checkpoint("test-user-ready", database=str(app.DB))
 app.migrate_v41_visual_once()
+_smoke_checkpoint("visual-migration-ready", database=str(app.DB))
 app.import_mail_contacts_v220_once()
+_smoke_checkpoint("mail-v220-ready", database=str(app.DB))
 app.import_mail_contacts_v221_once()
+_smoke_checkpoint("mail-v221-ready", database=str(app.DB))
 app.restore_people_from_v280_backup_once()
+_smoke_checkpoint("people-recovery-ready", database=str(app.DB))
 app.post_import_cleanup_v222_once()
+_smoke_checkpoint("post-import-cleanup-ready", database=str(app.DB))
 
 if SMOKE_TEST:
-    result_path = str(os.environ.get("TURTO_CRM_SMOKE_RESULT", "")).strip()
-    if not result_path:
+    if SMOKE_RESULT is None:
         raise SystemExit(2)
     con = app.db()
     try:
@@ -59,13 +90,13 @@ if SMOKE_TEST:
     finally:
         con.close()
     if not quick or str(quick[0]).strip().casefold() != "ok":
+        _smoke_checkpoint("database-quick-check-failed", database=str(app.DB))
         raise SystemExit(3)
-    target = Path(result_path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(
+    SMOKE_RESULT.write_text(
         json.dumps(
             {
                 "ok": True,
+                "phase": "complete",
                 "version": app.APP_VERSION,
                 "database": str(app.DB),
                 "tables": tables,
@@ -76,6 +107,9 @@ if SMOKE_TEST:
         ) + "\n",
         encoding="utf-8",
     )
-    raise SystemExit(0)
+    # A historical compatibility layer may own a non-daemon helper thread. The
+    # smoke contract has already closed SQLite and persisted its result, so force
+    # process termination instead of letting unrelated helpers keep CI alive.
+    os._exit(0)
 
 app.App().mainloop()
