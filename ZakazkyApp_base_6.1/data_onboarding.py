@@ -1,7 +1,8 @@
 """First-run data wizard for TURTO CRM 8.0+.
 
-It runs before the main application imports its database globals.  Existing data
-are never deleted; importing an existing database uses SQLite's backup API.
+It runs before the main application imports its database globals. Existing data
+are never deleted; importing an existing database uses SQLite's backup API and
+direct attachment creates a safety backup before the first schema migration.
 """
 from __future__ import annotations
 
@@ -34,7 +35,8 @@ def _choose_existing(parent: tk.Misc) -> bool:
         "Připojit databázi",
         "Databáze je v pořádku.\n\n"
         "ANO = doporučeně ji bezpečně zkopírovat do standardní složky TURTO.\n"
-        "NE = používat vybraný soubor přímo v jeho současném umístění.\n\n"
+        "NE = používat vybraný soubor přímo v jeho současném umístění. Před prvním "
+        "použitím se automaticky vytvoří bezpečnostní záloha.\n\n"
         "Přímé používání databáze ze síťové nebo cloudově synchronizované složky "
         "není vhodné pro současný provoz více počítačů.",
         parent=parent,
@@ -44,10 +46,16 @@ def _choose_existing(parent: tk.Misc) -> bool:
     try:
         if answer:
             target = data_location.copy_database_to_standard(source)
-            detail = f"Databáze byla přenesena do:\n{target}"
+            detail = (
+                f"Databáze byla přenesena do:\n{target}\n\n"
+                "Původní soubor zůstal beze změny."
+            )
         else:
-            data_location.attach_database(source)
+            attached = data_location.attach_database(source)
+            backup = str(attached.get("first_attach_backup") or "").strip()
             detail = f"CRM bude používat databázi:\n{Path(source).resolve()}"
+            if backup:
+                detail += f"\n\nBezpečnostní záloha před prvním připojením:\n{backup}"
         messagebox.showinfo("Databáze připojena", detail, parent=parent)
         return True
     except FileExistsError:
