@@ -62,8 +62,15 @@ def _database_backup(label: str) -> Path | None:
     backup_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     target = backup_dir / f"zakazky_{label}_{stamp}.db"
-    with sqlite3.connect(source) as src, sqlite3.connect(target) as dst:
+    src = sqlite3.connect(source)
+    dst = sqlite3.connect(target)
+    try:
         src.backup(dst)
+    finally:
+        try:
+            dst.close()
+        finally:
+            src.close()
     return target
 
 
