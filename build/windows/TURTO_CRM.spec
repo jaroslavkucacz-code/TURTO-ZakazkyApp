@@ -7,7 +7,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 ROOT = Path.cwd()
 BASE = ROOT / "ZakazkyApp_base_6.1"
 LAUNCHER = ROOT / "build" / "windows" / "launcher_800.pyw"
-ICON = BASE / "turto_crm.ico"
+ICON = BASE / "turto_logo.ico"
 
 sys.path.insert(0, str(BASE))
 import runtime_bootstrap
@@ -64,7 +64,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(ICON) if ICON.is_file() else None,
+    icon=str(ICON),
 )
 
 coll = COLLECT(
