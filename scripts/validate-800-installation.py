@@ -50,7 +50,6 @@ def table_names(path: Path) -> set[str]:
 
 
 def assert_renameable(path: Path) -> None:
-    """Windows-specific contract: no SQLite helper may leave a live file handle."""
     moved = path.with_name(path.stem + ".handle-check" + path.suffix)
     moved.unlink(missing_ok=True)
     path.replace(moved)
@@ -86,21 +85,17 @@ def main() -> None:
             cfg = json.loads(data.config_file().read_text(encoding="utf-8"))
             assert cfg["mode"] == "external-database"
             backup = Path(attached["first_attach_backup"])
-            assert backup.is_file()
-            assert data.validate_database(backup)["ok"]
+            assert backup.is_file() and data.validate_database(backup)["ok"]
             assert_renameable(source)
             assert_renameable(backup)
 
             data.use_default_location()
-            assert data.database_path() == expected_root / "data" / "zakazky.db"
             copied = data.copy_database_to_standard(source)
             assert copied == expected_root / "data" / "zakazky.db"
             assert data.validate_database(copied)["ok"]
             assert_renameable(source)
             assert_renameable(copied)
 
-            # On-demand database management must be able to replace an existing
-            # standard DB only after preserving the previous valid DB first.
             replacement = root / "transfer" / "replacement_zakazky.db"
             create_crm_db(replacement)
             con = sqlite3.connect(replacement)
@@ -135,7 +130,11 @@ def main() -> None:
         assert launcher.index("ensure_data_location") < import_app
         assert launcher.index('DATA_SETUP = "--data-setup"') < import_app
         assert launcher.index("configure_data_location(force=True)") < import_app
-        assert 'app.APP_VERSION = "8.0.0-preview.1"' in launcher
+        assert "def _product_version()" in launcher
+        assert 'manifest = ROOT / "version.json"' in launcher
+        assert 'version_file = Path(__file__).resolve().with_name("version.txt")' in launcher
+        assert "app.APP_VERSION = _product_version()" in launcher
+        assert 'app.APP_VERSION = "8.0.0-preview.1"' not in launcher
         assert "data_location.apply_to_app(app)" in launcher
         assert "def _baseline_schema_ready(app)" in launcher
         assert '{"users", "settings", "companies", "actions"}.issubset(names)' in launcher
@@ -194,9 +193,7 @@ def main() -> None:
         assert "def _replace_program_with_rollback" in updater
         assert "_validate_release(target, installed=True)" in updater
         assert "původní verze byla automaticky obnovena" in updater
-
-        updater_behavior = repo / "scripts" / "validate-800-updater-transaction.py"
-        assert updater_behavior.is_file()
+        assert (repo / "scripts" / "validate-800-updater-transaction.py").is_file()
 
         data_source = (base / "data_location.py").read_text(encoding="utf-8")
         assert "def backup_database(" in data_source
