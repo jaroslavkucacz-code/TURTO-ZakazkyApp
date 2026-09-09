@@ -81,6 +81,11 @@ def _register_sqlite_collations(connection: sqlite3.Connection) -> sqlite3.Conne
     return connection
 
 
+def _readonly_sqlite_uri(path: Path) -> str:
+    resolved = str(path.expanduser().resolve()).replace("\\", "/")
+    return "file:" + quote(resolved, safe="/:_") + "?mode=ro"
+
+
 def default_data_root() -> Path:
     if os.name == "nt":
         profile = Path(os.environ.get("USERPROFILE", str(Path.home())))
@@ -169,9 +174,9 @@ def use_default_location() -> dict[str, str]:
 
 
 def _sqlite_backup(source: Path, target: Path) -> Path:
-    """Create a consistent SQLite backup and release both handles immediately."""
+    """Create a consistent backup while keeping the source strictly read-only."""
     target.parent.mkdir(parents=True, exist_ok=True)
-    src = _register_sqlite_collations(sqlite3.connect(source))
+    src = _register_sqlite_collations(sqlite3.connect(_readonly_sqlite_uri(source), uri=True))
     dst = _register_sqlite_collations(sqlite3.connect(target))
     try:
         src.backup(dst)
@@ -273,8 +278,7 @@ def validate_database(path: str | Path) -> dict[str, Any]:
         return result
     con = None
     try:
-        uri = "file:" + quote(str(db.resolve()).replace("\\", "/"), safe="/:_") + "?mode=ro"
-        con = _register_sqlite_collations(sqlite3.connect(uri, uri=True))
+        con = _register_sqlite_collations(sqlite3.connect(_readonly_sqlite_uri(db), uri=True))
         quick = con.execute("PRAGMA quick_check").fetchone()
         if not quick or str(quick[0]).strip().casefold() != "ok":
             result["message"] = "SQLite quick_check nevrátil stav OK."
