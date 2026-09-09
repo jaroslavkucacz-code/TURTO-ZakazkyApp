@@ -15,8 +15,12 @@ def main() -> None:
 
     from price_lists_domain.platform import categories, compat, database, finalize
 
+    class FakeApp:
+        def refresh_header(self, *args, **kwargs):
+            return None
+
     class Fake:
-        pass
+        App = FakeApp
 
     M = Fake()
     M.sqlite3 = sqlite3
@@ -70,7 +74,7 @@ def main() -> None:
         app_integration = (root / "price_lists_domain" / "app_integration.py").read_text(encoding="utf-8")
         platform_init = (platform / "__init__.py").read_text(encoding="utf-8")
         integration = (platform / "integration.py").read_text(encoding="utf-8")
-        workset_wrapper = (platform / "worksets" / "__init__.py").read_text(encoding="utf-8")
+        worksets_source = (platform / "worksets.py").read_text(encoding="utf-8")
         lazy_refresh = (platform / "lazy_refresh.py").read_text(encoding="utf-8")
 
         # One deterministic platform installation; no global installer mutation
@@ -79,7 +83,7 @@ def main() -> None:
         assert "install_platform(module)" not in app_integration
         assert "old_show" not in app_integration and "old_refresh_all" not in app_integration
         assert "old_build" not in integration and "M.App.build =" not in integration
-        assert "finalize.install =" not in workset_wrapper
+        assert "finalize.install =" not in worksets_source
         order = [
             platform_init.index("install_worksets(module)"),
             platform_init.index("install_finalize(module)"),
@@ -89,6 +93,8 @@ def main() -> None:
         assert order == sorted(order), order
         assert '_turto_navigation_owner = "price_lists_domain.platform.lazy_refresh"' in lazy_refresh
         assert '_cancel(app, "_turto_final_layout_after")' in lazy_refresh
+        assert "def _install_safe_backup(module)" in lazy_refresh
+        assert "source.backup(destination" in lazy_refresh
 
         fast_ocr = (platform / "fast_ocr.py").read_text(encoding="utf-8")
         assert "DPI = 170" in fast_ocr and "price_list_ocr_cache" in fast_ocr and "ocr_batch.ps1" in fast_ocr

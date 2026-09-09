@@ -35,6 +35,29 @@ PAGE_TREES = {
 }
 
 
+def _install_safe_backup(module) -> None:
+    """Install the WAL-safe backup owner formerly provided by the shadow package."""
+    if getattr(module, "_turto_sqlite_backup_v630", False):
+        return
+
+    def backup_now(prefix="manual"):
+        db_path = Path(module.DB)
+        if not db_path.exists():
+            return None
+        backup_dir = Path(module.BACKUP_DIR)
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        target = backup_dir / f"zakazky_{prefix}_{datetime.now():%Y%m%d_%H%M%S}.db"
+        # SQLite backup API includes all committed WAL pages and produces a
+        # consistent copy even while the application remains open.
+        with module.sqlite3.connect(str(db_path), timeout=10.0) as source:
+            with module.sqlite3.connect(str(target), timeout=10.0) as destination:
+                source.backup(destination, pages=256, sleep=0.01)
+        return target
+
+    module.backup_now = backup_now
+    module._turto_sqlite_backup_v630 = True
+
+
 def _exists(widget) -> bool:
     try:
         return widget is not None and bool(widget.winfo_exists())
@@ -293,6 +316,7 @@ def _safe_chrome(M, App) -> None:
 
 
 def install(M) -> None:
+    _install_safe_backup(M)
     App = M.App
     if getattr(App, "_turto_lazy_refresh_v6331", False):
         return

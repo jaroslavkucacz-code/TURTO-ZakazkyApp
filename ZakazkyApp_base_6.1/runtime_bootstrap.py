@@ -1,7 +1,6 @@
-"""Explicit TURTO CRM runtime composition.
+"""TURTO CRM runtime composition.
 
-Older releases grew through hidden imports between compatibility layers.  The
-launcher now calls this single module, so startup order is visible and auditable.
+The launcher calls this single module, so startup order is visible and auditable.
 The final policy modules are intentionally last and own only cross-cutting rules.
 """
 from __future__ import annotations
@@ -62,6 +61,7 @@ LATE_LAYERS = (
     "price_lists_domain.issued_offers.professional_workflow",
     "price_lists_domain.issued_offers.inline_pricing_workspace",
     "v770_runtime_policy",
+    "price_lists_domain.platform.category_event_compat_800",
     "price_lists_domain.platform.ui_cleanup_793",
     "price_lists_domain.platform.startup_optimization",
 )

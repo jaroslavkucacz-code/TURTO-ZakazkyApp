@@ -34,18 +34,28 @@ def _exists(widget) -> bool:
 
 
 def _version_tuple(M, value):
-    parser = getattr(M, "_version_tuple", None)
-    if callable(parser):
-        try:
-            return parser(value)
-        except Exception:
-            pass
-    result = []
-    for part in str(value or "").replace("-", ".").split("."):
+    """Compare stable and preview builds deterministically.
+
+    Older preview builds treated ``8.0.0-preview.1`` as numerically newer than
+    ``8.0.0``. 8.x uses a fixed-width tuple where stable releases sort after
+    prereleases of the same numeric version.
+    """
+    text = str(value or "").strip().casefold()
+    main, sep, prerelease = text.partition("-")
+    numbers = []
+    for part in main.split("."):
         digits = "".join(ch for ch in part if ch.isdigit())
-        if digits:
-            result.append(int(digits))
-    return tuple(result) or (0,)
+        numbers.append(int(digits) if digits else 0)
+    numbers = (numbers + [0, 0, 0, 0])[:4]
+
+    stable = 0 if sep else 1
+    pre_number = 0
+    if prerelease:
+        for part in prerelease.replace("_", ".").split("."):
+            digits = "".join(ch for ch in part if ch.isdigit())
+            if digits:
+                pre_number = int(digits)
+    return tuple(numbers) + (stable, pre_number)
 
 
 def _log(M, event: str, detail: str = "") -> None:

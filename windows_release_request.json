@@ -1,0 +1,6 @@
+{
+  "version": "8.0.1",
+  "channel": "windows",
+  "bridge_legacy_preview": true,
+  "notes": "První produkční EXE vydání TURTO CRM. Samostatný Windows instalátor bez nutnosti systémového Pythonu; bezpečné převzetí nebo připojení databáze; oddělená data a program; read-only SQLite zálohy; transakční EXE updater s programovým snapshotem a automatickým rollbackem; hashově ověřený Windows update kanál; zachování dat při odinstalaci; optimalizovaný Windows x64 TkDnD runtime. Verze 8.0.1 zároveň zajišťuje bezpečný přechod z pilotní 8.0.0-preview.1."
+}
