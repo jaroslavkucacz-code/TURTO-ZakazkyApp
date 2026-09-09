@@ -11,6 +11,7 @@ on:
       - ZakazkyApp_base_6.1/runtime_bootstrap.py
       - build/windows/**
       - scripts/validate-800-installation.py
+      - scripts/validate-800-updater-transaction.py
       - .github/workflows/validate-800-windows-installer.yml
 
 permissions:
@@ -39,6 +40,10 @@ jobs:
       - name: Validate installer and data-location architecture
         shell: pwsh
         run: python scripts/validate-800-installation.py
+
+      - name: Validate transactional Windows updater
+        shell: pwsh
+        run: python scripts/validate-800-updater-transaction.py
 
       - name: Build TURTO CRM onedir application
         shell: pwsh
@@ -104,10 +109,11 @@ jobs:
           try {
             $forbidden = @($archive.Entries | Where-Object {
               $_.FullName -match '(?i)\.(db|sqlite|sqlite3|py|pyw)$' -or
-              $_.FullName -match '(?i)(requirements\.txt|Spustit_Zakazky|Nainstalovat_knihovny)'
+              $_.FullName -match '(?i)(requirements\.txt|Spustit_Zakazky|Nainstalovat_knihovny)' -or
+              $_.Name -match '(?i)^unins'
             })
             if ($forbidden.Count -gt 0) {
-              throw ('Windows update payload contains forbidden legacy/data files: ' + (($forbidden | ForEach-Object FullName) -join ', '))
+              throw ('Windows update payload contains forbidden legacy/data/installer files: ' + (($forbidden | ForEach-Object FullName) -join ', '))
             }
             $names = @($archive.Entries | ForEach-Object FullName)
             if (-not ($names -match 'TURTO CRM\.exe$')) { throw 'Main EXE missing from update ZIP' }
