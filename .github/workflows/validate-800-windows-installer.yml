@@ -195,6 +195,15 @@ jobs:
           $hashAfter = (Get-FileHash $database -Algorithm SHA256).Hash
           if ($hashAfter -ne $hashBefore) { throw 'Uninstall modified the business database' }
 
+      - name: Upload frozen smoke checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TURTO-CRM-8.0-smoke-checkpoint
+          if-no-files-found: warn
+          retention-days: 7
+          path: ${{ runner.temp }}/turto-crm-smoke.json
+
       - uses: actions/upload-artifact@v4
         with:
           name: TURTO-CRM-8.0-Windows-preview
