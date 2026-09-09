@@ -20,11 +20,13 @@ if str(ROOT) not in sys.path:
 
 SMOKE_TEST = "--smoke-test" in sys.argv
 DATA_SETUP = "--data-setup" in sys.argv
-SMOKE_RESULT = (
-    Path(str(os.environ.get("TURTO_CRM_SMOKE_RESULT", "")).strip())
-    if SMOKE_TEST and str(os.environ.get("TURTO_CRM_SMOKE_RESULT", "")).strip()
-    else None
+_CI_SMOKE_RESULT_ENV = str(os.environ.get("TURTO_CRM_SMOKE_RESULT", "")).strip()
+CI_RESTART_PROBE = (
+    not SMOKE_TEST
+    and bool(_CI_SMOKE_RESULT_ENV)
+    and str(os.environ.get("TURTO_DISABLE_AUTO_UPDATE", "")).strip() == "1"
 )
+SMOKE_RESULT = Path(_CI_SMOKE_RESULT_ENV) if SMOKE_TEST and _CI_SMOKE_RESULT_ENV else None
 
 
 def _product_version() -> str:
@@ -135,7 +137,7 @@ if DATA_SETUP:
 
 # Normal first start uses the interactive data wizard. CI smoke mode supplies a
 # temporary TURTO_CRM_DATA_ROOT and must never open a modal window.
-if not SMOKE_TEST and not data_onboarding.ensure_data_location():
+if not SMOKE_TEST and not CI_RESTART_PROBE and not data_onboarding.ensure_data_location():
     raise SystemExit(0)
 
 import app
@@ -150,6 +152,15 @@ app.APP_NAME = "TURTO CRM"
 app.APP_VERSION = _product_version()
 data_location.apply_to_app(app)
 _smoke_checkpoint("data-location-applied", database=str(app.DB), version=app.APP_VERSION)
+
+# The clean-runner integration test lets the updater perform its normal restart.
+# This probe proves that the new EXE and payload manifest load, but exits before
+# normal schema/migration work so a byte-level DB hash can isolate the updater's
+# program replacement from a subsequent, explicitly controlled full smoke start.
+# It is active only for the CI-only environment combination above.
+if CI_RESTART_PROBE:
+    _validate_frozen_tkdnd_payload()
+    os._exit(0)
 
 tkdnd_variants = _run_phase("tkdnd-payload", _validate_frozen_tkdnd_payload)
 _run_phase("cleanup-stale-test-session", app.cleanup_stale_test_session)
