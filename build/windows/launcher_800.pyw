@@ -102,6 +102,24 @@ def _baseline_schema_ready(app) -> bool:
     return {"users", "settings", "companies", "actions"}.issubset(names)
 
 
+def _validate_frozen_tkdnd_payload() -> list[str]:
+    """Keep the installed Windows x64 payload free of foreign TkDnD binaries."""
+    if not getattr(sys, "frozen", False):
+        return []
+    tkdnd_root = ROOT / "_internal" / "tkinterdnd2" / "tkdnd"
+    if not tkdnd_root.is_dir():
+        raise RuntimeError(f"Chybí TkDnD runtime: {tkdnd_root}")
+    variants = sorted(path.name for path in tkdnd_root.iterdir() if path.is_dir())
+    required = {"win-x64", "win-x64-tcl9"}
+    missing = sorted(required.difference(variants))
+    foreign = sorted(name for name in variants if name not in required)
+    if missing:
+        raise RuntimeError("Chybí Windows x64 TkDnD varianty: " + ", ".join(missing))
+    if foreign:
+        raise RuntimeError("Windows balík obsahuje nepotřebné TkDnD varianty: " + ", ".join(foreign))
+    return variants
+
+
 _smoke_checkpoint("launcher-start")
 
 import data_location
@@ -133,6 +151,7 @@ app.APP_VERSION = _product_version()
 data_location.apply_to_app(app)
 _smoke_checkpoint("data-location-applied", database=str(app.DB), version=app.APP_VERSION)
 
+tkdnd_variants = _run_phase("tkdnd-payload", _validate_frozen_tkdnd_payload)
 _run_phase("cleanup-stale-test-session", app.cleanup_stale_test_session)
 
 # Some historical runtime layers expect the core schema to exist while they are
@@ -178,6 +197,7 @@ if SMOKE_TEST:
                 "version": app.APP_VERSION,
                 "database": str(app.DB),
                 "tables": tables,
+                "tkdnd_variants": tkdnd_variants,
                 "frozen": bool(getattr(sys, "frozen", False)),
             },
             ensure_ascii=False,
