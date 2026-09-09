@@ -54,6 +54,27 @@ app.APP_VERSION = "8.0.0-preview.1"
 data_location.apply_to_app(app)
 _smoke_checkpoint("data-location-applied", database=str(app.DB))
 
+# Frozen smoke mode records the exact runtime layer currently being composed.
+# This diagnostic wrapper is intentionally local to the launcher and only active
+# under --smoke-test, so the normal installed application keeps the proven
+# runtime bootstrap implementation unchanged.
+if SMOKE_TEST:
+    _original_runtime_apply = runtime_bootstrap._apply
+    _original_prime_layers = runtime_bootstrap._prime_startup_stability_layers
+
+    def _diagnostic_runtime_apply(module_name, target):
+        _smoke_checkpoint(f"runtime-before:{module_name}", database=str(getattr(target, "DB", "")))
+        _original_runtime_apply(module_name, target)
+        _smoke_checkpoint(f"runtime-after:{module_name}", database=str(getattr(target, "DB", "")))
+
+    def _diagnostic_prime_layers():
+        _smoke_checkpoint("runtime-before:stability-prime", database=str(app.DB))
+        _original_prime_layers()
+        _smoke_checkpoint("runtime-after:stability-prime", database=str(app.DB))
+
+    runtime_bootstrap._apply = _diagnostic_runtime_apply
+    runtime_bootstrap._prime_startup_stability_layers = _diagnostic_prime_layers
+
 runtime_bootstrap.apply_all(app)
 _smoke_checkpoint("runtime-applied", database=str(app.DB))
 exe_distribution.apply(app)
