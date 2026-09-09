@@ -12,6 +12,9 @@ import types
 
 
 def load_module(root: pathlib.Path):
+    root_text = str(root)
+    if root_text not in sys.path:
+        sys.path.insert(0, root_text)
     path = root / "price_lists_domain" / "platform" / "automatic_updates.py"
     spec = importlib.util.spec_from_file_location("turto_automatic_updates_test", path)
     if spec is None or spec.loader is None:
