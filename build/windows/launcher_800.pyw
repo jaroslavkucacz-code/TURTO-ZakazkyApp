@@ -6,6 +6,7 @@ import multiprocessing
 import os
 import sqlite3
 import sys
+import traceback
 from pathlib import Path
 
 multiprocessing.freeze_support()
@@ -29,6 +30,17 @@ def _smoke_checkpoint(phase: str, **extra) -> None:
     }
     SMOKE_RESULT.parent.mkdir(parents=True, exist_ok=True)
     SMOKE_RESULT.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _smoke_failure(phase: str, exc: BaseException, exit_code: int = 11, **extra) -> None:
+    _smoke_checkpoint(
+        phase,
+        exception_type=type(exc).__name__,
+        error=str(exc),
+        traceback=traceback.format_exc(),
+        **extra,
+    )
+    os._exit(exit_code)
 
 
 _smoke_checkpoint("launcher-start")
@@ -94,7 +106,14 @@ if SMOKE_TEST:
 
         def traced(*args, _original=original, _label=label, **kwargs):
             _smoke_checkpoint(f"{_label}-before", database=str(getattr(app, "DB", "")))
-            result = _original(*args, **kwargs)
+            try:
+                result = _original(*args, **kwargs)
+            except BaseException as exc:
+                _smoke_failure(
+                    f"{_label}-error",
+                    exc,
+                    database=str(getattr(app, "DB", "")),
+                )
             _smoke_checkpoint(f"{_label}-after", database=str(getattr(app, "DB", "")))
             return result
 
@@ -130,9 +149,9 @@ if SMOKE_TEST:
             _wrap_callable(domain, helper_name, f"price-domain:{helper_name}")
 
         # platform.install intentionally imports its owners lazily inside the
-        # function. A previous diagnostic pre-imported them and itself became the
-        # blocking step. Under --smoke-test only, reproduce the same import/call
-        # order with checkpoints around every lazy import and every installer.
+        # function. Under --smoke-test only, reproduce that exact order and turn
+        # any import failure into a persisted checkpoint instead of a hidden
+        # windowed PyInstaller fatal dialog.
         platform = importlib.import_module("price_lists_domain.platform")
         original_platform_install = platform.install
         if not getattr(original_platform_install, "_turto_smoke_trace", False):
@@ -160,9 +179,19 @@ if SMOKE_TEST:
                 resolved = []
                 for module_name, attribute, label in platform_steps:
                     _smoke_checkpoint(f"price-platform:import:{label}-before", database=str(getattr(module, "DB", "")))
-                    owner = importlib.import_module(module_name)
+                    try:
+                        owner = importlib.import_module(module_name)
+                        installer = getattr(owner, attribute)
+                    except BaseException as exc:
+                        _smoke_failure(
+                            f"price-platform:import:{label}-error",
+                            exc,
+                            database=str(getattr(module, "DB", "")),
+                            module=module_name,
+                            attribute=attribute,
+                        )
                     _smoke_checkpoint(f"price-platform:import:{label}-after", database=str(getattr(module, "DB", "")))
-                    resolved.append((getattr(owner, attribute), label))
+                    resolved.append((installer, label))
 
                 if getattr(module, "_turto_platform_v6339", False):
                     _smoke_checkpoint("price-platform:install-after", database=str(getattr(module, "DB", "")))
@@ -170,7 +199,14 @@ if SMOKE_TEST:
 
                 for installer, label in resolved:
                     _smoke_checkpoint(f"price-platform:{label}-before", database=str(getattr(module, "DB", "")))
-                    installer(module)
+                    try:
+                        installer(module)
+                    except BaseException as exc:
+                        _smoke_failure(
+                            f"price-platform:{label}-error",
+                            exc,
+                            database=str(getattr(module, "DB", "")),
+                        )
                     _smoke_checkpoint(f"price-platform:{label}-after", database=str(getattr(module, "DB", "")))
 
                 module._turto_platform_v6339 = True
@@ -193,19 +229,38 @@ if SMOKE_TEST:
 
     def _diagnostic_runtime_apply(module_name, target):
         _smoke_checkpoint(f"runtime-before-import:{module_name}", database=str(getattr(target, "DB", "")))
-        runtime_module = importlib.import_module(module_name)
+        try:
+            runtime_module = importlib.import_module(module_name)
+        except BaseException as exc:
+            _smoke_failure(
+                f"runtime-import-error:{module_name}",
+                exc,
+                database=str(getattr(target, "DB", "")),
+                module=module_name,
+            )
         _smoke_checkpoint(f"runtime-after-import:{module_name}", database=str(getattr(target, "DB", "")))
         if module_name == "crm_runtime":
             _trace_crm_runtime_helpers(runtime_module)
         elif module_name == "crm_price_lists":
             _trace_price_list_helpers(runtime_module)
         _smoke_checkpoint(f"runtime-before-apply:{module_name}", database=str(getattr(target, "DB", "")))
-        runtime_module.apply(target)
+        try:
+            runtime_module.apply(target)
+        except BaseException as exc:
+            _smoke_failure(
+                f"runtime-apply-error:{module_name}",
+                exc,
+                database=str(getattr(target, "DB", "")),
+                module=module_name,
+            )
         _smoke_checkpoint(f"runtime-after-apply:{module_name}", database=str(getattr(target, "DB", "")))
 
     def _diagnostic_prime_layers():
         _smoke_checkpoint("runtime-before:stability-prime", database=str(app.DB))
-        _original_prime_layers()
+        try:
+            _original_prime_layers()
+        except BaseException as exc:
+            _smoke_failure("runtime-error:stability-prime", exc, database=str(app.DB))
         _smoke_checkpoint("runtime-after:stability-prime", database=str(app.DB))
 
     runtime_bootstrap._apply = _diagnostic_runtime_apply
