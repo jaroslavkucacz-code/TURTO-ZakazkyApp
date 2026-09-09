@@ -62,6 +62,7 @@ LATE_LAYERS = (
     "price_lists_domain.issued_offers.professional_workflow",
     "price_lists_domain.issued_offers.inline_pricing_workspace",
     "v770_runtime_policy",
+    "price_lists_domain.platform.ui_cleanup_793",
 )
 
 
