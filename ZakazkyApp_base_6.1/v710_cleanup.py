@@ -1731,25 +1731,18 @@ def apply(M):
         except Exception:
             pass
 
-    old_app_init = M.App.__init__
-
-    def app_init(self, *args, **kwargs):
-        result = old_app_init(self, *args, **kwargs)
+    def after_app_init(self, _result, _args, _kwargs):
         M._active_app = self
+        # Install only on known main tables.  Recursive normalize_window timers
+        # were disabled by the 7.6.2 stability bridge and stay retired in 8.0.
         register_configurable_tables(self)
-        for delay in (0, 180, 650, 1500):
-            try:
-                self.after(
-                    delay,
-                    lambda current=self: (
-                        register_configurable_tables(current), normalize_window(current)
-                    ),
-                )
-            except Exception:
-                pass
-        return result
 
-    M.App.__init__ = app_init
+    register_hook = getattr(M, 'register_app_init_hook', None)
+    if callable(register_hook):
+        register_hook('v710.configurable_tables', after=after_app_init)
+    else:
+        import app_lifecycle
+        app_lifecycle.register(M, 'v710.configurable_tables', after=after_app_init)
     M._turto_v710_installed = True
 
 

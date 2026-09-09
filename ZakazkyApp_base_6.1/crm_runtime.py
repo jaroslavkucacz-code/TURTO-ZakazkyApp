@@ -273,4 +273,5 @@ def apply(module):
         _restore_local_user(self);_force_calibri(self);_set_taskbar_identity(self);_window_identity_sweep(self);_apply_tree_palette(self);_live_update_checks(self)
         try:self.footer_db.configure(text=f"Databáze: {'SÍŤOVÁ' if NETWORK_MODE else 'LOKÁLNÍ'} • {M.DB}")
         except:pass
-    module.register_app_init_hook("crm_runtime.integrations", before=before_app_init, after=after_app_init)
+    import app_lifecycle
+    app_lifecycle.register(module, "crm_runtime.integrations", before=before_app_init, after=after_app_init)

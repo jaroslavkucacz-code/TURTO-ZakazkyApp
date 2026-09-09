@@ -280,10 +280,7 @@ def install(M) -> None:
     if runtime is not None:
         runtime._live_update_checks = lambda _app: None
 
-    old_init = App.__init__
-
-    def init(self, *args, **kwargs):
-        result = old_init(self, *args, **kwargs)
+    def after_app_init(self, _result, _args, _kwargs):
         try:
             self.after(900, lambda: self.check_for_updates(silent=True))
 
@@ -299,9 +296,13 @@ def install(M) -> None:
             self._turto_periodic_update_after = self.after(_PERIODIC_CHECK_MS, periodic_check)
         except Exception:
             pass
-        return result
 
-    App.__init__ = init
+    register_hook = getattr(M, "register_app_init_hook", None)
+    if callable(register_hook):
+        register_hook("automatic_updates.periodic_check", after=after_app_init)
+    else:
+        import app_lifecycle
+        app_lifecycle.register(M, "automatic_updates.periodic_check", after=after_app_init)
     App._turto_automatic_updates_v6338 = True
     M.OFFICIAL_UPDATE_ROOT = OFFICIAL_UPDATE_ROOT
 

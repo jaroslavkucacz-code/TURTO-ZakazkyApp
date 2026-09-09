@@ -160,66 +160,9 @@ def _stabilize_legacy_owner(M: Any) -> None:
     # Replace the legacy recursive final-layout owner with named-table redraws.
     M.schedule_final_tree_layout = _schedule_safe_auxiliary_redraw
 
-    # At this point App.__init__ is normally the v631 drop wrapper around the
-    # root post_baseline initializer.  Rebuild the two wrappers without
-    # normalize()/reclaim_tree_layout(), both of which recursively walk every
-    # widget and can outlive a dialog.
-    current_init = App.__init__
-    root_init = _closure_value(current_init, "old_" + "init")
-    outer_faulthandler = _closure_value(current_init, "_enable_faulthandler")
-    outer_exception_guard = _closure_value(current_init, "_install_tk_exception_guard")
-    outer_drop_target = _closure_value(current_init, "_install_unified_target")
-
-    if not callable(_closure_value(root_init, "normalize")):
-        root_init = current_init
-        outer_faulthandler = None
-        outer_exception_guard = None
-        outer_drop_target = None
-
-    normalize = _closure_value(root_init, "normalize")
-    reclaim = _closure_value(root_init, "reclaim_tree_layout")
-    base_init = _closure_value(root_init, "old_" + "init")
-    cleanup = _closure_value(root_init, "cleanup_legacy_offer_staging")
-
-    if callable(normalize) and callable(reclaim) and callable(base_init):
-        def safe_legacy_init(self: Any, *args: Any, **kwargs: Any):
-            result = base_init(self, *args, **kwargs)
-            try:
-                tree = getattr(self, "offer_tree", None)
-                if _exists(tree):
-                    tree.configure(selectmode="extended")
-            except Exception:
-                pass
-            if callable(cleanup):
-                try:
-                    self.after(
-                        1800,
-                        lambda current=self: cleanup(current) if _exists(current) else None,
-                    )
-                except Exception:
-                    pass
-            for delay, function in (
-                (1700, outer_faulthandler),
-                (1800, outer_exception_guard),
-                (3000, outer_drop_target),
-            ):
-                # Headless integration tests install their own callback capture.
-                # Keep that handler intact so the exact traceback is visible.
-                if function is outer_exception_guard and os.environ.get("TURTO_DISABLE_AUTO_UPDATE"):
-                    continue
-                if callable(function):
-                    try:
-                        self.after(
-                            delay,
-                            lambda current=self, callback=function: (
-                                callback(current) if _exists(current) else None
-                            ),
-                        )
-                    except Exception:
-                        pass
-            return result
-
-        App.__init__ = safe_legacy_init
+    # App startup side effects are now named lifecycle hooks.  The recursive
+    # pre-7.1 normalize/reclaim initializer no longer exists, so no closure
+    # surgery or replacement App.__init__ owner is needed here.
 
     M._turto_v762_legacy_global_scans_disabled = True
 
@@ -267,7 +210,6 @@ def _wrap_v710(M: Any, module: Any) -> None:
 
     def stable_apply(target: Any) -> Any:
         App = target.App
-        app_init_before = App.__init__
         toplevel_init_before = target.tk.Toplevel.__init__
         schedule_before = getattr(target, "schedule_final_tree_layout", None)
         user_changed_before = getattr(App, "on_user_changed", None)
@@ -312,16 +254,7 @@ def _wrap_v710(M: Any, module: Any) -> None:
 
             App.on_user_changed = safe_user_changed
 
-        current_init = App.__init__
-        if _closure_value(current_init, "old_app_init") is app_init_before:
-            def safe_app_init(self: Any, *args: Any, **kwargs: Any):
-                outcome = app_init_before(self, *args, **kwargs)
-                target._active_app = self
-                # One synchronous pass only. No callback can outlive startup.
-                _schedule_known_layouts(target, self, force=False)
-                return outcome
-
-            App.__init__ = safe_app_init
+        # v710 registers its startup work with app_lifecycle directly.
 
         target._turto_v762_v710_global_scans_disabled = True
         return result
@@ -401,7 +334,6 @@ def _wrap_v760(M: Any, module: Any) -> None:
 
     def stable_apply(target: Any) -> Any:
         App = target.App
-        app_init_before = App.__init__
         build_before = getattr(App, "build", None)
         theme_before = getattr(App, "apply_theme", None)
         native_treeview = target.ttk.Treeview
@@ -451,12 +383,10 @@ def _wrap_v760(M: Any, module: Any) -> None:
 
             App.build = safe_build
 
-        # Theme and App.__init__ wrappers in v760 only repeated the same whole-
-        # application finalizer. Restore the pre-v760 owners. The build wrapper
-        # above performs one deterministic pass after all main widgets exist.
+        # Theme wrapper only repeated the build finalizer; keep the pre-v760
+        # theme owner. App.__init__ is no longer touched by v760.
         if callable(theme_before):
             App.apply_theme = theme_before
-        App.__init__ = app_init_before
 
         target._turto_v762_native_treeview = native_treeview
         target._turto_v762_global_treeview_hooks_disabled = True

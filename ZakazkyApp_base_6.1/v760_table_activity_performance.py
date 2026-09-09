@@ -2130,34 +2130,9 @@ def apply(M: Any) -> None:
 
         M.App.apply_theme = apply_theme
 
-    previous_app_init = M.App.__init__
-
-    def app_init(self: Any, *args: Any, **kwargs: Any):
-        result = previous_app_init(self, *args, **kwargs)
-
-        def finalize() -> None:
-            if not _exists(self):
-                return
-            repack_navigation(self)
-            configure_project_workspace(self)
-            configure_task_workspace(self)
-            promote_accent_button(self, "offers", "Zpracovat nabídku")
-            promote_accent_button(self, "pricelists", "Importovat Ceník")
-            promote_accent_button(self, "issued_offers", "Nová nabídka")
-            install_resize_guard(self, getattr(self, "request_tree", None), "refresh_requests", "requests")
-            install_resize_guard(self, getattr(self, "mivo_tree", None), "refresh_mivo_requests", "mivo")
-            for widget in _walk(self):
-                if isinstance(widget, Treeview):
-                    install_tree_polish(widget)
-
-        for delay in (0, 260, 1200):
-            try:
-                self.after(delay, finalize)
-            except Exception:
-                pass
-        return result
-
-    M.App.__init__ = app_init
+    # Startup finalization is owned by the build wrapper above.  The former
+    # App.__init__ timers duplicated the same work and were already neutralized
+    # by v644; keep them retired instead of wrapping startup again.
 
     M.V760_PERFORMANCE_CHANGES = {
         "action_waiting_query": "grouped_cte",

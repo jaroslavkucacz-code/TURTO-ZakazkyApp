@@ -347,4 +347,5 @@ def apply(M):
             _remove_offer_col_from_opportunities(self);_add_project_offer_column(self);_style_urgent_requests(self);_install_cleanup_events(self)
         try:self.after(3200,later)
         except Exception:pass
-    M.register_app_init_hook("v637.project_offer_model", after=after_app_init)
+    import app_lifecycle
+    app_lifecycle.register(M, "v637.project_offer_model", after=after_app_init)

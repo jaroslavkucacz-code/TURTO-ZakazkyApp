@@ -120,4 +120,5 @@ def apply(M):
     def after_app_init(self, _result, _args, _kwargs):
         try:self.after(120,lambda:self.state('zoomed'));self.after(250,lambda:recolor(self))
         except:pass
-    M.register_app_init_hook("v608.startup_style", after=after_app_init)
+    import app_lifecycle
+    app_lifecycle.register(M, "v608.startup_style", after=after_app_init)

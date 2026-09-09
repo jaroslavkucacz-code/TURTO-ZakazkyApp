@@ -226,4 +226,5 @@ def apply(M):
         for ms in (900,2200,3800):
             try:self.after(ms,lambda s=self:_stabilize(s,sort_projects=True))
             except Exception:pass
-    M.register_app_init_hook("v638.table_stabilize", after=after_app_init)
+    import app_lifecycle
+    app_lifecycle.register(M, "v638.table_stabilize", after=after_app_init)

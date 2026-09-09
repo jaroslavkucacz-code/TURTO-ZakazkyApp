@@ -84,12 +84,35 @@ def main() -> None:
         "v750_context_filters_offer_format.py",
         "price_lists_domain/issued_offers/professional_workflow.py",
         "v770_runtime_policy.py",
+        "v710_cleanup.py",
+        "price_lists_domain/platform/automatic_updates.py",
     )
     for filename in migrated:
         text = (source / filename).read_text(encoding="utf-8")
         assert ("register_app_init_hook(" in text or "app_lifecycle.register(" in text), filename
         assert "M.App.__init__ =" not in text, filename
         assert "module.App.__init__=" not in text.replace(" ", ""), filename
+
+    for filename in ("v644_default_date_sort.py", "v760_table_activity_performance.py"):
+        text = (source / filename).read_text(encoding="utf-8")
+        assert "App.__init__ =" not in text, filename
+        assert "M.App.__init__ =" not in text, filename
+
+
+    assignments = []
+    for path in source.rglob("*.py"):
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for lineno, line in enumerate(text.splitlines(), 1):
+            compact = line.replace(" ", "")
+            if "App.__init__=" in compact or "M.App.__init__=" in compact:
+                assignments.append((path.relative_to(source).as_posix(), lineno, line.strip()))
+    assert assignments == [("app_lifecycle.py", 67, "M.App.__init__ = lifecycle_init")], assignments
+
+    post_baseline = source.parent / "post_baseline.py"
+    if post_baseline.exists():
+        text = post_baseline.read_text(encoding="utf-8")
+        assert "App.__init__ =" not in text
+        assert "register_app_init_hook" in text
 
     print("OK: App lifecycle order, idempotent registration and migrated prefix ownership")
 

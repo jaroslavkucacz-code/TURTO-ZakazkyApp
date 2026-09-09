@@ -98,4 +98,5 @@ def apply(M):
         except Exception:
             pass
 
-    M.register_app_init_hook("v620.offer_drop_area", after=after_app_init)
+    import app_lifecycle
+    app_lifecycle.register(M, "v620.offer_drop_area", after=after_app_init)

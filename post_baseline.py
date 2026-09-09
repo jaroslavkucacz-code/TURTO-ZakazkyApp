@@ -1472,10 +1472,9 @@ def apply(M):
 
     M.App.delete_offer = delete_offer
 
-    old_init = M.App.__init__
-
-    def init(self, *args, **kwargs):
-        result = old_init(self, *args, **kwargs)
+    def after_app_init(self, _result, _args, _kwargs):
+        # v644 historically rebuilt this wrapper to remove recursive whole-window
+        # normalize/reclaim passes.  Register only the proven safe work directly.
         try:
             tree = getattr(self, 'offer_tree', None)
             if tree is not None:
@@ -1483,20 +1482,13 @@ def apply(M):
         except Exception:
             pass
         try:
-            self.update_idletasks()
-            normalize(self)
-            recolor_dashboard(self)
+            self.after(1800, lambda current=self: cleanup_legacy_offer_staging(current))
         except Exception:
             pass
-        try:
-            self.after(1200, lambda: reclaim_tree_layout(self))
-        except Exception:
-            pass
-        try:
-            # One safe pass also removes verified leftovers from older releases.
-            self.after(1800, lambda: cleanup_legacy_offer_staging(self))
-        except Exception:
-            pass
-        return result
 
-    M.App.__init__ = init
+    register_hook = getattr(M, 'register_app_init_hook', None)
+    if callable(register_hook):
+        register_hook('post_baseline.offer_cleanup', after=after_app_init)
+    else:
+        import app_lifecycle
+        app_lifecycle.register(M, 'post_baseline.offer_cleanup', after=after_app_init)

@@ -367,7 +367,8 @@ def apply(M):
             self.after(1900, lambda:install_outlook_indicator(self))
         except Exception:
             pass
-    M.register_app_init_hook("v628.modern_ui", after=after_app_init)
+    import app_lifecycle
+    app_lifecycle.register(M, "v628.modern_ui", after=after_app_init)
 
     for refresh_name in ('refresh_dash','refresh_actions','refresh_requests','refresh_mivo_requests','refresh_offers','refresh_tasks','refresh_projects','refresh_people','refresh_companies','refresh_all'):
         old = getattr(M.App, refresh_name, None)

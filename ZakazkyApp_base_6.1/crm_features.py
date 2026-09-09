@@ -422,4 +422,5 @@ def apply(module):
     def before_app_init(self, _args, _kwargs):
         try:module.set_setting("update_source",GITHUB_UPDATE)
         except Exception:pass
-    module.register_app_init_hook("crm_features.update_source", before=before_app_init)
+    import app_lifecycle
+    app_lifecycle.register(module, "crm_features.update_source", before=before_app_init)

@@ -29,7 +29,7 @@ def main():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
-    with tempfile.TemporaryDirectory() as td:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
         td = pathlib.Path(td)
         db_path = td / 'test.db'
         pdf_path = td / 'offer.pdf'

@@ -280,6 +280,7 @@ def apply(M):
         except Exception:pass
         try:self.after_idle(lambda:recolor(self))
         except Exception:pass
-    M.register_app_init_hook("v623.palette_and_monitor", after=after_app_init)
+    import app_lifecycle
+    app_lifecycle.register(M, "v623.palette_and_monitor", after=after_app_init)
 
     # Legacy help composition removed in 8.0; professional_workflow owns help.

@@ -79,4 +79,5 @@ def apply(M):
         for ms in (1200,2600,4200):
             try:self.after(ms,lambda s=self:_cleanup(s))
             except Exception:pass
-    M.register_app_init_hook("v640.warning_cleanup", after=after_app_init)
+    import app_lifecycle
+    app_lifecycle.register(M, "v640.warning_cleanup", after=after_app_init)
