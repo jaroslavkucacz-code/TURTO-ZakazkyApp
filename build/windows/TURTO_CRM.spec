@@ -11,6 +11,7 @@ ICON = BASE / "turto_logo.ico"
 
 sys.path.insert(0, str(BASE))
 import runtime_bootstrap
+import tkinterdnd2
 
 hiddenimports = list(runtime_bootstrap.EARLY_LAYERS)
 hiddenimports += list(runtime_bootstrap.STABILITY_PRIMED_LAYERS)
@@ -31,7 +32,21 @@ for name in ("turto_logo.png", "turto_logo.ico", "turto_crm.png", "turto_crm.ico
     if path.is_file():
         datas.append((str(path), "."))
 datas += collect_data_files("price_lists_domain")
-datas += collect_data_files("tkinterdnd2")
+
+# tkinterdnd2 ships native payloads for many platforms and architectures. TURTO
+# CRM 8.0 is a Windows x64 build, so include only the two x64 variants required
+# by current/legacy Tcl runtimes. Python 3.14 uses Tcl/Tk 9, therefore the
+# win-x64-tcl9 directory is mandatory; win-x64 remains as a compatibility path.
+tkdnd_package = Path(tkinterdnd2.__file__).resolve().parent
+tkdnd_root = tkdnd_package / "tkdnd"
+for variant in ("win-x64", "win-x64-tcl9"):
+    source_root = tkdnd_root / variant
+    if not source_root.is_dir():
+        raise RuntimeError(f"Required tkinterdnd2 payload missing: {source_root}")
+    for source in source_root.rglob("*"):
+        if source.is_file():
+            relative_parent = source.parent.relative_to(tkdnd_package)
+            datas.append((str(source), str(Path("tkinterdnd2") / relative_parent)))
 
 a = Analysis(
     [str(LAUNCHER)],
