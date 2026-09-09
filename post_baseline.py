@@ -363,7 +363,7 @@ def apply(M):
         """Delete only legacy staging files whose full bytes are already stored in DB.
 
         Current MSG/PDF import uses TemporaryDirectory and cleans itself. Older
-        versions could leave mail material under DATA_ROOT\Dokumenty/Documents.
+        versions could leave mail material under DATA_ROOT\\Dokumenty/Documents.
         Never remove an unknown file and never touch the configured offer archive.
         """
         try:
