@@ -6,6 +6,7 @@ used by the main EXE, the updater and validation tools.
 """
 from __future__ import annotations
 
+from contextlib import closing
 import json
 import os
 from pathlib import Path
@@ -148,8 +149,14 @@ def copy_database_to_standard(path: str | Path, *, replace: bool = False) -> Pat
         temp.unlink(missing_ok=True)
     except Exception:
         pass
-    with sqlite3.connect(source) as src, sqlite3.connect(temp) as dst:
+
+    # sqlite3.Connection's context manager commits/rolls back but does not close
+    # the file handle.  Windows requires both handles to be closed before the
+    # validated temporary database can be atomically moved into place.
+    with closing(sqlite3.connect(source)) as src, closing(sqlite3.connect(temp)) as dst:
         src.backup(dst)
+        dst.commit()
+
     copied = validate_database(temp)
     if not copied["ok"]:
         temp.unlink(missing_ok=True)
@@ -175,7 +182,7 @@ def validate_database(path: str | Path) -> dict[str, Any]:
         return result
     try:
         uri = "file:" + quote(str(db.resolve()).replace("\\", "/"), safe="/:_") + "?mode=ro"
-        with sqlite3.connect(uri, uri=True) as con:
+        with closing(sqlite3.connect(uri, uri=True)) as con:
             quick = con.execute("PRAGMA quick_check").fetchone()
             if not quick or str(quick[0]).strip().casefold() != "ok":
                 result["message"] = "SQLite quick_check nevrátil stav OK."
