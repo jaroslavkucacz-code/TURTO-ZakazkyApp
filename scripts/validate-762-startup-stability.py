@@ -68,34 +68,28 @@ def main() -> None:
         exception_guard_count=0, drop_target_count=0,
     )
 
-    # Simulate root post_baseline and v631, which are already applied when v644 runs.
+    # CRM 8.0 installs the lifecycle owner before every compatibility layer.
+    app_lifecycle = importlib.import_module("app_lifecycle")
+    app_lifecycle.apply(M)
+
+    # CRM 8.0 keeps the safe post-baseline and v631 startup work as named
+    # lifecycle hooks instead of App.__init__ wrappers.
     def normalize(_app): M.recursive_scan_count += 1
-    def reclaim_tree_layout(_app): M.recursive_scan_count += 1
     def cleanup_legacy_offer_staging(_app): M.cleanup_count += 1
-
-    def make_legacy_init(old_init):
-        def legacy_init(self, *args, **kwargs):
-            result = old_init(self, *args, **kwargs)
-            self.update_idletasks(); normalize(self)
-            self.after(1200, lambda: reclaim_tree_layout(self))
-            self.after(1800, lambda: cleanup_legacy_offer_staging(self))
-            return result
-        return legacy_init
-    M.App.__init__ = make_legacy_init(M.App.__init__)
-
     def _enable_faulthandler(_app): M.faulthandler_count += 1
     def _install_tk_exception_guard(_app): M.exception_guard_count += 1
     def _install_unified_target(_app): M.drop_target_count += 1
 
-    def make_diskdrop_init(old_init):
-        def diskdrop_init(self, *args, **kwargs):
-            result = old_init(self, *args, **kwargs)
-            self.after(1700, lambda: _enable_faulthandler(self))
-            self.after(1800, lambda: _install_tk_exception_guard(self))
-            self.after(3000, lambda: _install_unified_target(self))
-            return result
-        return diskdrop_init
-    M.App.__init__ = make_diskdrop_init(M.App.__init__)
+    def post_baseline_after(self, _result, _args, _kwargs):
+        self.after(1800, lambda: cleanup_legacy_offer_staging(self))
+
+    def diskdrop_after(self, _result, _args, _kwargs):
+        self.after(1700, lambda: _enable_faulthandler(self))
+        self.after(1800, lambda: _install_tk_exception_guard(self))
+        self.after(3000, lambda: _install_unified_target(self))
+
+    app_lifecycle.register(M, "post_baseline.offer_cleanup", after=post_baseline_after)
+    app_lifecycle.register(M, "v631.diskdrop_guards", after=diskdrop_after)
 
     def schedule_final_layout(app): app.after(0, lambda: normalize(app))
     M.schedule_final_tree_layout = schedule_final_layout
@@ -116,6 +110,13 @@ def main() -> None:
     def v710_apply(target):
         def install(tree, force=False): target.layout_calls.append((tree, bool(force)))
         target.install_persistent_tree_layout = install
+        def after_app_init(self, _result, _args, _kwargs):
+            target._active_app = self
+            for name in ("request_tree", "mivo_tree", "project_tree", "task_tree", "offer_tree"):
+                tree = getattr(self, name, None)
+                if tree is not None:
+                    install(tree, force=False)
+        app_lifecycle.register(target, "v710.configurable_tables", after=after_app_init)
         old_top = target.tk.Toplevel.__init__
         def toplevel_init(self, *args, **kwargs):
             old_top(self, *args, **kwargs)
@@ -143,12 +144,6 @@ def main() -> None:
             self.after(100, lambda: setattr(target, "recursive_scan_count", target.recursive_scan_count + 1))
             return result
         target.App.on_user_changed = on_user_changed
-        old_app_init = target.App.__init__
-        def app_init(self, *args, **kwargs):
-            result = old_app_init(self, *args, **kwargs)
-            self.after(100, lambda: setattr(target, "recursive_scan_count", target.recursive_scan_count + 1))
-            return result
-        target.App.__init__ = app_init
     fake_v710.apply = v710_apply
 
     fake_v760 = types.ModuleType("v760_table_activity_performance")
@@ -184,14 +179,6 @@ def main() -> None:
             result = previous_apply_theme(self, *args, **kwargs); install_tree_polish(self.project_tree)
             self.after(100, lambda: setattr(target, "recursive_scan_count", target.recursive_scan_count + 1)); return result
         target.App.apply_theme = apply_theme
-        previous_app_init = target.App.__init__
-        def app_init(self, *args, **kwargs):
-            result = previous_app_init(self, *args, **kwargs)
-            repack_navigation(self); configure_project_workspace(self); configure_task_workspace(self)
-            promote_accent_button(self, "offers", "Zpracovat nabídku")
-            install_resize_guard(self, None, "", ""); install_tree_polish(self.project_tree)
-            self.after(100, lambda: setattr(target, "recursive_scan_count", target.recursive_scan_count + 1)); return result
-        target.App.__init__ = app_init
     fake_v760.apply = v760_apply
 
     saved = {name: sys.modules.get(name) for name in ("v710_cleanup", "v760_table_activity_performance")}
