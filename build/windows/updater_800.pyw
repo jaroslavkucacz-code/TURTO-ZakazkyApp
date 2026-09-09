@@ -7,7 +7,6 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
-import sqlite3
 import stat
 import subprocess
 import sys
@@ -20,7 +19,6 @@ import data_location
 MAIN_EXE = "TURTO CRM.exe"
 UPDATER_EXE = "TURTO CRM Updater.exe"
 WINDOWS_CHANNEL = "windows"
-WINDOWS_MANIFEST_FORMAT = "turto-crm-windows-update-v1"
 PROGRAM_DIRS = {"_internal", "_runtime", "offers_engine", "price_lists_domain", "_rollback"}
 PROGRAM_FILES = {
     MAIN_EXE,
@@ -172,7 +170,12 @@ def _source_root(package: Path, temp_root: Path) -> Path:
     return temp_root
 
 
-def _validate_release(target: Path, expected_version: str | None = None) -> str:
+def _validate_release(
+    target: Path,
+    expected_version: str | None = None,
+    *,
+    installed: bool = False,
+) -> str:
     main = target / MAIN_EXE
     updater = target / UPDATER_EXE
     if not main.is_file():
@@ -195,10 +198,14 @@ def _validate_release(target: Path, expected_version: str | None = None) -> str:
     for path in target.rglob("*"):
         if not path.is_file():
             continue
+        # The installed application legitimately owns Inno Setup uninstaller
+        # files. A downloaded/snapshot payload must never contain them.
+        if path.name.casefold().startswith("unins"):
+            if installed:
+                continue
+            raise RuntimeError("Windows payload nesmí přepisovat Inno Setup odinstalační metadata.")
         if path.suffix.lower() in FORBIDDEN_PAYLOAD_SUFFIXES:
             raise RuntimeError(f"Windows payload obsahuje nepovolený soubor: {path.name}")
-        if path.name.casefold().startswith("unins"):
-            raise RuntimeError("Windows payload nesmí přepisovat Inno Setup odinstalační metadata.")
         if path.name.casefold() in {
             "requirements.txt",
             "spustit_zakazky.vbs",
@@ -240,7 +247,7 @@ def _restore_program_snapshot(snapshot: Path, target: Path, expected_version: st
         _validate_release(source, expected_version)
         _clean_program(target)
         _copy_release(source, target)
-        _validate_release(target, expected_version)
+        _validate_release(target, expected_version, installed=True)
 
 
 def _replace_program_with_rollback(
@@ -258,7 +265,7 @@ def _replace_program_with_rollback(
     try:
         _clean_program(target)
         _copy_release(source, target)
-        _validate_release(target, expected_version)
+        _validate_release(target, expected_version, installed=True)
     except BaseException as install_error:
         try:
             _restore_program_snapshot(snapshot_path, target, current_version)
@@ -332,7 +339,7 @@ def main() -> None:
         raise FileNotFoundError(package)
     _wait_for_process(pid)
 
-    current_version = _validate_release(target)
+    current_version = _validate_release(target, installed=True)
     if expected_sha256:
         _verify_package_hash(package, expected_sha256)
 
