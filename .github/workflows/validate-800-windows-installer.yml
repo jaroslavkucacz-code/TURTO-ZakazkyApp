@@ -53,17 +53,17 @@ jobs:
         shell: pwsh
         run: pyinstaller --noconfirm --clean build/windows/TURTO_CRM_Updater.spec
 
-      - name: Assemble Windows payload
+      - name: Assemble Windows payload and preview manifest
         shell: pwsh
         run: |
           $version = (Get-Content build/windows/version.txt -Raw).Trim()
           Copy-Item 'dist/TURTO CRM Updater.exe' 'dist/TURTO CRM/TURTO CRM Updater.exe' -Force
-          $manifest = [ordered]@{
+          $runtimeManifest = [ordered]@{
             version = $version
             channel = 'windows'
             build = 'preview'
           } | ConvertTo-Json
-          Set-Content -Path 'dist/TURTO CRM/version.json' -Value $manifest -Encoding utf8
+          Set-Content -Path 'dist/TURTO CRM/version.json' -Value $runtimeManifest -Encoding utf8
           if (-not (Test-Path 'dist/TURTO CRM/TURTO CRM.exe')) { throw 'Main EXE missing' }
           if (-not (Test-Path 'dist/TURTO CRM/TURTO CRM Updater.exe')) { throw 'Updater EXE missing' }
 
@@ -73,6 +73,16 @@ jobs:
           $updateZip = "dist/TURTO_CRM_Update_$version.zip"
           Remove-Item $updateZip -Force -ErrorAction SilentlyContinue
           Compress-Archive -Path $stage -DestinationPath $updateZip -CompressionLevel Optimal
+
+          $updateSha = (Get-FileHash $updateZip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $channelManifest = [ordered]@{
+            format = 'turto-crm-windows-update-v1'
+            channel = 'windows'
+            version = $version
+            package = (Split-Path $updateZip -Leaf)
+            sha256 = $updateSha
+          } | ConvertTo-Json
+          Set-Content -Path 'dist/latest-windows.preview.json' -Value $channelManifest -Encoding utf8
 
       - name: Install Inno Setup compiler
         shell: pwsh
@@ -93,16 +103,25 @@ jobs:
           & $iscc "/DMyAppVersion=$version" 'build/windows/TURTO_CRM.iss'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Verify produced packages
+      - name: Verify produced packages and preview manifest
         shell: pwsh
         run: |
           $version = (Get-Content build/windows/version.txt -Raw).Trim()
           $setup = "dist/installer/TURTO_CRM_Setup_$version.exe"
           $updateZip = "dist/TURTO_CRM_Update_$version.zip"
+          $previewManifest = 'dist/latest-windows.preview.json'
           if (-not (Test-Path $setup)) { throw 'Installer missing' }
           if (-not (Test-Path $updateZip)) { throw 'Update ZIP missing' }
+          if (-not (Test-Path $previewManifest)) { throw 'Windows preview manifest missing' }
           Get-FileHash $setup -Algorithm SHA256
-          Get-FileHash $updateZip -Algorithm SHA256
+          $zipHash = (Get-FileHash $updateZip -Algorithm SHA256).Hash.ToLowerInvariant()
+
+          $manifest = Get-Content $previewManifest -Raw | ConvertFrom-Json
+          if ($manifest.format -ne 'turto-crm-windows-update-v1') { throw 'Wrong Windows manifest format' }
+          if ($manifest.channel -ne 'windows') { throw 'Wrong Windows manifest channel' }
+          if ($manifest.version -ne $version) { throw 'Windows manifest version mismatch' }
+          if ($manifest.package -ne (Split-Path $updateZip -Leaf)) { throw 'Windows manifest package mismatch' }
+          if ($manifest.sha256 -ne $zipHash) { throw 'Windows manifest SHA-256 mismatch' }
 
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $updateZip))
@@ -133,6 +152,7 @@ jobs:
           path: |
             dist/installer/TURTO_CRM_Setup_*.exe
             dist/TURTO_CRM_Update_*.zip
+            dist/latest-windows.preview.json
 
   clean-install-smoke:
     name: clean-install-smoke
@@ -146,26 +166,42 @@ jobs:
           name: TURTO-CRM-8.0-Windows-preview
           path: package
 
-      - name: Install, first-start frozen EXE and uninstall on clean runner
+      - name: Install, update, re-open and uninstall on clean runner
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $setup = Get-ChildItem 'package' -Recurse -File -Filter 'TURTO_CRM_Setup_*.exe' | Select-Object -First 1
+          $normalUpdate = Get-ChildItem 'package' -Recurse -File -Filter 'TURTO_CRM_Update_*.zip' | Select-Object -First 1
+          $previewManifest = Get-ChildItem 'package' -Recurse -File -Filter 'latest-windows.preview.json' | Select-Object -First 1
           if (-not $setup) { throw 'Downloaded installer missing' }
+          if (-not $normalUpdate) { throw 'Downloaded update ZIP missing' }
+          if (-not $previewManifest) { throw 'Downloaded Windows preview manifest missing' }
           if ($setup.BaseName -notmatch '^TURTO_CRM_Setup_(.+)$') { throw 'Cannot resolve preview version from installer name' }
           $version = $Matches[1]
+
+          $publishedPreview = Get-Content $previewManifest.FullName -Raw | ConvertFrom-Json
+          $normalUpdateSha = (Get-FileHash $normalUpdate.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($publishedPreview.format -ne 'turto-crm-windows-update-v1' -or
+              $publishedPreview.channel -ne 'windows' -or
+              $publishedPreview.version -ne $version -or
+              $publishedPreview.package -ne $normalUpdate.Name -or
+              $publishedPreview.sha256 -ne $normalUpdateSha) {
+            throw 'Downloaded Windows preview manifest does not describe the downloaded update ZIP'
+          }
 
           $installRoot = Join-Path $env:RUNNER_TEMP 'turto-crm-installed'
           $dataRoot = Join-Path $env:RUNNER_TEMP 'turto-crm-data'
           $smokeResult = Join-Path $env:RUNNER_TEMP 'turto-crm-smoke.json'
+          $postUpdateSmoke = Join-Path $env:RUNNER_TEMP 'turto-crm-post-update-smoke.json'
           Remove-Item $installRoot -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item $dataRoot -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item $smokeResult -Force -ErrorAction SilentlyContinue
+          Remove-Item $postUpdateSmoke -Force -ErrorAction SilentlyContinue
 
-          function Show-SmokeCheckpoint {
-            if (Test-Path $smokeResult) {
+          function Show-SmokeCheckpoint([string]$Path) {
+            if (Test-Path $Path) {
               Write-Host '--- frozen runtime checkpoint ---'
-              Get-Content $smokeResult -Raw | Write-Host
+              Get-Content $Path -Raw | Write-Host
               Write-Host '---------------------------------'
             }
           }
@@ -175,17 +211,18 @@ jobs:
               [Parameter(Mandatory=$true)][string]$FilePath,
               [string[]]$Arguments = @(),
               [int]$TimeoutSeconds = 90,
-              [string]$Label = 'Process'
+              [string]$Label = 'Process',
+              [string]$CheckpointPath = ''
             )
             $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -PassThru
             if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
               try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
-              Show-SmokeCheckpoint
+              if ($CheckpointPath) { Show-SmokeCheckpoint $CheckpointPath }
               throw "$Label timed out after $TimeoutSeconds seconds."
             }
             $process.Refresh()
             if ($process.ExitCode -ne 0) {
-              Show-SmokeCheckpoint
+              if ($CheckpointPath) { Show-SmokeCheckpoint $CheckpointPath }
               throw "$Label failed with exit code $($process.ExitCode)."
             }
             return $process
@@ -207,7 +244,7 @@ jobs:
           $env:TURTO_CRM_DATA_ROOT = $dataRoot
           $env:TURTO_CRM_SMOKE_RESULT = $smokeResult
           $env:TURTO_DISABLE_AUTO_UPDATE = '1'
-          Invoke-BoundedProcess -FilePath $mainExe -Arguments @('--smoke-test') -TimeoutSeconds 90 -Label 'Cold frozen runtime first start' | Out-Null
+          Invoke-BoundedProcess -FilePath $mainExe -Arguments @('--smoke-test') -TimeoutSeconds 90 -Label 'Cold frozen runtime first start' -CheckpointPath $smokeResult | Out-Null
 
           if (-not (Test-Path $smokeResult)) { throw 'Frozen runtime did not create smoke result' }
           $smoke = Get-Content $smokeResult -Raw | ConvertFrom-Json
@@ -220,24 +257,107 @@ jobs:
           if ($database.StartsWith($installRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
             throw 'Frozen runtime incorrectly created business database inside installation directory'
           }
-          $hashBefore = (Get-FileHash $database -Algorithm SHA256).Hash
 
+          # Build a synthetic next 8.x payload from the real downloaded update ZIP.
+          # The application executable is unchanged, but it now reads its runtime
+          # product version from the payload-owned version.json.
+          if ($version -match '^(.*)-preview\.(\d+)$') {
+            $updateVersion = "$($Matches[1])-preview.$(([int]$Matches[2]) + 1)"
+          } else {
+            $updateVersion = "$version-update-smoke.1"
+          }
+          $updateStage = Join-Path $env:RUNNER_TEMP 'turto-crm-update-stage'
+          Remove-Item $updateStage -Recurse -Force -ErrorAction SilentlyContinue
+          Expand-Archive -Path $normalUpdate.FullName -DestinationPath $updateStage -Force
+          $payloadRoot = Get-ChildItem $updateStage -Directory | Select-Object -First 1
+          if (-not $payloadRoot) { throw 'Synthetic update payload root missing' }
+          $runtimeManifestPath = Join-Path $payloadRoot.FullName 'version.json'
+          $runtimeManifest = Get-Content $runtimeManifestPath -Raw | ConvertFrom-Json
+          $runtimeManifest.version = $updateVersion
+          $runtimeManifest.channel = 'windows'
+          $runtimeManifest.build = 'update-smoke'
+          $runtimeManifest | ConvertTo-Json | Set-Content $runtimeManifestPath -Encoding utf8
+          $marker = Join-Path $payloadRoot.FullName '_internal\update-smoke-marker.txt'
+          Set-Content $marker -Value $updateVersion -Encoding utf8
+
+          $syntheticZip = Join-Path $env:RUNNER_TEMP "TURTO_CRM_Update_$updateVersion.zip"
+          Remove-Item $syntheticZip -Force -ErrorAction SilentlyContinue
+          Compress-Archive -Path $payloadRoot.FullName -DestinationPath $syntheticZip -CompressionLevel Optimal
+          $syntheticSha = (Get-FileHash $syntheticZip -Algorithm SHA256).Hash.ToLowerInvariant()
+
+          # Production runs a temporary updater copy for the same reason: Windows
+          # cannot replace a currently executing updater inside the install folder.
+          $tempUpdaterDir = Join-Path $env:RUNNER_TEMP 'turto-crm-updater-copy'
+          New-Item -ItemType Directory -Path $tempUpdaterDir -Force | Out-Null
+          $tempUpdater = Join-Path $tempUpdaterDir 'TURTO CRM Updater.exe'
+          Copy-Item $updaterExe $tempUpdater -Force
+          $dbHashBeforeUpdate = (Get-FileHash $database -Algorithm SHA256).Hash
+          Invoke-BoundedProcess -FilePath $tempUpdater -Arguments @(
+            '--install', $syntheticZip, $installRoot, '0', 'update', $updateVersion, $syntheticSha
+          ) -TimeoutSeconds 90 -Label 'Frozen updater integration' | Out-Null
+          $dbHashAfterUpdate = (Get-FileHash $database -Algorithm SHA256).Hash
+          if ($dbHashAfterUpdate -ne $dbHashBeforeUpdate) { throw 'Updater modified the business database during program replacement' }
+
+          $installedRuntimeManifest = Get-Content (Join-Path $installRoot 'version.json') -Raw | ConvertFrom-Json
+          if ($installedRuntimeManifest.version -ne $updateVersion) { throw 'Updater did not install the synthetic next version' }
+          if (-not (Test-Path (Join-Path $installRoot '_internal\update-smoke-marker.txt'))) { throw 'Updated program marker missing' }
           $uninstaller = Get-ChildItem $installRoot -File -Filter 'unins*.exe' | Select-Object -First 1
-          if (-not $uninstaller) { throw 'Inno uninstaller was not created' }
+          if (-not $uninstaller) { throw 'Updater removed Inno uninstaller metadata' }
+
+          $lastUpdatePath = Join-Path $dataRoot 'updates\last_update.json'
+          if (-not (Test-Path $lastUpdatePath)) { throw 'Updater did not write last_update.json' }
+          $lastUpdate = Get-Content $lastUpdatePath -Raw | ConvertFrom-Json
+          if ($lastUpdate.from_version -ne $version -or $lastUpdate.to_version -ne $updateVersion) {
+            throw 'Updater transaction log contains wrong versions'
+          }
+          if ($lastUpdate.package_sha256 -ne $syntheticSha) { throw 'Updater transaction log contains wrong package SHA-256' }
+          if (-not (Test-Path ([string]$lastUpdate.database_backup))) { throw 'Updater database backup missing' }
+          if (-not (Test-Path ([string]$lastUpdate.program_snapshot))) { throw 'Updater program snapshot missing' }
+          $snapshotHash = (Get-FileHash ([string]$lastUpdate.program_snapshot) -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($snapshotHash -ne ([string]$lastUpdate.program_snapshot_sha256).ToLowerInvariant()) {
+            throw 'Updater program snapshot SHA-256 mismatch'
+          }
+
+          # The updater intentionally restarted the new main EXE. Stop that normal
+          # GUI process after proving it started, then run a deterministic smoke
+          # startup which must now read the new version from version.json.
+          Start-Sleep -Seconds 2
+          Get-CimInstance Win32_Process | Where-Object {
+            ([string]$_.ExecutablePath).Equals($mainExe, [System.StringComparison]::OrdinalIgnoreCase)
+          } | ForEach-Object {
+            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+          }
+          Start-Sleep -Milliseconds 500
+
+          $env:TURTO_CRM_SMOKE_RESULT = $postUpdateSmoke
+          Invoke-BoundedProcess -FilePath $mainExe -Arguments @('--smoke-test') -TimeoutSeconds 90 -Label 'Post-update frozen runtime' -CheckpointPath $postUpdateSmoke | Out-Null
+          $postSmoke = Get-Content $postUpdateSmoke -Raw | ConvertFrom-Json
+          if (-not $postSmoke.ok -or -not $postSmoke.frozen -or $postSmoke.version -ne $updateVersion) {
+            throw "Post-update frozen runtime failed or reported wrong version: $($postSmoke.version)"
+          }
+
+          $hashBeforeUninstall = (Get-FileHash $database -Algorithm SHA256).Hash
+          $uninstaller = Get-ChildItem $installRoot -File -Filter 'unins*.exe' | Select-Object -First 1
+          if (-not $uninstaller) { throw 'Inno uninstaller was not preserved after update' }
           Invoke-BoundedProcess -FilePath $uninstaller.FullName -Arguments @(
             '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
           ) -TimeoutSeconds 90 -Label 'Clean uninstall' | Out-Null
 
           if (Test-Path $mainExe) { throw 'Main EXE remained after uninstall' }
+          if (Test-Path $updaterExe) { throw 'Updater EXE remained after uninstall' }
           if (-not (Test-Path $database)) { throw 'Uninstall removed the business database' }
-          $hashAfter = (Get-FileHash $database -Algorithm SHA256).Hash
-          if ($hashAfter -ne $hashBefore) { throw 'Uninstall modified the business database' }
+          $hashAfterUninstall = (Get-FileHash $database -Algorithm SHA256).Hash
+          if ($hashAfterUninstall -ne $hashBeforeUninstall) { throw 'Uninstall modified the business database' }
 
-      - name: Upload clean-runner smoke result
+      - name: Upload clean-runner smoke results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: TURTO-CRM-8.0-clean-runner-smoke
           if-no-files-found: warn
           retention-days: 7
-          path: ${{ runner.temp }}/turto-crm-smoke.json
+          path: |
+            ${{ runner.temp }}/turto-crm-smoke.json
+            ${{ runner.temp }}/turto-crm-post-update-smoke.json
+            ${{ runner.temp }}/turto-crm-data/updates/last_update.json
+            ${{ runner.temp }}/turto-crm-data/updates/last_failed_update.json
