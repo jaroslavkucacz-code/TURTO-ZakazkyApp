@@ -22,3 +22,4 @@ jobs:
             release_version.txt
             release_notes.txt
           retention-days: 3
+# refreshed after lifecycle cleanup stage 2
