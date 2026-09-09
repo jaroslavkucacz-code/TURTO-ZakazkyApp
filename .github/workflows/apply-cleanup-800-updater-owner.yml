@@ -1,0 +1,56 @@
+name: Apply TURTO CRM 8.0 updater owner cleanup
+on:
+  push:
+    branches: [refactor/8.0.0-big-cleanup]
+    paths:
+      - '.github/workflows/apply-cleanup-800-updater-owner.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/8.0.0-big-cleanup
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+      - name: Apply tested updater ownership patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d _cleanup800_updater/p0 | gzip -dc > /tmp/updater-owner.patch
+          git apply --check /tmp/updater-owner.patch
+          git apply /tmp/updater-owner.patch
+          rm -rf _cleanup800_updater
+      - name: Install dependencies
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+      - name: Run updater ownership gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q ZakazkyApp_base_6.1 post_baseline.py scripts
+          python scripts/validate-auto-update.py ZakazkyApp_base_6.1
+          python scripts/validate-7200-visual-issued-offers.py ZakazkyApp_base_6.1
+          python scripts/validate-800-app-lifecycle.py ZakazkyApp_base_6.1
+          python scripts/validate-800-schema-lifecycle.py ZakazkyApp_base_6.1
+          python scripts/audit-runtime-overrides.py . --check
+          python scripts/validate-771-runtime-bootstrap-stability.py ZakazkyApp_base_6.1
+          env -u DISPLAY python scripts/validate-7900-runtime-integration.py ZakazkyApp_base_6.1
+          rm -f runtime-audit.json
+      - name: Commit updater owner cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'TURTO Cleanup Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          rm .github/workflows/apply-cleanup-800-updater-owner.yml
+          rm -f runtime-audit.json
+          git add -A
+          git diff --cached --check
+          git commit -m 'TURTO CRM 8.0: retire legacy updater owners'
+          git push origin HEAD:refactor/8.0.0-big-cleanup
