@@ -4,6 +4,7 @@ import importlib
 import json
 import multiprocessing
 import os
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -54,6 +55,31 @@ app.APP_NAME = "TURTO CRM"
 app.APP_VERSION = "8.0.0-preview.1"
 data_location.apply_to_app(app)
 _smoke_checkpoint("data-location-applied", database=str(app.DB))
+
+# Some historical runtime layers expect the core schema to exist while they are
+# being composed (crm_runtime, for example, reads the users table in apply()).
+# Existing databases keep the historical startup order; only a new/incomplete
+# database receives the baseline schema before runtime composition.
+def _baseline_schema_ready() -> bool:
+    database = Path(app.DB)
+    if not database.exists() or database.stat().st_size == 0:
+        return False
+    con = sqlite3.connect(str(database), timeout=5)
+    try:
+        names = {
+            str(row[0])
+            for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
+    finally:
+        con.close()
+    return {"users", "settings", "companies", "actions"}.issubset(names)
+
+
+app.cleanup_stale_test_session()
+if not _baseline_schema_ready():
+    _smoke_checkpoint("baseline-schema-required", database=str(app.DB))
+    app.ensure_schema()
+    _smoke_checkpoint("baseline-schema-ready", database=str(app.DB))
 
 # Frozen smoke mode records the exact runtime layer currently being composed.
 # This diagnostic wrapper is intentionally local to the launcher and only active
@@ -116,7 +142,8 @@ _smoke_checkpoint("runtime-applied", database=str(app.DB))
 exe_distribution.apply(app)
 _smoke_checkpoint("exe-policy-applied", database=str(app.DB))
 
-app.cleanup_stale_test_session()
+# Run the final schema pass after runtime composition too. Later compatibility
+# layers may extend the baseline schema; ensure_schema is intentionally idempotent.
 app.ensure_schema()
 _smoke_checkpoint("schema-ready", database=str(app.DB))
 app.ensure_test_user()
