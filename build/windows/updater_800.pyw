@@ -112,8 +112,10 @@ def _snapshot_program(target: Path, version: str) -> tuple[Path, str] | None:
 def _source_root(package: Path, temp_root: Path) -> Path:
     with zipfile.ZipFile(package) as archive:
         archive.extractall(temp_root)
-    roots = [path for path in temp_root.iterdir() if path.is_dir()]
-    return roots[0] if len(roots) == 1 else temp_root
+    entries = list(temp_root.iterdir())
+    if len(entries) == 1 and entries[0].is_dir():
+        return entries[0]
+    return temp_root
 
 
 def _clean_program(target: Path) -> None:
