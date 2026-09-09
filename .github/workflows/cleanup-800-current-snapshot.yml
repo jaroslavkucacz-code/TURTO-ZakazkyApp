@@ -1,0 +1,24 @@
+name: TURTO CRM 8.0 current source snapshot
+on:
+  push:
+    branches: [refactor/8.0.0-big-cleanup]
+    paths:
+      - '.github/workflows/cleanup-800-current-snapshot.yml'
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cleanup-800-current-source
+          path: |
+            ZakazkyApp_base_6.1
+            scripts
+            post_baseline.py
+            ARCHITECTURE_AUDIT_8.0.md
+            release_version.txt
+            release_notes.txt
+          retention-days: 3
