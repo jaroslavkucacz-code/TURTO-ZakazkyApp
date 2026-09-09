@@ -7,6 +7,8 @@ on:
       - ZakazkyApp_base_6.1/data_location.py
       - ZakazkyApp_base_6.1/data_onboarding.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/exe_distribution.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/category_event_compat_800.py
+      - ZakazkyApp_base_6.1/runtime_bootstrap.py
       - build/windows/**
       - scripts/validate-800-installation.py
       - .github/workflows/validate-800-windows-installer.yml
@@ -75,11 +77,12 @@ jobs:
         run: |
           $version = (Get-Content build/windows/version.txt -Raw).Trim()
           $candidates = @(
-            "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe",
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
             "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+            "${env:ProgramFiles(x86)}\Inno Setup 7\ISCC.exe",
             "$env:ProgramFiles\Inno Setup 7\ISCC.exe"
           )
-          $iscc = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          $iscc = $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
           if (-not $iscc) { throw 'ISCC.exe was not found after Inno Setup installation.' }
           & $iscc "/DMyAppVersion=$version" 'build/windows/TURTO_CRM.iss'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
