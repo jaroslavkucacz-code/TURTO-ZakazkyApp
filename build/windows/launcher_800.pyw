@@ -117,6 +117,8 @@ if SMOKE_TEST:
         _wrap_callable(runtime_module, "_apply_price_lists", "crm-price-lists:domain")
         _wrap_callable(runtime_module, "install_customer_pricing", "crm-price-lists:customer-pricing")
 
+        # crm_price_lists already imported price_lists_domain; wrapping these
+        # globals therefore adds no extra owner imports before the real apply().
         domain = importlib.import_module("price_lists_domain")
         for helper_name in (
             "_install_new_project_button",
@@ -127,32 +129,58 @@ if SMOKE_TEST:
         ):
             _wrap_callable(domain, helper_name, f"price-domain:{helper_name}")
 
-        # price_lists_domain.apply imports platform.install at call time, so
-        # wrapping the package attribute traces the complete platform phase.
-        # platform.install itself calls names imported into this package module;
-        # wrap those exact references rather than only the source submodules.
+        # platform.install intentionally imports its owners lazily inside the
+        # function. A previous diagnostic pre-imported them and itself became the
+        # blocking step. Under --smoke-test only, reproduce the same import/call
+        # order with checkpoints around every lazy import and every installer.
         platform = importlib.import_module("price_lists_domain.platform")
-        _wrap_callable(platform, "install", "price-platform:install")
-        for helper_name in (
-            "install_fast_db",
-            "patch_schema",
-            "install_ocr",
-            "install_price_integration",
-            "install_product_catalog",
-            "install_product_workspace",
-            "install_offers",
-            "install_archive",
-            "install_worksets",
-            "install_finalize",
-            "install_compat",
-            "install_clarity",
-            "install_commercial_workspace",
-            "install_lazy_refresh",
-            "install_project_table_stability",
-            "install_automatic_updates",
-        ):
-            _wrap_callable(platform, helper_name, f"price-platform:{helper_name}")
+        original_platform_install = platform.install
+        if not getattr(original_platform_install, "_turto_smoke_trace", False):
+            platform_steps = (
+                ("price_lists_domain.platform.database", "install_fast_db", "install_fast_db"),
+                ("price_lists_domain.platform.database", "patch_schema", "patch_schema"),
+                ("price_lists_domain.platform.fast_ocr", "install", "install_ocr"),
+                ("price_lists_domain.platform.integration", "install", "install_price_integration"),
+                ("price_lists_domain.platform.product_catalog", "install", "install_product_catalog"),
+                ("price_lists_domain.platform.product_workspace", "install", "install_product_workspace"),
+                ("price_lists_domain.platform.offers", "install", "install_offers"),
+                ("price_lists_domain.platform.archive", "install", "install_archive"),
+                ("price_lists_domain.platform.worksets", "install", "install_worksets"),
+                ("price_lists_domain.platform.finalize", "install", "install_finalize"),
+                ("price_lists_domain.platform.compat", "install", "install_compat"),
+                ("price_lists_domain.platform.clarity", "install", "install_clarity"),
+                ("price_lists_domain.platform.commercial_workspace", "install", "install_commercial_workspace"),
+                ("price_lists_domain.platform.lazy_refresh", "install", "install_lazy_refresh"),
+                ("price_lists_domain.platform.project_table_stability", "install", "install_project_table_stability"),
+                ("price_lists_domain.platform.automatic_updates", "install", "install_automatic_updates"),
+            )
 
+            def diagnostic_platform_install(module):
+                _smoke_checkpoint("price-platform:install-before", database=str(getattr(module, "DB", "")))
+                resolved = []
+                for module_name, attribute, label in platform_steps:
+                    _smoke_checkpoint(f"price-platform:import:{label}-before", database=str(getattr(module, "DB", "")))
+                    owner = importlib.import_module(module_name)
+                    _smoke_checkpoint(f"price-platform:import:{label}-after", database=str(getattr(module, "DB", "")))
+                    resolved.append((getattr(owner, attribute), label))
+
+                if getattr(module, "_turto_platform_v6339", False):
+                    _smoke_checkpoint("price-platform:install-after", database=str(getattr(module, "DB", "")))
+                    return
+
+                for installer, label in resolved:
+                    _smoke_checkpoint(f"price-platform:{label}-before", database=str(getattr(module, "DB", "")))
+                    installer(module)
+                    _smoke_checkpoint(f"price-platform:{label}-after", database=str(getattr(module, "DB", "")))
+
+                module._turto_platform_v6339 = True
+                _smoke_checkpoint("price-platform:install-after", database=str(getattr(module, "DB", "")))
+
+            diagnostic_platform_install._turto_smoke_trace = True
+            platform.install = diagnostic_platform_install
+
+        # customer_pricing is already imported by crm_price_lists. Trace only its
+        # helper calls; do not introduce any new import sequence here.
         customer = importlib.import_module("price_lists_domain.platform.customer_pricing")
         for helper_name in (
             "ensure_schema",
