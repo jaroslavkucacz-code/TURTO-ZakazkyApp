@@ -51,6 +51,16 @@ def main() -> None:
     assert invalid.returncode != 0
     assert "Neplatný formát verze" in (invalid.stderr + invalid.stdout)
 
+    # Source validation and the packaged runtime must execute the same active
+    # post-baseline layer.  The release packager intentionally copies the root
+    # file into the staged application, so a drift here would make CI validate a
+    # different runtime than customers receive.
+    packaged_owner = repo / "post_baseline.py"
+    source_owner = repo / "ZakazkyApp_base_6.1" / "post_baseline.py"
+    assert packaged_owner.read_bytes() == source_owner.read_bytes(), (
+        "post_baseline.py drift: source tests and packaged runtime differ"
+    )
+
     text = workflow.read_text(encoding="utf-8")
     required = (
         "Validate release version advances",
@@ -60,6 +70,7 @@ def main() -> None:
         "python scripts/validate-794-startup-optimization.py ZakazkyApp_base_6.1",
         "ZakazkyApp_base_6.1/price_lists_domain/platform/**",
         "ZakazkyApp_base_6.1/runtime_bootstrap.py",
+        "ZakazkyApp_base_6.1/post_baseline.py",
     )
     for token in required:
         assert token in text, token
