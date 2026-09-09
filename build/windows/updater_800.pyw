@@ -4,9 +4,11 @@ from datetime import datetime
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+import re
 import shutil
 import sqlite3
+import stat
 import subprocess
 import sys
 import tempfile
@@ -17,6 +19,8 @@ import data_location
 
 MAIN_EXE = "TURTO CRM.exe"
 UPDATER_EXE = "TURTO CRM Updater.exe"
+WINDOWS_CHANNEL = "windows"
+WINDOWS_MANIFEST_FORMAT = "turto-crm-windows-update-v1"
 PROGRAM_DIRS = {"_internal", "_runtime", "offers_engine", "price_lists_domain", "_rollback"}
 PROGRAM_FILES = {
     MAIN_EXE,
@@ -28,6 +32,9 @@ PROGRAM_FILES = {
     "README.txt",
     "version.json",
 }
+FORBIDDEN_PAYLOAD_SUFFIXES = {".db", ".sqlite", ".sqlite3", ".py", ".pyw", ".pyc"}
+MAX_UNCOMPRESSED_PAYLOAD = 2 * 1024 * 1024 * 1024
+_SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
 
 def _wait_for_process(pid: int) -> None:
@@ -41,11 +48,22 @@ def _wait_for_process(pid: int) -> None:
             break
 
 
-def _version_from_install(target: Path) -> str:
-    manifest = target / "version.json"
+def _read_version_manifest(root: Path) -> dict:
+    path = root / "version.json"
+    if not path.is_file():
+        raise RuntimeError("Aktualizace neobsahuje version.json.")
     try:
-        data = json.loads(manifest.read_text(encoding="utf-8"))
-        value = str(data.get("version") or "").strip()
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except Exception as exc:
+        raise RuntimeError(f"version.json nemá platný formát: {exc}") from exc
+    if not isinstance(data, dict):
+        raise RuntimeError("version.json nemá platný objektový formát.")
+    return data
+
+
+def _version_from_install(target: Path) -> str:
+    try:
+        value = str(_read_version_manifest(target).get("version") or "").strip()
         if value:
             return value
     except Exception:
@@ -57,21 +75,11 @@ def _database_backup(label: str) -> Path | None:
     source = data_location.database_path()
     if not source.is_file():
         return None
-    root = data_location.data_root()
-    backup_dir = root / "backup"
-    backup_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    target = backup_dir / f"zakazky_{label}_{stamp}.db"
-    src = sqlite3.connect(source)
-    dst = sqlite3.connect(target)
-    try:
-        src.backup(dst)
-    finally:
-        try:
-            dst.close()
-        finally:
-            src.close()
-    return target
+    return data_location.backup_database(
+        source,
+        label=label,
+        backup_root=data_location.data_root(),
+    )
 
 
 def _hash_file(path: Path) -> str:
@@ -79,7 +87,17 @@ def _hash_file(path: Path) -> str:
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
-    return digest.hexdigest()
+    return digest.hexdigest().lower()
+
+
+def _verify_package_hash(package: Path, expected_sha256: str) -> str:
+    expected = str(expected_sha256 or "").strip().lower()
+    if not _SHA256_RE.fullmatch(expected):
+        raise ValueError("Updater nedostal platný očekávaný SHA-256 otisk balíčku.")
+    actual = _hash_file(package)
+    if actual != expected:
+        raise ValueError("Aktualizační ZIP změnil obsah nebo neodpovídá oficiálnímu SHA-256 otisku.")
+    return actual
 
 
 def _snapshot_program(target: Path, version: str) -> tuple[Path, str] | None:
@@ -116,13 +134,78 @@ def _snapshot_program(target: Path, version: str) -> tuple[Path, str] | None:
     return package, digest
 
 
-def _source_root(package: Path, temp_root: Path) -> Path:
+def _safe_extract(package: Path, temp_root: Path) -> None:
+    root = temp_root.resolve()
+    total = 0
     with zipfile.ZipFile(package) as archive:
-        archive.extractall(temp_root)
-    entries = list(temp_root.iterdir())
+        for info in archive.infolist():
+            raw_name = str(info.filename or "").replace("\\", "/")
+            rel = PurePosixPath(raw_name)
+            if not raw_name or rel.is_absolute() or ".." in rel.parts:
+                raise RuntimeError("Aktualizační ZIP obsahuje nepovolenou cestu.")
+            mode = (info.external_attr >> 16) & 0o170000
+            if mode == stat.S_IFLNK:
+                raise RuntimeError("Aktualizační ZIP nesmí obsahovat symbolické odkazy.")
+            total += int(info.file_size or 0)
+            if total > MAX_UNCOMPRESSED_PAYLOAD:
+                raise RuntimeError("Aktualizační ZIP překračuje povolenou rozbalenou velikost.")
+
+            destination = root.joinpath(*rel.parts)
+            try:
+                destination.resolve().relative_to(root)
+            except Exception as exc:
+                raise RuntimeError("Aktualizační ZIP se pokusil zapisovat mimo pracovní složku.") from exc
+
+            if info.is_dir() or raw_name.endswith("/"):
+                destination.mkdir(parents=True, exist_ok=True)
+                continue
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with archive.open(info, "r") as source, destination.open("wb") as output:
+                shutil.copyfileobj(source, output, length=1024 * 1024)
+
+
+def _source_root(package: Path, temp_root: Path) -> Path:
+    _safe_extract(package, temp_root)
+    entries = [p for p in temp_root.iterdir() if p.name != "__MACOSX"]
     if len(entries) == 1 and entries[0].is_dir():
         return entries[0]
     return temp_root
+
+
+def _validate_release(target: Path, expected_version: str | None = None) -> str:
+    main = target / MAIN_EXE
+    updater = target / UPDATER_EXE
+    if not main.is_file():
+        raise RuntimeError(f"Aktualizace neobsahuje {MAIN_EXE}.")
+    if not updater.is_file():
+        raise RuntimeError(f"Aktualizace neobsahuje {UPDATER_EXE}.")
+
+    manifest = _read_version_manifest(target)
+    version = str(manifest.get("version") or "").strip()
+    channel = str(manifest.get("channel") or "").strip().casefold()
+    if not version:
+        raise RuntimeError("version.json neobsahuje číslo verze.")
+    if channel != WINDOWS_CHANNEL:
+        raise RuntimeError("Aktualizační payload nepatří do Windows kanálu TURTO CRM 8.x.")
+    if expected_version and version != str(expected_version).strip():
+        raise RuntimeError(
+            f"Verze payloadu {version} neodpovídá očekávané verzi {expected_version}."
+        )
+
+    for path in target.rglob("*"):
+        if not path.is_file():
+            continue
+        if path.suffix.lower() in FORBIDDEN_PAYLOAD_SUFFIXES:
+            raise RuntimeError(f"Windows payload obsahuje nepovolený soubor: {path.name}")
+        if path.name.casefold().startswith("unins"):
+            raise RuntimeError("Windows payload nesmí přepisovat Inno Setup odinstalační metadata.")
+        if path.name.casefold() in {
+            "requirements.txt",
+            "spustit_zakazky.vbs",
+            "nainstalovat_knihovny.bat",
+        }:
+            raise RuntimeError(f"Windows payload obsahuje legacy soubor: {path.name}")
+    return version
 
 
 def _clean_program(target: Path) -> None:
@@ -151,16 +234,44 @@ def _copy_release(source: Path, target: Path) -> None:
         shutil.copy2(path, destination)
 
 
-def _validate_release(target: Path) -> None:
-    main = target / MAIN_EXE
-    updater = target / UPDATER_EXE
-    version = target / "version.json"
-    if not main.is_file():
-        raise RuntimeError(f"Aktualizace neobsahuje {MAIN_EXE}.")
-    if not updater.is_file():
-        raise RuntimeError(f"Aktualizace neobsahuje {UPDATER_EXE}.")
-    if not version.is_file():
-        raise RuntimeError("Aktualizace neobsahuje version.json.")
+def _restore_program_snapshot(snapshot: Path, target: Path, expected_version: str) -> None:
+    with tempfile.TemporaryDirectory(prefix="turto_restore_snapshot_") as temp:
+        source = _source_root(snapshot, Path(temp))
+        _validate_release(source, expected_version)
+        _clean_program(target)
+        _copy_release(source, target)
+        _validate_release(target, expected_version)
+
+
+def _replace_program_with_rollback(
+    source: Path,
+    target: Path,
+    *,
+    current_version: str,
+    expected_version: str,
+) -> tuple[Path, str]:
+    snapshot = _snapshot_program(target, current_version)
+    if snapshot is None:
+        raise RuntimeError("Před aktualizací se nepodařilo vytvořit snapshot programu.")
+    snapshot_path, snapshot_sha = snapshot
+
+    try:
+        _clean_program(target)
+        _copy_release(source, target)
+        _validate_release(target, expected_version)
+    except BaseException as install_error:
+        try:
+            _restore_program_snapshot(snapshot_path, target, current_version)
+        except BaseException as restore_error:
+            raise RuntimeError(
+                "Aktualizace selhala a automatické obnovení původního programu se také nezdařilo. "
+                f"Instalace: {install_error}; obnova: {restore_error}; snapshot: {snapshot_path}"
+            ) from install_error
+        raise RuntimeError(
+            "Aktualizace programových souborů selhala; původní verze byla automaticky obnovena. "
+            f"Důvod: {install_error}"
+        ) from install_error
+    return snapshot_path, snapshot_sha
 
 
 def _restart(target: Path) -> None:
@@ -168,52 +279,126 @@ def _restart(target: Path) -> None:
     subprocess.Popen([str(executable)], cwd=str(target))
 
 
-def _parse_arguments() -> tuple[Path, Path, int, str]:
-    if len(sys.argv) >= 5 and sys.argv[1] == "--install":
+def _parse_arguments() -> tuple[Path, Path, int, str, str, str]:
+    if len(sys.argv) >= 6 and sys.argv[1] == "--install":
         package = Path(sys.argv[2])
         target = Path(sys.argv[3])
         pid = int(sys.argv[4])
-        mode = str(sys.argv[5] if len(sys.argv) > 5 else "update").strip().lower()
-        return package, target, pid, mode
+        mode = str(sys.argv[5] or "update").strip().lower()
+        expected_version = str(sys.argv[6] if len(sys.argv) > 6 else "").strip()
+        expected_sha256 = str(sys.argv[7] if len(sys.argv) > 7 else "").strip().lower()
+        if mode == "update":
+            if not expected_version or not _SHA256_RE.fullmatch(expected_sha256):
+                raise ValueError("Windows update vyžaduje očekávanou verzi i SHA-256.")
+        elif expected_sha256 and not _SHA256_RE.fullmatch(expected_sha256):
+            raise ValueError("Rollback dostal neplatný SHA-256 otisk.")
+        return package, target, pid, mode, expected_version, expected_sha256
     raise ValueError("Neplatné parametry aktualizace TURTO CRM 8.x.")
 
 
+def _write_failure_log(
+    *,
+    mode: str,
+    current_version: str,
+    expected_version: str,
+    error: BaseException,
+    package: Path,
+) -> None:
+    try:
+        root = data_location.data_root() / "updates"
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "last_failed_update.json").write_text(
+            json.dumps(
+                {
+                    "mode": mode,
+                    "from_version": current_version,
+                    "expected_version": expected_version,
+                    "package": str(package),
+                    "error": str(error),
+                    "failed_at": datetime.now().isoformat(timespec="seconds"),
+                },
+                ensure_ascii=False,
+                indent=2,
+            ) + "\n",
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+
+
 def main() -> None:
-    package, target, pid, mode = _parse_arguments()
+    package, target, pid, mode, expected_version, expected_sha256 = _parse_arguments()
     if not package.is_file():
         raise FileNotFoundError(package)
     _wait_for_process(pid)
 
-    current_version = _version_from_install(target)
+    current_version = _validate_release(target)
+    if expected_sha256:
+        _verify_package_hash(package, expected_sha256)
+
     label = "pred_navratem" if mode == "rollback" else "pred_aktualizaci"
-    db_backup = _database_backup(label)
-    program_snapshot = _snapshot_program(target, current_version)
 
-    with tempfile.TemporaryDirectory(prefix="turto_update_payload_") as temp:
-        source = _source_root(package, Path(temp))
-        _clean_program(target)
-        _copy_release(source, target)
-        _validate_release(target)
+    try:
+        with tempfile.TemporaryDirectory(prefix="turto_update_payload_") as temp:
+            source = _source_root(package, Path(temp))
+            source_version = _validate_release(source, expected_version or None)
+            if mode == "update" and source_version == current_version:
+                raise RuntimeError("Aktualizační payload má stejnou verzi jako aktuální instalace.")
 
-    log_root = data_location.data_root() / "updates"
-    log_root.mkdir(parents=True, exist_ok=True)
-    (log_root / "last_update.json").write_text(
-        json.dumps(
-            {
-                "mode": mode,
-                "from_version": current_version,
-                "to_version": _version_from_install(target),
-                "database": str(data_location.database_path()),
-                "database_backup": str(db_backup) if db_backup else "",
-                "program_snapshot": str(program_snapshot[0]) if program_snapshot else "",
-                "installed_at": datetime.now().isoformat(timespec="seconds"),
-            },
-            ensure_ascii=False,
-            indent=2,
-        ) + "\n",
-        encoding="utf-8",
-    )
-    _restart(target)
+            # No installed program files have been touched before all payload
+            # validation above has completed successfully.
+            db_backup = _database_backup(label)
+            snapshot_path, snapshot_sha = _replace_program_with_rollback(
+                source,
+                target,
+                current_version=current_version,
+                expected_version=source_version,
+            )
+
+        try:
+            _restart(target)
+        except BaseException as restart_error:
+            try:
+                _restore_program_snapshot(snapshot_path, target, current_version)
+                _restart(target)
+            except BaseException as restore_error:
+                raise RuntimeError(
+                    "Nová verze byla nainstalována, ale nešlo ji spustit; následná obnova "
+                    f"původní verze také selhala. Start: {restart_error}; obnova: {restore_error}"
+                ) from restart_error
+            raise RuntimeError(
+                "Novou verzi se nepodařilo spustit; původní program byl automaticky obnoven a spuštěn."
+            ) from restart_error
+
+        log_root = data_location.data_root() / "updates"
+        log_root.mkdir(parents=True, exist_ok=True)
+        (log_root / "last_update.json").write_text(
+            json.dumps(
+                {
+                    "mode": mode,
+                    "from_version": current_version,
+                    "to_version": _version_from_install(target),
+                    "package_sha256": expected_sha256 or _hash_file(package),
+                    "database": str(data_location.database_path()),
+                    "database_backup": str(db_backup) if db_backup else "",
+                    "program_snapshot": str(snapshot_path),
+                    "program_snapshot_sha256": snapshot_sha,
+                    "installed_at": datetime.now().isoformat(timespec="seconds"),
+                },
+                ensure_ascii=False,
+                indent=2,
+            ) + "\n",
+            encoding="utf-8",
+        )
+    except BaseException as exc:
+        _write_failure_log(
+            mode=mode,
+            current_version=current_version,
+            expected_version=expected_version,
+            error=exc,
+            package=package,
+        )
+        raise
 
 
 if __name__ == "__main__":
