@@ -92,14 +92,9 @@ def apply(M) -> None:
                         f'ADD COLUMN "{name}" {declaration}'
                     )
 
-    previous_ensure_schema = getattr(M, "ensure_schema", None)
-    if callable(previous_ensure_schema):
-        def ensure_schema():
-            result = previous_ensure_schema()
-            ensure_v740_schema()
-            return result
+    import schema_lifecycle
 
-        M.ensure_schema = ensure_schema
+    schema_lifecycle.register(M, "v740.offer_defaults", ensure_v740_schema)
 
     # ------------------------------------------------------------------
     # Taxonomy order and pricing defaults.

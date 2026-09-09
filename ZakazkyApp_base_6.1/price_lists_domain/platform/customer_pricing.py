@@ -890,12 +890,11 @@ def _patch_workspace(M):
 def install(M):
     if getattr(M, "_turto_customer_pricing_v6340", False):
         return
-    old_ensure = M.ensure_schema
+    import schema_lifecycle
 
-    def wrapped_ensure():
-        old_ensure(); ensure_schema(M)
-
-    M.ensure_schema = wrapped_ensure
+    schema_lifecycle.register(
+        M, "price_lists.customer_pricing", lambda: ensure_schema(M)
+    )
     M.ensure_customer_pricing_schema = lambda: ensure_schema(M)
     M.resolve_customer_product_pricing = lambda product_id, company_id=None, action_id=None, as_of=None: resolve(M, product_id, company_id, action_id, as_of)
     M.apply_customer_pricing = lambda payload, force=False: price_payload(M, payload, force)

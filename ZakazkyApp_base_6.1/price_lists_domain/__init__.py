@@ -13,13 +13,11 @@ def apply(module):
     if getattr(module, "_turto_price_lists_domain_v6338", False):
         return
     context.M = module
-    old_ensure = module.ensure_schema
+    import schema_lifecycle
 
-    def ensure_schema():
-        old_ensure()
-        ensure_price_list_schema()
-
-    module.ensure_schema = ensure_schema
+    schema_lifecycle.register(
+        module, "price_lists.core", ensure_price_list_schema
+    )
     module.ensure_price_list_schema = ensure_price_list_schema
     module.price_list_archive_root = price_list_archive_root
     module.parse_price_list_file = parse_price_list_file

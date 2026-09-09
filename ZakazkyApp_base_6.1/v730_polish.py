@@ -480,13 +480,9 @@ def apply(M) -> None:
                 """
             )
 
-    old_ensure_schema = getattr(M, "ensure_schema", None)
-    if callable(old_ensure_schema):
-        def ensure_schema():
-            result = old_ensure_schema()
-            ensure_company_merge_schema()
-            return result
-        M.ensure_schema = ensure_schema
+    import schema_lifecycle
+
+    schema_lifecycle.register(M, "v730.company_merge", ensure_company_merge_schema)
 
     COMPANY_COLUMN_NAMES = {
         "company_id",

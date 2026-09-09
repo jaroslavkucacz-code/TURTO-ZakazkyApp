@@ -24,6 +24,9 @@ def main():
     source = pathlib.Path(
         sys.argv[1] if len(sys.argv) > 1 else 'ZakazkyApp_base_6.1'
     ).resolve()
+    source_text = str(source)
+    if source_text not in sys.path:
+        sys.path.insert(0, source_text)
     module_path = source / 'v767_offer_reprocess_images.py'
     spec = importlib.util.spec_from_file_location('v767_offer_reprocess_images_test', module_path)
     mod = importlib.util.module_from_spec(spec)

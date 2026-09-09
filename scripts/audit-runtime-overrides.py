@@ -141,7 +141,8 @@ def audit_file(path: pathlib.Path, root: pathlib.Path) -> list[Hit]:
 
 
 CRITICAL_OWNER_BUDGETS = {
-    "M.App.__init__": 3,
+    "M.App.__init__": 1,
+    "M.ensure_schema": 1,
     "M.App.build_help": 1,
     "M.App.show_help_topic": 1,
     "M.enable_dialog_maximize": 1,

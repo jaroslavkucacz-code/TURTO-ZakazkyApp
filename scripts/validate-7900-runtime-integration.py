@@ -52,7 +52,18 @@ def main():
         import v770_runtime_policy
         assert 'update_idletasks(' not in inspect.getsource(v770_runtime_policy._place_dialog)
         from price_lists_domain.issued_offers import service,template_layout,template_settings,editor
-        M.ensure_schema();runtime_bootstrap.apply_all(M);M.ensure_schema();M.ensure_test_user()
+        M.ensure_schema();runtime_bootstrap.apply_all(M)
+        expected_schema_migrations = [
+            "price_lists.core", "price_lists.platform", "price_lists.finalize",
+            "price_lists.issued_offers", "price_lists.customer_pricing",
+            "v710.commercial", "v730.company_merge", "v740.offer_defaults",
+            "v750.context_filters", "v760.table_activity",
+            "v767.offer_reprocess_images", "v769.nevoga_rich_description",
+            "v7616.plexus_assets", "v770.runtime_policy",
+        ]
+        assert [migration.name for migration in M.SCHEMA_MIGRATIONS] == expected_schema_migrations
+        assert M.ensure_schema.__module__ == "schema_lifecycle"
+        M.ensure_schema();M.ensure_test_user()
         # The installer copies modules from source; only post_baseline comes
         # from repository root. Historical root duplicates must not be loaded.
         assert Path(M.__file__).resolve().parent == source

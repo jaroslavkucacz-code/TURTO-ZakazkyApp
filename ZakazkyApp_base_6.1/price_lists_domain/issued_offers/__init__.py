@@ -17,13 +17,13 @@ def apply(module) -> None:
     if getattr(module, "_turto_business_documents_domain_v6338", False):
         return
 
-    old_ensure = module.ensure_schema
+    import schema_lifecycle
 
-    def ensure_schema():
-        old_ensure()
-        ensure_business_documents_schema(module)
-
-    module.ensure_schema = ensure_schema
+    schema_lifecycle.register(
+        module,
+        "price_lists.issued_offers",
+        lambda: ensure_business_documents_schema(module),
+    )
     module.ensure_business_documents_schema = lambda: ensure_business_documents_schema(module)
     install(module)
     module._turto_business_documents_domain_v6338 = True

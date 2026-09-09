@@ -58,11 +58,30 @@ neskládá; zůstává pouze stabilizačním mostem pro skutečně potřebné Tk
 přiřazením `App.__init__` je kanonický lifecycle modul a že registry jsou
 idempotentní a deterministické.
 
+## Třetí etapa – lifecycle databázového schématu
+
+Řetězec 14 wrapperů `ensure_schema` je nahrazen jediným vlastníkem v
+`schema_lifecycle.py`. Základní schéma z `app.py` se spouští vždy jako první a
+jednotlivé doménové/verzované vrstvy pouze registrují pojmenované aditivní migrace.
+Pořadí registrací odpovídá původnímu pořadí wrapperů: Ceníky, platforma, finalizace,
+Vydané nabídky, zákaznické ceny a následně vrstvy v710 až v770.
+
+Migrace zůstávají idempotentní a zachovávají své dosavadní pomocné vstupy. Speciální
+okamžitá kontrola Nevoga v `v769` dál volá celé `M.ensure_schema()`, takže se nemění
+ani historické pořadí při instalaci této vrstvy. PLEXUS migrace v `v7616` si také
+ponechává svůj bezpečný okamžitý pokus vedle registrace pro každý další start.
+
+`scripts/validate-800-schema-lifecycle.py` hlídá jediného statického vlastníka,
+idempotentní registraci a deterministické pořadí. Plný runtime test navíc ověřuje
+přesný seznam všech 14 migrací v reálné kompozici.
+
 ## Automatická pojistka
 
 `scripts/audit-runtime-overrides.py --check` nyní blokuje:
 
 - skrytý import nebo spuštění jiné verzované vrstvy mimo `runtime_bootstrap.py`;
+- více než jednoho vlastníka `App.__init__`;
+- více než jednoho vlastníka `ensure_schema`;
 - více než jednoho vlastníka `App.build_help`;
 - více než jednoho vlastníka `enable_dialog_maximize`;
 - syntakticky nečitelný Python soubor.
@@ -72,7 +91,7 @@ jako metrika dalšího úklidu, nikoli jako důvod riskantně odstranit obchodn�
 
 ## Další etapa
 
-Po potvrzení lifecycle matice na Linuxu a Windows následuje největší zbývající
-infrastrukturní dluh: nahrazení řetězce wrapperů `ensure_schema` jedním registrem
-pojmenovaných databázových migrací. Každá migrace zůstane aditivní a idempotentní;
-pracovní data ani historické dokumenty se nebudou přepisovat.
+Po lifecycle konsolidaci zbývá největší dluh v přepisovaných UI metodách (`build`,
+`show_page`, `refresh_*`) a v několika exportních/importních řetězcích. Další řezy
+budou pokračovat po jedné funkční oblasti a vždy s konkrétním regresním testem;
+pracovní databáze a historické dokumenty zůstávají kompatibilitním kontraktem.

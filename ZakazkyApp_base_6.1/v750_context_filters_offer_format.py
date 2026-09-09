@@ -414,14 +414,9 @@ def apply(M: Any) -> None:
                             f'ADD COLUMN "{name}" {declaration}'
                         )
 
-    previous_ensure_schema = getattr(M, "ensure_schema", None)
-    if callable(previous_ensure_schema):
-        def ensure_schema() -> Any:
-            result = previous_ensure_schema()
-            ensure_v750_schema()
-            return result
+    import schema_lifecycle
 
-        M.ensure_schema = ensure_schema
+    schema_lifecycle.register(M, "v750.context_filters", ensure_v750_schema)
     M.ensure_v750_schema = ensure_v750_schema
 
     # ------------------------------------------------------------------

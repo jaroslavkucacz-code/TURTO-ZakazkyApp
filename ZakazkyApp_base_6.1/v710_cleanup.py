@@ -172,13 +172,9 @@ def apply(M):
         except Exception:
             pass
 
-    old_ensure_schema = getattr(M, "ensure_schema", None)
-    if callable(old_ensure_schema):
-        def ensure_schema():
-            result = old_ensure_schema()
-            ensure_v700_schema()
-            return result
-        M.ensure_schema = ensure_schema
+    import schema_lifecycle
+
+    schema_lifecycle.register(M, "v710.commercial", ensure_v700_schema)
 
     try:
         from price_lists_domain.issued_offers import editor as issued_editor

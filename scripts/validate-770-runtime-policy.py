@@ -216,6 +216,9 @@ def _validate_same_hash_image_recovery(source: pathlib.Path) -> None:
 
 def main():
     source = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "ZakazkyApp_base_6.1").resolve()
+    source_text = str(source)
+    if source_text not in sys.path:
+        sys.path.insert(0, source_text)
     repository = source.parent
     policy_path = source / "v770_runtime_policy.py"
     bootstrap_path = source / "runtime_bootstrap.py"

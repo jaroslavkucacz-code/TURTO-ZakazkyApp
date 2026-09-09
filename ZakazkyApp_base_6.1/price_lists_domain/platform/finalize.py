@@ -132,13 +132,11 @@ def _prepare_existing_data(M) -> None:
 
 
 def _patch_schema_migration(M) -> None:
-    old_ensure = M.ensure_schema
+    import schema_lifecycle
 
-    def ensure_schema():
-        old_ensure()
-        _prepare_existing_data(M)
-
-    M.ensure_schema = ensure_schema
+    schema_lifecycle.register(
+        M, "price_lists.finalize", lambda: _prepare_existing_data(M)
+    )
 
 
 def _patch_evidence(M) -> None:

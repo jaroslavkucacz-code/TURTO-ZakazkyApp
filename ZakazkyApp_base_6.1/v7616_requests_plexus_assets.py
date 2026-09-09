@@ -352,15 +352,13 @@ def apply(M):
         return
     M._turto_v7616_requests_plexus_assets = True
 
-    previous_ensure_schema = M.ensure_schema
+    import schema_lifecycle
 
-    def ensure_schema():
-        result = previous_ensure_schema()
+    def ensure_v7616_schema():
         _ensure_asset_schema(M)
         _migrate_existing_plexus_images(M)
-        return result
 
-    M.ensure_schema = ensure_schema
+    schema_lifecycle.register(M, "v7616.plexus_assets", ensure_v7616_schema)
     M.ensure_plexus_image_assets = lambda: _ensure_asset_schema(M)
     M.migrate_plexus_image_assets = lambda: _migrate_existing_plexus_images(M)
 

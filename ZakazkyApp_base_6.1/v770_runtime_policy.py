@@ -1219,13 +1219,11 @@ def apply(M: Any) -> None:
     M._turto_v770_runtime_policy = True
     M.APP_NAME = "TURTO CRM"
 
-    previous_ensure_schema = getattr(M, "ensure_schema", None)
-    if callable(previous_ensure_schema):
-        def ensure_schema():
-            result = previous_ensure_schema()
-            _ensure_plexus_schema(M)
-            return result
-        M.ensure_schema = ensure_schema
+    import schema_lifecycle
+
+    schema_lifecycle.register(
+        M, "v770.runtime_policy", lambda: _ensure_plexus_schema(M)
+    )
 
     previous_save = getattr(M, "save_offer_import", None)
     if callable(previous_save):

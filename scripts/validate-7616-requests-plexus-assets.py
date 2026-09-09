@@ -11,6 +11,9 @@ from contextlib import closing
 
 
 def _load_layer(source: pathlib.Path):
+    source_text = str(source)
+    if source_text not in sys.path:
+        sys.path.insert(0, source_text)
     path = source / "v7616_requests_plexus_assets.py"
     spec = importlib.util.spec_from_file_location("_turto_v7616_test", path)
     module = importlib.util.module_from_spec(spec)

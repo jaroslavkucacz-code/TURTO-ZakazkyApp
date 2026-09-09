@@ -436,13 +436,11 @@ def ensure_platform_schema(M) -> None:
 def patch_schema(M) -> None:
     if getattr(M, "_turto_platform_schema_installed", False):
         return
-    old_ensure = M.ensure_schema
+    import schema_lifecycle
 
-    def ensure_schema():
-        old_ensure()
-        ensure_platform_schema(M)
-
-    M.ensure_schema = ensure_schema
+    schema_lifecycle.register(
+        M, "price_lists.platform", lambda: ensure_platform_schema(M)
+    )
     M.ensure_platform_schema = lambda: ensure_platform_schema(M)
     M._turto_platform_schema_installed = True
 

@@ -426,14 +426,9 @@ def apply(M: Any) -> None:
                 ("action_id", "offer_date"),
             )
 
-    previous_ensure_schema = getattr(M, "ensure_schema", None)
-    if callable(previous_ensure_schema):
-        def ensure_schema() -> Any:
-            result = previous_ensure_schema()
-            ensure_v760_schema()
-            return result
+    import schema_lifecycle
 
-        M.ensure_schema = ensure_schema
+    schema_lifecycle.register(M, "v760.table_activity", ensure_v760_schema)
     M.ensure_v760_schema = ensure_v760_schema
 
     # ------------------------------------------------------------------

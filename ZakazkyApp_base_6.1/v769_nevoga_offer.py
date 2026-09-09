@@ -29,10 +29,9 @@ def apply(M):
         return
     M._turto_v769_nevoga_offer = True
 
-    previous_ensure_schema = M.ensure_schema
+    import schema_lifecycle
 
-    def ensure_schema():
-        result = previous_ensure_schema()
+    def ensure_v769_schema():
         with M.db() as con:
             columns = {
                 str(row[1])
@@ -43,11 +42,10 @@ def apply(M):
                     "ALTER TABLE supplier_offer_items "
                     "ADD COLUMN details_rich_json TEXT DEFAULT ''"
                 )
-        return result
 
-    M.ensure_schema = ensure_schema
+    schema_lifecycle.register(M, "v769.nevoga_rich_description", ensure_v769_schema)
     try:
-        ensure_schema()
+        M.ensure_schema()
     except Exception:
         pass
 

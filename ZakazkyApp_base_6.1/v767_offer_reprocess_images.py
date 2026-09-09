@@ -91,12 +91,11 @@ def apply(M):
     M.ensure_offer_product_images_schema = ensure_offer_product_images_schema
 
     if callable(previous_ensure_schema):
-        def ensure_schema():
-            result = previous_ensure_schema()
-            ensure_offer_import_schema()
-            return result
+        import schema_lifecycle
 
-        M.ensure_schema = ensure_schema
+        schema_lifecycle.register(
+            M, "v767.offer_reprocess_images", ensure_offer_import_schema
+        )
 
     previous_save = M.save_offer_import
 
