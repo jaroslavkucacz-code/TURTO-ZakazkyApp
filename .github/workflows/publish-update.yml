@@ -30,6 +30,7 @@ on:
       - scripts/validate-794-startup-optimization.py
       - scripts/validate-real-ui.py
       - post_baseline.py
+      - ZakazkyApp_base_6.1/post_baseline.py
       - ZakazkyApp_base_6.1/runtime_bootstrap.py
       - ZakazkyApp_base_6.1/crm_price_lists.py
       - ZakazkyApp_base_6.1/v638_table_updatefix.py
