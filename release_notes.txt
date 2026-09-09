@@ -1,8 +1,6 @@
-• Opraven únik označené zdrojové/nákupní ceny z převzatých popisů do zákaznických nabídek. Ochrana se používá při převzetí, načtení staršího konceptu, uložení a vykreslení PDF. Technické údaje i interní ceny zůstávají zachované.
-• Starší PDF s rozpoznaným interním cenovým údajem se nesmí znovu použít k odeslání. U konceptu vytvořte nové PDF; u uzamčené nabídky použijte kopii. Původní archiv se nepřepisuje.
-• Filtry se přizpůsobují skutečné výšce popisků a polí; přestanou se smršťovat na nízký proužek. Zachováno bezpečné časování bez vnořeného překreslování Tk.
-• Běžné dialogy mají na Windows maximalizační tlačítko. Odložené centrování již nezmenšuje maximalizované okno. Našeptávače a rozbalovací okna jsou z této úpravy vynechány.
-• Číslo nabídky je u původní grafiky TURTO přímo ve volné části červeného záhlaví. Duplicitní nadpis a číslo níže zmizely; datum zůstává. Logo ani původní grafické soubory se nemění.
-• Vlastní šablona má záložku Záhlaví a zápatí s volbou čísla v horním pruhu a editovatelnou otevírací dobou (nejvýše 4 řádky). Prázdný text ji skryje; vypnutí volby vrátí původní podobu. Nastavení přežije export/import šablony.
-• Nákup, marže a zisk nadále zůstávají interní. Aktualizace nemění zdrojové nabídky, cenotvorbu, vlastní šablony ani historická PDF. Zachována záloha databáze a vratné programové aktualizace.
-• Sjednocení záhlaví s řádky tabulek bez globálních zásahů do Tk. Opraveno také pozdní přepsání sloupce Poslední pohyb ve starší vrstvě Akcí.
+TURTO CRM 7.9.3
+
+- Kontextové akce v Příležitostech, Poptávkách a MIVO nyní respektují skutečný výběr: Archivovat a Obnovit jsou dostupné jen tam, kde dávají smysl.
+- Akce určené pro jednu položku se při vícenásobném výběru deaktivují místo otevření nad náhodným záznamem.
+- Enter otevře právě jednu vybranou položku v hlavních evidencích a Escape bezpečně zruší výběr, pokud tabulka nemá vlastní klávesovou obsluhu.
+- Zachován bezpečný dvojklik pouze na datový řádek a všechny dosavadní ochrany 7.9.2.
