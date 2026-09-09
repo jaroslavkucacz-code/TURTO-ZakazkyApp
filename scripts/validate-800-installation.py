@@ -7,7 +7,6 @@ import json
 import os
 from pathlib import Path
 import sqlite3
-import sys
 import tempfile
 
 
@@ -120,18 +119,24 @@ def main() -> None:
         assert '"first_attach_backup"' in data_source
         assert "con.close()" in data_source
 
+        icon = base / "turto_logo.ico"
+        assert icon.is_file(), "Canonical TURTO Windows icon is missing"
         spec = (repo / "build" / "windows" / "TURTO_CRM.spec").read_text(encoding="utf-8")
         assert "exclude_binaries=True" in spec
         assert 'name="TURTO CRM"' in spec
         assert 'collect_submodules("price_lists_domain")' in spec
+        assert 'ICON = BASE / "turto_logo.ico"' in spec
+        assert "icon=str(ICON)" in spec
         updater_spec = (repo / "build" / "windows" / "TURTO_CRM_Updater.spec").read_text(encoding="utf-8")
         assert 'name="TURTO CRM Updater"' in updater_spec
         assert "a.binaries" in updater_spec and "a.datas" in updater_spec
+        assert 'ICON = BASE / "turto_logo.ico"' in updater_spec
 
         installer = (repo / "build" / "windows" / "TURTO_CRM.iss").read_text(encoding="utf-8")
         assert "DefaultDirName={localappdata}\\Programs\\TURTO CRM" in installer
         assert "PrivilegesRequired=lowest" in installer
         assert 'Filename: "{app}\\{#MyAppExeName}"' in installer
+        assert "SetupIconFile=..\\..\\ZakazkyApp_base_6.1\\turto_logo.ico" in installer
         assert "TURTO Zakazky" not in installer.replace(
             "{ Business data intentionally live outside {app}. The first-run wizard owns\n      creation or attachment of the SQLite database. Uninstall never removes it. }",
             "",
