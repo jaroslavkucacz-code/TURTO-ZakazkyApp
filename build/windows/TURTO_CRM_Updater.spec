@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT = Path.cwd()
 BASE = ROOT / "ZakazkyApp_base_6.1"
 SCRIPT = ROOT / "build" / "windows" / "updater_800.pyw"
-ICON = BASE / "turto_crm.ico"
+ICON = BASE / "turto_logo.ico"
 
 a = Analysis(
     [str(SCRIPT)],
@@ -38,5 +38,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(ICON) if ICON.is_file() else None,
+    icon=str(ICON),
 )
