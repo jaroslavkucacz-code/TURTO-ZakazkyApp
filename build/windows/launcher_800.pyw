@@ -128,33 +128,30 @@ if SMOKE_TEST:
             _wrap_callable(domain, helper_name, f"price-domain:{helper_name}")
 
         # price_lists_domain.apply imports platform.install at call time, so
-        # wrapping the module attribute traces the complete platform phase.
+        # wrapping the package attribute traces the complete platform phase.
+        # platform.install itself calls names imported into this package module;
+        # wrap those exact references rather than only the source submodules.
         platform = importlib.import_module("price_lists_domain.platform")
         _wrap_callable(platform, "install", "price-platform:install")
-
-        # Trace every owner imported locally by platform.install so a single
-        # Windows run can identify the exact installer that blocks frozen start.
-        platform_steps = (
-            ("price_lists_domain.platform.database", "install_fast_db"),
-            ("price_lists_domain.platform.database", "patch_schema"),
-            ("price_lists_domain.platform.fast_ocr", "install"),
-            ("price_lists_domain.platform.integration", "install"),
-            ("price_lists_domain.platform.product_catalog", "install"),
-            ("price_lists_domain.platform.product_workspace", "install"),
-            ("price_lists_domain.platform.offers", "install"),
-            ("price_lists_domain.platform.archive", "install"),
-            ("price_lists_domain.platform.worksets", "install"),
-            ("price_lists_domain.platform.finalize", "install"),
-            ("price_lists_domain.platform.compat", "install"),
-            ("price_lists_domain.platform.clarity", "install"),
-            ("price_lists_domain.platform.commercial_workspace", "install"),
-            ("price_lists_domain.platform.lazy_refresh", "install"),
-            ("price_lists_domain.platform.project_table_stability", "install"),
-            ("price_lists_domain.platform.automatic_updates", "install"),
-        )
-        for module_name, attribute in platform_steps:
-            owner = importlib.import_module(module_name)
-            _wrap_callable(owner, attribute, f"price-platform:{module_name.rsplit('.', 1)[-1]}.{attribute}")
+        for helper_name in (
+            "install_fast_db",
+            "patch_schema",
+            "install_ocr",
+            "install_price_integration",
+            "install_product_catalog",
+            "install_product_workspace",
+            "install_offers",
+            "install_archive",
+            "install_worksets",
+            "install_finalize",
+            "install_compat",
+            "install_clarity",
+            "install_commercial_workspace",
+            "install_lazy_refresh",
+            "install_project_table_stability",
+            "install_automatic_updates",
+        ):
+            _wrap_callable(platform, helper_name, f"price-platform:{helper_name}")
 
         customer = importlib.import_module("price_lists_domain.platform.customer_pricing")
         for helper_name in (
