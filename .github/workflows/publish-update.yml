@@ -58,8 +58,7 @@ on:
       - .github/workflows/validate-7500-context-filters-offer-format.yml
       - .github/workflows/validate-7600-table-activity-performance.yml
       - .github/workflows/validate-793-ui-cleanup.yml
-      - .github/workflows/validate-794-ui-optimization.yml
-      - .github/workflows/validate-794-startup-optimization.yml
+      - .github/workflows/validate-794-optimization.yml
       - .github/workflows/validate-nevegar-parser.yml
 permissions:
   contents: write
