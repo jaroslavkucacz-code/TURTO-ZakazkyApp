@@ -1,0 +1,32 @@
+name: Validate TURTO CRM 7.9.4 UI optimization
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py
+      - scripts/validate-794-ui-optimization.py
+      - .github/workflows/validate-794-ui-optimization.yml
+  pull_request:
+    paths:
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py
+      - scripts/validate-794-ui-optimization.py
+      - .github/workflows/validate-794-ui-optimization.yml
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Compile changed runtime
+        run: python -m compileall -q ZakazkyApp_base_6.1
+      - name: Validate 7.9.3 compatibility
+        run: python scripts/validate-793-ui-cleanup.py ZakazkyApp_base_6.1
+      - name: Validate 7.9.4 UI optimization
+        run: python scripts/validate-794-ui-optimization.py ZakazkyApp_base_6.1
