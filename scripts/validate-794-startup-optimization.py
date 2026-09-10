@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression checks for TURTO CRM 7.9.4 startup optimization."""
+"""Regression checks for TURTO CRM startup optimization."""
 from __future__ import annotations
 
 import importlib.util
@@ -45,6 +45,19 @@ def make_v770_step(ids):
         namespace,
     )
     return namespace["make_step"](ids)
+
+
+def make_v628_callback(target_name: str):
+    namespace = {}
+    source = (
+        "def outer():\n"
+        f"    def {target_name}(app):\n"
+        "        return None\n"
+        "    app = object()\n"
+        f"    return lambda: {target_name}(app)\n"
+    )
+    exec(compile(source, "v628_modernui_resize.py", "exec"), namespace)
+    return namespace["outer"]()
 
 
 class Module:
@@ -97,6 +110,17 @@ def main() -> None:
     assert not startup._is_redundant_v760_finalize(261, finalize)
     assert not startup._is_redundant_v760_finalize(260, lambda: None)
 
+    palette = make_v628_callback("apply_modern_palette")
+    dashboard = make_v628_callback("dashboard_layout")
+    detach = make_v628_callback("detach_hidden_pages")
+    outlook = make_v628_callback("install_outlook_indicator")
+    assert startup._redundant_v628_cosmetic(1550, palette) == "apply_modern_palette"
+    assert startup._redundant_v628_cosmetic(1750, dashboard) == "dashboard_layout"
+    assert startup._redundant_v628_cosmetic(1450, detach) is None
+    assert startup._redundant_v628_cosmetic(1900, outlook) is None
+    assert startup._redundant_v628_cosmetic(1550, dashboard) is None
+    assert startup._redundant_v628_cosmetic(1750, palette) is None
+
     with tempfile.TemporaryDirectory(prefix="turto794_start_") as td:
         db_path = pathlib.Path(td) / "assets.db"
         M = build_asset_db(db_path)
@@ -136,14 +160,24 @@ def main() -> None:
             current.after(0, finalize)
             current.after(260, finalize)
             current.after(1200, finalize)
+            # Preserve the functional v628 delayed passes, but coalesce the two
+            # cosmetic repeats whose real work already has an after_idle pass.
+            current.after(1450, detach)
+            current.after(1550, palette)
+            current.after(1750, dashboard)
+            current.after(1900, outlook)
             current.after(800, plexus_step)
             current.after(135, lambda: None)
             return "ok"
 
         result = startup._call_previous_init_optimized(M, instance, previous_init)
         assert result == "ok"
-        assert [delay for delay, _callback, _args in instance.calls] == [0, 135]
+        assert [delay for delay, _callback, _args in instance.calls] == [0, 1450, 1900, 135]
         assert instance._turto_v760_finalizers_coalesced == (260, 1200)
+        assert instance._turto_v628_cosmetic_passes_coalesced == (
+            (1550, "apply_modern_palette"),
+            (1750, "dashboard_layout"),
+        )
         assert instance._turto_plexus_backfill_candidates == 1
         assert instance._turto_plexus_backfill_pending == 0
         assert resolved_ids == []
@@ -168,7 +202,7 @@ def main() -> None:
     assert ui_token in bootstrap and startup_token in bootstrap
     assert bootstrap.index(ui_token) < bootstrap.index(startup_token)
 
-    print("TURTO CRM 7.9.4 startup optimization: OK")
+    print("TURTO CRM startup optimization: OK")
 
 
 if __name__ == "__main__":
