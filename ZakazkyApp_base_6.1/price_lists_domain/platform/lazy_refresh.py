@@ -1,8 +1,7 @@
 """Single owner of responsive page navigation and deferred refreshes.
 
 A page is raised immediately. Rapid clicks collapse into one refresh of the final
-visible page; hidden pages stay dirty until the user opens them. Selected safe
-secondary pages may additionally defer their widget construction until first use.
+visible page; hidden pages stay dirty until the user opens them.
 """
 from __future__ import annotations
 
@@ -356,24 +355,6 @@ def install(M) -> None:
         if key not in getattr(self, "tabs", {}):
             return fallback_show_page(self, key, *args, **kwargs) if callable(fallback_show_page) else None
         previous = getattr(self, "_current_page", None)
-
-        # A late runtime owner may defer safe secondary page contents. Navigation
-        # remains here; the extension only supplies a one-shot builder callback.
-        ensure_page = getattr(self, "_turto_ensure_deferred_page", None)
-        if callable(ensure_page):
-            try:
-                ensure_page(key)
-            except Exception:
-                _log(M, f"page-build-error {key}", traceback.format_exc(limit=12))
-                try:
-                    M.messagebox.showerror(
-                        "Načtení záložky",
-                        f"Záložku „{key}“ se nepodařilo připravit. Podrobnosti jsou v logs\\ui_navigation.log.",
-                        parent=self,
-                    )
-                except Exception:
-                    pass
-                return None
 
         try:
             _raise_page(self, key)
