@@ -5,8 +5,8 @@ only the visible page. This layer deliberately does not replace navigation or
 refresh_all. It removes redundant hidden-header database work, releases destroyed
 autocomplete widgets from their process-wide registry, caches deterministic
 Czech sort keys used repeatedly by SQLite collations, suppresses one historical
-full-window palette walk after data refreshes, and records compact timings so
-later optimization can be based on real Windows measurements.
+full-window palette walk after data refreshes, coalesces repeated dialog z-order
+sweeps, and records compact timings from real Windows execution.
 """
 from __future__ import annotations
 
@@ -146,6 +146,69 @@ def _suppress_v628_refresh_palette(function: Callable[..., Any]) -> Callable[...
     return wrapped
 
 
+def _make_dialog_chain_coalescer(function: Callable[..., Any]) -> Callable[..., Any]:
+    """Collapse repeated Map/FocusIn sweeps while keeping modal grabs immediate."""
+    def coalesced(app: Any, event: Any = None):
+        # A modal grab needs immediate focus protection and can be handled without
+        # recursively walking the full application widget tree.
+        try:
+            grabbed = app.grab_current()
+            if grabbed is not None and grabbed.winfo_exists():
+                grabbed.lift()
+                grabbed.focus_force()
+                return None
+        except Exception:
+            pass
+
+        pending = getattr(app, "_turto_dialog_raise_after", None)
+        if pending is not None:
+            try:
+                app._turto_dialog_raise_events_coalesced = int(
+                    getattr(app, "_turto_dialog_raise_events_coalesced", 0) or 0
+                ) + 1
+            except Exception:
+                pass
+            return pending
+
+        def run() -> None:
+            try:
+                function(app)
+            finally:
+                try:
+                    app._turto_dialog_raise_after = None
+                except Exception:
+                    pass
+
+        try:
+            token = app.after_idle(run)
+            app._turto_dialog_raise_after = token
+            return token
+        except Exception:
+            try:
+                return function(app, event)
+            except TypeError:
+                return function(app)
+
+    coalesced._turto_803_dialog_chain = True
+    coalesced._turto_original_dialog_chain = function
+    return coalesced
+
+
+def _install_dialog_chain_coalescing() -> bool:
+    """Patch the global referenced by crm_runtime's already-installed bindings."""
+    try:
+        import crm_runtime
+    except Exception:
+        return False
+    previous = getattr(crm_runtime, "_raise_dialog_chain", None)
+    if not callable(previous):
+        return False
+    if getattr(previous, "_turto_803_dialog_chain", False):
+        return True
+    crm_runtime._raise_dialog_chain = _make_dialog_chain_coalescer(previous)
+    return True
+
+
 def _timing_store(instance: Any) -> dict[str, list[float]]:
     data = getattr(instance, "_turto_perf_timings", None)
     if not isinstance(data, dict):
@@ -211,10 +274,12 @@ def _write_startup_profile(M: Any, instance: Any, total: float) -> None:
         ordered.extend(f"{key}={value:.4f}s" for key, value in extras)
         skips = int(getattr(instance, "_turto_hidden_header_refresh_skips", 0) or 0)
         palette_skips = int(getattr(instance, "_turto_v628_refresh_palette_skips", 0) or 0)
+        dialog_coalesced = int(getattr(instance, "_turto_dialog_raise_events_coalesced", 0) or 0)
         line = (
             f"[{datetime.now():%Y-%m-%d %H:%M:%S}] "
             f"version={getattr(M, 'APP_VERSION', '')} app_init={float(total):.4f}s "
-            f"hidden_header_skips={skips} refresh_palette_skips={palette_skips}"
+            f"hidden_header_skips={skips} refresh_palette_skips={palette_skips} "
+            f"dialog_raise_coalesced={dialog_coalesced}"
         )
         cache_info = getattr(getattr(M, "czech_sort_key", None), "cache_info", None)
         if callable(cache_info):
@@ -323,6 +388,7 @@ def apply(M: Any) -> None:
     # Install before App() exists so every startup ORDER BY ... COLLATE CZECH
     # benefits while _czech_collate continues using the same public function name.
     _install_czech_sort_cache(M)
+    _install_dialog_chain_coalescing()
 
     # Keep price_lists_domain.platform.lazy_refresh as the single navigation and
     # dirty-page owner. We only optimize the final chrome callback it invokes.
@@ -391,6 +457,7 @@ def apply(M: Any) -> None:
         "autocomplete_registry": "destroy-unregister",
         "czech_sort_cache_size": CZECH_SORT_CACHE_SIZE,
         "refresh_palette_walk": "v628-after-idle-suppressed",
+        "dialog_focus_sweep": "map-focus-events-coalesced",
         "startup_profile": PERFORMANCE_LOG,
         "database_rows_rewritten": False,
     }
@@ -407,6 +474,8 @@ __all__ = [
     "_header_refresh_needed",
     "_is_redundant_v628_refresh_palette",
     "_suppress_v628_refresh_palette",
+    "_make_dialog_chain_coalescer",
+    "_install_dialog_chain_coalescing",
     "_install_czech_sort_cache",
     "_install_autocomplete_cleanup",
 ]
