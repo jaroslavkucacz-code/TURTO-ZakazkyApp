@@ -5,20 +5,16 @@ on:
     paths:
       - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/runtime_optimization_803.py'
-      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/deferred_page_build_803.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/lazy_refresh.py'
       - 'scripts/validate-803-runtime-optimization.py'
-      - 'scripts/validate-803-deferred-pages.py'
       - '.github/workflows/validate-803-runtime-optimization.yml'
   push:
     branches: [main]
     paths:
       - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/runtime_optimization_803.py'
-      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/deferred_page_build_803.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/lazy_refresh.py'
       - 'scripts/validate-803-runtime-optimization.py'
-      - 'scripts/validate-803-deferred-pages.py'
       - '.github/workflows/validate-803-runtime-optimization.yml'
 
 permissions:
@@ -35,9 +31,6 @@ jobs:
       - name: Compile runtime optimization owners
         run: |
           python -m py_compile ZakazkyApp_base_6.1/price_lists_domain/platform/runtime_optimization_803.py
-          python -m py_compile ZakazkyApp_base_6.1/price_lists_domain/platform/deferred_page_build_803.py
           python -m py_compile ZakazkyApp_base_6.1/price_lists_domain/platform/lazy_refresh.py
       - name: Validate runtime optimization contract
         run: python scripts/validate-803-runtime-optimization.py
-      - name: Validate deferred page construction
-        run: python scripts/validate-803-deferred-pages.py
