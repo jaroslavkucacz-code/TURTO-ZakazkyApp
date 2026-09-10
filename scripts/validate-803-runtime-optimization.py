@@ -56,6 +56,19 @@ class FakeApp:
         return "refresh-all"
 
 
+class FakeAutocompleteEntry:
+    registry = None
+
+    def __init__(self):
+        self.destroy_callback = None
+        self.registry.append(self)
+
+    def bind(self, sequence, callback, add=None):
+        assert sequence == "<Destroy>"
+        assert add == "+"
+        self.destroy_callback = callback
+
+
 def main() -> None:
     repo = Path(__file__).resolve().parents[1]
     base = repo / "ZakazkyApp_base_6.1"
@@ -82,6 +95,22 @@ def main() -> None:
     assert "App.refresh_all =" not in source
     assert "performance.log" in source
     assert "time.perf_counter()" in source
+    assert 'self.bind("<Destroy>", unregister, add="+")' in source
+
+    # Destroyed autocomplete widgets must leave the legacy process-wide registry
+    # immediately instead of waiting for a future unrelated mouse click.
+    registry = []
+    FakeAutocompleteEntry.registry = registry
+    autocomplete_module = SimpleNamespace(
+        AutocompleteEntry=FakeAutocompleteEntry,
+        _AUTOCOMPLETE_ENTRIES=registry,
+    )
+    assert optimization._install_autocomplete_cleanup(autocomplete_module) is True
+    entry = FakeAutocompleteEntry()
+    assert registry == [entry]
+    assert callable(entry.destroy_callback)
+    entry.destroy_callback(SimpleNamespace(widget=entry))
+    assert registry == []
 
     # Applying the owner must preserve the canonical navigation/refresh methods.
     original_show_page = FakeApp.show_page
