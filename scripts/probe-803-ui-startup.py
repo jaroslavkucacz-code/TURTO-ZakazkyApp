@@ -102,6 +102,32 @@ def cache_info_payload(function):
         return None
 
 
+def initial_page_geometry(window) -> dict[str, str]:
+    """Assert all built non-current pages are detached before the first idle turn."""
+    tabs = getattr(window, "tabs", {}) or {}
+    current = str(getattr(window, "_current_page", "") or "")
+    if current not in tabs:
+        raise AssertionError(f"Initial current page is invalid: {current!r}")
+    managers = {}
+    for key, page in tabs.items():
+        managers[str(key)] = str(page.winfo_manager() or "")
+    expected_hidden = {str(key) for key in tabs if str(key) != current}
+    recorded = set(
+        str(key)
+        for key in (getattr(window, "_turto_hidden_pages_detached_immediately", ()) or ())
+    )
+    if recorded != expected_hidden:
+        raise AssertionError(
+            f"Immediate detach recorded {sorted(recorded)!r}, expected {sorted(expected_hidden)!r}"
+        )
+    still_managed = {key: managers[key] for key in expected_hidden if managers.get(key)}
+    if still_managed:
+        raise AssertionError(f"Hidden pages remain managed before first idle turn: {still_managed!r}")
+    if not managers.get(current):
+        raise AssertionError(f"Current page unexpectedly detached: {current}")
+    return managers
+
+
 def exercise_navigation(window) -> list[dict[str, str]]:
     """Open every current page and assert its primary UI object exists."""
     rows = []
@@ -164,6 +190,10 @@ def main() -> None:
             callback_errors.append(
                 "".join(traceback.format_exception(exc_type, exc, tb)).strip()
             )
+
+        # Validate geometry immediately, before any pending idle callback can
+        # obscure whether 8.0.3 itself detached the already-built hidden pages.
+        page_managers_before_idle = initial_page_geometry(window)
 
         # Install before driving idle/navigation callbacks. Any Python-level Tk
         # callback failure is a real regression even when Tk would only print it.
@@ -237,6 +267,10 @@ def main() -> None:
             "profile_top_cumulative": profile_rows(profiler, repo_only=False, limit=40),
             "profile_top_repo_cumulative": profile_rows(profiler, repo_only=True, limit=60),
             "czech_sort_cache": cache_info_payload(getattr(app, "czech_sort_key", None)),
+            "initial_page_managers": page_managers_before_idle,
+            "initial_detached_page_count": len(
+                getattr(window, "_turto_hidden_pages_detached_immediately", ()) or ()
+            ),
             "navigation_pages": navigation,
             "navigation_page_count": len(navigation),
             "date_label_manager": date_manager,
