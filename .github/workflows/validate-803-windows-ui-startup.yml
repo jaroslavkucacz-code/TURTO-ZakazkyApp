@@ -9,6 +9,7 @@ on:
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/icon_assets_803.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/lazy_refresh.py'
       - 'scripts/probe-803-ui-startup.py'
+      - 'scripts/probe-803-dialog-churn.py'
       - '.github/workflows/validate-803-windows-ui-startup.yml'
   push:
     branches: [main]
@@ -19,6 +20,7 @@ on:
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/icon_assets_803.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/lazy_refresh.py'
       - 'scripts/probe-803-ui-startup.py'
+      - 'scripts/probe-803-dialog-churn.py'
       - '.github/workflows/validate-803-windows-ui-startup.yml'
 
 permissions:
@@ -27,7 +29,7 @@ permissions:
 jobs:
   ui-startup-profile:
     runs-on: windows-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -51,11 +53,27 @@ jobs:
           if ($result.navigation_owner -ne 'price_lists_domain.platform.lazy_refresh') { throw 'Unexpected navigation owner' }
           if (-not $result.hidden_header_skip_verified) { throw 'Hidden header optimization was not verified' }
           Get-Content $env:TURTO_CRM_PERF_RESULT
-      - name: Upload startup profile
+      - name: Exercise long-session dialog churn
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:TURTO_DISABLE_AUTO_UPDATE = '1'
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-803-dialog-churn-data'
+          $env:TURTO_CRM_CHURN_RESULT = Join-Path $env:RUNNER_TEMP 'turto-803-dialog-churn.json'
+          python scripts/probe-803-dialog-churn.py
+          $result = Get-Content $env:TURTO_CRM_CHURN_RESULT -Raw | ConvertFrom-Json
+          if (-not $result.ok) { throw 'Dialog churn probe failed' }
+          if ($result.final_autocomplete_registry -ne $result.baseline_autocomplete_registry) { throw 'Autocomplete registry leak' }
+          if ($result.alive_entry_refs -ne 0 -or $result.alive_toplevel_refs -ne 0) { throw 'Destroyed dialog/widget references remain alive' }
+          if ($null -ne $result.pending_dialog_raise) { throw 'Dialog coalescer left pending work' }
+          Get-Content $env:TURTO_CRM_CHURN_RESULT
+      - name: Upload UI profiles
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: TURTO-CRM-803-Windows-UI-startup-profile
-          path: ${{ runner.temp }}\turto-803-ui-startup.json
+          path: |
+            ${{ runner.temp }}\turto-803-ui-startup.json
+            ${{ runner.temp }}\turto-803-dialog-churn.json
           if-no-files-found: warn
           retention-days: 14
