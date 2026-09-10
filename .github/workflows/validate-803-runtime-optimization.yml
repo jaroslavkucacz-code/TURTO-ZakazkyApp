@@ -28,7 +28,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      - name: Compile runtime optimization owner
-        run: python -m py_compile ZakazkyApp_base_6.1/price_lists_domain/platform/runtime_optimization_803.py
+      - name: Compile runtime optimization owners
+        run: |
+          python -m py_compile ZakazkyApp_base_6.1/price_lists_domain/platform/runtime_optimization_803.py
+          python -m py_compile ZakazkyApp_base_6.1/price_lists_domain/platform/lazy_refresh.py
       - name: Validate runtime optimization contract
         run: python scripts/validate-803-runtime-optimization.py
