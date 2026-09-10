@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
-from typing import Any, Callable
+from typing import Any
 
 POLICY_OWNER = "price_lists_domain.platform.icon_assets_803"
 
@@ -29,6 +29,15 @@ def _existing_icon_pair(M: Any) -> tuple[Path, Path, str] | None:
 
 def _configure_from_pair(M: Any, win: Any, pair: tuple[Path, Path, str]) -> None:
     ico, png, source = pair
+    signature = (str(ico), str(png), source)
+    if getattr(win, "_turto_icon_identity_signature", None) == signature:
+        try:
+            win._turto_icon_identity_reuse_skips = int(
+                getattr(win, "_turto_icon_identity_reuse_skips", 0) or 0
+            ) + 1
+        except Exception:
+            pass
+        return
     try:
         win.iconbitmap(default=str(ico))
     except Exception:
@@ -47,6 +56,7 @@ def _configure_from_pair(M: Any, win: Any, pair: tuple[Path, Path, str]) -> None
             pass
     try:
         win._turto_icon_asset_source = source
+        win._turto_icon_identity_signature = signature
     except Exception:
         pass
 
@@ -101,6 +111,7 @@ def apply(M: Any) -> None:
         "installed": bool(installed),
         "preferred_existing_order": ("turto_crm", "turto_logo"),
         "runtime_pillow_rendering": "fallback-only",
+        "window_identity": "idempotent-per-icon-pair",
         "application_user_model_id": "TURTO.CRM",
         "database_rows_rewritten": False,
     }
