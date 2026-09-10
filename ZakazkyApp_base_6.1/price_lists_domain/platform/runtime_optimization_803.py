@@ -3,8 +3,9 @@
 The canonical lazy-refresh owner already keeps hidden data pages dirty and loads
 only the visible page.  This layer deliberately does not replace navigation or
 refresh_all.  It removes one remaining redundant database refresh (the historical
-header summary while both header widgets are not displayed) and records one
-compact startup timing line so later optimization can be based on real Windows
+header summary while both header widgets are not displayed), releases destroyed
+autocomplete widgets from their process-wide registry, and records one compact
+startup timing line so later optimization can be based on real Windows
 measurements instead of guesses.
 """
 from __future__ import annotations
@@ -80,14 +81,6 @@ def _record_timing(instance: Any, name: str, elapsed: float) -> None:
         pass
 
 
-def _latest_timing(instance: Any, name: str) -> float | None:
-    try:
-        values = _timing_store(instance).get(name) or []
-        return float(values[-1]) if values else None
-    except Exception:
-        return None
-
-
 def _performance_log_path(M: Any) -> Path:
     root = Path(getattr(M, "DATA_ROOT", Path.home() / "Documents" / "TURTO Zakazky"))
     return root / "logs" / PERFORMANCE_LOG
@@ -161,6 +154,40 @@ def _timed_method(function: Callable[..., Any], name: str) -> Callable[..., Any]
     return wrapped
 
 
+def _install_autocomplete_cleanup(M: Any) -> bool:
+    """Remove destroyed AutocompleteEntry objects from the legacy global list."""
+    Entry = getattr(M, "AutocompleteEntry", None)
+    registry = getattr(M, "_AUTOCOMPLETE_ENTRIES", None)
+    if Entry is None or not isinstance(registry, list):
+        return False
+    if getattr(Entry, "_turto_803_registry_cleanup", False):
+        return True
+
+    previous_init = Entry.__init__
+
+    def entry_init(self: Any, *args: Any, **kwargs: Any):
+        result = previous_init(self, *args, **kwargs)
+
+        def unregister(event: Any = None) -> None:
+            if event is not None and getattr(event, "widget", self) is not self:
+                return
+            try:
+                registry[:] = [item for item in registry if item is not self]
+            except Exception:
+                pass
+
+        try:
+            self.bind("<Destroy>", unregister, add="+")
+            self._turto_registry_unregister = unregister
+        except Exception:
+            pass
+        return result
+
+    Entry.__init__ = entry_init
+    Entry._turto_803_registry_cleanup = True
+    return True
+
+
 def apply(M: Any) -> None:
     if getattr(M, "_turto_runtime_optimization_803", False):
         return
@@ -185,6 +212,8 @@ def apply(M: Any) -> None:
 
         refresh_header._turto_803_header = True
         App.refresh_header = refresh_header
+
+    _install_autocomplete_cleanup(M)
 
     # Time the final composed builders.  This does not change their return value,
     # call order, widget ownership or database behavior.
@@ -220,6 +249,7 @@ def apply(M: Any) -> None:
         "owner": POLICY_OWNER,
         "navigation_owner_preserved": "price_lists_domain.platform.lazy_refresh",
         "hidden_header_database_work": "skipped-while-unmanaged",
+        "autocomplete_registry": "destroy-unregister",
         "startup_profile": PERFORMANCE_LOG,
         "database_rows_rewritten": False,
     }
@@ -232,4 +262,5 @@ __all__ = [
     "PERFORMANCE_LOG",
     "_widget_managed",
     "_header_refresh_needed",
+    "_install_autocomplete_cleanup",
 ]
