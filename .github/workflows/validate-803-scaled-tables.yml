@@ -31,7 +31,7 @@ permissions:
 jobs:
   scaled-table-profile:
     runs-on: windows-latest
-    timeout-minutes: 12
+    timeout-minutes: 14
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -54,7 +54,7 @@ jobs:
           if (-not $result.ok) { throw 'Scaled table benchmark failed' }
           if ($result.navigation_owner -ne 'price_lists_domain.platform.lazy_refresh') { throw 'Unexpected navigation owner' }
           Get-Content $env:TURTO_CRM_SCALE_RESULT
-      - name: Compare first visible and hidden Příležitosti fill
+      - name: Compare first Příležitosti fill mapping policies
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -72,8 +72,15 @@ jobs:
           $hidden = Get-Content $env:TURTO_CRM_FILL_RESULT -Raw | ConvertFrom-Json
           if (-not $hidden.ok) { throw 'Hidden first-fill experiment failed' }
 
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-803-fill-detached-data'
+          $env:TURTO_CRM_FILL_RESULT = Join-Path $env:RUNNER_TEMP 'turto-803-fill-detached.json'
+          python scripts/experiment-803-first-tree-fill.py detached
+          $detached = Get-Content $env:TURTO_CRM_FILL_RESULT -Raw | ConvertFrom-Json
+          if (-not $detached.ok) { throw 'Detached first-fill experiment failed' }
+
           Get-Content (Join-Path $env:RUNNER_TEMP 'turto-803-fill-visible.json')
           Get-Content (Join-Path $env:RUNNER_TEMP 'turto-803-fill-hidden.json')
+          Get-Content (Join-Path $env:RUNNER_TEMP 'turto-803-fill-detached.json')
       - name: Profile settled idle runtime
         shell: pwsh
         run: |
@@ -95,6 +102,7 @@ jobs:
             ${{ runner.temp }}\turto-803-scaled-tables.json
             ${{ runner.temp }}\turto-803-fill-visible.json
             ${{ runner.temp }}\turto-803-fill-hidden.json
+            ${{ runner.temp }}\turto-803-fill-detached.json
             ${{ runner.temp }}\turto-803-settled-runtime.json
           if-no-files-found: warn
           retention-days: 14
