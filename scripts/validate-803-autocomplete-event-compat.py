@@ -28,12 +28,25 @@ class FakePopup:
         self.exists = False
 
 
+class FakeVariable:
+    def __init__(self):
+        self.removed = []
+
+    def trace_remove(self, mode, token):
+        self.removed.append((mode, token))
+
+
 class FakeEntry:
     def __init__(self):
         self.after_id = "after-show"
         self.cancelled = []
         self.popup = FakePopup()
         self.listbox = object()
+        self.var = FakeVariable()
+        self._turto_803_owned_variable_traces = (
+            (self.var, "write", "trace-owned"),
+        )
+        self._turto_registry_unregister = lambda: self
 
     def after_cancel(self, token):
         self.cancelled.append(token)
@@ -62,23 +75,39 @@ def main() -> None:
         return event
     assert module._needs_optional_event(unrelated) is False
 
+    owner = object()
+    bound = SimpleNamespace(__self__=owner)
+    assert module._callback_belongs_to(owner, bound) is False
+
+    class Owner:
+        def callback(self):
+            return None
+    owner = Owner()
+    assert module._callback_belongs_to(owner, owner.callback) is True
+    assert module._callback_belongs_to(Owner(), owner.callback) is False
+
     entry = FakeEntry()
     foreign = object()
     module._cleanup_entry_teardown(entry, SimpleNamespace(widget=foreign))
     assert entry.after_id == "after-show"
     assert entry.cancelled == []
     assert entry.popup.destroy_calls == 0
+    assert entry.var.removed == []
 
     popup = entry.popup
     module._cleanup_entry_teardown(entry, SimpleNamespace(widget=entry))
+    assert entry.var.removed == [("write", "trace-owned")]
+    assert entry._turto_803_owned_variable_traces == ()
     assert entry.cancelled == ["after-show"]
     assert entry.after_id is None
     assert popup.destroy_calls == 1
     assert entry.popup is None
     assert entry.listbox is None
+    assert "_turto_registry_unregister" not in entry.__dict__
 
-    # Repeated teardown is harmless and cannot destroy the same popup twice.
+    # Repeated teardown is harmless: neither trace nor popup is removed twice.
     module._cleanup_entry_teardown(entry)
+    assert entry.var.removed == [("write", "trace-owned")]
     assert popup.destroy_calls == 1
 
     marker = '"price_lists_domain.platform.autocomplete_event_compat_803"'
@@ -86,7 +115,7 @@ def main() -> None:
     assert marker in bootstrap
     assert bootstrap.index(marker) > bootstrap.index(runtime)
 
-    print("TURTO CRM 8.0.3 autocomplete event/teardown compatibility: OK")
+    print("TURTO CRM 8.0.3 autocomplete event/trace teardown compatibility: OK")
 
 
 if __name__ == "__main__":
