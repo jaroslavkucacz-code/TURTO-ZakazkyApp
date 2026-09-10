@@ -195,6 +195,23 @@ def main() -> None:
         # obscure whether 8.0.3 itself detached the already-built hidden pages.
         page_managers_before_idle = initial_page_geometry(window)
 
+        # Packaged/source builds already ship the corporate TURTO icon pair. The
+        # v770 Pillow fallback must therefore stay unused on a clean checkout and
+        # repeated identity setup on the same main window must be idempotent.
+        icon_source = str(getattr(window, "_turto_icon_asset_source", "") or "")
+        icon_reuse_skips = int(getattr(window, "_turto_icon_identity_reuse_skips", 0) or 0)
+        generated_icons = [
+            str(path.name)
+            for path in (BASE / "turto_crm.ico", BASE / "turto_crm.png")
+            if path.exists()
+        ]
+        if icon_source != "packaged-logo":
+            raise AssertionError(f"Unexpected startup icon source: {icon_source!r}")
+        if icon_reuse_skips < 1:
+            raise AssertionError("Repeated main-window identity setup was not coalesced")
+        if generated_icons:
+            raise AssertionError(f"Runtime generated redundant icon files: {generated_icons!r}")
+
         # Install before driving idle/navigation callbacks. Any Python-level Tk
         # callback failure is a real regression even when Tk would only print it.
         window.report_callback_exception = report_callback_exception
@@ -276,6 +293,9 @@ def main() -> None:
             "date_label_manager": date_manager,
             "today_summary_manager": summary_manager,
             "hidden_header_skip_verified": True,
+            "icon_asset_source": icon_source,
+            "icon_identity_reuse_skips": icon_reuse_skips,
+            "redundant_generated_icons": generated_icons,
             "tk_callback_errors": callback_errors,
             "v628_cosmetic_passes_coalesced": [list(item) for item in v628_coalesced],
             "v760_finalizers_coalesced": list(v760_coalesced),
