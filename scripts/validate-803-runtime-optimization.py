@@ -134,6 +134,40 @@ class FakeIdleApp:
         return f"idle-{len(self.idle_callbacks)}"
 
 
+class FakeGrab:
+    def __init__(self):
+        self.lifts = 0
+        self.focuses = 0
+
+    def winfo_exists(self):
+        return 1
+
+    def lift(self):
+        self.lifts += 1
+
+    def focus_force(self):
+        self.focuses += 1
+
+
+class FakeDialogApp:
+    def __init__(self, grabbed=None):
+        self.grabbed = grabbed
+        self.pending = []
+
+    def grab_current(self):
+        return self.grabbed
+
+    def after_idle(self, callback):
+        token = f"dialog-idle-{len(self.pending) + 1}"
+        self.pending.append((token, callback))
+        return token
+
+    def run_idle(self):
+        assert self.pending
+        _token, callback = self.pending.pop(0)
+        callback()
+
+
 def main() -> None:
     repo = Path(__file__).resolve().parents[1]
     base = repo / "ZakazkyApp_base_6.1"
@@ -163,6 +197,7 @@ def main() -> None:
     assert "time.perf_counter()" in source
     assert 'self.bind("<Destroy>", unregister, add="+")' in source
     assert "refresh_palette_skips=" in source
+    assert "dialog_raise_coalesced=" in source
 
     # SQLite repeatedly compares the same string values while sorting. The cache
     # must preserve the exact historical result and only avoid repeated work.
@@ -208,8 +243,38 @@ def main() -> None:
     assert len(idle_app.idle_callbacks) == 1
     assert idle_app.idle_callbacks[0][0] is ordinary_callback
     assert idle_app._turto_v628_refresh_palette_skips == 1
-    # The temporary method proxy must be fully restored after each call.
     assert "after_idle" not in idle_app.__dict__
+
+    # Hundreds of descendant Map/FocusIn events used to run a full recursive
+    # Toplevel search each time. They now collapse into one pending idle sweep.
+    sweeps = []
+
+    def historical_dialog_sweep(app, event=None):
+        sweeps.append((app, event))
+
+    dialog_app = FakeDialogApp()
+    coalesced = optimization._make_dialog_chain_coalescer(historical_dialog_sweep)
+    tokens = [coalesced(dialog_app) for _ in range(500)]
+    assert len(dialog_app.pending) == 1
+    assert len(sweeps) == 0
+    assert len(set(tokens)) == 1
+    assert dialog_app._turto_dialog_raise_events_coalesced == 499
+    dialog_app.run_idle()
+    assert len(sweeps) == 1
+    assert dialog_app._turto_dialog_raise_after is None
+    # A new later event still schedules a new sweep; coalescing is not permanent.
+    coalesced(dialog_app)
+    assert len(dialog_app.pending) == 1
+    dialog_app.run_idle()
+    assert len(sweeps) == 2
+
+    # Modal grabs keep immediate focus protection and bypass the recursive sweep.
+    grabbed = FakeGrab()
+    modal_app = FakeDialogApp(grabbed=grabbed)
+    assert coalesced(modal_app) is None
+    assert grabbed.lifts == 1 and grabbed.focuses == 1
+    assert modal_app.pending == []
+    assert len(sweeps) == 2
 
     # Destroyed autocomplete widgets must leave the legacy process-wide registry
     # immediately instead of waiting for a future unrelated mouse click.
@@ -276,7 +341,7 @@ def main() -> None:
         for token in (
             "app_init=", "build_total=", "build_dash=", "apply_theme=",
             "czech_cache_hits=", "czech_cache_misses=", "czech_cache_size=",
-            "refresh_palette_skips=",
+            "refresh_palette_skips=", "dialog_raise_coalesced=",
         ):
             assert token in log, token
 
