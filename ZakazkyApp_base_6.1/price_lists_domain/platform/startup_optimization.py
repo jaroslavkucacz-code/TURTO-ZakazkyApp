@@ -1,12 +1,12 @@
 """Lean startup policy for TURTO CRM 7.9.4+.
 
-Historical compatibility layers deliberately used delayed safety passes.  Once the
-current explicit runtime bootstrap and final UI policy are present, two of those
-passes are redundant.  This module coalesces only callbacks with a precisely
-identified historical origin and keeps the first 0-ms pass intact.
+Historical compatibility layers deliberately used delayed safety passes. Once the
+current explicit runtime bootstrap and final UI policy are present, some of those
+passes are redundant. This module coalesces only callbacks with a precisely
+identified historical origin and keeps the first/functional passes intact.
 
 The Nevoga/PLEXUS compatibility backfill is also pruned to offers that still have
-an unresolved PLEXUS image.  Existing canonical images are never reparsed merely
+an unresolved PLEXUS image. Existing canonical images are never reparsed merely
 because the application was started again.
 """
 from __future__ import annotations
@@ -16,6 +16,17 @@ from typing import Any
 
 POLICY_OWNER = "price_lists_domain.platform.startup_optimization"
 V760_REDUNDANT_FINALIZE_DELAYS = frozenset({260, 1200})
+# v628 already schedules both of these operations through after_idle from the
+# actual build/theme path. The later safety repeats only walk the same UI again.
+# Keep 1450 ms detach_hidden_pages and 1900 ms Outlook indicator untouched.
+V628_REDUNDANT_COSMETIC_DELAYS = {
+    1550: "apply_modern_palette",
+    1750: "dashboard_layout",
+}
+# v638 schedules the same whole-table stabilizer at 0.9, 2.2 and 3.8 seconds.
+# Keep the first safety pass. Any page subsequently refreshed has its own 50/420
+# ms stabilizers, so the two very late startup-wide repetitions are redundant.
+V638_REDUNDANT_STABILIZE_DELAYS = frozenset({2200, 3800})
 
 
 def _callback_origin(callback: Any) -> tuple[str, str]:
@@ -47,6 +58,42 @@ def _closure_map(function: Any) -> dict[str, Any]:
         }
     except Exception:
         return {}
+
+
+def _closure_callable_names(function: Any) -> set[str]:
+    names: set[str] = set()
+    for value in _closure_map(function).values():
+        if callable(value):
+            name = str(getattr(value, "__name__", "") or "").strip()
+            if name:
+                names.add(name)
+    return names
+
+
+def _redundant_v628_cosmetic(delay: Any, callback: Any) -> str | None:
+    """Return the exact redundant v628 cosmetic target, otherwise None."""
+    try:
+        milliseconds = int(delay)
+    except Exception:
+        return None
+    expected = V628_REDUNDANT_COSMETIC_DELAYS.get(milliseconds)
+    if not expected or not callable(callback):
+        return None
+    if _callback_origin(callback) != ("v628_modernui_resize.py", "<lambda>"):
+        return None
+    return expected if expected in _closure_callable_names(callback) else None
+
+
+def _is_redundant_v638_stabilize(delay: Any, callback: Any) -> bool:
+    try:
+        milliseconds = int(delay)
+    except Exception:
+        return False
+    if milliseconds not in V638_REDUNDANT_STABILIZE_DELAYS or not callable(callback):
+        return False
+    if _callback_origin(callback) != ("v638_table_updatefix.py", "<lambda>"):
+        return False
+    return "_stabilize" in _closure_callable_names(callback)
 
 
 def _is_v770_plexus_backfill(delay: Any, callback: Any) -> bool:
@@ -86,7 +133,7 @@ def _table_exists(con: Any, table: str) -> bool:
 def prune_plexus_backfill_ids(M: Any, ids: list[int]) -> tuple[int, int]:
     """Mutate ``ids`` to unresolved PLEXUS offers only.
 
-    Returns ``(before, after)``.  On an unknown/legacy schema the list is left
+    Returns ``(before, after)``. On an unknown/legacy schema the list is left
     untouched, so compatibility repair still runs exactly as before.
     """
     before = len(ids)
@@ -141,6 +188,8 @@ def _call_previous_init_optimized(M: Any, instance: Any, previous_init: Any, *ar
     had_instance_after = "after" in state
     previous_instance_after = state.get("after")
     v760_suppressed: list[int] = []
+    v628_suppressed: list[tuple[int, str]] = []
+    v638_suppressed: list[int] = []
     plexus_before = 0
     plexus_after = 0
 
@@ -149,6 +198,15 @@ def _call_previous_init_optimized(M: Any, instance: Any, previous_init: Any, *ar
         if _is_redundant_v760_finalize(delay, callback):
             v760_suppressed.append(int(delay))
             return f"turto-coalesced-v760-{len(v760_suppressed)}"
+
+        cosmetic = _redundant_v628_cosmetic(delay, callback)
+        if cosmetic:
+            v628_suppressed.append((int(delay), cosmetic))
+            return f"turto-coalesced-v628-{len(v628_suppressed)}"
+
+        if _is_redundant_v638_stabilize(delay, callback):
+            v638_suppressed.append(int(delay))
+            return f"turto-coalesced-v638-{len(v638_suppressed)}"
 
         if _is_v770_plexus_backfill(delay, callback):
             closure = _closure_map(callback)
@@ -172,6 +230,8 @@ def _call_previous_init_optimized(M: Any, instance: Any, previous_init: Any, *ar
             else:
                 instance.__dict__.pop("after", None)
             instance._turto_v760_finalizers_coalesced = tuple(v760_suppressed)
+            instance._turto_v628_cosmetic_passes_coalesced = tuple(v628_suppressed)
+            instance._turto_v638_startup_stabilizers_coalesced = tuple(v638_suppressed)
             instance._turto_plexus_backfill_candidates = plexus_before
             instance._turto_plexus_backfill_pending = plexus_after
         except Exception:
@@ -201,6 +261,12 @@ def apply(M: Any) -> None:
         "owner": POLICY_OWNER,
         "v760_zero_ms_finalize_preserved": True,
         "v760_delayed_finalizers_suppressed": tuple(sorted(V760_REDUNDANT_FINALIZE_DELAYS)),
+        "v628_after_idle_cosmetics_preserved": True,
+        "v628_delayed_cosmetics_suppressed": tuple(sorted(V628_REDUNDANT_COSMETIC_DELAYS.items())),
+        "v628_hidden_page_detach_preserved_ms": 1450,
+        "v628_outlook_indicator_preserved_ms": 1900,
+        "v638_first_startup_stabilizer_preserved_ms": 900,
+        "v638_late_startup_stabilizers_suppressed": tuple(sorted(V638_REDUNDANT_STABILIZE_DELAYS)),
         "plexus_backfill": "unresolved-assets-only",
         "database_rows_rewritten_at_startup": False,
     }
@@ -210,4 +276,6 @@ __all__ = [
     "apply",
     "prune_plexus_backfill_ids",
     "V760_REDUNDANT_FINALIZE_DELAYS",
+    "V628_REDUNDANT_COSMETIC_DELAYS",
+    "V638_REDUNDANT_STABILIZE_DELAYS",
 ]

@@ -33,6 +33,19 @@ PAGE_TREES = {
     "people": ("people_tree",),
     "companies": ("company_tree",),
 }
+CHROME_REFRESH = (
+    "refresh_header",
+    "refresh_notifications",
+    "refresh_notes_button",
+    "refresh_user_button",
+)
+# Normal business edits can change deadlines and notification counts, but they do
+# not change the active user or the user's private notebook count. Those two
+# controls are refreshed by their own workflows and by a full refresh.
+BUSINESS_CHROME_REFRESH = (
+    "refresh_header",
+    "refresh_notifications",
+)
 
 
 def _install_safe_backup(module) -> None:
@@ -90,6 +103,8 @@ def _state(app) -> None:
         app._turto_page_refresh_after = None
     if not hasattr(app, "_turto_chrome_refresh_after"):
         app._turto_chrome_refresh_after = None
+    if not hasattr(app, "_turto_chrome_refresh_methods"):
+        app._turto_chrome_refresh_methods = set()
     if not hasattr(app, "_turto_page_refresh_running"):
         app._turto_page_refresh_running = False
     if not hasattr(app, "_turto_closing"):
@@ -147,15 +162,24 @@ def _raise_page(app, key: str) -> None:
     app._current_page = key
 
 
-def _schedule_chrome(M, app, delay: int = 80) -> None:
+def _schedule_chrome(M, app, delay: int = 80, methods=None) -> None:
+    """Coalesce chrome work and preserve the union of pending refresh needs."""
     _state(app)
+    requested = CHROME_REFRESH if methods is None else tuple(methods)
+    app._turto_chrome_refresh_methods.update(
+        name for name in requested if name in CHROME_REFRESH
+    )
     _cancel(app, "_turto_chrome_refresh_after")
 
     def run():
         app._turto_chrome_refresh_after = None
         if getattr(app, "_turto_closing", False) or not _exists(app):
             return
-        for name in ("refresh_header", "refresh_notifications", "refresh_notes_button", "refresh_user_button"):
+        pending = set(getattr(app, "_turto_chrome_refresh_methods", set()) or ())
+        app._turto_chrome_refresh_methods.clear()
+        for name in CHROME_REFRESH:
+            if name not in pending:
+                continue
             method = getattr(app, name, None)
             if callable(method):
                 try:
@@ -269,7 +293,7 @@ def _schedule_page(M, app, key: str, delay: int = 35, force: bool = False) -> No
 def _safe_chrome(M, App) -> None:
     if getattr(App, "_turto_safe_chrome_v6331", False):
         return
-    for name in ("refresh_notifications", "refresh_header", "refresh_notes_button", "refresh_user_button"):
+    for name in CHROME_REFRESH:
         original = getattr(App, name, None)
         if not callable(original):
             continue
@@ -310,6 +334,7 @@ def _safe_chrome(M, App) -> None:
             self._turto_page_refresh_token += 1
             _cancel(self, "_turto_page_refresh_after")
             _cancel(self, "_turto_chrome_refresh_after")
+            self._turto_chrome_refresh_methods.clear()
             return original_close(self, *args, **kwargs)
         App.close_app = close_app
     App._turto_safe_chrome_v6331 = True
@@ -330,6 +355,7 @@ def install(M) -> None:
         if key not in getattr(self, "tabs", {}):
             return fallback_show_page(self, key, *args, **kwargs) if callable(fallback_show_page) else None
         previous = getattr(self, "_current_page", None)
+
         try:
             _raise_page(self, key)
         except Exception:
@@ -355,7 +381,7 @@ def install(M) -> None:
         current = getattr(self, "_current_page", None)
         if current in pages:
             _schedule_page(M, self, current, 20, True)
-        _schedule_chrome(M, self)
+        _schedule_chrome(M, self, methods=BUSINESS_CHROME_REFRESH)
 
     App.show_page = show_page
     App.refresh_all = refresh_all
@@ -371,4 +397,10 @@ def install(M) -> None:
     App._turto_lazy_refresh_v6331 = True
 
 
-__all__ = ["install", "PAGE_REFRESH", "PAGE_TREES"]
+__all__ = [
+    "install",
+    "PAGE_REFRESH",
+    "PAGE_TREES",
+    "CHROME_REFRESH",
+    "BUSINESS_CHROME_REFRESH",
+]
