@@ -1,0 +1,34 @@
+name: Validate TURTO CRM 8.x UI polish
+
+on:
+  pull_request:
+    paths:
+      - 'ZakazkyApp_base_6.1/app.py'
+      - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/ui_polish_801.py'
+      - 'scripts/validate-801-ui-polish.py'
+      - '.github/workflows/validate-801-ui-polish.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ZakazkyApp_base_6.1/app.py'
+      - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/ui_polish_801.py'
+      - 'scripts/validate-801-ui-polish.py'
+      - '.github/workflows/validate-801-ui-polish.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Compile UI polish layer
+        run: python -m py_compile ZakazkyApp_base_6.1/price_lists_domain/platform/ui_polish_801.py
+      - name: Validate visual cleanup contract
+        run: python scripts/validate-801-ui-polish.py
