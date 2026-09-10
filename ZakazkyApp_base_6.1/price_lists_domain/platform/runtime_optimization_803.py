@@ -4,8 +4,9 @@ The canonical lazy-refresh owner already keeps hidden data pages dirty and loads
 only the visible page. This layer deliberately does not replace navigation or
 refresh_all. It removes redundant hidden-header database work, releases destroyed
 autocomplete widgets from their process-wide registry, caches deterministic
-Czech sort keys used repeatedly by SQLite collations, and records compact startup
-timings so later optimization can be based on real Windows measurements.
+Czech sort keys used repeatedly by SQLite collations, suppresses one historical
+full-window palette walk after data refreshes, and records compact timings so
+later optimization can be based on real Windows measurements.
 """
 from __future__ import annotations
 
@@ -36,6 +37,18 @@ BUILD_METHODS = (
     "build_settings",
 )
 
+REFRESH_METHODS = (
+    "refresh_dash",
+    "refresh_actions",
+    "refresh_requests",
+    "refresh_mivo_requests",
+    "refresh_offers",
+    "refresh_tasks",
+    "refresh_projects",
+    "refresh_people",
+    "refresh_companies",
+)
+
 
 def _widget_managed(widget: Any) -> bool:
     """True only when a widget exists and is actually managed on screen."""
@@ -56,6 +69,81 @@ def _header_refresh_needed(app: Any) -> bool:
     return _widget_managed(getattr(app, "date_label", None)) or _widget_managed(
         getattr(app, "today_summary", None)
     )
+
+
+def _callback_origin(callback: Any) -> tuple[str, str]:
+    code = getattr(callback, "__code__", None)
+    if code is None:
+        return "", ""
+    return (
+        Path(str(getattr(code, "co_filename", ""))).name,
+        str(getattr(code, "co_name", "")),
+    )
+
+
+def _closure_callable_names(function: Any) -> set[str]:
+    names: set[str] = set()
+    try:
+        cells = function.__closure__ or ()
+        freevars = function.__code__.co_freevars
+        values = [cell.cell_contents for _name, cell in zip(freevars, cells)]
+    except Exception:
+        return names
+    for value in values:
+        if callable(value):
+            name = str(getattr(value, "__name__", "") or "").strip()
+            if name:
+                names.add(name)
+    return names
+
+
+def _is_redundant_v628_refresh_palette(callback: Any) -> bool:
+    """Match only v628's historical ``after_idle(lambda: apply_modern_palette)``."""
+    if not callable(callback):
+        return False
+    if _callback_origin(callback) != ("v628_modernui_resize.py", "<lambda>"):
+        return False
+    return "apply_modern_palette" in _closure_callable_names(callback)
+
+
+def _suppress_v628_refresh_palette(function: Callable[..., Any]) -> Callable[..., Any]:
+    """Keep every idle callback except v628's redundant full-window palette walk."""
+    def wrapped(self: Any, *args: Any, **kwargs: Any):
+        try:
+            original_after_idle = self.after_idle
+        except Exception:
+            return function(self, *args, **kwargs)
+
+        state = getattr(self, "__dict__", {})
+        had_instance_after_idle = "after_idle" in state
+        previous_instance_after_idle = state.get("after_idle")
+
+        def after_idle_proxy(callback: Any, *callback_args: Any):
+            if _is_redundant_v628_refresh_palette(callback):
+                try:
+                    self._turto_v628_refresh_palette_skips = int(
+                        getattr(self, "_turto_v628_refresh_palette_skips", 0) or 0
+                    ) + 1
+                except Exception:
+                    pass
+                return "turto-coalesced-v628-refresh-palette"
+            return original_after_idle(callback, *callback_args)
+
+        try:
+            self.after_idle = after_idle_proxy
+            return function(self, *args, **kwargs)
+        finally:
+            try:
+                if had_instance_after_idle:
+                    self.after_idle = previous_instance_after_idle
+                else:
+                    self.__dict__.pop("after_idle", None)
+            except Exception:
+                pass
+
+    wrapped._turto_803_palette_suppressed = True
+    wrapped._turto_original_refresh = function
+    return wrapped
 
 
 def _timing_store(instance: Any) -> dict[str, list[float]]:
@@ -122,10 +210,11 @@ def _write_startup_profile(M: Any, instance: Any, total: float) -> None:
         )
         ordered.extend(f"{key}={value:.4f}s" for key, value in extras)
         skips = int(getattr(instance, "_turto_hidden_header_refresh_skips", 0) or 0)
+        palette_skips = int(getattr(instance, "_turto_v628_refresh_palette_skips", 0) or 0)
         line = (
             f"[{datetime.now():%Y-%m-%d %H:%M:%S}] "
             f"version={getattr(M, 'APP_VERSION', '')} app_init={float(total):.4f}s "
-            f"hidden_header_skips={skips}"
+            f"hidden_header_skips={skips} refresh_palette_skips={palette_skips}"
         )
         cache_info = getattr(getattr(M, "czech_sort_key", None), "cache_info", None)
         if callable(cache_info):
@@ -255,6 +344,16 @@ def apply(M: Any) -> None:
 
     _install_autocomplete_cleanup(M)
 
+    # v628 used to repaint every Treeview after every data refresh even though
+    # tags/styles persist and apply_theme owns real palette changes. Intercept
+    # only that exact historical after_idle callback; deadline/filter/layout
+    # callbacks remain scheduled normally.
+    for method_name in REFRESH_METHODS:
+        function = getattr(App, method_name, None)
+        if not callable(function) or getattr(function, "_turto_803_palette_suppressed", False):
+            continue
+        setattr(App, method_name, _suppress_v628_refresh_palette(function))
+
     # Time the final composed builders. This does not change their return value,
     # call order, widget ownership or database behavior.
     for method_name in BUILD_METHODS:
@@ -291,6 +390,7 @@ def apply(M: Any) -> None:
         "hidden_header_database_work": "skipped-while-unmanaged",
         "autocomplete_registry": "destroy-unregister",
         "czech_sort_cache_size": CZECH_SORT_CACHE_SIZE,
+        "refresh_palette_walk": "v628-after-idle-suppressed",
         "startup_profile": PERFORMANCE_LOG,
         "database_rows_rewritten": False,
     }
@@ -300,10 +400,13 @@ __all__ = [
     "apply",
     "POLICY_OWNER",
     "BUILD_METHODS",
+    "REFRESH_METHODS",
     "PERFORMANCE_LOG",
     "CZECH_SORT_CACHE_SIZE",
     "_widget_managed",
     "_header_refresh_needed",
+    "_is_redundant_v628_refresh_palette",
+    "_suppress_v628_refresh_palette",
     "_install_czech_sort_cache",
     "_install_autocomplete_cleanup",
 ]
