@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import calendar
 from datetime import date, datetime
+import os
 from pathlib import Path
+import subprocess
 import sys
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 from typing import Any
 
 POLICY_OWNER = "price_lists_domain.platform.ui_polish_801"
@@ -93,6 +95,20 @@ def _configure_muted_styles(app: Any) -> None:
         foreground=pal["muted"],
         font=("Calibri", 10),
     )
+
+
+def _skin_secondary_labels(window: Any) -> None:
+    """Replace old fixed grey helper text with the active theme's muted tone."""
+    pal = _palette(window)
+    for widget in _walk(window):
+        try:
+            if widget.winfo_class() != "TLabel":
+                continue
+            foreground = str(widget.cget("foreground") or "").strip().casefold()
+            if foreground in {"#667085", "#6c777f"}:
+                widget.configure(foreground=pal["muted"])
+        except Exception:
+            continue
 
 
 def _theme_aware_calendar(self) -> None:
@@ -301,7 +317,6 @@ def _polish_settings(app: Any, M: Any) -> None:
     update_variable = str(getattr(app, "update_source", ""))
     update_button = None
     update_panel = None
-    legacy_info = None
 
     for widget in _walk(page):
         try:
@@ -314,6 +329,12 @@ def _polish_settings(app: Any, M: Any) -> None:
             try:
                 if str(widget.cget("textvariable")) == theme_variable:
                     widget.configure(values=SUPPORTED_THEMES)
+            except Exception:
+                pass
+
+        if text == "Vytvořit zástupce na ploše":
+            try:
+                widget.configure(text="Vytvořit zástupce TURTO CRM")
             except Exception:
                 pass
 
@@ -332,7 +353,6 @@ def _polish_settings(app: Any, M: Any) -> None:
             except Exception:
                 pass
         elif text.startswith("Výchozí kanál:"):
-            legacy_info = widget
             try:
                 widget.grid_remove()
             except Exception:
@@ -387,6 +407,94 @@ def _polish_footer(app: Any, M: Any) -> None:
         pass
 
 
+def _polish_notification_center(window: Any) -> None:
+    pal = _palette(window)
+    dark = _is_dark(pal["bg"])
+    _skin_secondary_labels(window)
+    tree = getattr(window, "tree", None)
+    if not _exists(tree):
+        return
+    if dark:
+        colors = {
+            "over": ("#321d1d", "#f2d2d2"),
+            "today": ("#382819", "#f5dfbd"),
+            "soon": ("#302b19", "#eee1aa"),
+            "wait": ("#182632", "#d8e8f5"),
+        }
+    else:
+        colors = {
+            "over": ("#f4dddd", "#6c2020"),
+            "today": ("#f5e3cf", "#65350a"),
+            "soon": ("#f5edcf", "#5f4600"),
+            "wait": ("#dfeaf7", "#17202a"),
+        }
+    for tag, (background, foreground) in colors.items():
+        try:
+            tree.tag_configure(tag, background=background, foreground=foreground)
+        except Exception:
+            pass
+
+
+def _create_desktop_shortcut(self) -> None:
+    """Create a stable TURTO CRM shortcut instead of the legacy Zakázky name."""
+    if not sys.platform.startswith("win"):
+        messagebox.showinfo(
+            "Zástupce", "Tato funkce je určena pro Windows.", parent=self
+        )
+        return
+    try:
+        desktop = Path(os.environ.get("USERPROFILE", str(Path.home()))) / "Desktop"
+        desktop.mkdir(parents=True, exist_ok=True)
+        link = desktop / "TURTO CRM.lnk"
+        if getattr(sys, "frozen", False):
+            target = str(Path(sys.executable).resolve())
+            arguments = ""
+        else:
+            target = str((Path(getattr(self, "ROOT", Path.cwd())) / "Spustit_Zakazky.bat").resolve())
+            if not Path(target).is_file():
+                target = str((Path(sys.modules[self.__class__.__module__].ROOT) / "Spustit_Zakazky.bat").resolve())
+            arguments = ""
+
+        root = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(sys.modules[self.__class__.__module__].ROOT)
+        env = os.environ.copy()
+        env["TURTO_LINK"] = str(link)
+        env["TURTO_TARGET"] = target
+        env["TURTO_WORKDIR"] = str(root)
+        env["TURTO_ARGS"] = arguments
+        script = r"""
+$w = New-Object -ComObject WScript.Shell
+$s = $w.CreateShortcut($env:TURTO_LINK)
+$s.TargetPath = $env:TURTO_TARGET
+$s.WorkingDirectory = $env:TURTO_WORKDIR
+$s.Arguments = $env:TURTO_ARGS
+$s.Description = 'TURTO CRM'
+$icon = Join-Path $env:TURTO_WORKDIR 'turto_logo.ico'
+if (Test-Path $icon) { $s.IconLocation = $icon }
+$s.Save()
+"""
+        result = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-Command", script],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        if result.returncode != 0:
+            raise RuntimeError((result.stderr or result.stdout).strip())
+        messagebox.showinfo(
+            "Zástupce",
+            f"Zástupce TURTO CRM byl vytvořen na ploše:\n{link}",
+            parent=self,
+        )
+    except Exception as exc:
+        messagebox.showerror(
+            "Zástupce",
+            f"Zástupce se nepodařilo vytvořit:\n\n{exc}",
+            parent=self,
+        )
+
+
 def apply(M: Any) -> None:
     if getattr(M, "_turto_ui_polish_801", False):
         return
@@ -422,10 +530,33 @@ def apply(M: Any) -> None:
         return result
 
     App.build = build
+    App.create_desktop_shortcut = _create_desktop_shortcut
 
     # DatePicker is a reusable base widget, so one replacement fixes all action,
     # request, project and task dialogs without touching their business logic.
     M.DatePicker.open_calendar = _theme_aware_calendar
+
+    notification_center = getattr(M, "NotificationCenter", None)
+    if notification_center is not None:
+        old_notification_init = notification_center.__init__
+
+        def notification_init(self, *args, **kwargs):
+            result = old_notification_init(self, *args, **kwargs)
+            _polish_notification_center(self)
+            return result
+
+        notification_center.__init__ = notification_init
+
+    action_dialog = getattr(M, "ActionDialog", None)
+    if action_dialog is not None:
+        old_action_init = action_dialog.__init__
+
+        def action_init(self, *args, **kwargs):
+            result = old_action_init(self, *args, **kwargs)
+            _skin_secondary_labels(self)
+            return result
+
+        action_dialog.__init__ = action_init
 
     M.UI_POLISH_OWNER = POLICY_OWNER
     M.UI_SUPPORTED_THEMES = SUPPORTED_THEMES
