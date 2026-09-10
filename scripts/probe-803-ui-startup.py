@@ -41,6 +41,10 @@ PAGE_PROBES = {
     "help": "help_text",
     "settings": "theme",
 }
+EXPECTED_V628_COALESCED = (
+    (1550, "apply_modern_palette"),
+    (1750, "dashboard_layout"),
+)
 
 
 def latest_timings(instance) -> dict[str, float]:
@@ -171,6 +175,21 @@ def main() -> None:
         if after_skips != before_skips + 1:
             raise AssertionError("Hidden header refresh was not skipped")
 
+        v628_coalesced = tuple(
+            tuple(item)
+            for item in (getattr(window, "_turto_v628_cosmetic_passes_coalesced", ()) or ())
+        )
+        if v628_coalesced != EXPECTED_V628_COALESCED:
+            raise AssertionError(
+                f"Unexpected v628 delayed cosmetic coalescing: {v628_coalesced!r}"
+            )
+        v760_coalesced = tuple(
+            int(value)
+            for value in (getattr(window, "_turto_v760_finalizers_coalesced", ()) or ())
+        )
+        if v760_coalesced != (260, 1200):
+            raise AssertionError(f"Unexpected v760 finalizer coalescing: {v760_coalesced!r}")
+
         navigation = exercise_navigation(window)
         timings = latest_timings(window)
         required = ("app_init", "build_total", "apply_theme")
@@ -200,6 +219,8 @@ def main() -> None:
             "date_label_manager": date_manager,
             "today_summary_manager": summary_manager,
             "hidden_header_skip_verified": True,
+            "v628_cosmetic_passes_coalesced": [list(item) for item in v628_coalesced],
+            "v760_finalizers_coalesced": list(v760_coalesced),
             "performance_log": str(getattr(window, "_turto_performance_log", "")),
             "navigation_owner": str(getattr(app.App, "_turto_navigation_owner", "")),
         }
