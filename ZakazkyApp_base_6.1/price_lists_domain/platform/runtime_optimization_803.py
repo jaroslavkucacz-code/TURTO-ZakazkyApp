@@ -1,16 +1,16 @@
 """Low-risk runtime optimization and observability for TURTO CRM 8.0.3-dev.
 
 The canonical lazy-refresh owner already keeps hidden data pages dirty and loads
-only the visible page.  This layer deliberately does not replace navigation or
-refresh_all.  It removes one remaining redundant database refresh (the historical
-header summary while both header widgets are not displayed), releases destroyed
-autocomplete widgets from their process-wide registry, and records one compact
-startup timing line so later optimization can be based on real Windows
-measurements instead of guesses.
+only the visible page. This layer deliberately does not replace navigation or
+refresh_all. It removes redundant hidden-header database work, releases destroyed
+autocomplete widgets from their process-wide registry, caches deterministic
+Czech sort keys used repeatedly by SQLite collations, and records compact startup
+timings so later optimization can be based on real Windows measurements.
 """
 from __future__ import annotations
 
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 import time
 from typing import Any, Callable
@@ -18,6 +18,7 @@ from typing import Any, Callable
 POLICY_OWNER = "price_lists_domain.platform.runtime_optimization_803"
 PERFORMANCE_LOG = "performance.log"
 PERFORMANCE_LOG_MAX_BYTES = 1024 * 1024
+CZECH_SORT_CACHE_SIZE = 8192
 
 BUILD_METHODS = (
     "build_dash",
@@ -73,8 +74,6 @@ def _record_timing(instance: Any, name: str, elapsed: float) -> None:
         store = _timing_store(instance)
         values = store.setdefault(str(name), [])
         values.append(max(0.0, float(elapsed)))
-        # A startup normally calls each builder once. Keep a small cap so an
-        # unusually long session cannot grow diagnostic state indefinitely.
         if len(values) > 8:
             del values[:-8]
     except Exception:
@@ -128,6 +127,17 @@ def _write_startup_profile(M: Any, instance: Any, total: float) -> None:
             f"version={getattr(M, 'APP_VERSION', '')} app_init={float(total):.4f}s "
             f"hidden_header_skips={skips}"
         )
+        cache_info = getattr(getattr(M, "czech_sort_key", None), "cache_info", None)
+        if callable(cache_info):
+            try:
+                info = cache_info()
+                line += (
+                    f" czech_cache_hits={int(info.hits)}"
+                    f" czech_cache_misses={int(info.misses)}"
+                    f" czech_cache_size={int(info.currsize)}"
+                )
+            except Exception:
+                pass
         if ordered:
             line += " " + " ".join(ordered)
         with path.open("a", encoding="utf-8") as handle:
@@ -152,6 +162,32 @@ def _timed_method(function: Callable[..., Any], name: str) -> Callable[..., Any]
     wrapped._turto_perf_timed = True
     wrapped._turto_perf_name = name
     return wrapped
+
+
+def _install_czech_sort_cache(M: Any) -> bool:
+    """Cache only string inputs while preserving the exact historical sort key."""
+    previous = getattr(M, "czech_sort_key", None)
+    if not callable(previous):
+        return False
+    if getattr(previous, "_turto_803_cached", False):
+        return True
+
+    @lru_cache(maxsize=CZECH_SORT_CACHE_SIZE)
+    def cached_text(value: str):
+        return previous(value)
+
+    def czech_sort_key(value: Any):
+        # SQLite collations pass strings. Non-string callers keep the historical
+        # behavior exactly, including any custom __str__ implementation.
+        if isinstance(value, str):
+            return cached_text(value)
+        return previous(value)
+
+    czech_sort_key._turto_803_cached = True
+    czech_sort_key.cache_info = cached_text.cache_info
+    czech_sort_key.cache_clear = cached_text.cache_clear
+    M.czech_sort_key = czech_sort_key
+    return True
 
 
 def _install_autocomplete_cleanup(M: Any) -> bool:
@@ -195,8 +231,12 @@ def apply(M: Any) -> None:
 
     App = M.App
 
+    # Install before App() exists so every startup ORDER BY ... COLLATE CZECH
+    # benefits while _czech_collate continues using the same public function name.
+    _install_czech_sort_cache(M)
+
     # Keep price_lists_domain.platform.lazy_refresh as the single navigation and
-    # dirty-page owner.  We only optimize the final chrome callback it invokes.
+    # dirty-page owner. We only optimize the final chrome callback it invokes.
     previous_header = getattr(App, "refresh_header", None)
     if callable(previous_header) and not getattr(previous_header, "_turto_803_header", False):
         def refresh_header(self: Any, *args: Any, **kwargs: Any):
@@ -215,7 +255,7 @@ def apply(M: Any) -> None:
 
     _install_autocomplete_cleanup(M)
 
-    # Time the final composed builders.  This does not change their return value,
+    # Time the final composed builders. This does not change their return value,
     # call order, widget ownership or database behavior.
     for method_name in BUILD_METHODS:
         function = getattr(App, method_name, None)
@@ -250,6 +290,7 @@ def apply(M: Any) -> None:
         "navigation_owner_preserved": "price_lists_domain.platform.lazy_refresh",
         "hidden_header_database_work": "skipped-while-unmanaged",
         "autocomplete_registry": "destroy-unregister",
+        "czech_sort_cache_size": CZECH_SORT_CACHE_SIZE,
         "startup_profile": PERFORMANCE_LOG,
         "database_rows_rewritten": False,
     }
@@ -260,7 +301,9 @@ __all__ = [
     "POLICY_OWNER",
     "BUILD_METHODS",
     "PERFORMANCE_LOG",
+    "CZECH_SORT_CACHE_SIZE",
     "_widget_managed",
     "_header_refresh_needed",
+    "_install_czech_sort_cache",
     "_install_autocomplete_cleanup",
 ]
