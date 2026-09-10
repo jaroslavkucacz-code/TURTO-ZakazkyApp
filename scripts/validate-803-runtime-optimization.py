@@ -108,6 +108,32 @@ class FakeChromeApp:
         callback()
 
 
+def make_v628_palette_callback():
+    namespace = {}
+    exec(
+        compile(
+            "def outer():\n"
+            "    def apply_modern_palette(app):\n"
+            "        return app\n"
+            "    app = object()\n"
+            "    return lambda: apply_modern_palette(app)\n",
+            "v628_modernui_resize.py",
+            "exec",
+        ),
+        namespace,
+    )
+    return namespace["outer"]()
+
+
+class FakeIdleApp:
+    def __init__(self):
+        self.idle_callbacks = []
+
+    def after_idle(self, callback, *args):
+        self.idle_callbacks.append((callback, args))
+        return f"idle-{len(self.idle_callbacks)}"
+
+
 def main() -> None:
     repo = Path(__file__).resolve().parents[1]
     base = repo / "ZakazkyApp_base_6.1"
@@ -136,6 +162,7 @@ def main() -> None:
     assert "performance.log" in source
     assert "time.perf_counter()" in source
     assert 'self.bind("<Destroy>", unregister, add="+")' in source
+    assert "refresh_palette_skips=" in source
 
     # SQLite repeatedly compares the same string values while sorting. The cache
     # must preserve the exact historical result and only avoid repeated work.
@@ -161,6 +188,28 @@ def main() -> None:
     before = len(sort_calls)
     assert sort_module.czech_sort_key(None) == historical_sort_key(None)
     assert len(sort_calls) == before + 2
+
+    # v628's old refresh wrapper repaints the entire application on every table
+    # refresh. Match only that exact callback and preserve all unrelated idle work.
+    palette_callback = make_v628_palette_callback()
+    ordinary_callback = lambda: "functional-idle-work"
+    assert optimization._is_redundant_v628_refresh_palette(palette_callback) is True
+    assert optimization._is_redundant_v628_refresh_palette(ordinary_callback) is False
+
+    idle_app = FakeIdleApp()
+
+    def historical_refresh(self):
+        self.after_idle(palette_callback)
+        self.after_idle(ordinary_callback)
+        return "refresh-result"
+
+    optimized_refresh = optimization._suppress_v628_refresh_palette(historical_refresh)
+    assert optimized_refresh(idle_app) == "refresh-result"
+    assert len(idle_app.idle_callbacks) == 1
+    assert idle_app.idle_callbacks[0][0] is ordinary_callback
+    assert idle_app._turto_v628_refresh_palette_skips == 1
+    # The temporary method proxy must be fully restored after each call.
+    assert "after_idle" not in idle_app.__dict__
 
     # Destroyed autocomplete widgets must leave the legacy process-wide registry
     # immediately instead of waiting for a future unrelated mouse click.
@@ -227,6 +276,7 @@ def main() -> None:
         for token in (
             "app_init=", "build_total=", "build_dash=", "apply_theme=",
             "czech_cache_hits=", "czech_cache_misses=", "czech_cache_size=",
+            "refresh_palette_skips=",
         ):
             assert token in log, token
 
