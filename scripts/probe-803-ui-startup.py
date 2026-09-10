@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""Instantiate the real TURTO CRM UI once and persist startup timing data.
+"""Instantiate and profile the real TURTO CRM UI once on an isolated database.
 
-This is a CI/development probe only. It uses an isolated temporary data root,
-disables automatic updates and morning dialogs, and never touches production data.
+This is a CI/development probe only. It disables automatic updates and morning
+modal dialogs, never touches production data, and records both the lightweight
+8.0.3 timings and a cProfile view of the startup call stack.
 """
 from __future__ import annotations
 
+import cProfile
 import json
 import os
 from pathlib import Path
+import pstats
 import sys
 import time
 import traceback
@@ -32,6 +35,33 @@ def latest_timings(instance) -> dict[str, float]:
         except Exception:
             continue
     return result
+
+
+def profile_rows(profile: cProfile.Profile, *, repo_only: bool, limit: int = 40):
+    """Return compact cumulative-time rows without relying on formatted pstats text."""
+    stats = pstats.Stats(profile).stats
+    rows = []
+    base_text = str(BASE.resolve()).casefold()
+    repo_text = str(REPO.resolve()).casefold()
+    for key, values in stats.items():
+        filename, lineno, function = key
+        primitive_calls, total_calls, own_time, cumulative_time, _callers = values
+        normalized = str(Path(filename).resolve()).casefold() if filename else ""
+        if repo_only and not (normalized.startswith(base_text) or normalized.startswith(repo_text)):
+            continue
+        rows.append(
+            {
+                "function": function,
+                "file": str(filename),
+                "line": int(lineno),
+                "primitive_calls": int(primitive_calls),
+                "total_calls": int(total_calls),
+                "self_seconds": round(float(own_time), 6),
+                "cumulative_seconds": round(float(cumulative_time), 6),
+            }
+        )
+    rows.sort(key=lambda row: (row["cumulative_seconds"], row["self_seconds"]), reverse=True)
+    return rows[:limit]
 
 
 def write_result(payload: dict) -> None:
@@ -61,9 +91,12 @@ def main() -> None:
     app.App.maybe_show_morning_overview = lambda self: None
 
     window = None
+    profiler = cProfile.Profile()
     started = time.perf_counter()
     try:
+        profiler.enable()
         window = app.App()
+        profiler.disable()
         wall = time.perf_counter() - started
         window.update_idletasks()
 
@@ -102,6 +135,8 @@ def main() -> None:
             "wall_app_init_seconds": round(wall, 6),
             "timings_seconds": timings,
             "slowest_builders": slowest,
+            "profile_top_cumulative": profile_rows(profiler, repo_only=False, limit=40),
+            "profile_top_repo_cumulative": profile_rows(profiler, repo_only=True, limit=60),
             "date_label_manager": date_manager,
             "today_summary_manager": summary_manager,
             "hidden_header_skip_verified": True,
@@ -110,6 +145,10 @@ def main() -> None:
         }
         write_result(payload)
     finally:
+        try:
+            profiler.disable()
+        except Exception:
+            pass
         if window is not None:
             try:
                 window.destroy()
