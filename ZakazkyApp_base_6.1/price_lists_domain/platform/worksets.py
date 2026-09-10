@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
+REQUEST_ATTENTION_TAG = "v770_request_attention"
+
 
 def _date_clause(field: str, mode: str, value: str):
     if not value:
@@ -207,11 +209,20 @@ def refresh_requests(M, app, mivo: bool = False):
             overdue_cache[key] = M.request_is_overdue(asked, received)
         return overdue_cache[key]
 
-    overdue = []
+    if not mivo:
+        try:
+            # This is the same row tag configured by v770's historical idle
+            # callback. Applying it before insertion preserves the visual result
+            # while avoiding a second full Treeview walk after every refresh.
+            tree.tag_configure(REQUEST_ATTENTION_TAG, font=("Calibri", 10, "bold"))
+        except Exception:
+            pass
+
     for row in rows:
         state = _request_status(row)
         asked = row["asked_date"]
         received = row["received_date"]
+        attention = False
         if mivo:
             # MIVO uses no regular-request overdue highlight. Do not spend time
             # calculating a value that is never consumed by a callback.
@@ -226,13 +237,13 @@ def refresh_requests(M, app, mivo: bool = False):
                 fmt_cached(received),row["requested_for"] or "",row["company"] or "",
                 row["action_name"] or "",row["item"] or "",row["recipients_snapshot"] or "",
             )
+            attention = overdue_cached(asked, received) and not int(row["no_response"] or 0)
         iid = f"r{row['id']}"
-        tree.insert("", "end", iid=iid, values=values, tags=(_request_tag(row),))
+        tags = [_request_tag(row)]
+        if attention:
+            tags.append(REQUEST_ATTENTION_TAG)
+        tree.insert("", "end", iid=iid, values=values, tags=tuple(tags))
         if iid in selected:tree.selection_add(iid)
-        if not mivo:
-            overdue.append((iid, overdue_cached(asked, received) and not int(row["no_response"] or 0)))
-    if not mivo:
-        app.after_idle(lambda rows=overdue, target=tree: app._refresh_request_date_highlights(target, rows))
     try:app.reapply_tree_sort(tree)
     except Exception:pass
 
