@@ -6,7 +6,8 @@ refresh_all. It removes redundant hidden-header database work, releases destroye
 autocomplete widgets from their process-wide registry, caches deterministic
 Czech sort keys used repeatedly by SQLite collations, suppresses one historical
 full-window palette walk after data refreshes, coalesces repeated dialog z-order
-sweeps, and records compact timings from real Windows execution.
+sweeps, immediately detaches already-built hidden pages, and records compact
+timings from real Windows execution.
 """
 from __future__ import annotations
 
@@ -209,6 +210,45 @@ def _install_dialog_chain_coalescing() -> bool:
     return True
 
 
+def _detach_hidden_pages_now(app: Any) -> tuple[str, ...]:
+    """Remove already-built hidden pages from geometry before the first idle turn.
+
+    This is deliberately not deferred construction: every builder and historical
+    compatibility wrapper has already completed. It only performs the same
+    ``grid_remove`` policy that v628 schedules for 1450 ms later, preventing
+    hidden Treeviews from receiving startup Configure/Map work in the meantime.
+    """
+    try:
+        tabs = getattr(app, "tabs", {}) or {}
+        current = str(getattr(app, "_current_page", "") or "")
+        if not isinstance(tabs, dict) or not current or current not in tabs:
+            return ()
+    except Exception:
+        return ()
+
+    detached: list[str] = []
+    for key, page in list(tabs.items()):
+        if str(key) == current:
+            continue
+        try:
+            if page is None or not page.winfo_exists():
+                continue
+        except Exception:
+            # Minimal/fake page objects used by tests may not expose winfo_exists;
+            # grid_remove itself remains the authoritative capability check.
+            pass
+        try:
+            page.grid_remove()
+            detached.append(str(key))
+        except Exception:
+            pass
+    try:
+        app._turto_hidden_pages_detached_immediately = tuple(detached)
+    except Exception:
+        pass
+    return tuple(detached)
+
+
 def _timing_store(instance: Any) -> dict[str, list[float]]:
     data = getattr(instance, "_turto_perf_timings", None)
     if not isinstance(data, dict):
@@ -275,11 +315,14 @@ def _write_startup_profile(M: Any, instance: Any, total: float) -> None:
         skips = int(getattr(instance, "_turto_hidden_header_refresh_skips", 0) or 0)
         palette_skips = int(getattr(instance, "_turto_v628_refresh_palette_skips", 0) or 0)
         dialog_coalesced = int(getattr(instance, "_turto_dialog_raise_events_coalesced", 0) or 0)
+        detached_pages = len(
+            getattr(instance, "_turto_hidden_pages_detached_immediately", ()) or ()
+        )
         line = (
             f"[{datetime.now():%Y-%m-%d %H:%M:%S}] "
             f"version={getattr(M, 'APP_VERSION', '')} app_init={float(total):.4f}s "
             f"hidden_header_skips={skips} refresh_palette_skips={palette_skips} "
-            f"dialog_raise_coalesced={dialog_coalesced}"
+            f"dialog_raise_coalesced={dialog_coalesced} hidden_pages_detached={detached_pages}"
         )
         cache_info = getattr(getattr(M, "czech_sort_key", None), "cache_info", None)
         if callable(cache_info):
@@ -441,7 +484,9 @@ def apply(M: Any) -> None:
         def app_init(self: Any, *args: Any, **kwargs: Any):
             started = time.perf_counter()
             try:
-                return previous_init(self, *args, **kwargs)
+                result = previous_init(self, *args, **kwargs)
+                _detach_hidden_pages_now(self)
+                return result
             finally:
                 elapsed = time.perf_counter() - started
                 _record_timing(self, "app_init", elapsed)
@@ -458,6 +503,7 @@ def apply(M: Any) -> None:
         "czech_sort_cache_size": CZECH_SORT_CACHE_SIZE,
         "refresh_palette_walk": "v628-after-idle-suppressed",
         "dialog_focus_sweep": "map-focus-events-coalesced",
+        "initial_page_geometry": "built-then-hidden-pages-grid-removed",
         "startup_profile": PERFORMANCE_LOG,
         "database_rows_rewritten": False,
     }
@@ -476,6 +522,7 @@ __all__ = [
     "_suppress_v628_refresh_palette",
     "_make_dialog_chain_coalescer",
     "_install_dialog_chain_coalescing",
+    "_detach_hidden_pages_now",
     "_install_czech_sort_cache",
     "_install_autocomplete_cleanup",
 ]
