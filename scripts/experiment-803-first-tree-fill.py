@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Measure first Příležitosti fill with the page visible or hidden.
+"""Measure and profile first Příležitosti fill with the page visible or hidden.
 
 CI/development experiment only. Run each mode in a fresh Python process and an
 isolated TURTO_CRM_DATA_ROOT so Tk/widget warm-up does not mix the two cases.
 """
 from __future__ import annotations
 
+import cProfile
 import importlib.util
 import json
 import os
 from pathlib import Path
+import pstats
 import sys
 import time
 import traceback
@@ -30,6 +32,32 @@ def load_scaled_benchmark():
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
+
+
+def profile_rows(profile: cProfile.Profile, limit: int = 30) -> list[dict]:
+    rows = []
+    base_text = str(BASE.resolve()).casefold()
+    for (filename, lineno, function), values in pstats.Stats(profile).stats.items():
+        primitive_calls, total_calls, own_time, cumulative_time, _callers = values
+        normalized = str(Path(filename).resolve()).casefold() if filename else ""
+        if not normalized.startswith(base_text):
+            continue
+        rows.append(
+            {
+                "function": function,
+                "file": str(filename),
+                "line": int(lineno),
+                "primitive_calls": int(primitive_calls),
+                "total_calls": int(total_calls),
+                "self_seconds": round(float(own_time), 6),
+                "cumulative_seconds": round(float(cumulative_time), 6),
+            }
+        )
+    rows.sort(
+        key=lambda row: (row["cumulative_seconds"], row["self_seconds"]),
+        reverse=True,
+    )
+    return rows[:limit]
 
 
 def main() -> None:
@@ -72,8 +100,7 @@ def main() -> None:
             window.show_page("actions")
             window.update_idletasks()
         else:
-            # Simulate filling before the first page raise. lazy_refresh.show_page
-            # can restore this page with its normal grid geometry afterwards.
+            # Diagnostic only: compare a first fill while the page is not mapped.
             try:
                 page.grid_remove()
             except Exception:
@@ -85,8 +112,11 @@ def main() -> None:
         window.refresh_actions()
         refresh_seconds = time.perf_counter() - refresh_started
 
+        idle_profile = cProfile.Profile()
         idle_started = time.perf_counter()
+        idle_profile.enable()
         window.update_idletasks()
+        idle_profile.disable()
         idle_seconds = time.perf_counter() - idle_started
 
         reveal_seconds = 0.0
@@ -108,6 +138,7 @@ def main() -> None:
             "idle_seconds": round(idle_seconds, 6),
             "reveal_seconds": round(reveal_seconds, 6),
             "total_seconds": round(refresh_seconds + idle_seconds + reveal_seconds, 6),
+            "idle_profile_repo_top": profile_rows(idle_profile),
             "navigation_owner": str(getattr(app.App, "_turto_navigation_owner", "")),
             "callback_errors": callback_errors,
         }
