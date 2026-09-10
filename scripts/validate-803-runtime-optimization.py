@@ -8,8 +8,8 @@ from types import SimpleNamespace
 import tempfile
 
 
-def load_module(path: Path):
-    spec = importlib.util.spec_from_file_location("turto_runtime_optimization_test", path)
+def load_module(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
@@ -69,6 +69,45 @@ class FakeAutocompleteEntry:
         self.destroy_callback = callback
 
 
+class FakeChromeApp:
+    def __init__(self):
+        self.callbacks = {}
+        self.cancelled = []
+        self.next_id = 0
+        self.calls = []
+
+    def winfo_exists(self):
+        return 1
+
+    def after(self, delay, callback):
+        self.next_id += 1
+        token = f"after-{self.next_id}"
+        self.callbacks[token] = (delay, callback)
+        return token
+
+    def after_cancel(self, token):
+        self.cancelled.append(token)
+        self.callbacks.pop(token, None)
+
+    def refresh_header(self):
+        self.calls.append("refresh_header")
+
+    def refresh_notifications(self):
+        self.calls.append("refresh_notifications")
+
+    def refresh_notes_button(self):
+        self.calls.append("refresh_notes_button")
+
+    def refresh_user_button(self):
+        self.calls.append("refresh_user_button")
+
+    def run_pending(self):
+        assert self.callbacks
+        _token, (_delay, callback) = list(self.callbacks.items())[-1]
+        self.callbacks.clear()
+        callback()
+
+
 def main() -> None:
     repo = Path(__file__).resolve().parents[1]
     base = repo / "ZakazkyApp_base_6.1"
@@ -77,7 +116,8 @@ def main() -> None:
     lazy_path = base / "price_lists_domain" / "platform" / "lazy_refresh.py"
 
     assert module_path.is_file(), "8.0.3 runtime optimization owner is missing"
-    optimization = load_module(module_path)
+    optimization = load_module(module_path, "turto_runtime_optimization_test")
+    lazy_module = load_module(lazy_path, "turto_lazy_refresh_test")
 
     # Header optimization is dynamic: today's hidden widgets skip the historical
     # DB summary, while any future mapped header widget automatically restores it.
@@ -112,7 +152,30 @@ def main() -> None:
     entry.destroy_callback(SimpleNamespace(widget=entry))
     assert registry == []
 
-    # Applying the owner must preserve the canonical navigation/refresh methods.
+    # Business changes update only chrome that can actually become stale.
+    chrome_app = FakeChromeApp()
+    lazy_module._schedule_chrome(
+        SimpleNamespace(),
+        chrome_app,
+        methods=lazy_module.BUSINESS_CHROME_REFRESH,
+    )
+    chrome_app.run_pending()
+    assert chrome_app.calls == ["refresh_header", "refresh_notifications"]
+
+    # Multiple pending requests are coalesced by union. A later full refresh must
+    # never be downgraded by an earlier selective request.
+    chrome_app = FakeChromeApp()
+    lazy_module._schedule_chrome(
+        SimpleNamespace(),
+        chrome_app,
+        methods=lazy_module.BUSINESS_CHROME_REFRESH,
+    )
+    lazy_module._schedule_chrome(SimpleNamespace(), chrome_app)
+    assert chrome_app.cancelled == ["after-1"]
+    chrome_app.run_pending()
+    assert chrome_app.calls == list(lazy_module.CHROME_REFRESH)
+
+    # Applying the 8.0.3 owner must preserve canonical navigation/refresh methods.
     original_show_page = FakeApp.show_page
     original_refresh_all = FakeApp.refresh_all
     with tempfile.TemporaryDirectory(prefix="turto-803-") as td:
@@ -144,6 +207,9 @@ def main() -> None:
     assert 'App._turto_navigation_owner = "price_lists_domain.platform.lazy_refresh"' in lazy
     assert '_turto_dirty_pages' in lazy
     assert '_schedule_page' in lazy
+    assert 'methods=BUSINESS_CHROME_REFRESH' in lazy
+    assert 'refresh_notes_button' not in lazy_module.BUSINESS_CHROME_REFRESH
+    assert 'refresh_user_button' not in lazy_module.BUSINESS_CHROME_REFRESH
 
     bootstrap = bootstrap_path.read_text(encoding="utf-8")
     marker = '"price_lists_domain.platform.runtime_optimization_803"'
