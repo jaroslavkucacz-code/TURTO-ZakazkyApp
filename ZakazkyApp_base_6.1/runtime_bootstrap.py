@@ -67,7 +67,6 @@ LATE_LAYERS = (
     "price_lists_domain.platform.ui_polish_801",
     "price_lists_domain.platform.branding_polish_802",
     "price_lists_domain.platform.runtime_optimization_803",
-    "price_lists_domain.platform.deferred_page_build_803",
 )
 
 
