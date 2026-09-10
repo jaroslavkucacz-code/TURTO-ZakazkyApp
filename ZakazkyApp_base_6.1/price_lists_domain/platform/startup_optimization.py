@@ -23,6 +23,10 @@ V628_REDUNDANT_COSMETIC_DELAYS = {
     1550: "apply_modern_palette",
     1750: "dashboard_layout",
 }
+# v638 schedules the same whole-table stabilizer at 0.9, 2.2 and 3.8 seconds.
+# Keep the first safety pass. Any page subsequently refreshed has its own 50/420
+# ms stabilizers, so the two very late startup-wide repetitions are redundant.
+V638_REDUNDANT_STABILIZE_DELAYS = frozenset({2200, 3800})
 
 
 def _callback_origin(callback: Any) -> tuple[str, str]:
@@ -78,6 +82,18 @@ def _redundant_v628_cosmetic(delay: Any, callback: Any) -> str | None:
     if _callback_origin(callback) != ("v628_modernui_resize.py", "<lambda>"):
         return None
     return expected if expected in _closure_callable_names(callback) else None
+
+
+def _is_redundant_v638_stabilize(delay: Any, callback: Any) -> bool:
+    try:
+        milliseconds = int(delay)
+    except Exception:
+        return False
+    if milliseconds not in V638_REDUNDANT_STABILIZE_DELAYS or not callable(callback):
+        return False
+    if _callback_origin(callback) != ("v638_table_updatefix.py", "<lambda>"):
+        return False
+    return "_stabilize" in _closure_callable_names(callback)
 
 
 def _is_v770_plexus_backfill(delay: Any, callback: Any) -> bool:
@@ -173,6 +189,7 @@ def _call_previous_init_optimized(M: Any, instance: Any, previous_init: Any, *ar
     previous_instance_after = state.get("after")
     v760_suppressed: list[int] = []
     v628_suppressed: list[tuple[int, str]] = []
+    v638_suppressed: list[int] = []
     plexus_before = 0
     plexus_after = 0
 
@@ -186,6 +203,10 @@ def _call_previous_init_optimized(M: Any, instance: Any, previous_init: Any, *ar
         if cosmetic:
             v628_suppressed.append((int(delay), cosmetic))
             return f"turto-coalesced-v628-{len(v628_suppressed)}"
+
+        if _is_redundant_v638_stabilize(delay, callback):
+            v638_suppressed.append(int(delay))
+            return f"turto-coalesced-v638-{len(v638_suppressed)}"
 
         if _is_v770_plexus_backfill(delay, callback):
             closure = _closure_map(callback)
@@ -210,6 +231,7 @@ def _call_previous_init_optimized(M: Any, instance: Any, previous_init: Any, *ar
                 instance.__dict__.pop("after", None)
             instance._turto_v760_finalizers_coalesced = tuple(v760_suppressed)
             instance._turto_v628_cosmetic_passes_coalesced = tuple(v628_suppressed)
+            instance._turto_v638_startup_stabilizers_coalesced = tuple(v638_suppressed)
             instance._turto_plexus_backfill_candidates = plexus_before
             instance._turto_plexus_backfill_pending = plexus_after
         except Exception:
@@ -243,6 +265,8 @@ def apply(M: Any) -> None:
         "v628_delayed_cosmetics_suppressed": tuple(sorted(V628_REDUNDANT_COSMETIC_DELAYS.items())),
         "v628_hidden_page_detach_preserved_ms": 1450,
         "v628_outlook_indicator_preserved_ms": 1900,
+        "v638_first_startup_stabilizer_preserved_ms": 900,
+        "v638_late_startup_stabilizers_suppressed": tuple(sorted(V638_REDUNDANT_STABILIZE_DELAYS)),
         "plexus_backfill": "unresolved-assets-only",
         "database_rows_rewritten_at_startup": False,
     }
@@ -253,4 +277,5 @@ __all__ = [
     "prune_plexus_backfill_ids",
     "V760_REDUNDANT_FINALIZE_DELAYS",
     "V628_REDUNDANT_COSMETIC_DELAYS",
+    "V638_REDUNDANT_STABILIZE_DELAYS",
 ]
