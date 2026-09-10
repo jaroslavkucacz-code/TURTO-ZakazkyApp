@@ -5,7 +5,7 @@ Development/CI only. Uses an isolated data root, never opens a business dialog o
 modifies user data. The probe repeatedly creates and destroys lightweight
 Toplevels containing real AutocompleteEntry widgets and drives the Tk event loop.
 It verifies that process-wide autocomplete registration, dialog z-order
-coalescing and widget/reference lifetime return to their baseline state.
+coalescing and widget/reference lifetime return to their settled baseline state.
 """
 from __future__ import annotations
 
@@ -28,6 +28,8 @@ if str(BASE) not in sys.path:
 os.environ["TURTO_DISABLE_AUTO_UPDATE"] = "1"
 
 CYCLES = 80
+WARMUP_CYCLES = 3
+STARTUP_SETTLE_SECONDS = 4.2
 ENTRIES_PER_DIALOG = 3
 VALUES = tuple(f"Benchmark hodnota {index:03d}" for index in range(120))
 
@@ -54,6 +56,18 @@ def live_toplevel_count(root) -> int:
     except Exception:
         pass
     return total
+
+
+def settle(root, seconds: float) -> None:
+    """Run Tk while delayed startup/idle callbacks become eligible."""
+    deadline = time.perf_counter() + max(0.0, float(seconds))
+    while True:
+        root.update()
+        if time.perf_counter() >= deadline:
+            break
+        time.sleep(0.02)
+    for _ in range(3):
+        root.update()
 
 
 def write_result(payload: dict) -> None:
@@ -93,18 +107,18 @@ def main() -> None:
 
         root.report_callback_exception = report_callback_exception
         root.update()
-        baseline_registry = len(list(getattr(app, "_AUTOCOMPLETE_ENTRIES", ()) or ()))
-        baseline_widgets = walk_count(root)
-        baseline_toplevels = live_toplevel_count(root)
+        cold_widgets = walk_count(root)
+        cold_registry = len(list(getattr(app, "_AUTOCOMPLETE_ENTRIES", ()) or ()))
+        cold_toplevels = live_toplevel_count(root)
 
-        # Start after normal startup transients have settled, so the memory delta
-        # describes churn rather than initial imports/Tk initialization.
-        gc.collect()
-        tracemalloc.start()
-        before_current, before_peak = tracemalloc.get_traced_memory()
-        started = time.perf_counter()
+        # App.__init__ intentionally schedules a handful of delayed stability and
+        # presentation callbacks (up to several seconds after construction). A
+        # long-session leak test must not mistake those one-time startup effects
+        # for widgets retained by dialog churn, so first let the real Tk runtime
+        # settle and materialize the autocomplete path a few times.
+        settle(root, STARTUP_SETTLE_SECONDS)
 
-        for cycle in range(CYCLES):
+        def exercise_cycle(cycle: int, *, track_refs: bool) -> None:
             top = app.tk.Toplevel(root)
             top.title(f"TURTO churn {cycle}")
             top.transient(root)
@@ -121,9 +135,11 @@ def main() -> None:
                 )
                 entry.pack(fill="x", pady=2)
                 entries.append(entry)
-                entry_refs.append(weakref.ref(entry))
+                if track_refs:
+                    entry_refs.append(weakref.ref(entry))
 
-            top_refs.append(weakref.ref(top))
+            if track_refs:
+                top_refs.append(weakref.ref(top))
             top.update_idletasks()
             # Drive real Map/Focus propagation. This is the event pattern that
             # historically caused hundreds of recursive dialog-chain sweeps.
@@ -138,6 +154,37 @@ def main() -> None:
             del entries, frame, top
             root.update()
 
+        for cycle in range(WARMUP_CYCLES):
+            exercise_cycle(-(cycle + 1), track_refs=False)
+        settle(root, 0.15)
+        gc.collect()
+
+        if callback_errors:
+            raise AssertionError(
+                "Tk callback regression during settled warm-up:\n"
+                + "\n\n".join(callback_errors)
+            )
+        warm_registry = len(list(getattr(app, "_AUTOCOMPLETE_ENTRIES", ()) or ()))
+        if warm_registry != cold_registry:
+            raise AssertionError(
+                f"Autocomplete registry changed during warm-up: "
+                f"{warm_registry} != {cold_registry}"
+            )
+
+        # This is the meaningful long-session baseline: startup timers have fired
+        # and one-time Tk/autocomplete structures are already materialized. Any
+        # subsequent monotonic growth is therefore attributable to measured churn.
+        baseline_registry = warm_registry
+        baseline_widgets = walk_count(root)
+        baseline_toplevels = live_toplevel_count(root)
+
+        tracemalloc.start()
+        before_current, before_peak = tracemalloc.get_traced_memory()
+        started = time.perf_counter()
+
+        for cycle in range(CYCLES):
+            exercise_cycle(cycle, track_refs=True)
+
             # Fail early if the process-wide registry grows monotonically.
             registry_now = len(list(getattr(app, "_AUTOCOMPLETE_ENTRIES", ()) or ()))
             if registry_now > baseline_registry:
@@ -148,9 +195,7 @@ def main() -> None:
 
         # Let every coalesced after_idle/focus callback complete, then force Python
         # collection to expose references held beyond the lifetime of destroyed Tk widgets.
-        for _ in range(4):
-            root.update()
-            time.sleep(0.01)
+        settle(root, 0.08)
         gc.collect()
         elapsed = time.perf_counter() - started
         after_current, after_peak = tracemalloc.get_traced_memory()
@@ -166,6 +211,7 @@ def main() -> None:
             getattr(root, "_turto_dialog_raise_events_coalesced", 0) or 0
         )
         memory_delta = int(after_current - before_current)
+        widget_delta = int(final_widgets - baseline_widgets)
 
         if callback_errors:
             raise AssertionError("Tk callback regression:\n" + "\n\n".join(callback_errors))
@@ -181,7 +227,8 @@ def main() -> None:
             )
         if final_widgets > baseline_widgets + 3:
             raise AssertionError(
-                f"Tk widget count grew after churn: {final_widgets} vs {baseline_widgets}"
+                f"Tk widget count grew after settled churn: "
+                f"{final_widgets} vs {baseline_widgets}"
             )
         if alive_entries:
             raise AssertionError(f"Destroyed AutocompleteEntry references still alive: {alive_entries}")
@@ -197,13 +244,19 @@ def main() -> None:
                 "ok": True,
                 "platform": sys.platform,
                 "cycles": CYCLES,
+                "warmup_cycles": WARMUP_CYCLES,
+                "startup_settle_seconds": STARTUP_SETTLE_SECONDS,
                 "entries_per_dialog": ENTRIES_PER_DIALOG,
                 "entries_created": CYCLES * ENTRIES_PER_DIALOG,
                 "elapsed_seconds": round(elapsed, 6),
+                "cold_autocomplete_registry": cold_registry,
                 "baseline_autocomplete_registry": baseline_registry,
                 "final_autocomplete_registry": final_registry,
+                "cold_widgets": cold_widgets,
                 "baseline_widgets": baseline_widgets,
                 "final_widgets": final_widgets,
+                "widget_delta_after_settled_baseline": widget_delta,
+                "cold_toplevels": cold_toplevels,
                 "baseline_toplevels": baseline_toplevels,
                 "final_toplevels": final_toplevels,
                 "alive_entry_refs": alive_entries,
