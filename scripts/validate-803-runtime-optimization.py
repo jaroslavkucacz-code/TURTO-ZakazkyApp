@@ -137,6 +137,31 @@ def main() -> None:
     assert "time.perf_counter()" in source
     assert 'self.bind("<Destroy>", unregister, add="+")' in source
 
+    # SQLite repeatedly compares the same string values while sorting. The cache
+    # must preserve the exact historical result and only avoid repeated work.
+    sort_calls = []
+
+    def historical_sort_key(value):
+        sort_calls.append(value)
+        return tuple(str(value or "").strip().casefold())
+
+    sort_module = SimpleNamespace(czech_sort_key=historical_sort_key)
+    assert optimization._install_czech_sort_cache(sort_module) is True
+    samples = ["Česká firma", "CH Projekt 10", "ŽPSV", "  Leviat  "]
+    for sample in samples:
+        expected = tuple(sample.strip().casefold())
+        assert sort_module.czech_sort_key(sample) == expected
+        assert sort_module.czech_sort_key(sample) == expected
+    assert len(sort_calls) == len(samples)
+    info = sort_module.czech_sort_key.cache_info()
+    assert info.hits == len(samples)
+    assert info.misses == len(samples)
+    assert info.currsize == len(samples)
+    # Non-string inputs bypass the cache so historical generic-call semantics stay exact.
+    before = len(sort_calls)
+    assert sort_module.czech_sort_key(None) == historical_sort_key(None)
+    assert len(sort_calls) == before + 2
+
     # Destroyed autocomplete widgets must leave the legacy process-wide registry
     # immediately instead of waiting for a future unrelated mouse click.
     registry = []
@@ -183,10 +208,12 @@ def main() -> None:
             App=FakeApp,
             DATA_ROOT=Path(td),
             APP_VERSION="8.0.2-dev",
+            czech_sort_key=lambda value: tuple(str(value or "").casefold()),
         )
         optimization.apply(fake_module)
         assert FakeApp.show_page is original_show_page
         assert FakeApp.refresh_all is original_refresh_all
+        assert callable(getattr(fake_module.czech_sort_key, "cache_info", None))
         app = FakeApp()
         assert app.refresh_header() is None
         assert app.header_calls == 0
@@ -197,7 +224,10 @@ def main() -> None:
         log_path = Path(td) / "logs" / "performance.log"
         assert log_path.is_file()
         log = log_path.read_text(encoding="utf-8")
-        for token in ("app_init=", "build_total=", "build_dash=", "apply_theme="):
+        for token in (
+            "app_init=", "build_total=", "build_dash=", "apply_theme=",
+            "czech_cache_hits=", "czech_cache_misses=", "czech_cache_size=",
+        ):
             assert token in log, token
 
     # The pre-existing lazy refresh remains the one navigation/dirty-page owner.
