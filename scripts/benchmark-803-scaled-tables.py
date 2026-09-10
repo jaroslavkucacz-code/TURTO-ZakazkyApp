@@ -7,10 +7,12 @@ final composed refresh methods. It never opens or modifies a user's database.
 """
 from __future__ import annotations
 
+import cProfile
 from datetime import date, timedelta
 import json
 import os
 from pathlib import Path
+import pstats
 import sys
 import time
 import traceback
@@ -209,6 +211,43 @@ def measure(window, page: str, method_name: str, tree_name: str) -> dict:
     }
 
 
+def profile_rows(profile: cProfile.Profile, limit: int = 35) -> list[dict]:
+    base_text = str(BASE.resolve()).casefold()
+    rows = []
+    for (filename, lineno, function), values in pstats.Stats(profile).stats.items():
+        primitive_calls, total_calls, own_time, cumulative_time, _callers = values
+        normalized = str(Path(filename).resolve()).casefold() if filename else ""
+        if not normalized.startswith(base_text):
+            continue
+        rows.append(
+            {
+                "function": function,
+                "file": str(filename),
+                "line": int(lineno),
+                "primitive_calls": int(primitive_calls),
+                "total_calls": int(total_calls),
+                "self_seconds": round(float(own_time), 6),
+                "cumulative_seconds": round(float(cumulative_time), 6),
+            }
+        )
+    rows.sort(
+        key=lambda row: (row["cumulative_seconds"], row["self_seconds"]),
+        reverse=True,
+    )
+    return rows[:limit]
+
+
+def profile_request_refresh(window) -> list[dict]:
+    window.show_page("requests")
+    window.update_idletasks()
+    profile = cProfile.Profile()
+    profile.enable()
+    window.refresh_requests()
+    window.update_idletasks()
+    profile.disable()
+    return profile_rows(profile)
+
+
 def write_result(payload: dict) -> None:
     target = str(os.environ.get("TURTO_CRM_SCALE_RESULT", "")).strip()
     text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
@@ -253,6 +292,7 @@ def main() -> None:
             measure(window, "projects", "refresh_projects", "project_tree"),
             measure(window, "companies", "refresh_companies", "company_tree"),
         ]
+        request_profile = profile_request_refresh(window)
         window.update_idletasks()
         if callback_errors:
             raise AssertionError("Tk callback regression:\n" + "\n\n".join(callback_errors))
@@ -262,6 +302,7 @@ def main() -> None:
                 "platform": sys.platform,
                 "seed_counts": counts,
                 "results": results,
+                "request_refresh_profile_repo_top": request_profile,
                 "navigation_owner": str(getattr(app.App, "_turto_navigation_owner", "")),
             }
         )
