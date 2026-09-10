@@ -182,27 +182,55 @@ def refresh_requests(M, app, mivo: bool = False):
                          r.asked_date DESC,r.id DESC LIMIT 5000""",
             params,
         ).fetchall()
+
+    # Date strings repeat heavily in operational tables (often hundreds of rows
+    # share one day). Keep these caches strictly local to one refresh so there is
+    # no stale state across edits, database switches or midnight rollover.
+    fmt_cache = {}
+    wait_cache = {}
+    overdue_cache = {}
+
+    def fmt_cached(raw):
+        if raw not in fmt_cache:
+            fmt_cache[raw] = M.fmt_date(raw)
+        return fmt_cache[raw]
+
+    def wait_cached(asked, received):
+        key = (asked, received)
+        if key not in wait_cache:
+            wait_cache[key] = M.request_wait_date(asked, received)
+        return wait_cache[key]
+
+    def overdue_cached(asked, received):
+        key = (asked, received)
+        if key not in overdue_cache:
+            overdue_cache[key] = M.request_is_overdue(asked, received)
+        return overdue_cache[key]
+
     overdue = []
     for row in rows:
         state = _request_status(row)
+        asked = row["asked_date"]
+        received = row["received_date"]
         if mivo:
-            # MIVO uses bold ageing only. Keep the stored date visually clean;
-            # warning symbols belong to the regular Poptávky table, not here.
+            # MIVO uses no regular-request overdue highlight. Do not spend time
+            # calculating a value that is never consumed by a callback.
             values = (
-                state,row["assigned_user"] or "",M.fmt_date(row["asked_date"]),
-                M.fmt_date(row["received_date"]),row["requested_for"] or "",row["action_name"] or "",
+                state,row["assigned_user"] or "",fmt_cached(asked),
+                fmt_cached(received),row["requested_for"] or "",row["action_name"] or "",
                 row["item"] or "",row["recipients_snapshot"] or "",
             )
         else:
             values = (
-                state,row["assigned_user"] or "",M.request_wait_date(row["asked_date"],row["received_date"]),
-                M.fmt_date(row["received_date"]),row["requested_for"] or "",row["company"] or "",
+                state,row["assigned_user"] or "",wait_cached(asked, received),
+                fmt_cached(received),row["requested_for"] or "",row["company"] or "",
                 row["action_name"] or "",row["item"] or "",row["recipients_snapshot"] or "",
             )
         iid = f"r{row['id']}"
         tree.insert("", "end", iid=iid, values=values, tags=(_request_tag(row),))
         if iid in selected:tree.selection_add(iid)
-        overdue.append((iid, M.request_is_overdue(row["asked_date"], row["received_date"]) and not int(row["no_response"] or 0)))
+        if not mivo:
+            overdue.append((iid, overdue_cached(asked, received) and not int(row["no_response"] or 0)))
     if not mivo:
         app.after_idle(lambda rows=overdue, target=tree: app._refresh_request_date_highlights(target, rows))
     try:app.reapply_tree_sort(tree)
@@ -214,10 +242,10 @@ def refresh_tasks(M, app):
     if tree is None:return
     selected = set(tree.selection())
     for iid in tree.get_children(""):tree.delete(iid)
-    show_done = bool(app.task_show_done.get()) if hasattr(app, "task_show_done") else False
-    show_archived = bool(app.task_show_archived.get()) if hasattr(app, "task_show_archived") else False
-    query = app.task_q.get().casefold().strip() if hasattr(app, "task_q") else ""
-    user = app.task_user_filter.get() if hasattr(app, "task_user_filter") else "Všichni"
+    show_done = bool(app.task_show_done.get()) if hasattr(app,"task_show_done") else False
+    show_archived = bool(app.task_show_archived.get()) if hasattr(app,"task_show_archived") else False
+    query = app.task_q.get().casefold().strip() if hasattr(app,"task_q") else ""
+    user = app.task_user_filter.get() if hasattr(app,"task_user_filter") else "Všichni"
     where = ["(?=1 OR t.done=0)", "(?=1 OR coalesce(t.archived,0)=0)"]
     params = [1 if show_done else 0, 1 if show_archived else 0]
     if query:
