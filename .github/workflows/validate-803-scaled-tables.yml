@@ -9,6 +9,7 @@ on:
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/lazy_refresh.py'
       - 'ZakazkyApp_base_6.1/v760_table_activity_performance.py'
       - 'scripts/benchmark-803-scaled-tables.py'
+      - 'scripts/experiment-803-first-tree-fill.py'
       - '.github/workflows/validate-803-scaled-tables.yml'
   push:
     branches: [main]
@@ -19,6 +20,7 @@ on:
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/lazy_refresh.py'
       - 'ZakazkyApp_base_6.1/v760_table_activity_performance.py'
       - 'scripts/benchmark-803-scaled-tables.py'
+      - 'scripts/experiment-803-first-tree-fill.py'
       - '.github/workflows/validate-803-scaled-tables.yml'
 
 permissions:
@@ -27,7 +29,7 @@ permissions:
 jobs:
   scaled-table-profile:
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -50,11 +52,34 @@ jobs:
           if (-not $result.ok) { throw 'Scaled table benchmark failed' }
           if ($result.navigation_owner -ne 'price_lists_domain.platform.lazy_refresh') { throw 'Unexpected navigation owner' }
           Get-Content $env:TURTO_CRM_SCALE_RESULT
+      - name: Compare first visible and hidden Příležitosti fill
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:TURTO_DISABLE_AUTO_UPDATE = '1'
+
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-803-fill-visible-data'
+          $env:TURTO_CRM_FILL_RESULT = Join-Path $env:RUNNER_TEMP 'turto-803-fill-visible.json'
+          python scripts/experiment-803-first-tree-fill.py visible
+          $visible = Get-Content $env:TURTO_CRM_FILL_RESULT -Raw | ConvertFrom-Json
+          if (-not $visible.ok) { throw 'Visible first-fill experiment failed' }
+
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-803-fill-hidden-data'
+          $env:TURTO_CRM_FILL_RESULT = Join-Path $env:RUNNER_TEMP 'turto-803-fill-hidden.json'
+          python scripts/experiment-803-first-tree-fill.py hidden
+          $hidden = Get-Content $env:TURTO_CRM_FILL_RESULT -Raw | ConvertFrom-Json
+          if (-not $hidden.ok) { throw 'Hidden first-fill experiment failed' }
+
+          Get-Content (Join-Path $env:RUNNER_TEMP 'turto-803-fill-visible.json')
+          Get-Content (Join-Path $env:RUNNER_TEMP 'turto-803-fill-hidden.json')
       - name: Upload scaled table profile
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: TURTO-CRM-803-scaled-table-profile
-          path: ${{ runner.temp }}\turto-803-scaled-tables.json
+          path: |
+            ${{ runner.temp }}\turto-803-scaled-tables.json
+            ${{ runner.temp }}\turto-803-fill-visible.json
+            ${{ runner.temp }}\turto-803-fill-hidden.json
           if-no-files-found: warn
           retention-days: 14
