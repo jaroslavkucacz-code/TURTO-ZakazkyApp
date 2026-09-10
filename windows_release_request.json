@@ -1,6 +1,6 @@
 {
-  "version": "8.0.1",
+  "version": "8.0.2",
   "channel": "windows",
-  "bridge_legacy_preview": true,
-  "notes": "První produkční EXE vydání TURTO CRM. Samostatný Windows instalátor bez nutnosti systémového Pythonu; bezpečné převzetí nebo připojení databáze; oddělená data a program; read-only SQLite zálohy; transakční EXE updater s programovým snapshotem a automatickým rollbackem; hashově ověřený Windows update kanál; zachování dat při odinstalaci; optimalizovaný Windows x64 TkDnD runtime. Verze 8.0.1 zároveň zajišťuje bezpečný přechod z pilotní 8.0.0-preview.1."
+  "bridge_legacy_preview": false,
+  "notes": "Vizuální a distribuční úklid stabilní EXE řady TURTO CRM. Kalendář nově respektuje světlý/tmavý motiv a Calibri, výběr motivu je sjednocen na skutečně odlišné režimy Světlý/Tmavý, pomocné texty a přehled upozornění se správně přizpůsobují tmavému režimu, Nastavení v EXE skrývá staré technické ovládání zdroje aktualizací, patička zobrazuje korektní informaci o připojené databázi a branding i zástupce jsou sjednoceny na TURTO CRM. Součástí je také úklid produkční Windows dokumentace a odstranění již nepotřebného preview bridge souboru z repozitáře. Obchodní ani databázová logika se nemění."
 }

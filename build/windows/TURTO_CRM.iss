@@ -1,5 +1,7 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "8.0.0-preview.1"
+  ; CI/release build normally injects MyAppVersion explicitly. This fallback
+  ; follows the current stable EXE baseline for local/manual builds.
+  #define MyAppVersion "8.0.2"
 #endif
 
 #define MyAppName "TURTO CRM"
