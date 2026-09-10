@@ -1,12 +1,12 @@
-# TURTO CRM 8.0 – Windows EXE distribution (preview)
+# TURTO CRM 8.x – Windows EXE distribution
 
-This directory prepares the successor to the Python-distributed 7.9.x line.
-Nothing here is published to the production update channel yet.
+This directory owns the production Windows EXE line introduced with TURTO CRM 8.0.1.
+The legacy Python-distributed 7.9.x channel remains separate through `latest.json`.
 
 ## Produced packages
 
 - `TURTO_CRM_Setup_<version>.exe` – first installation on a new Windows PC.
-- `TURTO_CRM_Update_<version>.zip` – hashable payload for an already installed 8.x application.
+- `TURTO_CRM_Update_<version>.zip` – hash-verified payload for an already installed 8.x application.
 
 The setup package installs program files per-user under `%LOCALAPPDATA%\Programs\TURTO CRM`.
 Business data are deliberately not embedded in the installer and are never removed by uninstall.
@@ -20,6 +20,10 @@ If no valid TURTO CRM database is available, the user can:
 2. select an existing SQLite database and either:
    - safely copy it into the standard TURTO data folder using SQLite backup, or
    - keep using the selected file in-place.
+
+When an existing standard 7.x database is found during the first 8.x start, TURTO CRM adopts it only
+after a validated read-only SQLite safety backup is created. The first 8.x adoption is recorded in
+the per-user installation metadata so this special backup is not repeated on every start.
 
 The database choice is not limited to first start. The installer creates a Start-menu entry
 `TURTO CRM - Připojit nebo změnit databázi`, which starts the frozen application with
@@ -38,33 +42,43 @@ The selected location is stored per Windows user in `%LOCALAPPDATA%\TURTO CRM\in
 
 ## Frozen runtime
 
-- Main application: PyInstaller `onedir`, no Python installation required on the target PC.
+- Main application: PyInstaller `onedir`; no system Python installation is required on the target PC.
 - Updater: PyInstaller `onefile`, copied to a temporary directory before replacing the installed program.
-- Windows 8.x update channel: `latest-windows.json` (separate from legacy `latest.json`).
+- Windows 8.x update channel: `latest-windows.json`, separate from legacy `latest.json`.
+- Production binaries live as GitHub Release assets; the manifest contains their expected SHA-256 hashes.
 
 ## CI installation contract
 
-The Windows workflow deliberately uses two separate hosted Windows runners:
+The Windows validation deliberately uses two separate hosted Windows runners:
 
 1. the build runner creates and validates the Setup EXE and update ZIP and uploads them as an artifact;
 2. a fresh runner downloads only that artifact, performs a silent installation, starts the installed
-   frozen `TURTO CRM.exe` against an external temporary data root, validates SQLite, uninstalls the
-   application and verifies that the business database still exists with the same SHA-256 hash.
+   frozen `TURTO CRM.exe` against an external temporary data root, performs an updater transaction,
+   starts the updated frozen runtime again, uninstalls the application and verifies that the business
+   database remains available and protected.
 
-This avoids hiding first-start issues through a warmed PyInstaller/Defender/runtime cache on the build machine.
+The production publisher repeats a final installer smoke test before creating the GitHub Release and
+publishing `latest-windows.json`.
 
 ## Safety contract
 
 Before every 8.x update/rollback the updater must:
 
-- create a consistent SQLite database backup,
+- create a consistent SQLite database backup from a read-only source connection,
 - snapshot the currently installed program,
 - preserve Inno Setup uninstaller metadata,
 - replace program files only,
 - validate the new EXE payload,
-- restart `TURTO CRM.exe`.
+- restart `TURTO CRM.exe`,
+- restore the previous program automatically if program replacement fails.
+
+## Release gate
+
+Production Windows publishing is intentionally explicit. `windows_release_request.json` is the release
+request and the dedicated Windows publisher reacts only to that file. Ordinary development commits do
+not publish a new 8.x build.
 
 ## Installer compiler
 
-The current preview uses Inno Setup because it supports a polished per-user installer and Czech UI.
-Before production use, confirm the applicable commercial Inno Setup license for TURTO or replace this stage with another approved installer technology.
+The Windows installer uses Inno Setup for a polished per-user installer and Czech UI. Confirm the
+applicable Inno Setup license for the intended TURTO deployment model when changing distribution scope.
