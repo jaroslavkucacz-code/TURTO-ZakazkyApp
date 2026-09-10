@@ -10,6 +10,7 @@ on:
       - 'ZakazkyApp_base_6.1/v760_table_activity_performance.py'
       - 'scripts/benchmark-803-scaled-tables.py'
       - 'scripts/experiment-803-first-tree-fill.py'
+      - 'scripts/profile-803-settled-runtime.py'
       - '.github/workflows/validate-803-scaled-tables.yml'
   push:
     branches: [main]
@@ -21,6 +22,7 @@ on:
       - 'ZakazkyApp_base_6.1/v760_table_activity_performance.py'
       - 'scripts/benchmark-803-scaled-tables.py'
       - 'scripts/experiment-803-first-tree-fill.py'
+      - 'scripts/profile-803-settled-runtime.py'
       - '.github/workflows/validate-803-scaled-tables.yml'
 
 permissions:
@@ -72,6 +74,18 @@ jobs:
 
           Get-Content (Join-Path $env:RUNNER_TEMP 'turto-803-fill-visible.json')
           Get-Content (Join-Path $env:RUNNER_TEMP 'turto-803-fill-hidden.json')
+      - name: Profile settled idle runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:TURTO_DISABLE_AUTO_UPDATE = '1'
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-803-settled-data'
+          $env:TURTO_CRM_SETTLED_RESULT = Join-Path $env:RUNNER_TEMP 'turto-803-settled-runtime.json'
+          python scripts/profile-803-settled-runtime.py
+          $settled = Get-Content $env:TURTO_CRM_SETTLED_RESULT -Raw | ConvertFrom-Json
+          if (-not $settled.ok) { throw 'Settled runtime profile failed' }
+          if ($settled.navigation_owner -ne 'price_lists_domain.platform.lazy_refresh') { throw 'Unexpected navigation owner in settled profile' }
+          Get-Content $env:TURTO_CRM_SETTLED_RESULT
       - name: Upload scaled table profile
         if: always()
         uses: actions/upload-artifact@v4
@@ -81,5 +95,6 @@ jobs:
             ${{ runner.temp }}\turto-803-scaled-tables.json
             ${{ runner.temp }}\turto-803-fill-visible.json
             ${{ runner.temp }}\turto-803-fill-hidden.json
+            ${{ runner.temp }}\turto-803-settled-runtime.json
           if-no-files-found: warn
           retention-days: 14
