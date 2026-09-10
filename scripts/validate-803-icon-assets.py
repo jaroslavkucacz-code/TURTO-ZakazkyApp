@@ -23,18 +23,25 @@ class FakeWindow:
         self.photo = None
         self._turto_crm_icon_photo = None
         self._turto_icon_asset_source = None
+        self.bitmap_calls = 0
+        self.photo_calls = 0
 
     def iconbitmap(self, *, default):
+        self.bitmap_calls += 1
         self.bitmap = default
 
     def iconphoto(self, default, image):
         assert default is True
+        self.photo_calls += 1
         self.photo = image
 
 
 class FakeTk:
-    @staticmethod
-    def PhotoImage(*, file):
+    calls = []
+
+    @classmethod
+    def PhotoImage(cls, *, file):
+        cls.calls.append(file)
         return ("photo", file)
 
 
@@ -70,7 +77,8 @@ def main() -> None:
         previous_v770 = sys.modules.get("v770_runtime_policy")
         sys.modules["v770_runtime_policy"] = fake_v770
         try:
-            M = SimpleNamespace(ROOT=root, tk=FakeTk())
+            FakeTk.calls.clear()
+            M = SimpleNamespace(ROOT=root, tk=FakeTk)
             assert module._existing_icon_pair(M) == (logo_ico, logo_png, "packaged-logo")
             assert module._install_v770_icon_reuse(M) is True
 
@@ -90,14 +98,30 @@ def main() -> None:
             assert Path(window.bitmap) == logo_ico
             assert window.photo == ("photo", str(logo_png))
             assert window._turto_icon_asset_source == "packaged-logo"
+            assert window.bitmap_calls == 1
+            assert window.photo_calls == 1
+            assert FakeTk.calls == [str(logo_png)]
+
+            # v770 reaches the same window through two historical identity paths.
+            # The second identical pass must be a no-op and must not decode PNG again.
+            fake_v770._configure_identity(M, window)
+            assert window.bitmap_calls == 1
+            assert window.photo_calls == 1
+            assert FakeTk.calls == [str(logo_png)]
+            assert window._turto_icon_identity_reuse_skips == 1
 
             # Existing legacy-generated assets keep priority, preserving the
-            # visual identity of an installation that already has them.
+            # visual identity of an installation that already has them. A changed
+            # pair invalidates the per-window signature and is applied once.
             crm_ico = root / "turto_crm.ico"
             crm_png = root / "turto_crm.png"
             crm_ico.write_bytes(b"OLD-ICO")
             crm_png.write_bytes(b"OLD-PNG")
             assert module._existing_icon_pair(M) == (crm_ico, crm_png, "legacy-generated")
+            fake_v770._configure_identity(M, window)
+            assert window.bitmap_calls == 2
+            assert window.photo_calls == 2
+            assert window._turto_icon_asset_source == "legacy-generated"
 
             # If neither complete pair exists, the original renderer remains the
             # fallback and its newly generated pair is returned.
