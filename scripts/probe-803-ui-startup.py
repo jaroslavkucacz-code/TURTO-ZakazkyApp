@@ -3,7 +3,9 @@
 
 This is a CI/development probe only. It disables automatic updates and morning
 modal dialogs, never touches production data, and records both the lightweight
-8.0.3 timings and a cProfile view of the startup call stack.
+8.0.3 timings and a cProfile view of the startup call stack. It also opens every
+registered page once so future deferred-build optimizations cannot silently break
+navigation.
 """
 from __future__ import annotations
 
@@ -23,6 +25,22 @@ if str(BASE) not in sys.path:
     sys.path.insert(0, str(BASE))
 
 os.environ["TURTO_DISABLE_AUTO_UPDATE"] = "1"
+
+PAGE_PROBES = {
+    "dash": "dash_tree",
+    "actions": "action_tree",
+    "requests": "request_tree",
+    "mivo": "mivo_tree",
+    "offers": "offer_tree",
+    "pricelists": "price_current_tree",
+    "issued_offers": "issued_offer_tree",
+    "tasks": "task_tree",
+    "projects": "project_tree",
+    "people": "people_tree",
+    "companies": "company_tree",
+    "help": "help_text",
+    "settings": "theme",
+}
 
 
 def latest_timings(instance) -> dict[str, float]:
@@ -62,6 +80,44 @@ def profile_rows(profile: cProfile.Profile, *, repo_only: bool, limit: int = 40)
         )
     rows.sort(key=lambda row: (row["cumulative_seconds"], row["self_seconds"]), reverse=True)
     return rows[:limit]
+
+
+def cache_info_payload(function):
+    getter = getattr(function, "cache_info", None)
+    if not callable(getter):
+        return None
+    try:
+        info = getter()
+        return {
+            "hits": int(info.hits),
+            "misses": int(info.misses),
+            "maxsize": int(info.maxsize) if info.maxsize is not None else None,
+            "currsize": int(info.currsize),
+        }
+    except Exception:
+        return None
+
+
+def exercise_navigation(window) -> list[dict[str, str]]:
+    """Open every current page and assert its primary UI object exists."""
+    rows = []
+    for key, attribute in PAGE_PROBES.items():
+        if key not in getattr(window, "tabs", {}):
+            raise AssertionError(f"Missing page registered in tabs: {key}")
+        window.show_page(key)
+        window.update_idletasks()
+        current = str(getattr(window, "_current_page", ""))
+        if current != key:
+            raise AssertionError(f"Navigation did not activate {key}: {current}")
+        target = getattr(window, attribute, None)
+        if target is None:
+            raise AssertionError(f"Page {key} did not expose {attribute}")
+        rows.append({"page": key, "probe": attribute})
+    window.show_page("dash")
+    window.update_idletasks()
+    if str(getattr(window, "_current_page", "")) != "dash":
+        raise AssertionError("Navigation did not return to dashboard")
+    return rows
 
 
 def write_result(payload: dict) -> None:
@@ -115,6 +171,7 @@ def main() -> None:
         if after_skips != before_skips + 1:
             raise AssertionError("Hidden header refresh was not skipped")
 
+        navigation = exercise_navigation(window)
         timings = latest_timings(window)
         required = ("app_init", "build_total", "apply_theme")
         missing = [key for key in required if key not in timings]
@@ -137,6 +194,9 @@ def main() -> None:
             "slowest_builders": slowest,
             "profile_top_cumulative": profile_rows(profiler, repo_only=False, limit=40),
             "profile_top_repo_cumulative": profile_rows(profiler, repo_only=True, limit=60),
+            "czech_sort_cache": cache_info_payload(getattr(app, "czech_sort_key", None)),
+            "navigation_pages": navigation,
+            "navigation_page_count": len(navigation),
             "date_label_manager": date_manager,
             "today_summary_manager": summary_manager,
             "hidden_header_skip_verified": True,
