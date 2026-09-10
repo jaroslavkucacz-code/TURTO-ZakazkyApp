@@ -9,6 +9,7 @@ on:
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/icon_assets_803.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/lazy_refresh.py'
       - 'scripts/probe-803-ui-startup.py'
+      - 'scripts/diagnose-803-callback-origin.py'
       - 'scripts/probe-803-dialog-churn.py'
       - '.github/workflows/validate-803-windows-ui-startup.yml'
   push:
@@ -20,6 +21,7 @@ on:
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/icon_assets_803.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/lazy_refresh.py'
       - 'scripts/probe-803-ui-startup.py'
+      - 'scripts/diagnose-803-callback-origin.py'
       - 'scripts/probe-803-dialog-churn.py'
       - '.github/workflows/validate-803-windows-ui-startup.yml'
 
@@ -53,6 +55,15 @@ jobs:
           if ($result.navigation_owner -ne 'price_lists_domain.platform.lazy_refresh') { throw 'Unexpected navigation owner' }
           if (-not $result.hidden_header_skip_verified) { throw 'Hidden header optimization was not verified' }
           Get-Content $env:TURTO_CRM_PERF_RESULT
+      - name: Trace callback origins used by dialog churn
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:TURTO_DISABLE_AUTO_UPDATE = '1'
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-803-callback-origin-data'
+          $env:TURTO_CRM_CALLBACK_ORIGIN_RESULT = Join-Path $env:RUNNER_TEMP 'turto-803-callback-origin.json'
+          python scripts/diagnose-803-callback-origin.py
+          Get-Content $env:TURTO_CRM_CALLBACK_ORIGIN_RESULT
       - name: Exercise long-session dialog churn
         shell: pwsh
         run: |
@@ -74,6 +85,7 @@ jobs:
           name: TURTO-CRM-803-Windows-UI-startup-profile
           path: |
             ${{ runner.temp }}\turto-803-ui-startup.json
+            ${{ runner.temp }}\turto-803-callback-origin.json
             ${{ runner.temp }}\turto-803-dialog-churn.json
           if-no-files-found: warn
           retention-days: 14
