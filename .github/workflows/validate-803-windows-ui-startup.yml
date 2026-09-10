@@ -1,0 +1,110 @@
+name: Validate TURTO CRM 8.0.3 Windows UI startup
+
+on:
+  pull_request:
+    paths:
+      - 'ZakazkyApp_base_6.1/app.py'
+      - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/runtime_optimization_803.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/icon_assets_803.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/autocomplete_event_compat_803.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/lazy_refresh.py'
+      - 'scripts/probe-803-ui-startup.py'
+      - 'scripts/diagnose-803-callback-origin.py'
+      - 'scripts/probe-803-dialog-churn.py'
+      - 'scripts/probe-803-real-dialog-churn.py'
+      - '.github/workflows/validate-803-windows-ui-startup.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ZakazkyApp_base_6.1/app.py'
+      - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/runtime_optimization_803.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/icon_assets_803.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/autocomplete_event_compat_803.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/lazy_refresh.py'
+      - 'scripts/probe-803-ui-startup.py'
+      - 'scripts/diagnose-803-callback-origin.py'
+      - 'scripts/probe-803-dialog-churn.py'
+      - 'scripts/probe-803-real-dialog-churn.py'
+      - '.github/workflows/validate-803-windows-ui-startup.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ui-startup-profile:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+      - name: Install runtime dependencies
+        shell: pwsh
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+      - name: Instantiate and profile the real UI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:TURTO_DISABLE_AUTO_UPDATE = '1'
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-803-ui-data'
+          $env:TURTO_CRM_PERF_RESULT = Join-Path $env:RUNNER_TEMP 'turto-803-ui-startup.json'
+          python scripts/probe-803-ui-startup.py
+          $result = Get-Content $env:TURTO_CRM_PERF_RESULT -Raw | ConvertFrom-Json
+          if (-not $result.ok) { throw 'UI startup probe failed' }
+          if ($result.navigation_owner -ne 'price_lists_domain.platform.lazy_refresh') { throw 'Unexpected navigation owner' }
+          if (-not $result.hidden_header_skip_verified) { throw 'Hidden header optimization was not verified' }
+          Get-Content $env:TURTO_CRM_PERF_RESULT
+      - name: Trace callback origins used by dialog churn
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:TURTO_DISABLE_AUTO_UPDATE = '1'
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-803-callback-origin-data'
+          $env:TURTO_CRM_CALLBACK_ORIGIN_RESULT = Join-Path $env:RUNNER_TEMP 'turto-803-callback-origin.json'
+          python scripts/diagnose-803-callback-origin.py
+          Get-Content $env:TURTO_CRM_CALLBACK_ORIGIN_RESULT
+      - name: Exercise long-session dialog churn
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:TURTO_DISABLE_AUTO_UPDATE = '1'
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-803-dialog-churn-data'
+          $env:TURTO_CRM_CHURN_RESULT = Join-Path $env:RUNNER_TEMP 'turto-803-dialog-churn.json'
+          python scripts/probe-803-dialog-churn.py
+          $result = Get-Content $env:TURTO_CRM_CHURN_RESULT -Raw | ConvertFrom-Json
+          if (-not $result.ok) { throw 'Dialog churn probe failed' }
+          if ($result.final_autocomplete_registry -ne $result.baseline_autocomplete_registry) { throw 'Autocomplete registry leak' }
+          if ($result.alive_entry_refs -ne 0 -or $result.alive_toplevel_refs -ne 0) { throw 'Destroyed dialog/widget references remain alive' }
+          if ($null -ne $result.pending_dialog_raise) { throw 'Dialog coalescer left pending work' }
+          Get-Content $env:TURTO_CRM_CHURN_RESULT
+      - name: Exercise real CRM dialog churn
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:TURTO_DISABLE_AUTO_UPDATE = '1'
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-803-real-dialog-data'
+          $env:TURTO_CRM_REAL_DIALOG_RESULT = Join-Path $env:RUNNER_TEMP 'turto-803-real-dialog-churn.json'
+          python scripts/probe-803-real-dialog-churn.py
+          $result = Get-Content $env:TURTO_CRM_REAL_DIALOG_RESULT -Raw | ConvertFrom-Json
+          if (-not $result.ok) { throw 'Real CRM dialog churn probe failed' }
+          if ($result.final_autocomplete_registry -ne $result.baseline_autocomplete_registry) { throw 'Real dialog autocomplete registry leak' }
+          if ($result.alive_dialog_refs -ne 0 -or $result.alive_entry_refs -ne 0) { throw 'Destroyed real dialog/widget references remain alive' }
+          if ($null -ne $result.pending_dialog_raise) { throw 'Dialog coalescer left pending work after real dialogs' }
+          Get-Content $env:TURTO_CRM_REAL_DIALOG_RESULT
+      - name: Upload UI profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TURTO-CRM-803-Windows-UI-startup-profile
+          path: |
+            ${{ runner.temp }}\turto-803-ui-startup.json
+            ${{ runner.temp }}\turto-803-callback-origin.json
+            ${{ runner.temp }}\turto-803-dialog-churn.json
+            ${{ runner.temp }}\turto-803-real-dialog-churn.json
+          if-no-files-found: warn
+          retention-days: 14

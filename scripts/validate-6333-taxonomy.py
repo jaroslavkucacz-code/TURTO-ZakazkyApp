@@ -7,9 +7,13 @@ from pathlib import Path
 
 root = Path(sys.argv[1]).resolve()
 worksets = (root / "price_lists_domain/platform/worksets.py").read_text(encoding="utf-8")
-assert 'M.fmt_date(row["asked_date"])' in worksets
-assert "if not mivo:" in worksets
-mivo_block = worksets.split("if mivo:", 1)[1].split("else:", 1)[0]
+refresh_requests_block = worksets.split("def refresh_requests", 1)[1].split("def refresh_tasks", 1)[0]
+assert (
+    'M.fmt_date(row["asked_date"])' in refresh_requests_block
+    or "fmt_cached(asked)" in refresh_requests_block
+)
+assert "if not mivo:" in refresh_requests_block
+mivo_block = refresh_requests_block.split("if mivo:", 1)[1].split("else:", 1)[0]
 assert "request_wait_date" not in mivo_block
 
 schema_text = (root / "price_lists_domain/platform/database.py").read_text(encoding="utf-8")
