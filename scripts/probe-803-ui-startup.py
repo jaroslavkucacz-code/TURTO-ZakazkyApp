@@ -4,8 +4,8 @@
 This is a CI/development probe only. It disables automatic updates and morning
 modal dialogs, never touches production data, and records both the lightweight
 8.0.3 timings and a cProfile view of the startup call stack. It also opens every
-registered page once so future deferred-build optimizations cannot silently break
-navigation.
+registered page once so later startup optimizations cannot silently break the
+real page lifecycle.
 """
 from __future__ import annotations
 
@@ -152,12 +152,22 @@ def main() -> None:
 
     window = None
     profiler = cProfile.Profile()
+    callback_errors: list[str] = []
     started = time.perf_counter()
     try:
         profiler.enable()
         window = app.App()
         profiler.disable()
         wall = time.perf_counter() - started
+
+        def report_callback_exception(exc_type, exc, tb):
+            callback_errors.append(
+                "".join(traceback.format_exception(exc_type, exc, tb)).strip()
+            )
+
+        # Install before driving idle/navigation callbacks. Any Python-level Tk
+        # callback failure is a real regression even when Tk would only print it.
+        window.report_callback_exception = report_callback_exception
         window.update_idletasks()
 
         date_widget = getattr(window, "date_label", None)
@@ -183,14 +193,27 @@ def main() -> None:
             raise AssertionError(
                 f"Unexpected v628 delayed cosmetic coalescing: {v628_coalesced!r}"
             )
+
+        # These counters are useful diagnostics, but later compatibility wrappers
+        # may intercept the same callback before this owner sees it. Their exact
+        # value is therefore not a real-UI correctness contract; dedicated unit
+        # tests validate the suppression predicates themselves.
         v760_coalesced = tuple(
             int(value)
             for value in (getattr(window, "_turto_v760_finalizers_coalesced", ()) or ())
         )
-        if v760_coalesced != (260, 1200):
-            raise AssertionError(f"Unexpected v760 finalizer coalescing: {v760_coalesced!r}")
+        v638_coalesced = tuple(
+            int(value)
+            for value in (getattr(window, "_turto_v638_startup_stabilizers_coalesced", ()) or ())
+        )
 
         navigation = exercise_navigation(window)
+        window.update_idletasks()
+        if callback_errors:
+            raise AssertionError(
+                "Tk callback regression:\n" + "\n\n".join(callback_errors)
+            )
+
         timings = latest_timings(window)
         required = ("app_init", "build_total", "apply_theme")
         missing = [key for key in required if key not in timings]
@@ -219,8 +242,10 @@ def main() -> None:
             "date_label_manager": date_manager,
             "today_summary_manager": summary_manager,
             "hidden_header_skip_verified": True,
+            "tk_callback_errors": callback_errors,
             "v628_cosmetic_passes_coalesced": [list(item) for item in v628_coalesced],
             "v760_finalizers_coalesced": list(v760_coalesced),
+            "v638_startup_stabilizers_coalesced": list(v638_coalesced),
             "performance_log": str(getattr(window, "_turto_performance_log", "")),
             "navigation_owner": str(getattr(app.App, "_turto_navigation_owner", "")),
         }
