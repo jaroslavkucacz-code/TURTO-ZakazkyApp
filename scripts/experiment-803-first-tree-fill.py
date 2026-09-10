@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Measure and profile first Příležitosti fill with the page visible or hidden.
+"""Measure and profile first Příležitosti fill under three mapping policies.
 
-CI/development experiment only. Run each mode in a fresh Python process and an
-isolated TURTO_CRM_DATA_ROOT so Tk/widget warm-up does not mix the two cases.
+CI/development experiment only. Every mode runs in a fresh Python process and an
+isolated TURTO_CRM_DATA_ROOT. ``detached`` keeps every page fully constructed but
+removes hidden pages from the grid immediately after App() returns, mirroring the
+existing v628 delayed detach without changing widget lifecycle or data semantics.
 """
 from __future__ import annotations
 
@@ -60,10 +62,28 @@ def profile_rows(profile: cProfile.Profile, limit: int = 30) -> list[dict]:
     return rows[:limit]
 
 
+def detach_hidden_pages(window) -> tuple[str, ...]:
+    current = str(getattr(window, "_current_page", "") or "dash")
+    detached = []
+    for key, page in (getattr(window, "tabs", {}) or {}).items():
+        if key == current:
+            try:
+                page.grid()
+            except Exception:
+                pass
+            continue
+        try:
+            page.grid_remove()
+            detached.append(str(key))
+        except Exception:
+            pass
+    return tuple(detached)
+
+
 def main() -> None:
     mode = (sys.argv[1] if len(sys.argv) > 1 else "visible").strip().casefold()
-    if mode not in {"visible", "hidden"}:
-        raise SystemExit("mode must be visible or hidden")
+    if mode not in {"visible", "hidden", "detached"}:
+        raise SystemExit("mode must be visible, hidden or detached")
 
     import data_location
     import app
@@ -81,6 +101,7 @@ def main() -> None:
 
     window = None
     callback_errors: list[str] = []
+    detached_pages: tuple[str, ...] = ()
     try:
         window = app.App()
 
@@ -90,13 +111,20 @@ def main() -> None:
             )
 
         window.report_callback_exception = report_callback_exception
+
+        # The normal application defers this same grid_remove policy for 1450 ms.
+        # In detached mode perform it before the first idle/layout turn to test
+        # whether early hidden-page mapping is the source of redundant refreshes.
+        if mode == "detached":
+            detached_pages = detach_hidden_pages(window)
+
         window.update_idletasks()
         page = window.tabs["actions"]
         tree = window.action_tree
         for iid in tree.get_children(""):
             tree.delete(iid)
 
-        if mode == "visible":
+        if mode in {"visible", "detached"}:
             window.show_page("actions")
             window.update_idletasks()
         else:
@@ -139,6 +167,7 @@ def main() -> None:
             "reveal_seconds": round(reveal_seconds, 6),
             "total_seconds": round(refresh_seconds + idle_seconds + reveal_seconds, 6),
             "idle_profile_repo_top": profile_rows(idle_profile),
+            "detached_pages": list(detached_pages),
             "navigation_owner": str(getattr(app.App, "_turto_navigation_owner", "")),
             "callback_errors": callback_errors,
         }
