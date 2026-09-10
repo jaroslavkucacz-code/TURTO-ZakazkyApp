@@ -27,6 +27,17 @@ class FakeWidget:
         return self.manager
 
 
+class FakePage:
+    def __init__(self):
+        self.removed = 0
+
+    def winfo_exists(self):
+        return 1
+
+    def grid_remove(self):
+        self.removed += 1
+
+
 class FakeApp:
     def __init__(self):
         self.header_calls = 0
@@ -198,6 +209,22 @@ def main() -> None:
     assert 'self.bind("<Destroy>", unregister, add="+")' in source
     assert "refresh_palette_skips=" in source
     assert "dialog_raise_coalesced=" in source
+    assert "hidden_pages_detached=" in source
+
+    # All pages still exist; only geometry for non-current pages is removed.
+    pages = {key: FakePage() for key in ("dash", "actions", "requests", "settings")}
+    page_app = SimpleNamespace(tabs=pages, _current_page="dash")
+    detached = optimization._detach_hidden_pages_now(page_app)
+    assert detached == ("actions", "requests", "settings")
+    assert pages["dash"].removed == 0
+    assert pages["actions"].removed == 1
+    assert pages["requests"].removed == 1
+    assert pages["settings"].removed == 1
+    assert page_app._turto_hidden_pages_detached_immediately == detached
+    # Unknown/unfinished startup state is a no-op rather than hiding every page.
+    assert optimization._detach_hidden_pages_now(
+        SimpleNamespace(tabs=pages, _current_page="")
+    ) == ()
 
     # SQLite repeatedly compares the same string values while sorting. The cache
     # must preserve the exact historical result and only avoid repeated work.
@@ -342,6 +369,7 @@ def main() -> None:
             "app_init=", "build_total=", "build_dash=", "apply_theme=",
             "czech_cache_hits=", "czech_cache_misses=", "czech_cache_size=",
             "refresh_palette_skips=", "dialog_raise_coalesced=",
+            "hidden_pages_detached=",
         ):
             assert token in log, token
 
