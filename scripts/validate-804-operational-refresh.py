@@ -2,14 +2,15 @@
 """Pure regression checks for TURTO CRM 8.0.4 operational refresh optimization."""
 from __future__ import annotations
 
+from datetime import date
 import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 import sys
 
 
-def load_module(path: Path):
-    spec = importlib.util.spec_from_file_location("turto_operational_refresh_804_test", path)
+def load_module(path: Path, name: str = "turto_operational_refresh_804_test"):
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
@@ -86,8 +87,10 @@ def main() -> None:
     repo = Path(__file__).resolve().parents[1]
     base = repo / "ZakazkyApp_base_6.1"
     path = base / "price_lists_domain" / "platform" / "operational_refresh_804.py"
+    worksets_path = base / "price_lists_domain" / "platform" / "worksets.py"
     bootstrap = (base / "runtime_bootstrap.py").read_text(encoding="utf-8")
     module = load_module(path)
+    worksets = load_module(worksets_path, "turto_worksets_804_test")
 
     # Canonical DB dates take the allocation-only fast path; anything outside
     # YYYY-MM-DD keeps the historical formatter and is still cached.
@@ -161,14 +164,41 @@ def main() -> None:
             sys.modules["v644_default_date_sort"] = previous_v644
     assert set(fake_v644.PAGE_SORTS) == {"actions", "projects"}
 
+    # Historical v637 urgent requests are now decided from raw ISO asked_date
+    # during the single SQL-first insertion pass. Exactly >3 waiting days are
+    # red/bold; received, archived and explicit no-response rows never are.
+    today = date(2026, 9, 11)
+    base_row = {
+        "asked_date": "2026-09-07",
+        "received_date": "",
+        "archived": 0,
+        "no_response": 0,
+    }
+    assert worksets._request_is_urgent(base_row, today) is True
+    assert worksets._request_is_urgent({**base_row, "asked_date": "2026-09-08"}, today) is False
+    assert worksets._request_is_urgent({**base_row, "received_date": "2026-09-10"}, today) is False
+    assert worksets._request_is_urgent({**base_row, "archived": 1}, today) is False
+    assert worksets._request_is_urgent({**base_row, "no_response": 1}, today) is False
+    assert worksets._request_is_urgent({**base_row, "asked_date": ""}, today) is False
+    assert worksets.URGENT_REQUEST_TAG == "deadline_urgent"
+
     # v637 must no longer calculate/write real-Akce offer counts after an
-    # ordinary Příležitosti refresh. Those counts remain owned by
-    # refresh_projects/refresh_all and the one startup compatibility pass.
+    # ordinary Příležitosti refresh. It must also stay free of the old four
+    # post-refresh request scans and scroll/resize cleanup scans; worksets owns
+    # the inline urgent tag now.
     v637_source = (base / "v637_project_offer_model.py").read_text(encoding="utf-8")
     assert "wrapped._turto_v637_project_offer_scope" in v637_source
     assert "setattr(M.App,name,make(old,name!='refresh_actions'))" in v637_source
     assert "if include_project_counts:" in v637_source
     assert "setattr(M.App,name,make(old))" not in v637_source
+    assert "for ms in (0,20,120,350)" not in v637_source
+    assert "_style_urgent_requests" not in v637_source
+    assert "_install_cleanup_events" not in v637_source
+    assert "_v633_deadline_labels" not in v637_source
+
+    worksets_source = worksets_path.read_text(encoding="utf-8")
+    assert 'URGENT_REQUEST_TAG = "deadline_urgent"' in worksets_source
+    assert 'tree.tag_configure(URGENT_REQUEST_TAG, foreground="#c62828", font=("Calibri", 10, "bold"))' in worksets_source
 
     # Task attention now reuses the existing v760 status tags. The three states
     # that v770 rendered bold get the same font once on the task Treeview; normal,
