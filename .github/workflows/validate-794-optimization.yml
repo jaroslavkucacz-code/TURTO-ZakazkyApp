@@ -7,6 +7,7 @@ on:
       - ZakazkyApp_base_6.1/post_baseline.py
       - ZakazkyApp_base_6.1/runtime_bootstrap.py
       - ZakazkyApp_base_6.1/crm_runtime.py
+      - ZakazkyApp_base_6.1/crm_v605.py
       - ZakazkyApp_base_6.1/v608_stability.py
       - ZakazkyApp_base_6.1/v623_exports.py
       - ZakazkyApp_base_6.1/v632_offerlinks.py
@@ -33,6 +34,7 @@ on:
       - ZakazkyApp_base_6.1/post_baseline.py
       - ZakazkyApp_base_6.1/runtime_bootstrap.py
       - ZakazkyApp_base_6.1/crm_runtime.py
+      - ZakazkyApp_base_6.1/crm_v605.py
       - ZakazkyApp_base_6.1/v608_stability.py
       - ZakazkyApp_base_6.1/v623_exports.py
       - ZakazkyApp_base_6.1/v632_offerlinks.py
