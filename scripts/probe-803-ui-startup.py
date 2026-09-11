@@ -41,10 +41,6 @@ PAGE_PROBES = {
     "help": "help_text",
     "settings": "theme",
 }
-EXPECTED_V628_COALESCED = (
-    (1550, "apply_modern_palette"),
-    (1750, "dashboard_layout"),
-)
 
 
 def latest_timings(instance) -> dict[str, float]:
@@ -232,14 +228,11 @@ def main() -> None:
         if after_skips != before_skips + 1:
             raise AssertionError("Hidden header refresh was not skipped")
 
-        v628_coalesced = tuple(
-            tuple(item)
-            for item in (getattr(window, "_turto_v628_cosmetic_passes_coalesced", ()) or ())
-        )
-        if v628_coalesced != EXPECTED_V628_COALESCED:
-            raise AssertionError(
-                f"Unexpected v628 delayed cosmetic coalescing: {v628_coalesced!r}"
-            )
+        # v628 now owns theme formatting directly. The historical startup layer
+        # that recorded/suppressed delayed cosmetic passes must stay retired.
+        v628_interceptor_present = hasattr(window, "_turto_v628_cosmetic_passes_coalesced")
+        if v628_interceptor_present:
+            raise AssertionError("Obsolete v628 cosmetic startup interceptor is active")
 
         # These counters are useful diagnostics, but later compatibility wrappers
         # may intercept the same callback before this owner sees it. Their exact
@@ -297,7 +290,7 @@ def main() -> None:
             "icon_identity_reuse_skips": icon_reuse_skips,
             "redundant_generated_icons": generated_icons,
             "tk_callback_errors": callback_errors,
-            "v628_cosmetic_passes_coalesced": [list(item) for item in v628_coalesced],
+            "v628_cosmetic_interceptor_present": v628_interceptor_present,
             "v760_finalizers_coalesced": list(v760_coalesced),
             "v638_startup_stabilizers_coalesced": list(v638_coalesced),
             "performance_log": str(getattr(window, "_turto_performance_log", "")),
