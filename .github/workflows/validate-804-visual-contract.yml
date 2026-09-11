@@ -5,6 +5,7 @@ on:
     paths:
       - 'ZakazkyApp_base_6.1/app.py'
       - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
+      - 'ZakazkyApp_base_6.1/v608_stability.py'
       - 'ZakazkyApp_base_6.1/v623_exports.py'
       - 'ZakazkyApp_base_6.1/v628_modernui_resize.py'
       - 'ZakazkyApp_base_6.1/v638_table_updatefix.py'
@@ -14,6 +15,7 @@ on:
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/ui_polish_801.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/branding_polish_802.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/runtime_optimization_803.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/idle_cleanup_804.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/worksets.py'
       - 'scripts/validate-804-visual-contract.py'
       - '.github/workflows/validate-804-visual-contract.yml'
@@ -22,6 +24,7 @@ on:
     paths:
       - 'ZakazkyApp_base_6.1/app.py'
       - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
+      - 'ZakazkyApp_base_6.1/v608_stability.py'
       - 'ZakazkyApp_base_6.1/v623_exports.py'
       - 'ZakazkyApp_base_6.1/v628_modernui_resize.py'
       - 'ZakazkyApp_base_6.1/v638_table_updatefix.py'
@@ -31,6 +34,7 @@ on:
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/ui_polish_801.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/branding_polish_802.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/runtime_optimization_803.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/idle_cleanup_804.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/worksets.py'
       - 'scripts/validate-804-visual-contract.py'
       - '.github/workflows/validate-804-visual-contract.yml'
