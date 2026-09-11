@@ -1,7 +1,7 @@
 {
-  "version": "0.1.6",
+  "version": "0.1.7",
   "url": "https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/archive/refs/heads/mesicni-prehledy-stable.zip",
   "sha256": "",
-  "notes": "Lepší čitelnost horní lišty: tmavé kontrastní výběry období a rozsahu, samostatné popisky, větší písmo a přehlednější karta porovnání.",
+  "notes": "Dvojklik na Největší doklady otevře detail dodacího listu s položkami; připravené sloupce pro budoucí prodejní cenu, náklad a marži jednotlivých položek.",
   "channel": "stable"
 }
