@@ -273,20 +273,28 @@ def _timed_method(function: Callable[..., Any], name: str) -> Callable[..., Any]
 
 
 def _install_czech_sort_cache(M: Any) -> bool:
-    """Cache only string inputs while preserving the exact historical sort key."""
+    """Cache text sort keys and let SQLite use that cache without a generic wrapper.
+
+    Public ``czech_sort_key`` keeps its historical behavior for arbitrary callers,
+    including non-string values. SQLite custom collations receive text values, so
+    their hot path can call the shared cached-text closure directly and avoid two
+    ``isinstance``/dispatch wrapper calls for every comparison.
+    """
     previous = getattr(M, "czech_sort_key", None)
     if not callable(previous):
         return False
     if getattr(previous, "_turto_803_cached", False):
         return True
 
+    previous_collate = getattr(M, "_czech_collate", None)
+
     @lru_cache(maxsize=CZECH_SORT_CACHE_SIZE)
     def cached_text(value: str):
         return previous(value)
 
     def czech_sort_key(value: Any):
-        # SQLite collations pass strings. Non-string callers keep the historical
-        # behavior exactly, including any custom __str__ implementation.
+        # SQLite collations are handled below. Other/public string callers share
+        # the exact same cache; non-string callers retain historical semantics.
         if isinstance(value, str):
             return cached_text(value)
         return previous(value)
@@ -295,6 +303,20 @@ def _install_czech_sort_cache(M: Any) -> bool:
     czech_sort_key.cache_info = cached_text.cache_info
     czech_sort_key.cache_clear = cached_text.cache_clear
     M.czech_sort_key = czech_sort_key
+
+    if callable(previous_collate):
+        def czech_collate(a: Any, b: Any) -> int:
+            if isinstance(a, str) and isinstance(b, str):
+                ka = cached_text(a)
+                kb = cached_text(b)
+                return (ka > kb) - (ka < kb)
+            # Defensive fallback for non-SQLite/custom callers. SQLite invokes a
+            # registered text collation only for text operands.
+            return previous_collate(a, b)
+
+        czech_collate._turto_805_direct_cached_text = True
+        czech_collate._turto_original = previous_collate
+        M._czech_collate = czech_collate
     return True
 
 
@@ -340,7 +362,7 @@ def apply(M: Any) -> None:
     App = M.App
 
     # Install before App() exists so every startup ORDER BY ... COLLATE CZECH
-    # benefits while _czech_collate continues using the same public function name.
+    # benefits while the public sort-key API keeps the same behavior.
     _install_czech_sort_cache(M)
     _install_dialog_chain_coalescing()
 
@@ -402,6 +424,11 @@ def apply(M: Any) -> None:
         "hidden_header_database_work": "skipped-while-unmanaged",
         "autocomplete_registry": "destroy-unregister",
         "czech_sort_cache_size": CZECH_SORT_CACHE_SIZE,
+        "czech_sqlite_collation": (
+            "direct-cached-text-key"
+            if getattr(getattr(M, "_czech_collate", None), "_turto_805_direct_cached_text", False)
+            else "historical-collation"
+        ),
         "dialog_focus_sweep": "map-focus-events-coalesced",
         "initial_page_geometry": "built-then-hidden-pages-grid-removed",
         "startup_profile": PERFORMANCE_LOG,
