@@ -104,6 +104,15 @@ def row_height(style, style_name: str) -> int:
         return 0
 
 
+def tag_option(tree, tag: str, option: str) -> str:
+    """Read a ttk.Treeview tag option using Tkinter's supported API."""
+    try:
+        config = tree.tag_configure(tag) or {}
+        return str(config.get(option, "") or "")
+    except Exception:
+        return ""
+
+
 def walk(widget):
     yield widget
     try:
@@ -158,8 +167,8 @@ def assert_tree_palette(window, theme: str) -> dict[str, dict]:
 
         tag_results = {}
         for tag, (expected_bg, expected_fg) in expected.items():
-            actual_bg = norm(tree.tag_cget(tag, "background"))
-            actual_fg = norm(tree.tag_cget(tag, "foreground"))
+            actual_bg = norm(tag_option(tree, tag, "background"))
+            actual_fg = norm(tag_option(tree, tag, "foreground"))
             if actual_bg != norm(expected_bg) or actual_fg != norm(expected_fg):
                 raise AssertionError(
                     f"{name}/{tag}: {(actual_bg, actual_fg)!r}, "
@@ -190,7 +199,7 @@ def assert_calibri_contract(window) -> dict[str, str]:
     # post-processing.
     window.refresh_requests()
     window.update_idletasks()
-    attention_font = str(window.request_tree.tag_cget("v770_request_attention", "font") or "")
+    attention_font = tag_option(window.request_tree, "v770_request_attention", "font")
     if "calibri" not in attention_font.casefold() or "bold" not in attention_font.casefold():
         raise AssertionError(
             f"Request attention tag lost Calibri bold formatting: {attention_font!r}"
