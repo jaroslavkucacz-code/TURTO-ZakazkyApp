@@ -54,7 +54,12 @@ def main() -> None:
 
     # First refresh seeds the consolidated v611 snapshot.
     app.refresh_actions()
-    assert getattr(app, "_v611_action_snapshot", {}).get(1, {}).get("status") == "Rozpracováno"
+    snapshot = getattr(app, "_v611_action_snapshot", {}).get(1, {})
+    assert snapshot.get("status") == "Rozpracováno"
+    assert set(snapshot) == {
+        "id", "status", "name", "company_id", "salesperson_id",
+        "deadline", "products", "note",
+    }
 
     # The next refresh must create exactly the historical status-audit contract.
     con.execute("UPDATE actions SET status='Nabídka' WHERE id=1")
@@ -84,6 +89,8 @@ def main() -> None:
     assert "SELECT id,status FROM actions" not in v605
     assert "_patch_status_audit" not in v605
     v611 = (base / "v611_audit.py").read_text(encoding="utf-8")
+    assert "SELECT * FROM actions" not in v611
+    assert "SELECT id,status,name,company_id,salesperson_id,deadline,products,note" in v611
     assert "'status':'Stav'" in v611
     assert "'Změna stavu' if key=='status' else 'Úprava'" in v611
 
