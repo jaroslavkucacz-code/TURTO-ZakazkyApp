@@ -1,0 +1,93 @@
+name: Validate TURTO CRM 8.0.6 menu lifecycle
+on:
+  pull_request:
+    paths:
+      - 'ZakazkyApp_base_6.1/v740_offer_defaults.py'
+      - 'ZakazkyApp_base_6.1/v750_context_filters_offer_format.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/context_menu_lifecycle.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py'
+      - 'scripts/validate-806-menu-lifecycle.py'
+      - '.github/workflows/validate-806-menu-lifecycle.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ZakazkyApp_base_6.1/v740_offer_defaults.py'
+      - 'ZakazkyApp_base_6.1/v750_context_filters_offer_format.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/context_menu_lifecycle.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py'
+      - 'scripts/validate-806-menu-lifecycle.py'
+      - '.github/workflows/validate-806-menu-lifecycle.yml'
+permissions:
+  contents: read
+jobs:
+  windows-menu-lifecycle:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    env:
+      PYTHONIOENCODING: utf-8
+      TURTO_DISABLE_AUTO_UPDATE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: b3c18b10955f71439786e5fdcab976e3ebd15009
+          path: _baseline_805
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
+      - name: Compare actual menu installers with released 8.0.5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:TURTO_CRM_MENU_RESULT = Join-Path $env:RUNNER_TEMP 'turto-806-menu-parity.json'
+          python scripts/validate-806-menu-lifecycle.py --baseline _baseline_805/ZakazkyApp_base_6.1
+          if ($LASTEXITCODE -ne 0) { throw 'Menu equivalence or lifecycle regression' }
+      - name: Install runtime dependencies
+        shell: pwsh
+        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+      - name: Verify full runtime menu ownership after delayed startup passes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-806-menu-data'
+          $env:TURTO_CRM_MENU_RESULT = Join-Path $env:RUNNER_TEMP 'turto-806-menu-runtime.json'
+          python scripts/validate-806-menu-lifecycle.py --full-app
+          if ($LASTEXITCODE -ne 0) { throw 'Composed runtime menu regression' }
+      - name: Preserve Calibri, themes, status colors and formatting
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-806-visual-data'
+          $env:TURTO_CRM_VISUAL_RESULT = Join-Path $env:RUNNER_TEMP 'turto-806-visual-contract.json'
+          python scripts/validate-804-visual-contract.py
+          if ($LASTEXITCODE -ne 0) { throw 'Visual formatting regression' }
+      - name: Verify all thirteen pages and long-session dialog cleanup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-806-startup-data'
+          $env:TURTO_CRM_PERF_RESULT = Join-Path $env:RUNNER_TEMP 'turto-806-startup.json'
+          python scripts/probe-803-ui-startup.py
+          if ($LASTEXITCODE -ne 0) { throw 'Startup or navigation regression' }
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-806-churn-data'
+          $env:TURTO_CRM_CHURN_RESULT = Join-Path $env:RUNNER_TEMP 'turto-806-churn.json'
+          python scripts/probe-803-dialog-churn.py
+          if ($LASTEXITCODE -ne 0) { throw 'Dialog cleanup regression' }
+      - name: Upload verification results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TURTO-CRM-806-menu-verification
+          path: |
+            ${{ runner.temp }}/turto-806-menu-parity.json
+            ${{ runner.temp }}/turto-806-menu-runtime.json
+            ${{ runner.temp }}/turto-806-visual-contract.json
+            ${{ runner.temp }}/turto-806-startup.json
+            ${{ runner.temp }}/turto-806-churn.json
+          if-no-files-found: warn
+          retention-days: 14
