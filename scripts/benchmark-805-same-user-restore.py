@@ -32,7 +32,9 @@ def write_result(payload: dict) -> None:
         path = Path(target)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
-    print(text, end="")
+    # Hosted Windows runners may expose a cp1252 console. Keep the artifact
+    # human-readable UTF-8, but escape non-ASCII characters for console output.
+    print(json.dumps(payload, ensure_ascii=True, indent=2))
 
 
 def timed(fn, repeats: int) -> list[float]:
