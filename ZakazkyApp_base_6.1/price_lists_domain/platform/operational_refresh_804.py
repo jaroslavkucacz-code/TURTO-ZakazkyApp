@@ -28,6 +28,18 @@ def _closure_value(function: Any, name: str, default: Any = None) -> Any:
         return default
 
 
+def _fast_iso_display(value: Any):
+    """Return dd.mm.yyyy for the canonical DB date shape, else None."""
+    if not isinstance(value, str) or len(value) != 10:
+        return None
+    if value[4] != "-" or value[7] != "-":
+        return None
+    digits = value[:4] + value[5:7] + value[8:10]
+    if not digits.isdigit():
+        return None
+    return f"{value[8:10]}.{value[5:7]}.{value[:4]}"
+
+
 def _install_cached_date_format(M: Any) -> bool:
     current = getattr(M, "fmt_date", None)
     if not callable(current) or getattr(current, "_turto_804_cached", False):
@@ -35,7 +47,8 @@ def _install_cached_date_format(M: Any) -> bool:
 
     @lru_cache(maxsize=4096)
     def cached(value: Any):
-        return current(value)
+        fast = _fast_iso_display(value)
+        return fast if fast is not None else current(value)
 
     def fmt_date(value: Any):
         try:
@@ -255,7 +268,7 @@ def apply(M: Any) -> None:
 
     M.OPERATIONAL_REFRESH_804 = {
         "owner": POLICY_OWNER,
-        "fmt_date": "lru-4096" if cached_dates else "unchanged",
+        "fmt_date": "lru-4096-iso-fast-path" if cached_dates else "unchanged",
         "action_soon": "date.fromisoformat-lru-1024" if action_deadlines else "unchanged",
         "action_attention": "sparse-tag-only" if action_deadlines else "unchanged",
         "action_default_order": "trust-sql-unless-manual-sort" if action_order else "unchanged",
@@ -272,6 +285,7 @@ __all__ = [
     "ATTENTION_TASK_STATES",
     "ATTENTION_TASK_TAGS",
     "_closure_value",
+    "_fast_iso_display",
     "_install_cached_date_format",
     "_install_fast_action_deadlines",
     "_sort_action_default",
