@@ -18,7 +18,6 @@ on:
       - ZakazkyApp_base_6.1/price_lists_domain/platform/startup_optimization.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/idle_cleanup_804.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/operational_refresh_804.py
-      - ZakazkyApp_base_6.1/price_lists_domain/platform/tree_clear_804.py
       - scripts/validate-793-ui-cleanup.py
       - scripts/validate-794-ui-optimization.py
       - scripts/validate-794-startup-optimization.py
@@ -26,7 +25,6 @@ on:
       - scripts/validate-804-v638-coalescing.py
       - scripts/validate-804-idle-cleanup.py
       - scripts/validate-804-operational-refresh.py
-      - scripts/validate-804-tree-clear.py
       - scripts/validate-804-legacy-overlap.py
       - scripts/validate-804-audit-consolidation.py
       - scripts/validate-release-version.py
@@ -50,7 +48,6 @@ on:
       - ZakazkyApp_base_6.1/price_lists_domain/platform/startup_optimization.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/idle_cleanup_804.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/operational_refresh_804.py
-      - ZakazkyApp_base_6.1/price_lists_domain/platform/tree_clear_804.py
       - scripts/validate-793-ui-cleanup.py
       - scripts/validate-794-ui-optimization.py
       - scripts/validate-794-startup-optimization.py
@@ -58,7 +55,6 @@ on:
       - scripts/validate-804-v638-coalescing.py
       - scripts/validate-804-idle-cleanup.py
       - scripts/validate-804-operational-refresh.py
-      - scripts/validate-804-tree-clear.py
       - scripts/validate-804-legacy-overlap.py
       - scripts/validate-804-audit-consolidation.py
       - scripts/validate-release-version.py
@@ -90,8 +86,6 @@ jobs:
         run: python scripts/validate-804-idle-cleanup.py ZakazkyApp_base_6.1
       - name: Validate 8.0.4 operational refreshes
         run: python scripts/validate-804-operational-refresh.py
-      - name: Validate 8.0.4 batched Treeview clears
-        run: python scripts/validate-804-tree-clear.py ZakazkyApp_base_6.1
       - name: Validate 8.0.4 legacy overlap cleanup
         run: python scripts/validate-804-legacy-overlap.py ZakazkyApp_base_6.1
       - name: Validate 8.0.4 consolidated action audit
