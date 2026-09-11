@@ -141,6 +141,26 @@ def main() -> None:
     assert tree.order == ["a2", "a3", "a1"]
     assert tree._active_sort is None and tree._sort_state == {}
 
+    # worksets already returns Poptávky and MIVO as asked_date DESC. Retire only
+    # those two redundant v644 post-refresh sorts; Příležitosti/Akce remain under
+    # their dedicated policies.
+    fake_v644 = SimpleNamespace(PAGE_SORTS={
+        "actions": ("date", "action_tree", ("Přijato",)),
+        "requests": ("date", "request_tree", ("Poptáno",)),
+        "mivo": ("date", "mivo_tree", ("Poptáno",)),
+        "projects": ("alpha", "project_tree", ("Akce",)),
+    })
+    previous_v644 = sys.modules.get("v644_default_date_sort")
+    sys.modules["v644_default_date_sort"] = fake_v644
+    try:
+        assert module._install_request_mivo_native_default_order() is True
+    finally:
+        if previous_v644 is None:
+            sys.modules.pop("v644_default_date_sort", None)
+        else:
+            sys.modules["v644_default_date_sort"] = previous_v644
+    assert set(fake_v644.PAGE_SORTS) == {"actions", "projects"}
+
     # Task attention now reuses the existing v760 status tags. The three states
     # that v770 rendered bold get the same font once on the task Treeview; normal,
     # done and archived rows remain unchanged and no per-row insert proxy exists.
@@ -160,6 +180,7 @@ def main() -> None:
     assert "tree.insert = insert" not in source
     assert "_task_attention_insert" not in source
     assert '"fmt_date": "lru-4096-iso-fast-path"' in source
+    assert '"request_mivo_default_order": "trust-sql-lazy-manual-reset"' in source
     assert '"task_attention": "status-tag-fonts-no-insert-proxy"' in source
 
     marker = '"price_lists_domain.platform.operational_refresh_804"'
