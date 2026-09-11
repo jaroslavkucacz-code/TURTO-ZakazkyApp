@@ -13,12 +13,14 @@ on:
       - ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/startup_optimization.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/idle_cleanup_804.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/operational_refresh_804.py
       - scripts/validate-793-ui-cleanup.py
       - scripts/validate-794-ui-optimization.py
       - scripts/validate-794-startup-optimization.py
       - scripts/validate-794-release-pipeline.py
       - scripts/validate-804-v638-coalescing.py
       - scripts/validate-804-idle-cleanup.py
+      - scripts/validate-804-operational-refresh.py
       - scripts/validate-release-version.py
       - .github/workflows/publish-update.yml
       - .github/workflows/validate-794-optimization.yml
@@ -35,12 +37,14 @@ on:
       - ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/startup_optimization.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/idle_cleanup_804.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/operational_refresh_804.py
       - scripts/validate-793-ui-cleanup.py
       - scripts/validate-794-ui-optimization.py
       - scripts/validate-794-startup-optimization.py
       - scripts/validate-794-release-pipeline.py
       - scripts/validate-804-v638-coalescing.py
       - scripts/validate-804-idle-cleanup.py
+      - scripts/validate-804-operational-refresh.py
       - scripts/validate-release-version.py
       - .github/workflows/publish-update.yml
       - .github/workflows/validate-794-optimization.yml
@@ -68,5 +72,7 @@ jobs:
         run: python scripts/validate-804-v638-coalescing.py ZakazkyApp_base_6.1
       - name: Validate 8.0.4 idle cleanup
         run: python scripts/validate-804-idle-cleanup.py ZakazkyApp_base_6.1
+      - name: Validate 8.0.4 operational refreshes
+        run: python scripts/validate-804-operational-refresh.py
       - name: Validate 7.9.4 release pipeline
         run: python scripts/validate-794-release-pipeline.py
