@@ -207,18 +207,25 @@ def apply(M):
                 except Exception:pass
         except Exception:pass
 
+    # Opportunity refreshes only need to ensure that the historical Nabídky
+    # column stays absent. Computing offer counts belongs to the real Akce table,
+    # so do not query/update that unrelated tree after every Příležitosti refresh.
     for name in ('refresh_actions','refresh_projects','refresh_all'):
         old=getattr(M.App,name,None)
         if not callable(old):continue
-        def make(fn):
+        def make(fn,include_project_counts):
             def wrapped(self,*a,**k):
                 r=fn(self,*a,**k)
                 try:
-                    self.after_idle(lambda:(_remove_offer_col_from_opportunities(self),_add_project_offer_column(self)))
+                    if include_project_counts:
+                        self.after_idle(lambda:(_remove_offer_col_from_opportunities(self),_add_project_offer_column(self)))
+                    else:
+                        self.after_idle(lambda:_remove_offer_col_from_opportunities(self))
                 except Exception:pass
                 return r
+            wrapped._turto_v637_project_offer_scope=('actions-and-projects' if include_project_counts else 'actions-only')
             return wrapped
-        setattr(M.App,name,make(old))
+        setattr(M.App,name,make(old,name!='refresh_actions'))
 
     # ------------------------------------------------------------------
     # REAL ACTION DETAIL (ProjectDialog): related offers.
