@@ -10,6 +10,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 try:
+    patch_file = ROOT / 'patch_v014.py'
+    if patch_file.exists():
+        from patch_v014 import apply_patch
+        apply_patch(ROOT)
     if sys.platform == 'win32':
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
