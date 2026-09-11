@@ -2,9 +2,10 @@
 
 The Windows scaled profile showed that database time is already small. The
 remaining avoidable costs were repeated pure date formatting, duplicate date
-sorts, a second full Příležitosti deadline pass, and duplicate Úkoly attention
-work. This late layer removes only those duplicates; it does not change queries,
-filters, status rules, columns, colors or business records.
+sorts, a second full Příležitosti deadline pass, and repeated generic row/text
+helpers inside the high-volume Úkoly fill. This late layer removes only those
+duplicates; it does not change filters, status rules, columns, colors or business
+records.
 """
 from __future__ import annotations
 
@@ -156,13 +157,7 @@ def _sort_action_default(tree: Any) -> None:
 
 
 def _install_action_native_default_order(M: Any) -> bool:
-    """Trust action_rows SQL order unless a manual sort must be reset.
-
-    v760 action_rows already returns created_date DESC, exactly the same order as
-    v644's default Příležitosti sorter. Re-moving every Treeview row after each
-    ordinary refresh therefore changes nothing. Preserve the old behavior when
-    a user had an active manual column sort by restoring the default once.
-    """
+    """Trust action_rows SQL order unless a manual sort must be reset."""
     try:
         import v644_default_date_sort as v644
     except Exception:
@@ -170,9 +165,6 @@ def _install_action_native_default_order(M: Any) -> bool:
     if "actions" not in getattr(v644, "PAGE_SORTS", {}):
         return True
 
-    # Its scheduled closure reads this module-level mapping at execution time.
-    # Removing just the actions entry turns the historical no-op sort into a
-    # cheap return while projects/other owners remain untouched.
     v644.PAGE_SORTS.pop("actions", None)
 
     previous = getattr(M.App, "refresh_actions", None)
@@ -197,15 +189,7 @@ def _install_action_native_default_order(M: Any) -> bool:
 
 
 def _install_request_mivo_native_default_order() -> bool:
-    """Trust worksets SQL order for ordinary Poptávky/MIVO refreshes.
-
-    Both tables are already returned by worksets as asked_date DESC, id DESC,
-    exactly matching v644's default date sort. lazy_refresh clears a manual sort
-    before a page is reopened, so the following SQL refresh naturally restores
-    the default order. While the page stays open, worksets intentionally keeps a
-    user's active manual sort through reapply_tree_sort. A second v644 row-move
-    pass is therefore both redundant and contrary to that temporary-sort model.
-    """
+    """Trust worksets SQL order for ordinary Poptávky/MIVO refreshes."""
     try:
         import v644_default_date_sort as v644
     except Exception:
@@ -219,13 +203,7 @@ def _install_request_mivo_native_default_order() -> bool:
 
 
 def _configure_task_attention_tags(tree: Any) -> bool:
-    """Reuse the task status tags themselves for the historical bold attention.
-
-    v760 already assigns status_late/status_soon/status_wait exactly to the task
-    states that v770 later marked with a second attention tag. Treeview tag font
-    options are local to one task tree, so making those three existing tags bold
-    preserves the rendered result without proxying every Treeview.insert call.
-    """
+    """Reuse the task status tags themselves for the historical bold attention."""
     if tree is None:
         return False
     try:
@@ -237,14 +215,127 @@ def _configure_task_attention_tags(tree: Any) -> bool:
         return False
 
 
+def _task_text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _task_truthy(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().casefold() not in {"", "0", "false", "ne", "no", "off"}
+    return bool(value)
+
+
+def _task_due_difference(raw: str, today: date, cache: dict[str, int]) -> int:
+    """Match v760's strict YYYY-MM-DD parser with a refresh-local cache."""
+    if raw in cache:
+        return cache[raw]
+    difference = 999999
+    if len(raw) == 10 and raw[4] == "-" and raw[7] == "-":
+        try:
+            difference = (date.fromisoformat(raw) - today).days
+        except Exception:
+            pass
+    cache[raw] = difference
+    return difference
+
+
+def _refresh_tasks_fast(M: Any, app: Any, schedule_separators: Any = None) -> None:
+    """Equivalent v760 task fill without tens of thousands of generic helpers."""
+    tree = getattr(app, "task_tree", None)
+    if tree is None:
+        return
+
+    query = _task_text(app.task_q.get() if hasattr(app, "task_q") else "").casefold()
+    show_done = _task_truthy(app.task_show_done.get() if hasattr(app, "task_show_done") else False)
+    show_archived = _task_truthy(
+        app.task_show_archived.get() if hasattr(app, "task_show_archived") else False
+    )
+    user_filter = _task_text(
+        app.task_user_filter.get() if hasattr(app, "task_user_filter") else "Všichni",
+    ) or "Všichni"
+
+    for iid in tree.get_children(""):
+        tree.delete(iid)
+
+    with M.db() as con:
+        rows = con.execute(
+            """SELECT t.*,a.name action_name
+               FROM tasks t JOIN actions a ON a.id=t.action_id
+               WHERE (?=1 OR COALESCE(t.archived,0)=0)
+                 AND (?=1 OR t.done=0 OR COALESCE(t.archived,0)=1)
+               ORDER BY COALESCE(t.archived,0),t.done,t.due_date,t.id""",
+            (1 if show_archived else 0, 1 if show_done else 0),
+        ).fetchall()
+
+    today = date.today()
+    due_cache: dict[str, int] = {}
+    user_filter_cf = user_filter.casefold()
+    filter_user = user_filter != "Všichni"
+
+    for row in rows:
+        # sqlite.Row is guaranteed by the CRM DB owner here. Read each field once
+        # instead of routing every value through _row_value + _text repeatedly.
+        action_name = _task_text(row["action_name"])
+        text = _task_text(row["text"])
+        note = _task_text(row["note"])
+        assigned_user = _task_text(row["assigned_user"])
+
+        if query:
+            haystack = f"{action_name} {text} {note} {assigned_user}".casefold()
+            if query not in haystack:
+                continue
+        if filter_user and user_filter_cf not in assigned_user.casefold():
+            continue
+
+        archived = int(row["archived"] or 0) == 1
+        done = int(row["done"] or 0) == 1
+        if archived:
+            state, tag = "Archivováno", "status_cancel"
+        elif done:
+            state, tag = "Hotovo", "status_done"
+        else:
+            due_text = _task_text(row["due_date"])
+            difference = _task_due_difference(due_text, today, due_cache)
+            if difference < 0:
+                state, tag = "Po termínu", "status_late"
+            elif difference == 0:
+                state, tag = "Dnes", "status_soon"
+            elif difference <= 3:
+                state, tag = "Brzy", "status_wait"
+            else:
+                state, tag = "Čeká", "status_active"
+
+        tree.insert(
+            "",
+            "end",
+            iid=f"t{int(row['id'] or 0)}",
+            values=(
+                state,
+                assigned_user,
+                M.fmt_date(row["due_date"]),
+                action_name,
+                text,
+                _task_text(row["created_by"]),
+                _task_text(row["done_by"]),
+            ),
+            tags=(tag,),
+        )
+
+    reapply = getattr(app, "reapply_tree_sort", None)
+    if callable(reapply):
+        reapply(tree)
+    if callable(schedule_separators):
+        schedule_separators(tree, 0)
+
+
 def _install_inline_task_attention(M: Any) -> bool:
-    """Preserve v770 task emphasis without a per-row Python insert proxy."""
+    """Preserve v760 semantics while removing per-row helper/proxy overhead."""
     current = getattr(M.App, "refresh_tasks", None)
     if not callable(current) or getattr(current, "_turto_804_inline_attention", False):
         return bool(callable(current))
 
-    # ui_cleanup_793 is the measured outer owner; its `function` is v770's
-    # deadline wrapper, whose `previous_refresh_tasks` is the proven v760 fill.
+    # Validate the expected historical chain before replacing it. This keeps the
+    # optimization fail-closed if a future version changes the task owner.
     v770_refresh = _closure_value(current, "function")
     if not callable(v770_refresh) or not getattr(v770_refresh, "_turto_v770_deadline_bold", False):
         return False
@@ -257,11 +348,16 @@ def _install_inline_task_attention(M: Any) -> bool:
         workspace_sync = getattr(ui_cleanup_793, "_schedule_workspace_sync", None)
     except Exception:
         workspace_sync = None
+    try:
+        import v760_table_activity_performance as v760
+        schedule_separators = getattr(v760, "schedule_separators", None)
+    except Exception:
+        schedule_separators = None
 
     def refresh_tasks(self: Any, *args: Any, **kwargs: Any):
         tree = getattr(self, "task_tree", None)
         _configure_task_attention_tags(tree)
-        result = base_refresh(self, *args, **kwargs)
+        result = _refresh_tasks_fast(M, self, schedule_separators)
         if callable(workspace_sync):
             try:
                 workspace_sync(M, self, "tasks")
@@ -273,7 +369,7 @@ def _install_inline_task_attention(M: Any) -> bool:
     refresh_tasks._turto_context_refresh = True
     refresh_tasks._turto_original = current
     refresh_tasks._turto_v760_base = base_refresh
-    refresh_tasks._turto_task_attention_mode = "status-tag-fonts"
+    refresh_tasks._turto_task_attention_mode = "status-tag-fonts-fast-row-path"
     M.App.refresh_tasks = refresh_tasks
     return True
 
@@ -296,7 +392,7 @@ def apply(M: Any) -> None:
         "action_attention": "sparse-tag-only" if action_deadlines else "unchanged",
         "action_default_order": "trust-sql-unless-manual-sort" if action_order else "unchanged",
         "request_mivo_default_order": "trust-sql-lazy-manual-reset" if request_mivo_order else "unchanged",
-        "task_attention": "status-tag-fonts-no-insert-proxy" if task_attention else "unchanged",
+        "task_attention": "status-tag-fonts-fast-row-path" if task_attention else "unchanged",
         "database_queries_changed": False,
         "database_rows_rewritten": False,
     }
@@ -316,5 +412,9 @@ __all__ = [
     "_install_action_native_default_order",
     "_install_request_mivo_native_default_order",
     "_configure_task_attention_tags",
+    "_task_text",
+    "_task_truthy",
+    "_task_due_difference",
+    "_refresh_tasks_fast",
     "_install_inline_task_attention",
 ]
