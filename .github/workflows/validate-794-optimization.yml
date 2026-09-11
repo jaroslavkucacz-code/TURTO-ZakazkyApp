@@ -6,12 +6,14 @@ on:
       - post_baseline.py
       - ZakazkyApp_base_6.1/post_baseline.py
       - ZakazkyApp_base_6.1/runtime_bootstrap.py
+      - ZakazkyApp_base_6.1/v638_table_updatefix.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/startup_optimization.py
       - scripts/validate-793-ui-cleanup.py
       - scripts/validate-794-ui-optimization.py
       - scripts/validate-794-startup-optimization.py
       - scripts/validate-794-release-pipeline.py
+      - scripts/validate-804-v638-coalescing.py
       - scripts/validate-release-version.py
       - .github/workflows/publish-update.yml
       - .github/workflows/validate-794-optimization.yml
@@ -21,12 +23,14 @@ on:
       - post_baseline.py
       - ZakazkyApp_base_6.1/post_baseline.py
       - ZakazkyApp_base_6.1/runtime_bootstrap.py
+      - ZakazkyApp_base_6.1/v638_table_updatefix.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/startup_optimization.py
       - scripts/validate-793-ui-cleanup.py
       - scripts/validate-794-ui-optimization.py
       - scripts/validate-794-startup-optimization.py
       - scripts/validate-794-release-pipeline.py
+      - scripts/validate-804-v638-coalescing.py
       - scripts/validate-release-version.py
       - .github/workflows/publish-update.yml
       - .github/workflows/validate-794-optimization.yml
@@ -50,5 +54,7 @@ jobs:
         run: python scripts/validate-794-ui-optimization.py ZakazkyApp_base_6.1
       - name: Validate 7.9.4 startup optimization
         run: python scripts/validate-794-startup-optimization.py ZakazkyApp_base_6.1
+      - name: Validate 8.0.4 v638 timer coalescing
+        run: python scripts/validate-804-v638-coalescing.py ZakazkyApp_base_6.1
       - name: Validate 7.9.4 release pipeline
         run: python scripts/validate-794-release-pipeline.py
