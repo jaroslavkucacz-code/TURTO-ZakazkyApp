@@ -1,6 +1,6 @@
 {
-  "version": "8.0.4",
+  "version": "8.0.5",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "notes": "Bezpečnostně konzervativní výkonová aktualizace TURTO CRM navazující na 8.0.3. Opravuje přepisování dlouhodobě laděné světlé a tmavé palety po refreshi a odstraňuje redundantní celookenní repaint průchody, zbytečné refresh wrappery, duplicitní stabilizační timery a historické periodické UI pollingy. Optimalizace provozních tabulek snižují opakované formátování datumů, nadbytečné řazení a druhé průchody nad Příležitostmi a Úkoly; auditní historie a možnost bezpečného vrácení změn zůstávají zachovány. Aktualizace nepřináší záměrnou změnu obchodní logiky ani uživatelských dat. Přesný runtime checkpoint před přípravou vydání prošel 19/19 regresními workflow včetně reálného Windows UI startu, světlého i tmavého vizuálního kontraktu, škálovaného benchmarku tabulek a kontroly instalátoru."
+  "notes": "Další konzervativní optimalizace TURTO CRM navazující na verzi 8.0.4. Při startu se stejným aktivním uživatelem se již neopakuje celý cyklus změny uživatele, načtení vzhledu a obnovy přehledů. České databázové řazení využívá stávající omezenou cache přímo, bez dvou pomocných volání na každé porovnání; pravidla řazení včetně CH a čísel se nemění. Doplněny jsou regresní kontroly skutečných původních funkcí, neplatného nebo neaktivního uloženého uživatele a shody řazení s databázovými indexy i bez nich. Zachováno je Calibri, světlý a tmavý vzhled, stavy, filtry, auditní historie i dosavadní navigace. Aktualizace nemění databázové schéma ani nepřepisuje obchodní data; neobsahuje experiment s odloženým vytvářením Ceníků a Vydaných nabídek."
 }

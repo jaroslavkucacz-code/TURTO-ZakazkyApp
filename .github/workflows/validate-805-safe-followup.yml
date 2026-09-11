@@ -5,8 +5,22 @@ on:
     paths:
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/idle_cleanup_804.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/runtime_optimization_803.py'
+      - 'ZakazkyApp_base_6.1/app.py'
+      - 'ZakazkyApp_base_6.1/crm_runtime.py'
       - 'scripts/validate-804-same-user-startup.py'
       - 'scripts/validate-805-czech-collation.py'
+      - 'scripts/validate-805-release-edges.py'
+      - '.github/workflows/validate-805-safe-followup.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/idle_cleanup_804.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/runtime_optimization_803.py'
+      - 'ZakazkyApp_base_6.1/app.py'
+      - 'ZakazkyApp_base_6.1/crm_runtime.py'
+      - 'scripts/validate-804-same-user-startup.py'
+      - 'scripts/validate-805-czech-collation.py'
+      - 'scripts/validate-805-release-edges.py'
       - '.github/workflows/validate-805-safe-followup.yml'
   workflow_dispatch:
 
@@ -16,23 +30,25 @@ permissions:
 jobs:
   safe-followup:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-          cache: pip
-          cache-dependency-path: ZakazkyApp_base_6.1/requirements.txt
-      - name: Install runtime dependencies
-        run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
-      - name: Compile changed runtime
+      # These isolated checks use only the Python standard library. They neither
+      # import app startup nor require PDF/Excel/Outlook runtime dependencies.
+      - name: Compile changed runtime and isolated tests
         run: |
           python -m compileall -q \
             ZakazkyApp_base_6.1/price_lists_domain/platform/idle_cleanup_804.py \
             ZakazkyApp_base_6.1/price_lists_domain/platform/runtime_optimization_803.py \
             scripts/validate-804-same-user-startup.py \
-            scripts/validate-805-czech-collation.py
+            scripts/validate-805-czech-collation.py \
+            scripts/validate-805-release-edges.py
       - name: Validate same-user startup fast path
         run: python scripts/validate-804-same-user-startup.py ZakazkyApp_base_6.1
       - name: Validate Czech SQLite collation equivalence
         run: python scripts/validate-805-czech-collation.py
+      - name: Validate actual legacy functions and release edge cases
+        run: python scripts/validate-805-release-edges.py
