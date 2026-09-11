@@ -200,6 +200,13 @@ def main() -> None:
     assert 'URGENT_REQUEST_TAG = "deadline_urgent"' in worksets_source
     assert 'tree.tag_configure(URGENT_REQUEST_TAG, foreground="#c62828", font=("Calibri", 10, "bold"))' in worksets_source
 
+    # v632's count updater now owns only the Poptávky-side visible column. A
+    # Příležitosti refresh must never trigger a request-count SQL query/tree walk.
+    v632_source = (base / "v632_offerlinks.py").read_text(encoding="utf-8")
+    assert "for name in ('refresh_requests','refresh_all'):" in v632_source
+    assert "for name in ('refresh_actions','refresh_requests','refresh_all'):" not in v632_source
+    assert "Keep only the Request-side count here" in v632_source
+
     # Task attention now reuses the existing v760 status tags. The three states
     # that v770 rendered bold get the same font once on the task Treeview; normal,
     # done and archived rows remain unchanged and no per-row insert proxy exists.
