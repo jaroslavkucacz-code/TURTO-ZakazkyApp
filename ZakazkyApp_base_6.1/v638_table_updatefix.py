@@ -8,6 +8,8 @@ def _schedule_stabilize(app, stabilize, sort_projects=False):
     Nested or rapidly repeated refreshes used to enqueue a fresh 50/420 ms pair
     every time. The newest refresh now replaces the older pair while the stronger
     project-sorting requirement is retained until the final late pass completes.
+    The two passes share only immutable count-query results from this one refresh
+    burst; any newer refresh creates a fresh cache together with fresh timers.
     """
     try:
         generation=int(getattr(app,'_v638_stabilize_generation',0) or 0)+1
@@ -30,13 +32,20 @@ def _schedule_stabilize(app, stabilize, sort_projects=False):
         try:app._v638_stabilize_coalesced=int(getattr(app,'_v638_stabilize_coalesced',0) or 0)+1
         except Exception:pass
 
+    count_cache={}
+
     def current():
         try:return int(getattr(app,'_v638_stabilize_generation',0) or 0)==generation
         except Exception:return False
 
     def run_fast():
         if not current():return
-        try:stabilize(app,sort_projects=bool(getattr(app,'_v638_stabilize_sort_projects',False)))
+        try:
+            stabilize(
+                app,
+                sort_projects=bool(getattr(app,'_v638_stabilize_sort_projects',False)),
+                count_cache=count_cache,
+            )
         finally:
             if current():
                 try:app._v638_stabilize_fast_after=None
@@ -44,7 +53,12 @@ def _schedule_stabilize(app, stabilize, sort_projects=False):
 
     def run_late():
         if not current():return
-        try:stabilize(app,sort_projects=bool(getattr(app,'_v638_stabilize_sort_projects',False)))
+        try:
+            stabilize(
+                app,
+                sort_projects=bool(getattr(app,'_v638_stabilize_sort_projects',False)),
+                count_cache=count_cache,
+            )
         finally:
             if current():
                 try:
@@ -52,6 +66,7 @@ def _schedule_stabilize(app, stabilize, sort_projects=False):
                     app._v638_stabilize_late_after=None
                     app._v638_stabilize_sort_projects=False
                 except Exception:pass
+            count_cache.clear()
 
     try:
         fast=app.after(50,run_fast)
@@ -88,7 +103,9 @@ def apply(M):
                 tree.heading(c,text=c,anchor=tree.column(c,'anchor'),command=lambda col=c,t=tree:app.sort_tree(t,col))
         except Exception:pass
 
-    def _project_offer_counts():
+    def _project_offer_counts(count_cache=None):
+        if isinstance(count_cache,dict) and 'project_offer_counts' in count_cache:
+            return count_cache['project_offer_counts']
         try:
             with M.db() as c:
                 rows=c.execute('''SELECT p.id,count(DISTINCT o.id) n
@@ -97,21 +114,27 @@ def apply(M):
                         (o.request_id IS NULL AND o.action_id IS NULL AND o.project_id=p.id)
                         OR o.request_id IN (SELECT r.id FROM requests r JOIN actions a ON a.id=r.action_id WHERE a.project_id=p.id)
                     GROUP BY p.id''').fetchall()
-            return {int(r['id']):int(r['n']) for r in rows}
-        except Exception:return {}
+            result={int(r['id']):int(r['n']) for r in rows}
+        except Exception:result={}
+        if isinstance(count_cache,dict):count_cache['project_offer_counts']=result
+        return result
 
-    def _request_offer_counts():
+    def _request_offer_counts(count_cache=None):
+        if isinstance(count_cache,dict) and 'request_offer_counts' in count_cache:
+            return count_cache['request_offer_counts']
         try:
             with M.db() as c:
                 rows=c.execute('SELECT request_id,count(*) n FROM supplier_offers WHERE request_id IS NOT NULL GROUP BY request_id').fetchall()
-            return {int(r['request_id']):int(r['n']) for r in rows}
-        except Exception:return {}
+            result={int(r['request_id']):int(r['n']) for r in rows}
+        except Exception:result={}
+        if isinstance(count_cache,dict):count_cache['request_offer_counts']=result
+        return result
 
     def _iid_num(iid,prefix):
         try:return int(str(iid).lstrip(prefix.upper()+prefix.lower()))
         except Exception:return None
 
-    def _restore_main_tables(app):
+    def _restore_main_tables(app,count_cache=None):
         # Příležitosti: never show offer count directly.
         at=getattr(app,'action_tree',None)
         if at is not None:
@@ -123,7 +146,7 @@ def apply(M):
             _heading_contract(app,rt,REQUEST_COLS)
             try:
                 rt.column('Nabídky',width=82,minwidth=70,anchor='center',stretch=False)
-                counts=_request_offer_counts()
+                counts=_request_offer_counts(count_cache)
                 for iid in rt.get_children():
                     rid=_iid_num(iid,'r')
                     if rid is not None:rt.set(iid,'Nabídky',str(counts.get(rid,0)))
@@ -139,7 +162,7 @@ def apply(M):
             _heading_contract(app,pt,cols)
             try:
                 pt.column('Nabídky',width=82,minwidth=70,anchor='center',stretch=False)
-                counts=_project_offer_counts()
+                counts=_project_offer_counts(count_cache)
                 for iid in pt.get_children():
                     pid=_iid_num(iid,'p')
                     if pid is not None:pt.set(iid,'Nabídky',str(counts.get(pid,0)))
@@ -187,8 +210,8 @@ def apply(M):
         # every handler registered by those modules.
         t._v638_clean_bindings=True
 
-    def _stabilize(app,sort_projects=False):
-        _restore_main_tables(app)
+    def _stabilize(app,sort_projects=False,count_cache=None):
+        _restore_main_tables(app,count_cache=count_cache)
         _remove_problematic_request_bindings(app)
         _style_urgent_requests(app)
         if sort_projects:_sort_projects_default(app)
