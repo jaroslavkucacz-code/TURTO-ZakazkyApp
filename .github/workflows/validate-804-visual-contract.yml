@@ -5,6 +5,7 @@ on:
     paths:
       - 'ZakazkyApp_base_6.1/app.py'
       - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
+      - 'ZakazkyApp_base_6.1/v623_exports.py'
       - 'ZakazkyApp_base_6.1/v628_modernui_resize.py'
       - 'ZakazkyApp_base_6.1/crm_runtime.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py'
@@ -20,6 +21,7 @@ on:
     paths:
       - 'ZakazkyApp_base_6.1/app.py'
       - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
+      - 'ZakazkyApp_base_6.1/v623_exports.py'
       - 'ZakazkyApp_base_6.1/v628_modernui_resize.py'
       - 'ZakazkyApp_base_6.1/crm_runtime.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py'
@@ -52,6 +54,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $env:PYTHONIOENCODING = 'utf-8'
           $env:TURTO_DISABLE_AUTO_UPDATE = '1'
           $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-804-visual-data'
           $env:TURTO_CRM_VISUAL_RESULT = Join-Path $env:RUNNER_TEMP 'turto-804-visual-contract.json'
