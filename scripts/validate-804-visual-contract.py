@@ -194,15 +194,26 @@ def assert_calibri_contract(window) -> dict[str, str]:
     if "calibri" not in muted_font.casefold():
         raise AssertionError(f"Muted.TLabel lost Calibri: {muted_font!r}")
 
-    # refresh_requests owns the overdue attention font directly. This is the
-    # formatting most likely to disappear if SQL-first refreshes bypass old UI
-    # post-processing.
+    # refresh_requests owns both current request emphasis tags directly. v770
+    # uses Calibri bold for the older overdue warning, while historical v637
+    # uses red Calibri bold after more than three unanswered days.
     window.refresh_requests()
     window.update_idletasks()
     attention_font = tag_option(window.request_tree, "v770_request_attention", "font")
     if "calibri" not in attention_font.casefold() or "bold" not in attention_font.casefold():
         raise AssertionError(
             f"Request attention tag lost Calibri bold formatting: {attention_font!r}"
+        )
+
+    urgent_font = tag_option(window.request_tree, "deadline_urgent", "font")
+    urgent_foreground = norm(tag_option(window.request_tree, "deadline_urgent", "foreground"))
+    if "calibri" not in urgent_font.casefold() or "bold" not in urgent_font.casefold():
+        raise AssertionError(
+            f"Urgent request tag lost Calibri bold formatting: {urgent_font!r}"
+        )
+    if urgent_foreground != "#C62828":
+        raise AssertionError(
+            f"Urgent request foreground regressed: {urgent_foreground!r}, expected '#C62828'"
         )
 
     help_font = ""
@@ -227,6 +238,8 @@ def assert_calibri_contract(window) -> dict[str, str]:
     return {
         "muted_label_font": muted_font,
         "request_attention_font": attention_font,
+        "urgent_request_font": urgent_font,
+        "urgent_request_foreground": urgent_foreground,
         "help_font": help_font,
     }
 
