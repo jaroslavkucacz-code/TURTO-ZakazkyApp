@@ -1,0 +1,74 @@
+name: Publish reporting package
+on:
+  push:
+    branches: [mesicni-prehledy-stable]
+    paths: ['release_payloads/0.2.0/ready.json']
+permissions:
+  contents: write
+concurrency:
+  group: reporting-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Verify package before publishing
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, io, json, pathlib, zipfile
+          root = pathlib.Path('release_payloads/0.2.0')
+          ready = json.loads((root/'ready.json').read_text())
+          assert ready['version'] == '0.2.0'
+          assert ready['app_id'] == 'cz.turto.mesicni-prehledy'
+          chunks = []
+          for record in ready['chunks']:
+              name = record['name']
+              assert pathlib.PurePosixPath(name).name == name
+              data = (root/name).read_bytes()
+              assert hashlib.sha256(data).hexdigest() == record['sha256'], name
+              chunks.append(data.decode('ascii').strip())
+          payload = base64.b64decode(''.join(chunks), validate=True)
+          assert len(payload) == ready['bytes']
+          assert hashlib.sha256(payload).hexdigest() == ready['sha256']
+          with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+              assert archive.testzip() is None
+              spec = json.loads(archive.read('package_files.json'))
+              assert spec['app_id'] == ready['app_id']
+              assert spec['version'] == ready['version']
+              assert set(archive.namelist()) == set(spec['files']) | {'package_files.json'}
+              for name, digest in spec['files'].items():
+                  path = pathlib.PurePosixPath(name)
+                  assert not path.is_absolute() and '..' not in path.parts
+                  assert path.parts[0] not in ('data','imports','exports','backup','assets')
+                  assert path.name != 'config.json'
+                  data = archive.read(name)
+                  assert hashlib.sha256(data).hexdigest() == digest, name
+                  if path.suffix in ('.py', '.pyw'):
+                      compile(data, name, 'exec')
+          target = pathlib.Path('releases/0.2.0/TURTO_update_0.2.0.zip')
+          target.parent.mkdir(parents=True, exist_ok=True)
+          target.write_bytes(payload)
+          print('Verified package:', len(payload), ready['sha256'])
+          PY
+      - name: Commit immutable package and publish manifest
+        shell: bash
+        run: |
+          git config user.name 'TURTO Release Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add releases/0.2.0/TURTO_update_0.2.0.zip
+          git diff --cached --quiet || git commit -m 'Build verified TURTO reporting 0.2.0 package'
+          export PACKAGE_COMMIT=$(git rev-parse HEAD)
+          python3 - <<'PY'
+          import json, os, pathlib
+          ready = json.loads(pathlib.Path('release_payloads/0.2.0/ready.json').read_text())
+          manifest = {key:ready[key] for key in ('app_id','version','minimum_version','sha256','notes')}
+          manifest['channel'] = 'stable'
+          manifest['url'] = 'https://raw.githubusercontent.com/' + os.environ['GITHUB_REPOSITORY'] + '/' + os.environ['PACKAGE_COMMIT'] + '/releases/0.2.0/TURTO_update_0.2.0.zip'
+          pathlib.Path('update_manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+          PY
+          git add update_manifest.json
+          git diff --cached --quiet || git commit -m 'Publish TURTO reporting 0.2.0 stable manifest'
+          git push origin HEAD:mesicni-prehledy-stable
