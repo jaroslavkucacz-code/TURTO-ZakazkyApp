@@ -1,10 +1,10 @@
 """Measured high-volume refresh optimizations for TURTO CRM 8.0.4.
 
 The Windows scaled profile showed that database time is already small. The
-remaining avoidable costs were repeated pure date formatting, a second full
-Příležitosti deadline pass, a redundant default Treeview sort, and duplicate
-Úkoly attention work. This late layer removes only those duplicates; it does
-not change queries, filters, status rules, columns, colors or business records.
+remaining avoidable costs were repeated pure date formatting, duplicate date
+sorts, a second full Příležitosti deadline pass, and duplicate Úkoly attention
+work. This late layer removes only those duplicates; it does not change queries,
+filters, status rules, columns, colors or business records.
 """
 from __future__ import annotations
 
@@ -196,6 +196,28 @@ def _install_action_native_default_order(M: Any) -> bool:
     return True
 
 
+def _install_request_mivo_native_default_order() -> bool:
+    """Trust worksets SQL order for ordinary Poptávky/MIVO refreshes.
+
+    Both tables are already returned by worksets as asked_date DESC, id DESC,
+    exactly matching v644's default date sort. lazy_refresh clears a manual sort
+    before a page is reopened, so the following SQL refresh naturally restores
+    the default order. While the page stays open, worksets intentionally keeps a
+    user's active manual sort through reapply_tree_sort. A second v644 row-move
+    pass is therefore both redundant and contrary to that temporary-sort model.
+    """
+    try:
+        import v644_default_date_sort as v644
+    except Exception:
+        return False
+    sorts = getattr(v644, "PAGE_SORTS", None)
+    if not isinstance(sorts, dict):
+        return False
+    sorts.pop("requests", None)
+    sorts.pop("mivo", None)
+    return "requests" not in sorts and "mivo" not in sorts
+
+
 def _configure_task_attention_tags(tree: Any) -> bool:
     """Reuse the task status tags themselves for the historical bold attention.
 
@@ -264,6 +286,7 @@ def apply(M: Any) -> None:
     cached_dates = _install_cached_date_format(M)
     action_deadlines = _install_fast_action_deadlines(M)
     action_order = _install_action_native_default_order(M)
+    request_mivo_order = _install_request_mivo_native_default_order()
     task_attention = _install_inline_task_attention(M)
 
     M.OPERATIONAL_REFRESH_804 = {
@@ -272,6 +295,7 @@ def apply(M: Any) -> None:
         "action_soon": "date.fromisoformat-lru-1024" if action_deadlines else "unchanged",
         "action_attention": "sparse-tag-only" if action_deadlines else "unchanged",
         "action_default_order": "trust-sql-unless-manual-sort" if action_order else "unchanged",
+        "request_mivo_default_order": "trust-sql-lazy-manual-reset" if request_mivo_order else "unchanged",
         "task_attention": "status-tag-fonts-no-insert-proxy" if task_attention else "unchanged",
         "database_queries_changed": False,
         "database_rows_rewritten": False,
@@ -290,6 +314,7 @@ __all__ = [
     "_install_fast_action_deadlines",
     "_sort_action_default",
     "_install_action_native_default_order",
+    "_install_request_mivo_native_default_order",
     "_configure_task_attention_tags",
     "_install_inline_task_attention",
 ]
