@@ -2,6 +2,66 @@
 import datetime
 
 
+def _schedule_stabilize(app, stabilize, sort_projects=False):
+    """Keep one fast/late stabilization pair for the newest refresh burst.
+
+    Nested or rapidly repeated refreshes used to enqueue a fresh 50/420 ms pair
+    every time. The newest refresh now replaces the older pair while the stronger
+    project-sorting requirement is retained until the final late pass completes.
+    """
+    try:
+        generation=int(getattr(app,'_v638_stabilize_generation',0) or 0)+1
+        app._v638_stabilize_generation=generation
+        app._v638_stabilize_sort_projects=bool(
+            getattr(app,'_v638_stabilize_sort_projects',False) or sort_projects
+        )
+    except Exception:return ()
+
+    replaced=False
+    for attr in ('_v638_stabilize_fast_after','_v638_stabilize_late_after'):
+        token=getattr(app,attr,None)
+        if token is not None:
+            replaced=True
+            try:app.after_cancel(token)
+            except Exception:pass
+        try:setattr(app,attr,None)
+        except Exception:pass
+    if replaced:
+        try:app._v638_stabilize_coalesced=int(getattr(app,'_v638_stabilize_coalesced',0) or 0)+1
+        except Exception:pass
+
+    def current():
+        try:return int(getattr(app,'_v638_stabilize_generation',0) or 0)==generation
+        except Exception:return False
+
+    def run_fast():
+        if not current():return
+        try:stabilize(app,sort_projects=bool(getattr(app,'_v638_stabilize_sort_projects',False)))
+        finally:
+            if current():
+                try:app._v638_stabilize_fast_after=None
+                except Exception:pass
+
+    def run_late():
+        if not current():return
+        try:stabilize(app,sort_projects=bool(getattr(app,'_v638_stabilize_sort_projects',False)))
+        finally:
+            if current():
+                try:
+                    app._v638_stabilize_fast_after=None
+                    app._v638_stabilize_late_after=None
+                    app._v638_stabilize_sort_projects=False
+                except Exception:pass
+
+    try:
+        fast=app.after(50,run_fast)
+        late=app.after(420,run_late)
+        app._v638_stabilize_fast_after=fast
+        app._v638_stabilize_late_after=late
+        return fast,late
+    except Exception:return ()
+
+
 def apply(M):
     # ------------------------------------------------------------------
     # BUSINESS MODEL
@@ -141,17 +201,20 @@ def apply(M):
             if callable(final_layout):final_layout(app)
         except Exception:pass
 
-    # Apply after old wrappers finish their after_idle work. This makes the final
-    # contract deterministic and stops the v632/v637 add/remove column race.
+    # Apply after old wrappers finish their after_idle work. The 50/420 ms pair
+    # is shared across nested/rapid refreshes, so the newest refresh owns the
+    # timers while project sorting survives coalescing as the stronger request.
     for name in ('refresh_requests','refresh_actions','refresh_projects','refresh_all'):
         old=getattr(M.App,name,None)
         if not callable(old):continue
         def make(fn,method_name=name):
             def wrapped(self,*a,**k):
                 r=fn(self,*a,**k)
-                for ms in (50,420):
-                    try:self.after(ms,lambda s=self,n=method_name:_stabilize(s,sort_projects=n in ('refresh_projects','refresh_all')))
-                    except Exception:pass
+                _schedule_stabilize(
+                    self,
+                    _stabilize,
+                    sort_projects=method_name in ('refresh_projects','refresh_all'),
+                )
                 return r
             return wrapped
         setattr(M.App,name,make(old))
