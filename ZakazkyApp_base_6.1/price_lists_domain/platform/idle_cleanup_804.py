@@ -134,7 +134,6 @@ def _configure_child_identity(M: Any, app: Any, win: Any) -> None:
     except Exception:
         return
 
-    # Prefer the same packaged icon pair as the 8.0.3 main-window owner.
     configured = False
     try:
         from price_lists_domain.platform import icon_assets_803
@@ -146,7 +145,6 @@ def _configure_child_identity(M: Any, app: Any, win: Any) -> None:
     except Exception:
         pass
 
-    # Defensive fallback for source/debug copies with only the historical ICO.
     if not configured:
         try:
             ico = Path(getattr(M, "ROOT", Path.cwd())) / "turto_logo.ico"
@@ -268,6 +266,53 @@ def _install_dialog_registry_focus(M: Any, crm_runtime: Any) -> bool:
             return False
 
 
+def _install_same_user_restore_fast_path(M: Any, crm_runtime: Any) -> bool:
+    """Skip the second startup user/theme refresh when the user is unchanged."""
+    previous = getattr(crm_runtime, "_restore_local_user", None)
+    cfg_reader = getattr(crm_runtime, "_cfg", None)
+    cfg_writer = getattr(crm_runtime, "_save_cfg", None)
+    if not callable(previous) or getattr(previous, "_turto_804_same_user_fast", False):
+        return bool(callable(previous))
+    if not callable(cfg_reader):
+        return False
+
+    def restore(app: Any):
+        try:
+            cfg = cfg_reader() or {}
+            last = str(cfg.get("last_user", "") or "").strip()
+            with M.db() as con:
+                valid = [
+                    row["name"]
+                    for row in con.execute(
+                        "SELECT name FROM users WHERE active=1 AND upper(trim(name))<>'ADMIN' ORDER BY name COLLATE CZECH"
+                    )
+                ]
+            current = str(app.active_user.get() or "").strip()
+            chosen = last if last in valid else (
+                current if current in valid else (valid[0] if valid else "ADMIN")
+            )
+            if chosen.upper() == "ADMIN" and valid:
+                chosen = valid[0]
+            if chosen and chosen.upper() != "ADMIN" and chosen == current:
+                if last != chosen and callable(cfg_writer):
+                    try:
+                        cfg_writer(last_user=chosen)
+                    except Exception:
+                        pass
+                app._turto_same_user_restore_skips_804 = int(
+                    getattr(app, "_turto_same_user_restore_skips_804", 0) or 0
+                ) + 1
+                return None
+        except Exception:
+            pass
+        return previous(app)
+
+    restore._turto_804_same_user_fast = True
+    restore._turto_original = previous
+    crm_runtime._restore_local_user = restore
+    return True
+
+
 def apply(M: Any) -> None:
     if getattr(M, "_turto_idle_cleanup_804", False):
         return
@@ -278,9 +323,6 @@ def apply(M: Any) -> None:
     except Exception:
         return
 
-    # crm_runtime's already-installed App.__init__ wrapper looks up these names
-    # from its module globals when App() actually starts, so replacing them here
-    # prevents the recurring after() chains from ever being created.
     def force_calibri_once(app: Any) -> None:
         _apply_text_fonts_once(M, app)
 
@@ -288,8 +330,6 @@ def apply(M: Any) -> None:
         _install_event_driven_child_identity(M, app)
 
     def final_palette_owned_elsewhere(app: Any) -> None:
-        # v628_modernui_resize applies the exact current light/dark status palette
-        # after every real theme change. Historical crm_runtime repaint is retired.
         try:
             app._turto_legacy_palette_repaint_skips = int(
                 getattr(app, "_turto_legacy_palette_repaint_skips", 0) or 0
@@ -302,6 +342,7 @@ def apply(M: Any) -> None:
     crm_runtime._window_identity_sweep = event_driven_window_identity
     crm_runtime._apply_tree_palette = final_palette_owned_elsewhere
     dialog_registry = _install_dialog_registry_focus(M, crm_runtime)
+    same_user_restore = _install_same_user_restore_fast_path(M, crm_runtime)
 
     M.IDLE_CLEANUP_804 = {
         "owner": POLICY_OWNER,
@@ -309,6 +350,7 @@ def apply(M: Any) -> None:
         "child_window_identity": "per-toplevel-map-event",
         "dialog_focus": "weak-toplevel-registry-coalesced" if dialog_registry else "fallback",
         "legacy_tree_palette": "retired-v628-owner",
+        "local_user_restore": "skip-unchanged-user-refresh" if same_user_restore else "unchanged",
         "recurring_widget_tree_polling": False,
         "database_rows_rewritten": False,
     }
@@ -325,4 +367,5 @@ __all__ = [
     "_install_event_driven_child_identity",
     "_raise_registered_dialog",
     "_install_dialog_registry_focus",
+    "_install_same_user_restore_fast_path",
 ]
