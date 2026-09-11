@@ -25,6 +25,7 @@ on:
       - scripts/validate-794-release-pipeline.py
       - scripts/validate-804-v638-coalescing.py
       - scripts/validate-804-idle-cleanup.py
+      - scripts/validate-804-same-user-startup.py
       - scripts/validate-804-operational-refresh.py
       - scripts/validate-804-request-urgency.py
       - scripts/validate-804-deferred-commercial-pages.py
@@ -58,6 +59,7 @@ on:
       - scripts/validate-794-release-pipeline.py
       - scripts/validate-804-v638-coalescing.py
       - scripts/validate-804-idle-cleanup.py
+      - scripts/validate-804-same-user-startup.py
       - scripts/validate-804-operational-refresh.py
       - scripts/validate-804-request-urgency.py
       - scripts/validate-804-deferred-commercial-pages.py
@@ -90,6 +92,8 @@ jobs:
         run: python scripts/validate-804-v638-coalescing.py ZakazkyApp_base_6.1
       - name: Validate 8.0.4 idle cleanup
         run: python scripts/validate-804-idle-cleanup.py ZakazkyApp_base_6.1
+      - name: Validate 8.0.4 same-user startup fast path
+        run: python scripts/validate-804-same-user-startup.py ZakazkyApp_base_6.1
       - name: Validate 8.0.4 operational refreshes
         run: python scripts/validate-804-operational-refresh.py
       - name: Validate 8.0.4 cached request urgency
