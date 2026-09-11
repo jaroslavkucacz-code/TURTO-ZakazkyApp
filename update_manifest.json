@@ -1,0 +1,7 @@
+{
+  "version": "0.1.4",
+  "url": "https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/archive/refs/heads/mesicni-prehledy-stable.zip",
+  "sha256": "",
+  "notes": "Vyhledávání ve všech tabulkách a aktivní online aktualizace. Od této verze se další vydání kontrolují automaticky po spuštění programu.",
+  "channel": "stable"
+}
