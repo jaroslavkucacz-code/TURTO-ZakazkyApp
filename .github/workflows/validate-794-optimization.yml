@@ -9,6 +9,7 @@ on:
       - ZakazkyApp_base_6.1/crm_runtime.py
       - ZakazkyApp_base_6.1/crm_v605.py
       - ZakazkyApp_base_6.1/v608_stability.py
+      - ZakazkyApp_base_6.1/v611_audit.py
       - ZakazkyApp_base_6.1/v623_exports.py
       - ZakazkyApp_base_6.1/v632_offerlinks.py
       - ZakazkyApp_base_6.1/v637_project_offer_model.py
@@ -25,6 +26,7 @@ on:
       - scripts/validate-804-idle-cleanup.py
       - scripts/validate-804-operational-refresh.py
       - scripts/validate-804-legacy-overlap.py
+      - scripts/validate-804-audit-consolidation.py
       - scripts/validate-release-version.py
       - .github/workflows/publish-update.yml
       - .github/workflows/validate-794-optimization.yml
@@ -37,6 +39,7 @@ on:
       - ZakazkyApp_base_6.1/crm_runtime.py
       - ZakazkyApp_base_6.1/crm_v605.py
       - ZakazkyApp_base_6.1/v608_stability.py
+      - ZakazkyApp_base_6.1/v611_audit.py
       - ZakazkyApp_base_6.1/v623_exports.py
       - ZakazkyApp_base_6.1/v632_offerlinks.py
       - ZakazkyApp_base_6.1/v637_project_offer_model.py
@@ -53,6 +56,7 @@ on:
       - scripts/validate-804-idle-cleanup.py
       - scripts/validate-804-operational-refresh.py
       - scripts/validate-804-legacy-overlap.py
+      - scripts/validate-804-audit-consolidation.py
       - scripts/validate-release-version.py
       - .github/workflows/publish-update.yml
       - .github/workflows/validate-794-optimization.yml
@@ -84,5 +88,7 @@ jobs:
         run: python scripts/validate-804-operational-refresh.py
       - name: Validate 8.0.4 legacy overlap cleanup
         run: python scripts/validate-804-legacy-overlap.py ZakazkyApp_base_6.1
+      - name: Validate 8.0.4 consolidated action audit
+        run: python scripts/validate-804-audit-consolidation.py ZakazkyApp_base_6.1
       - name: Validate 7.9.4 release pipeline
         run: python scripts/validate-794-release-pipeline.py
