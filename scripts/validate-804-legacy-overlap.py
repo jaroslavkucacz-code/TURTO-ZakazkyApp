@@ -11,6 +11,13 @@ def main() -> None:
     assert "def _patch_mivo" not in v605
     assert "_patch_mivo()" not in v605
     assert "v608_stability is the later owner of MIVO row state" in v605
+    assert "def _patch_sort_reset" not in v605
+    assert "status_offer" not in v605
+    assert "def walk(" not in v605
+    assert "LATE_FONT_TREES" in v605
+    assert "def _patch_late_font" in v605
+    assert "tree.tag_configure('status_late',font=('Calibri',10,'bold'))" in v605
+    assert "_turto_v605_late_font_only" in v605
 
     v632 = (base / "v632_offerlinks.py").read_text(encoding="utf-8")
     assert "for name in ('refresh_requests','refresh_all'):" in v632
