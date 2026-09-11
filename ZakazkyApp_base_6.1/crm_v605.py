@@ -1,34 +1,14 @@
 # TURTO CRM v6.0.5 incremental features
-import datetime, json, os, socket
 M=None
-
-def _audit(entity,eid,action,field='',old='',new='',undo_sql=''):
-    try:
-        app=getattr(M,'_active_app',None);user=app.active_user.get() if app and hasattr(app,'active_user') else M.get_setting('active_user','')
-        with M.db() as c:c.execute('INSERT INTO audit_history(user_name,computer_name,entity_type,entity_id,action,field_name,old_value,new_value,undo_sql) VALUES(?,?,?,?,?,?,?,?,?)',(user,socket.gethostname(),entity,str(eid),action,field,str(old or ''),str(new or ''),undo_sql))
-    except Exception:pass
 
 def _ensure():
     with M.db() as c:
         c.execute('CREATE TABLE IF NOT EXISTS recipient_usage(company_id INTEGER,person_id INTEGER,use_count INTEGER DEFAULT 0,last_used TEXT,PRIMARY KEY(company_id,person_id))')
 
-def _patch_status_audit():
-    # Detect status changes after the normal refresh path, independent of which quick-status UI was used.
-    old=M.App.refresh_actions
-    def refresh(self,*a,**k):
-        before=getattr(self,'_v605_status_snapshot',{})
-        r=old(self,*a,**k)
-        try:
-            with M.db() as c:now={x['id']:x['status'] for x in c.execute('SELECT id,status FROM actions')}
-            if before:
-                for aid,new in now.items():
-                    oldv=before.get(aid)
-                    if oldv is not None and oldv!=new:
-                        safe=str(oldv).replace("'","''");_audit('Příležitost',aid,'Změna stavu','Stav',oldv,new,f"UPDATE actions SET status='{safe}' WHERE id={int(aid)}")
-            self._v605_status_snapshot=now
-        except Exception:pass
-        return r
-    M.App.refresh_actions=refresh
+# v611_audit is the single action snapshot owner. It now includes `status` and
+# preserves the historical entity/action/field/undo contract for status changes
+# (Příležitost / Změna stavu / Stav). The former v605 SELECT id,status snapshot
+# is intentionally retired so each Příležitosti refresh reads actions once.
 
 def _patch_sort_reset():
     old=M.App.show_page
@@ -66,4 +46,4 @@ def _patch_admin_history():
     # runtime open_admin already displays audit rows; add Undo button by wrapping after window construction is handled in next audit expansion.
 
 def apply(module):
-    global M;M=module;_ensure();_patch_status_audit();_patch_sort_reset();_patch_palette()
+    global M;M=module;_ensure();_patch_sort_reset();_patch_palette()
