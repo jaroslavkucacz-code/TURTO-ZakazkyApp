@@ -1,11 +1,10 @@
 """Measured high-volume refresh optimizations for TURTO CRM 8.0.4.
 
-The Windows scaled profile showed that database time is already small.  The
+The Windows scaled profile showed that database time is already small. The
 remaining avoidable costs were repeated pure date formatting, a second full
-Příležitosti deadline pass, a redundant default Treeview sort, and a second
-1,500-row Úkoly deadline scan.  This late layer removes only those duplicates;
-it does not change queries, filters, status rules, columns, colors or business
-records.
+Příležitosti deadline pass, a redundant default Treeview sort, and duplicate
+Úkoly attention work. This late layer removes only those duplicates; it does
+not change queries, filters, status rules, columns, colors or business records.
 """
 from __future__ import annotations
 
@@ -16,6 +15,7 @@ from typing import Any
 POLICY_OWNER = "price_lists_domain.platform.operational_refresh_804"
 ATTENTION_TAG = "v770_deadline_attention"
 ATTENTION_TASK_STATES = frozenset(("po termínu", "dnes", "brzy"))
+ATTENTION_TASK_TAGS = ("status_late", "status_soon", "status_wait")
 
 
 def _closure_value(function: Any, name: str, default: Any = None) -> Any:
@@ -88,8 +88,8 @@ def _install_fast_action_deadlines(M: Any) -> bool:
             pass
 
         # Rows have just been recreated by refresh_actions, so none carries the
-        # attention tag yet.  Ignore ordinary rows entirely and touch only the
-        # late/soon subset.  The old v770 callback read/wrote Deadline and tags
+        # attention tag yet. Ignore ordinary rows entirely and touch only the
+        # late/soon subset. The old v770 callback read/wrote Deadline and tags
         # for every row merely to remove visual markers that are no longer
         # inserted by the current refresh owner.
         for item in rows or ():
@@ -146,8 +146,8 @@ def _install_action_native_default_order(M: Any) -> bool:
     """Trust action_rows SQL order unless a manual sort must be reset.
 
     v760 action_rows already returns created_date DESC, exactly the same order as
-    v644's default Příležitosti sorter.  Re-moving every Treeview row after each
-    ordinary refresh therefore changes nothing.  Preserve the old behavior when
+    v644's default Příležitosti sorter. Re-moving every Treeview row after each
+    ordinary refresh therefore changes nothing. Preserve the old behavior when
     a user had an active manual column sort by restoring the default once.
     """
     try:
@@ -183,21 +183,27 @@ def _install_action_native_default_order(M: Any) -> bool:
     return True
 
 
-def _task_attention_insert(original_insert: Any, parent: Any, index: Any, iid: Any = None, **kw: Any):
-    values = tuple(kw.get("values") or ())
-    state = str(values[0] if values else "").strip().casefold()
-    if state in ATTENTION_TASK_STATES:
-        tags = list(kw.get("tags") or ())
-        if ATTENTION_TAG not in tags:
-            tags.append(ATTENTION_TAG)
-        kw["tags"] = tuple(tags)
-    if iid is None:
-        return original_insert(parent, index, **kw)
-    return original_insert(parent, index, iid=iid, **kw)
+def _configure_task_attention_tags(tree: Any) -> bool:
+    """Reuse the task status tags themselves for the historical bold attention.
+
+    v760 already assigns status_late/status_soon/status_wait exactly to the task
+    states that v770 later marked with a second attention tag. Treeview tag font
+    options are local to one task tree, so making those three existing tags bold
+    preserves the rendered result without proxying every Treeview.insert call.
+    """
+    if tree is None:
+        return False
+    try:
+        for tag in ATTENTION_TASK_TAGS:
+            tree.tag_configure(tag, font=("Calibri", 10, "bold"))
+        tree._turto_804_task_attention_status_tags = True
+        return True
+    except Exception:
+        return False
 
 
 def _install_inline_task_attention(M: Any) -> bool:
-    """Reuse v760 task state while rows are inserted; skip v770's second scan."""
+    """Preserve v770 task emphasis without a per-row Python insert proxy."""
     current = getattr(M.App, "refresh_tasks", None)
     if not callable(current) or getattr(current, "_turto_804_inline_attention", False):
         return bool(callable(current))
@@ -219,32 +225,8 @@ def _install_inline_task_attention(M: Any) -> bool:
 
     def refresh_tasks(self: Any, *args: Any, **kwargs: Any):
         tree = getattr(self, "task_tree", None)
-        if tree is None:
-            result = base_refresh(self, *args, **kwargs)
-        else:
-            try:
-                tree.tag_configure(ATTENTION_TAG, font=("Calibri", 10, "bold"))
-            except Exception:
-                pass
-            original_insert = tree.insert
-            had_instance_insert = "insert" in getattr(tree, "__dict__", {})
-            previous_instance_insert = getattr(tree, "__dict__", {}).get("insert")
-
-            def insert(parent: Any, index: Any, iid: Any = None, **kw: Any):
-                return _task_attention_insert(original_insert, parent, index, iid, **kw)
-
-            tree.insert = insert
-            try:
-                result = base_refresh(self, *args, **kwargs)
-            finally:
-                try:
-                    if had_instance_insert:
-                        tree.__dict__["insert"] = previous_instance_insert
-                    else:
-                        tree.__dict__.pop("insert", None)
-                except Exception:
-                    tree.insert = original_insert
-
+        _configure_task_attention_tags(tree)
+        result = base_refresh(self, *args, **kwargs)
         if callable(workspace_sync):
             try:
                 workspace_sync(M, self, "tasks")
@@ -256,6 +238,7 @@ def _install_inline_task_attention(M: Any) -> bool:
     refresh_tasks._turto_context_refresh = True
     refresh_tasks._turto_original = current
     refresh_tasks._turto_v760_base = base_refresh
+    refresh_tasks._turto_task_attention_mode = "status-tag-fonts"
     M.App.refresh_tasks = refresh_tasks
     return True
 
@@ -276,7 +259,7 @@ def apply(M: Any) -> None:
         "action_soon": "date.fromisoformat-lru-1024" if action_deadlines else "unchanged",
         "action_attention": "sparse-tag-only" if action_deadlines else "unchanged",
         "action_default_order": "trust-sql-unless-manual-sort" if action_order else "unchanged",
-        "task_attention": "inline-v760-insert" if task_attention else "unchanged",
+        "task_attention": "status-tag-fonts-no-insert-proxy" if task_attention else "unchanged",
         "database_queries_changed": False,
         "database_rows_rewritten": False,
     }
@@ -287,11 +270,12 @@ __all__ = [
     "POLICY_OWNER",
     "ATTENTION_TAG",
     "ATTENTION_TASK_STATES",
+    "ATTENTION_TASK_TAGS",
     "_closure_value",
     "_install_cached_date_format",
     "_install_fast_action_deadlines",
     "_sort_action_default",
     "_install_action_native_default_order",
-    "_task_attention_insert",
+    "_configure_task_attention_tags",
     "_install_inline_task_attention",
 ]
