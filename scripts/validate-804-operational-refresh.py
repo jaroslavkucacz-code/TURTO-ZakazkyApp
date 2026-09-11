@@ -89,19 +89,28 @@ def main() -> None:
     bootstrap = (base / "runtime_bootstrap.py").read_text(encoding="utf-8")
     module = load_module(path)
 
-    # Date formatting is pure and repeated operational dates must hit the cache.
+    # Canonical DB dates take the allocation-only fast path; anything outside
+    # YYYY-MM-DD keeps the historical formatter and is still cached.
     calls = []
 
     def original_fmt(value):
         calls.append(value)
         return f"fmt:{value}"
 
+    assert module._fast_iso_display("2026-09-11") == "11.09.2026"
+    assert module._fast_iso_display("2026-9-11") is None
+    assert module._fast_iso_display("11.09.2026") is None
+    assert module._fast_iso_display(None) is None
+
     M = SimpleNamespace(fmt_date=original_fmt)
     assert module._install_cached_date_format(M) is True
-    assert M.fmt_date("2026-09-11") == "fmt:2026-09-11"
-    assert M.fmt_date("2026-09-11") == "fmt:2026-09-11"
-    assert calls == ["2026-09-11"]
-    assert M.fmt_date.cache_info().hits >= 1
+    assert M.fmt_date("2026-09-11") == "11.09.2026"
+    assert M.fmt_date("2026-09-11") == "11.09.2026"
+    assert calls == []
+    assert M.fmt_date("legacy-date") == "fmt:legacy-date"
+    assert M.fmt_date("legacy-date") == "fmt:legacy-date"
+    assert calls == ["legacy-date"]
+    assert M.fmt_date.cache_info().hits >= 2
 
     # Sparse action attention must not touch ordinary rows or rewrite Deadline.
     app = FakeApp()
@@ -150,6 +159,7 @@ def main() -> None:
     source = path.read_text(encoding="utf-8")
     assert "tree.insert = insert" not in source
     assert "_task_attention_insert" not in source
+    assert '"fmt_date": "lru-4096-iso-fast-path"' in source
     assert '"task_attention": "status-tag-fonts-no-insert-proxy"' in source
 
     marker = '"price_lists_domain.platform.operational_refresh_804"'
