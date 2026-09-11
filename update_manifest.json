@@ -1,7 +1,7 @@
 {
-  "version": "0.1.5",
+  "version": "0.1.6",
   "url": "https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/archive/refs/heads/mesicni-prehledy-stable.zip",
   "sha256": "",
-  "notes": "Řazení všech tabulek klikem na záhlaví; opakovaný klik přepíná vzestupně/sestupně; aktivní řazení je označeno šipkou a po přepnutí hlavní záložky se výchozí pořadí automaticky obnoví.",
+  "notes": "Lepší čitelnost horní lišty: tmavé kontrastní výběry období a rozsahu, samostatné popisky, větší písmo a přehlednější karta porovnání.",
   "channel": "stable"
 }
