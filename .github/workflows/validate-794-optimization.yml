@@ -9,6 +9,7 @@ on:
       - ZakazkyApp_base_6.1/crm_runtime.py
       - ZakazkyApp_base_6.1/v608_stability.py
       - ZakazkyApp_base_6.1/v623_exports.py
+      - ZakazkyApp_base_6.1/v632_offerlinks.py
       - ZakazkyApp_base_6.1/v637_project_offer_model.py
       - ZakazkyApp_base_6.1/v638_table_updatefix.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py
@@ -34,6 +35,7 @@ on:
       - ZakazkyApp_base_6.1/crm_runtime.py
       - ZakazkyApp_base_6.1/v608_stability.py
       - ZakazkyApp_base_6.1/v623_exports.py
+      - ZakazkyApp_base_6.1/v632_offerlinks.py
       - ZakazkyApp_base_6.1/v637_project_offer_model.py
       - ZakazkyApp_base_6.1/v638_table_updatefix.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py
