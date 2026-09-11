@@ -14,6 +14,10 @@ try:
     if patch_file.exists():
         from patch_v015 import apply_patch
         apply_patch(ROOT)
+    patch_file = ROOT / 'patch_v016.py'
+    if patch_file.exists():
+        from patch_v016 import apply_patch
+        apply_patch(ROOT)
     if sys.platform == 'win32':
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
