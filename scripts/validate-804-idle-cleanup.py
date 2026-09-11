@@ -61,11 +61,13 @@ def main() -> None:
     cleanup_path = root / "price_lists_domain" / "platform" / "idle_cleanup_804.py"
     bootstrap_path = root / "runtime_bootstrap.py"
     v608_path = root / "v608_stability.py"
+    v623_path = root / "v623_exports.py"
 
     cleanup = load_module(cleanup_path)
     cleanup_source = cleanup_path.read_text(encoding="utf-8")
     bootstrap_source = bootstrap_path.read_text(encoding="utf-8")
     v608_source = v608_path.read_text(encoding="utf-8")
+    v623_source = v623_path.read_text(encoding="utf-8")
 
     # v608 must no longer recursively repaint every Treeview. Its quick-action
     # style owner remains, but the historical LIGHT/DARK status palette is gone.
@@ -74,6 +76,17 @@ def main() -> None:
     assert "LIGHT={'status_active'" not in v608_source
     assert "DARK={'status_active'" not in v608_source
     assert "_quick_styles" in v608_source
+
+    # The monitor-under-cursor policy must not flush the complete pending Tk
+    # idle queue during its delayed startup callback. Native SetWindowPos keeps
+    # the original multi-monitor behavior without that expensive re-entrancy.
+    maximize_start = v623_source.index("    def maximize_current_monitor(app):")
+    maximize_end = v623_source.index("    # ------------------------------------------------------------------\n    # 4) Excel export helpers.", maximize_start)
+    maximize_source = v623_source[maximize_start:maximize_end]
+    assert "app.update_idletasks()" not in maximize_source
+    assert "SetWindowPos" in maximize_source
+    assert "MonitorFromPoint" in maximize_source
+    assert "app.state('zoomed')" in maximize_source
 
     # The new policy itself must be event-driven. It may walk once at startup,
     # but it must not create its own recurring after() chain.
