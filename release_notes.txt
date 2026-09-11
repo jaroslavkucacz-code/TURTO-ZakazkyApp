@@ -1,9 +1,0 @@
-TURTO CRM 7.9.4
-
-- Zrychlené a sjednocené kontextové ovládání v Akcích, Příležitostech, Poptávkách, MIVO a Úkolech; archivace, obnova a jednořádkové akce respektují skutečný výběr.
-- Výběrové změny se slučují přes after_idle, odkazy na toolbar tlačítka a indexy statických menu se cachují místo opakovaného procházení celého UI.
-- Odstraněny redundantní pozdní rebuildy workspace z historických vrstev 7.5 a 7.6 při zachování prvních bezpečnostních fallbacků.
-- Startup PLEXUS/Nevoga backfill se omezuje na nabídky, kterým skutečně chybí uložený obrázek; starší databázové schéma automaticky používá původní kompatibilní postup.
-- Sjednocen aktivní post_baseline mezi zdrojovým a baleným runtime, takže CI ověřuje stejnou logiku, která jde do aktualizačního ZIPu.
-- Release pipeline nově hlídá zvýšení čísla verze, povinně spouští regresní kontroly 7.9.3/7.9.4 a sleduje celý platformní runtime.
-- Nové optimalizační CI je sloučeno do jedné validační sady bez snížení kontroly před vydáním.

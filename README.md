@@ -1,1 +1,0 @@
-TURTO ZakázkyApp – aktualizace
