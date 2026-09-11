@@ -8,8 +8,10 @@ obsolete helpers without changing the historical wrapper chain.
 The resulting behavior is deliberately conservative:
 - Calibri compatibility is applied once after the UI is built instead of walking
   every widget every 1.2 seconds forever.
-- Toplevel icon/group identity is applied on Map events and once to any windows
-  that already exist, instead of traversing the entire widget tree every second.
+- Toplevel icon/group identity is applied when each child window is created/map-
+  ped, instead of traversing the entire widget tree every second.
+- Dialog focus protection uses weak references to actual Toplevels instead of a
+  recursive full-widget scan on every main-window Map/FocusIn event.
 - The old crm_runtime Treeview palette repaint becomes a no-op because the final
   v628_modernui_resize theme wrapper owns the exact 8.x status palette.
 """
@@ -17,11 +19,13 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+import weakref
 
 POLICY_OWNER = "price_lists_domain.platform.idle_cleanup_804"
 
 
 def _walk_existing_toplevels(root: Any, Toplevel: Any):
+    """One-time compatibility scan for windows created before this late policy."""
     try:
         children = tuple(root.winfo_children())
     except Exception:
@@ -57,6 +61,69 @@ def _apply_text_fonts_once(M: Any, app: Any) -> int:
     except Exception:
         pass
     return changed
+
+
+def _registry(app: Any) -> list[weakref.ReferenceType]:
+    refs = getattr(app, "_turto_toplevel_registry_804", None)
+    if not isinstance(refs, list):
+        refs = []
+        try:
+            app._turto_toplevel_registry_804 = refs
+        except Exception:
+            pass
+    return refs
+
+
+def _register_toplevel(app: Any, win: Any) -> int:
+    """Keep creation/map order without retaining destroyed dialogs strongly."""
+    refs = _registry(app)
+    live: list[weakref.ReferenceType] = []
+    for item in refs:
+        try:
+            current = item()
+        except Exception:
+            current = None
+        if current is None or current is win:
+            continue
+        try:
+            if current.winfo_exists():
+                live.append(item)
+        except Exception:
+            continue
+    try:
+        live.append(weakref.ref(win))
+    except Exception:
+        pass
+    try:
+        app._turto_toplevel_registry_804 = live
+    except Exception:
+        pass
+    return len(live)
+
+
+def _live_toplevels(app: Any) -> list[Any]:
+    """Return live dialogs in most-recently-created/mapped order and prune refs."""
+    live_refs: list[weakref.ReferenceType] = []
+    windows: list[Any] = []
+    for item in _registry(app):
+        try:
+            win = item()
+        except Exception:
+            win = None
+        if win is None:
+            continue
+        try:
+            if not win.winfo_exists():
+                continue
+        except Exception:
+            continue
+        live_refs.append(item)
+        windows.append(win)
+    try:
+        app._turto_toplevel_registry_804 = live_refs
+    except Exception:
+        pass
+    return windows
 
 
 def _configure_child_identity(M: Any, app: Any, win: Any) -> None:
@@ -98,8 +165,50 @@ def _configure_child_identity(M: Any, app: Any, win: Any) -> None:
         pass
 
 
+def _install_toplevel_runtime_policy(M: Any) -> bool:
+    """Register/skin each future Toplevel directly, without a global Map hook."""
+    try:
+        Toplevel = M.tk.Toplevel
+    except Exception:
+        return False
+    if getattr(Toplevel, "_turto_toplevel_registry_804", False):
+        return True
+
+    previous_init = Toplevel.__init__
+
+    def init(self: Any, *args: Any, **kwargs: Any):
+        result = previous_init(self, *args, **kwargs)
+        try:
+            app = self._root()
+            _register_toplevel(app, self)
+            _configure_child_identity(M, app, self)
+            win_ref = weakref.ref(self)
+            app_ref = weakref.ref(app)
+
+            def mapped(event: Any = None) -> None:
+                win = win_ref()
+                owner = app_ref()
+                if win is None or owner is None:
+                    return
+                if event is not None and getattr(event, "widget", win) is not win:
+                    return
+                _register_toplevel(owner, win)
+                _configure_child_identity(M, owner, win)
+
+            self.bind("<Map>", mapped, add="+")
+        except Exception:
+            pass
+        return result
+
+    Toplevel.__init__ = init
+    Toplevel._turto_toplevel_registry_804 = True
+    Toplevel._turto_toplevel_registry_previous_init = previous_init
+    return True
+
+
 def _install_event_driven_child_identity(M: Any, app: Any) -> None:
-    """Replace crm_runtime's 1 s recursive window sweep with Map handling."""
+    """Cover pre-existing children once; future Toplevels are handled at creation."""
+    _install_toplevel_runtime_policy(M)
     if getattr(app, "_turto_child_identity_map_804", False):
         return
     try:
@@ -107,25 +216,56 @@ def _install_event_driven_child_identity(M: Any, app: Any) -> None:
     except Exception:
         return
 
-    # Cover a morning/startup dialog that may have been created before the
-    # crm_runtime post-init hook gets here.
     for win in _walk_existing_toplevels(app, Toplevel):
+        _register_toplevel(app, win)
         _configure_child_identity(M, app, win)
-
-    def mapped(event: Any = None) -> None:
-        win = getattr(event, "widget", None)
-        try:
-            if isinstance(win, Toplevel):
-                _configure_child_identity(M, app, win)
-        except Exception:
-            pass
-
     try:
-        app.bind_all("<Map>", mapped, add="+")
         app._turto_child_identity_map_804 = True
-        app._turto_child_identity_map_handler_804 = mapped
     except Exception:
         pass
+
+
+def _raise_registered_dialog(app: Any, event: Any = None) -> None:
+    """Match the legacy z-order safeguard without recursively walking the UI."""
+    try:
+        grabbed = app.grab_current()
+        if grabbed is not None and grabbed.winfo_exists():
+            grabbed.lift()
+            grabbed.focus_force()
+            return
+    except Exception:
+        pass
+
+    for win in reversed(_live_toplevels(app)):
+        try:
+            if str(win.state() or "") == "withdrawn":
+                continue
+            win.lift()
+            win.focus_force()
+            return
+        except Exception:
+            continue
+
+
+def _install_dialog_registry_focus(M: Any, crm_runtime: Any) -> bool:
+    """Keep 8.0.3 event coalescing, replacing only its expensive tree scan."""
+    _install_toplevel_runtime_policy(M)
+    try:
+        from price_lists_domain.platform import runtime_optimization_803
+
+        coalesced = runtime_optimization_803._make_dialog_chain_coalescer(
+            _raise_registered_dialog
+        )
+        coalesced._turto_804_dialog_registry = True
+        crm_runtime._raise_dialog_chain = coalesced
+        return True
+    except Exception:
+        try:
+            _raise_registered_dialog._turto_804_dialog_registry = True
+            crm_runtime._raise_dialog_chain = _raise_registered_dialog
+            return True
+        except Exception:
+            return False
 
 
 def apply(M: Any) -> None:
@@ -161,11 +301,13 @@ def apply(M: Any) -> None:
     crm_runtime._force_calibri = force_calibri_once
     crm_runtime._window_identity_sweep = event_driven_window_identity
     crm_runtime._apply_tree_palette = final_palette_owned_elsewhere
+    dialog_registry = _install_dialog_registry_focus(M, crm_runtime)
 
     M.IDLE_CLEANUP_804 = {
         "owner": POLICY_OWNER,
         "calibri_sweep": "startup-once",
-        "child_window_identity": "map-event-driven",
+        "child_window_identity": "per-toplevel-map-event",
+        "dialog_focus": "weak-toplevel-registry-coalesced" if dialog_registry else "fallback",
         "legacy_tree_palette": "retired-v628-owner",
         "recurring_widget_tree_polling": False,
         "database_rows_rewritten": False,
@@ -176,6 +318,11 @@ __all__ = [
     "apply",
     "POLICY_OWNER",
     "_apply_text_fonts_once",
+    "_register_toplevel",
+    "_live_toplevels",
     "_configure_child_identity",
+    "_install_toplevel_runtime_policy",
     "_install_event_driven_child_identity",
+    "_raise_registered_dialog",
+    "_install_dialog_registry_focus",
 ]
