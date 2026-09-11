@@ -1,11 +1,11 @@
 {
   "format": "turto-crm-windows-update-v1",
   "channel": "windows",
-  "version": "8.0.4",
-  "package": "TURTO_CRM_Update_8.0.4.zip",
-  "sha256": "833eb99583fb9ea94ebbe3485d2567bd1e8eed0026e4a5a0e4a554be02822193",
-  "download_url": "https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/releases/download/v8.0.4/TURTO_CRM_Update_8.0.4.zip",
-  "installer": "TURTO_CRM_Setup_8.0.4.exe",
-  "installer_sha256": "4114e026f7cacb50cf1b209689294084a6581336d4d1b3935c3df136e4a56f4f",
-  "installer_url": "https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/releases/download/v8.0.4/TURTO_CRM_Setup_8.0.4.exe"
+  "version": "8.0.5",
+  "package": "TURTO_CRM_Update_8.0.5.zip",
+  "sha256": "0885941e97b37a18365d216a75b2c114de380d509e0a3bd3998384857ee55190",
+  "download_url": "https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/releases/download/v8.0.5/TURTO_CRM_Update_8.0.5.zip",
+  "installer": "TURTO_CRM_Setup_8.0.5.exe",
+  "installer_sha256": "402136ee59111750c4b2f513c18102f4c76504e8ece4314b13a05e7e6fcef953",
+  "installer_url": "https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/releases/download/v8.0.5/TURTO_CRM_Setup_8.0.5.exe"
 }
