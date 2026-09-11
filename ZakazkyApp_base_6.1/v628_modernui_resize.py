@@ -295,6 +295,13 @@ def apply(M):
                     tree.tag_configure(tag, background=bg, foreground=fg)
                 except Exception:
                     pass
+            # v605 historically made late rows bold. The final v628 palette is
+            # now the single owner of both status_late colors and its font, so
+            # no extra theme wrapper/callback is needed in the legacy layer.
+            try:
+                tree.tag_configure('status_late', font=('Calibri',10,'bold'))
+            except Exception:
+                pass
             try:
                 style_name = str(tree.cget('style') or 'Treeview')
                 style = M.ttk.Style(tree)
