@@ -176,6 +176,13 @@ def assert_tree_palette(window, theme: str) -> dict[str, dict]:
                 )
             tag_results[tag] = {"background": actual_bg, "foreground": actual_fg}
 
+        late_font = tag_option(tree, "status_late", "font")
+        if "calibri" not in late_font.casefold() or "bold" not in late_font.casefold():
+            raise AssertionError(
+                f"{name}/status_late lost Calibri bold formatting: {late_font!r}"
+            )
+        tag_results["status_late"]["font"] = late_font
+
         results[name] = {
             "style": style_name,
             "rowheight": height,
