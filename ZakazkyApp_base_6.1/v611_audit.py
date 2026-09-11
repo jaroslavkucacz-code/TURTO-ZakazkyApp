@@ -25,7 +25,9 @@ def apply(M):
     def refresh(self,*a,**k):
         before=getattr(self,'_v611_action_snapshot',{});r=old_refresh(self,*a,**k)
         try:
-            with M.db() as c:now={x['id']:dict(x) for x in c.execute("SELECT * FROM actions")}
+            with M.db() as c:
+                now={x['id']:dict(x) for x in c.execute("""SELECT id,status,name,company_id,salesperson_id,deadline,products,note
+                                                           FROM actions""")}
             if before:
                 labels={'status':'Stav','name':'Název','company_id':'Společnost','salesperson_id':'Obchodník','deadline':'Deadline','products':'Co se řeší','note':'Poznámka'}
                 for aid,nv in now.items():
