@@ -132,30 +132,25 @@ def main() -> None:
     assert tree.order == ["a2", "a3", "a1"]
     assert tree._active_sort is None and tree._sort_state == {}
 
-    # Inline task attention preserves the existing status tag and adds exactly
-    # the same v770 attention tag for Po termínu / Dnes / Brzy only.
+    # Task attention now reuses the existing v760 status tags. The three states
+    # that v770 rendered bold get the same font once on the task Treeview; normal,
+    # done and archived rows remain unchanged and no per-row insert proxy exists.
     target = FakeTree()
-    original_insert = target.insert
-    module._task_attention_insert(
-        original_insert, "", "end", "t1",
-        values=("Po termínu", "Jaroslav", "10.09.2026"), tags=("status_late",),
-    )
-    module._task_attention_insert(
-        original_insert, "", "end", "t2",
-        values=("Brzy", "Jaroslav", "13.09.2026"), tags=("status_wait",),
-    )
-    module._task_attention_insert(
-        original_insert, "", "end", "t3",
-        values=("Čeká", "Jaroslav", "20.09.2026"), tags=("status_active",),
-    )
-    module._task_attention_insert(
-        original_insert, "", "end", "t4",
-        values=("Hotovo", "Jaroslav", "10.09.2026"), tags=("status_done",),
-    )
-    assert target.rows["t1"]["tags"] == ("status_late", module.ATTENTION_TAG)
-    assert target.rows["t2"]["tags"] == ("status_wait", module.ATTENTION_TAG)
-    assert target.rows["t3"]["tags"] == ("status_active",)
-    assert target.rows["t4"]["tags"] == ("status_done",)
+    target.insert("", "end", iid="t1", values=("Po termínu",), tags=("status_late",))
+    target.insert("", "end", iid="t2", values=("Brzy",), tags=("status_wait",))
+    target.insert("", "end", iid="t3", values=("Čeká",), tags=("status_active",))
+    target.insert("", "end", iid="t4", values=("Hotovo",), tags=("status_done",))
+    before_rows = {iid: dict(row) for iid, row in target.rows.items()}
+    assert module._configure_task_attention_tags(target) is True
+    assert target._turto_804_task_attention_status_tags is True
+    for tag in module.ATTENTION_TASK_TAGS:
+        assert target.configured_tags[tag]["font"] == ("Calibri", 10, "bold")
+    assert set(target.configured_tags) == set(module.ATTENTION_TASK_TAGS)
+    assert target.rows == before_rows
+    source = path.read_text(encoding="utf-8")
+    assert "tree.insert = insert" not in source
+    assert "_task_attention_insert" not in source
+    assert '"task_attention": "status-tag-fonts-no-insert-proxy"' in source
 
     marker = '"price_lists_domain.platform.operational_refresh_804"'
     autocomplete = '"price_lists_domain.platform.autocomplete_event_compat_803"'
