@@ -70,6 +70,7 @@ LATE_LAYERS = (
     "price_lists_domain.platform.icon_assets_803",
     "price_lists_domain.platform.idle_cleanup_804",
     "price_lists_domain.platform.autocomplete_event_compat_803",
+    "price_lists_domain.platform.operational_refresh_804",
 )
 
 
