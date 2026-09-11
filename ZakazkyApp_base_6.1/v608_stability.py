@@ -3,28 +3,20 @@
 import datetime, sqlite3
 
 def apply(M):
-    LIGHT={'status_active':('#b6d8f0','#0b3554'),'status_offer':('#9fddd5','#064d47'),'status_done':('#b0ddb9','#124c22'),'status_won':('#9fd8af','#10461f'),'status_wait':('#ffe08a','#5c4200'),'status_soon':('#ffbc78','#713400'),'status_late':('#f5a2a2','#7b1111'),'status_cancel':('#d6dbe0','#3e474f')}
-    DARK={'status_active':('#326484','#f5fbff'),'status_offer':('#197b72','#f0fffd'),'status_done':('#3b794b','#f1fff4'),'status_won':('#2f7a47','#effff4'),'status_wait':('#856719','#fff4c0'),'status_soon':('#96511c','#fff0df'),'status_late':('#943b3b','#fff1f1'),'status_cancel':('#555f68','#f5f7f8')}
-    aliases={'late':'status_late','soon':'status_soon','waiting':'status_wait','done':'status_done','won':'status_won','lost':'status_cancel','info':'status_active','req_fresh':'status_active','req_mid':'status_active','req_old':'status_active','req_received':'status_done'}
+    # The final Treeview status palette is owned by v628_modernui_resize. Keep
+    # v608 responsible only for its historical quick-action button styles. This
+    # avoids a recursive full-window walk on every theme change and after start.
     def _quick_styles(app):
         try:
             s=M.ttk.Style(app);dark='tmav' in (app.theme.get() if hasattr(app,'theme') else '').lower();colors={'QuickBlue.TButton':('#2f80c9','#fff') if not dark else ('#356f9e','#fff'),'QuickOrange.TButton':('#d99020','#fff') if not dark else ('#9b671b','#fff'),'QuickGreen.TButton':('#3f9a61','#fff') if not dark else ('#3d7c50','#fff'),'QuickPurple.TButton':('#8b68b8','#fff') if not dark else ('#6d528f','#fff'),'QuickGray.TButton':('#667684','#fff') if not dark else ('#56636d','#fff')}
             for name,(bg,fg) in colors.items():s.configure(name,background=bg,foreground=fg,font=('Calibri',11,'bold'),padding=(12,10),relief='flat',borderwidth=0);s.map(name,background=[('active',bg),('pressed',bg)],foreground=[('!disabled',fg)])
         except:pass
-    def recolor(app):
-        try:
-            import tkinter.ttk as ttk;pal=DARK if 'tmav' in (app.theme.get() if hasattr(app,'theme') else '').lower() else LIGHT
-            def walk(w):
-                try:
-                    if isinstance(w,ttk.Treeview):
-                        for tag,(bg,fg) in pal.items():w.tag_configure(tag,background=bg,foreground=fg)
-                        for a,b in aliases.items():w.tag_configure(a,background=pal[b][0],foreground=pal[b][1])
-                    for c in w.winfo_children():walk(c)
-                except:pass
-            walk(app);_quick_styles(app)
-        except:pass
     old_theme=M.App.apply_theme
-    def theme(self,*a,**k):r=old_theme(self,*a,**k);self.after_idle(lambda:recolor(self));return r
+    def theme(self,*a,**k):
+        r=old_theme(self,*a,**k)
+        try:self.after_idle(lambda:_quick_styles(self))
+        except Exception:_quick_styles(self)
+        return r
     M.App.apply_theme=theme
 
     # Large dialogs, always within screen.
@@ -125,7 +117,7 @@ def apply(M):
     old_init=M.App.__init__
     def init(self,*a,**k):
         r=old_init(self,*a,**k)
-        try:self.after(120,lambda:self.state('zoomed'));self.after(250,lambda:recolor(self))
+        try:self.after(120,lambda:self.state('zoomed'));self.after(250,lambda:_quick_styles(self))
         except:pass
         return r
     M.App.__init__=init
