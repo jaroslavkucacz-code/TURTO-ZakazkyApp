@@ -161,6 +161,15 @@ def main() -> None:
             sys.modules["v644_default_date_sort"] = previous_v644
     assert set(fake_v644.PAGE_SORTS) == {"actions", "projects"}
 
+    # v637 must no longer calculate/write real-Akce offer counts after an
+    # ordinary Příležitosti refresh. Those counts remain owned by
+    # refresh_projects/refresh_all and the one startup compatibility pass.
+    v637_source = (base / "v637_project_offer_model.py").read_text(encoding="utf-8")
+    assert "wrapped._turto_v637_project_offer_scope" in v637_source
+    assert "setattr(M.App,name,make(old,name!='refresh_actions'))" in v637_source
+    assert "if include_project_counts:" in v637_source
+    assert "setattr(M.App,name,make(old))" not in v637_source
+
     # Task attention now reuses the existing v760 status tags. The three states
     # that v770 rendered bold get the same font once on the task Treeview; normal,
     # done and archived rows remain unchanged and no per-row insert proxy exists.
