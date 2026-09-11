@@ -8,10 +8,6 @@ LATE_FONT_TREES=(
     'price_current_tree','price_list_evidence_tree','issued_offer_tree',
 )
 
-def _ensure():
-    with M.db() as c:
-        c.execute('CREATE TABLE IF NOT EXISTS recipient_usage(company_id INTEGER,person_id INTEGER,use_count INTEGER DEFAULT 0,last_used TEXT,PRIMARY KEY(company_id,person_id))')
-
 # v611_audit is the single action snapshot owner. It includes `status` and
 # preserves the historical entity/action/field/undo contract for status changes
 # (Příležitost / Změna stavu / Stav). The former v605 SELECT id,status snapshot
@@ -20,6 +16,10 @@ def _ensure():
 # v628/lazy_refresh are the later navigation owners and already reset temporary
 # Treeview sorting when a page changes, so the historical v605 show_page wrapper
 # is intentionally retired as well.
+#
+# recipient_usage is owned/created by the later v608_stability layer before App
+# is instantiated. Keeping the same CREATE TABLE here opened an extra database
+# connection during every startup without changing the final schema.
 
 # v608_stability is the later owner of MIVO row state and the >10-day warning.
 # The old v605 pass parsed the first number from the displayed date and recolored
@@ -49,4 +49,4 @@ def _patch_late_font():
 
 
 def apply(module):
-    global M;M=module;_ensure();_patch_late_font()
+    global M;M=module;_patch_late_font()
