@@ -1,5 +1,5 @@
 # TURTO CRM v6.0.5 incremental features
-import datetime, json, os, re, socket
+import datetime, json, os, socket
 M=None
 
 def _audit(entity,eid,action,field='',old='',new='',undo_sql=''):
@@ -41,19 +41,10 @@ def _patch_sort_reset():
         return r
     M.App.show_page=show
 
-def _patch_mivo():
-    old=M.App.refresh_mivo_requests
-    def refresh(self,*a,**k):
-        r=old(self,*a,**k)
-        try:
-            for iid in self.mivo_tree.get_children():
-                vals=self.mivo_tree.item(iid,'values');txt=str(vals[2] if len(vals)>2 else '')
-                m=re.search(r'(\d+)',txt);days=int(m.group(1)) if m else 0
-                tag='status_late' if days>=22 else ('status_soon' if days>=15 else ('status_wait' if days>=8 else 'status_active'))
-                self.mivo_tree.item(iid,tags=(tag,))
-        except Exception:pass
-        return r
-    M.App.refresh_mivo_requests=refresh
+# v608_stability is the later owner of MIVO row state and the >10-day warning.
+# The old v605 pass parsed the first number from the displayed date and recolored
+# every MIVO row, only for v608 to overwrite those tags immediately afterwards.
+# It is intentionally retired rather than kept as a duplicate full-table scan.
 
 def _patch_palette():
     old=M.App.apply_theme
@@ -68,11 +59,11 @@ def _patch_palette():
             except Exception:pass
         walk(app)
     def theme(self,*a,**k):r=old(self,*a,**k);self.after_idle(lambda:recolor(self));return r
-    M.App.apply_theme=theme
+    M.App.apply_theme=apply
 
 def _patch_admin_history():
     old=M.open_admin if hasattr(M,'open_admin') else None
     # runtime open_admin already displays audit rows; add Undo button by wrapping after window construction is handled in next audit expansion.
 
 def apply(module):
-    global M;M=module;_ensure();_patch_status_audit();_patch_sort_reset();_patch_mivo();_patch_palette()
+    global M;M=module;_ensure();_patch_status_audit();_patch_sort_reset();_patch_palette()
