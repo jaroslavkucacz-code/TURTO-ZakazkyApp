@@ -12,10 +12,16 @@ if str(ROOT) not in sys.path:
 APP_USER_MODEL_ID = 'cz.turto.mesicni-prehledy'
 
 try:
-    # Online balíček v0.1.8 je samostatný: vždy nejprve aplikuje aktuální patch.
+    # Online balíček v0.1.8 nasadí ikonu a Windows integraci.
     patch_file = ROOT / 'patch_v018.py'
     if patch_file.exists():
         from patch_v018 import apply_patch
+        apply_patch(ROOT)
+
+    # v0.1.9 přidává přepracované BusinessChart grafy a potvrzení aktuální verze.
+    patch_file = ROOT / 'patch_v019.py'
+    if patch_file.exists():
+        from patch_v019 import apply_patch
         apply_patch(ROOT)
 
     if sys.platform == 'win32':
