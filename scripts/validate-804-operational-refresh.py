@@ -2,9 +2,10 @@
 """Pure regression checks for TURTO CRM 8.0.4 operational refresh optimization."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 import importlib.util
 from pathlib import Path
+import sqlite3
 from types import SimpleNamespace
 import sys
 
@@ -37,6 +38,11 @@ class FakeTree:
         self.order.append(iid)
         return iid
 
+    def delete(self, iid):
+        self.rows.pop(iid, None)
+        if iid in self.order:
+            self.order.remove(iid)
+
     def item(self, iid, option=None, **kw):
         if iid not in self.rows:
             raise KeyError(iid)
@@ -66,6 +72,14 @@ class FakeTree:
     def move(self, iid, parent, position):
         self.order.remove(iid)
         self.order.insert(position, iid)
+
+
+class FakeVar:
+    def __init__(self, value):
+        self.value = value
+
+    def get(self):
+        return self.value
 
 
 class FakeApp:
@@ -207,9 +221,9 @@ def main() -> None:
     assert "for name in ('refresh_actions','refresh_requests','refresh_all'):" not in v632_source
     assert "Keep only the Request-side count here" in v632_source
 
-    # Task attention now reuses the existing v760 status tags. The three states
-    # that v770 rendered bold get the same font once on the task Treeview; normal,
-    # done and archived rows remain unchanged and no per-row insert proxy exists.
+    # Task attention reuses the existing v760 status tags, while the late 8.0.4
+    # fast row path preserves v760's SQL, filters, states and displayed values
+    # without tens of thousands of generic _text/_row_value calls.
     target = FakeTree()
     target.insert("", "end", iid="t1", values=("Po termínu",), tags=("status_late",))
     target.insert("", "end", iid="t2", values=("Brzy",), tags=("status_wait",))
@@ -222,12 +236,78 @@ def main() -> None:
         assert target.configured_tags[tag]["font"] == ("Calibri", 10, "bold")
     assert set(target.configured_tags) == set(module.ATTENTION_TASK_TAGS)
     assert target.rows == before_rows
+
+    task_db = sqlite3.connect(":memory:")
+    task_db.row_factory = sqlite3.Row
+    task_db.execute("CREATE TABLE actions(id INTEGER PRIMARY KEY,name TEXT)")
+    task_db.execute(
+        """CREATE TABLE tasks(
+               id INTEGER PRIMARY KEY,action_id INTEGER,due_date TEXT,text TEXT,note TEXT,
+               assigned_user TEXT,done INTEGER,archived INTEGER,created_by TEXT,done_by TEXT
+           )"""
+    )
+    task_db.execute("INSERT INTO actions VALUES(1,'Akce Žluťoučká')")
+    today_real = date.today()
+    task_rows = (
+        (1, (today_real-timedelta(days=1)).isoformat(), 'Kontrola', 'Žlutý detail', 'Jaroslav', 0, 0, 'A', ''),
+        (2, today_real.isoformat(), 'Dnes', '', 'Denisa', 0, 0, 'A', ''),
+        (3, (today_real+timedelta(days=2)).isoformat(), 'Brzy', '', 'Jaroslav', 0, 0, 'A', ''),
+        (4, (today_real+timedelta(days=10)).isoformat(), 'Později', '', 'Jaroslav', 0, 0, 'A', ''),
+        (5, (today_real-timedelta(days=5)).isoformat(), 'Hotový', '', 'Jaroslav', 1, 0, 'A', 'B'),
+        (6, (today_real+timedelta(days=1)).isoformat(), 'Archiv', '', 'Jaroslav', 0, 1, 'A', ''),
+        (7, '20260911', 'Neplatný termín', '', 'Jaroslav', 0, 0, 'A', ''),
+    )
+    task_db.executemany(
+        "INSERT INTO tasks VALUES(?,1,?,?,?,?,?,?,?,?)",
+        task_rows,
+    )
+    task_db.commit()
+
+    task_app = SimpleNamespace(
+        task_tree=FakeTree(),
+        task_q=FakeVar(""),
+        task_show_done=FakeVar(True),
+        task_show_archived=FakeVar(True),
+        task_user_filter=FakeVar("Všichni"),
+        reapply_tree_sort=lambda tree: None,
+    )
+    separators = []
+    task_M = SimpleNamespace(
+        db=lambda: task_db,
+        fmt_date=lambda value: f"fmt:{value}",
+    )
+    module._refresh_tasks_fast(task_M, task_app, lambda tree, column: separators.append((tree, column)))
+    expected = {
+        "t1": ("Po termínu", "status_late"),
+        "t2": ("Dnes", "status_soon"),
+        "t3": ("Brzy", "status_wait"),
+        "t4": ("Čeká", "status_active"),
+        "t5": ("Hotovo", "status_done"),
+        "t6": ("Archivováno", "status_cancel"),
+        "t7": ("Čeká", "status_active"),
+    }
+    for iid, (state, tag) in expected.items():
+        assert task_app.task_tree.rows[iid]["values"][0] == state
+        assert task_app.task_tree.rows[iid]["tags"] == (tag,)
+    assert task_app.task_tree.rows["t1"]["values"][1:] == (
+        "Jaroslav", f"fmt:{task_rows[0][1]}", "Akce Žluťoučká", "Kontrola", "A", ""
+    )
+    assert separators == [(task_app.task_tree, 0)]
+    assert module._task_due_difference("20260911", today_real, {}) == 999999
+
+    # Preserve Python casefold substring semantics used by v760 filters.
+    task_app.task_q.value = "žlutý"
+    task_app.task_user_filter.value = "jar"
+    module._refresh_tasks_fast(task_M, task_app)
+    assert tuple(task_app.task_tree.rows) == ("t1",)
+
     source = path.read_text(encoding="utf-8")
     assert "tree.insert = insert" not in source
     assert "_task_attention_insert" not in source
+    assert "def _refresh_tasks_fast" in source
     assert '"fmt_date": "lru-4096-iso-fast-path"' in source
     assert '"request_mivo_default_order": "trust-sql-lazy-manual-reset"' in source
-    assert '"task_attention": "status-tag-fonts-no-insert-proxy"' in source
+    assert '"task_attention": "status-tag-fonts-fast-row-path"' in source
 
     marker = '"price_lists_domain.platform.operational_refresh_804"'
     autocomplete = '"price_lists_domain.platform.autocomplete_event_compat_803"'
