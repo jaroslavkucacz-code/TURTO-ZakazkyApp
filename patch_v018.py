@@ -5,7 +5,6 @@ import io
 import zipfile
 from pathlib import Path
 
-CHUNKS = 10
 
 def apply_patch(root):
     root=Path(root)
@@ -17,7 +16,13 @@ def apply_patch(root):
             return
     except Exception:
         pass
-    encoded=''.join((root/f'patch_v018_data_s{i}.txt').read_text(encoding='ascii').strip() for i in range(1,CHUNKS+1))
-    payload=base64.b64decode(encoded)
+
+    parts=[]
+    for i in range(1,9):
+        parts.append((root/f'patch_v018_data_s{i}.txt').read_text(encoding='ascii').strip())
+    parts.append((root/'patch_v018_data_s9_1.txt').read_text(encoding='ascii').strip())
+    parts.append((root/'patch_v018_data_s9_2.txt').read_text(encoding='ascii').strip())
+    parts.append((root/'patch_v018_data_s10.txt').read_text(encoding='ascii').strip())
+    payload=base64.b64decode(''.join(parts))
     with zipfile.ZipFile(io.BytesIO(payload)) as z:
         z.extractall(root)
