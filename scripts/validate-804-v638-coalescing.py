@@ -48,6 +48,9 @@ def main() -> None:
     assert "def _schedule_stabilize(" in source
     assert "_v638_stabilize_generation" in source
     assert "_v638_stabilize_sort_projects" in source
+    assert "count_cache={}" in source
+    assert "project_offer_counts" in source
+    assert "request_offer_counts" in source
     assert "after_cancel" in source
     assert "for ms in (50,420)" not in source
     assert "for ms in (900,2200,3800)" in source
@@ -55,8 +58,10 @@ def main() -> None:
 
     calls = []
 
-    def stabilize(app, sort_projects=False):
-        calls.append(bool(sort_projects))
+    def stabilize(app, sort_projects=False, count_cache=None):
+        assert isinstance(count_cache, dict)
+        query_token = count_cache.setdefault("query_token", object())
+        calls.append((bool(sort_projects), count_cache, query_token))
 
     app = FakeApp()
 
@@ -88,7 +93,8 @@ def main() -> None:
     late = app.tokens_for_delay(420)
     assert len(fast) == 1 and len(late) == 1
     app.run(fast[0])
-    assert calls == [True]
+    assert [item[0] for item in calls] == [True]
+    first_burst_cache = calls[0][1]
     assert app._v638_stabilize_fast_after is None
     assert app._v638_stabilize_late_after == late[0]
 
@@ -104,18 +110,27 @@ def main() -> None:
     late = app.tokens_for_delay(420)
     app.run(fast[0])
     app.run(late[0])
-    assert calls == [True, True, True]
+    assert [item[0] for item in calls] == [True, True, True]
+    # Both passes of the newest burst reuse one query cache, while the cancelled
+    # older burst cannot leak its cached counts into the newer refresh.
+    assert calls[1][1] is calls[2][1]
+    assert calls[1][2] is calls[2][2]
+    assert calls[1][1] is not first_burst_cache
     assert app._v638_stabilize_fast_after is None
     assert app._v638_stabilize_late_after is None
     assert app._v638_stabilize_sort_projects is False
 
-    # A new independent non-project burst is allowed to stay non-sorting.
+    # A new independent non-project burst is allowed to stay non-sorting and
+    # receives a fresh cache of its own.
     module._schedule_stabilize(app, stabilize, sort_projects=False)
     fast = app.tokens_for_delay(50)
     late = app.tokens_for_delay(420)
     app.run(fast[0])
     app.run(late[0])
-    assert calls[-2:] == [False, False]
+    assert [item[0] for item in calls[-2:]] == [False, False]
+    assert calls[-2][1] is calls[-1][1]
+    assert calls[-2][2] is calls[-1][2]
+    assert calls[-2][1] is not calls[1][1]
     assert app._v638_stabilize_sort_projects is False
 
     print("TURTO CRM 8.0.4 v638 refresh coalescing: OK")
