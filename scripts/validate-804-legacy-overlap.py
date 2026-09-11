@@ -14,10 +14,16 @@ def main() -> None:
     assert "def _patch_sort_reset" not in v605
     assert "status_offer" not in v605
     assert "def walk(" not in v605
+    assert "def _ensure" not in v605
+    assert "CREATE TABLE IF NOT EXISTS recipient_usage" not in v605
+    assert "recipient_usage is owned/created by the later v608_stability layer" in v605
     assert "LATE_FONT_TREES" in v605
     assert "def _patch_late_font" in v605
     assert "tree.tag_configure('status_late',font=('Calibri',10,'bold'))" in v605
     assert "_turto_v605_late_font_only" in v605
+
+    v608 = (base / "v608_stability.py").read_text(encoding="utf-8")
+    assert "CREATE TABLE IF NOT EXISTS recipient_usage" in v608
 
     v632 = (base / "v632_offerlinks.py").read_text(encoding="utf-8")
     assert "for name in ('refresh_requests','refresh_all'):" in v632
