@@ -45,7 +45,10 @@ def apply(M):
 
     # ------------------------------------------------------------------
     # 3) Main window: place on monitor under the mouse, then maximize there.
-    # Uses Windows WORK AREA so taskbar remains respected.
+    # Uses Windows WORK AREA so taskbar remains respected. Do not call
+    # update_idletasks() here: that used to force the entire pending Tk layout
+    # queue during the 80 ms startup callback and dominated settled-startup time.
+    # SetWindowPos moves the native window synchronously before zooming instead.
     # ------------------------------------------------------------------
     def maximize_current_monitor(app):
         if not sys.platform.startswith('win'):
@@ -60,8 +63,17 @@ def apply(M):
             pt=wintypes.POINT();ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
             mon=ctypes.windll.user32.MonitorFromPoint(pt,2);mi=MI();mi.cbSize=ctypes.sizeof(MI)
             if ctypes.windll.user32.GetMonitorInfoW(mon,ctypes.byref(mi)):
-                r=mi.rcWork;w=max(600,r.right-r.left);h=max(450,r.bottom-r.top)
-                app.state('normal');app.geometry(f'{w-40}x{h-40}+{r.left+20}+{r.top+20}');app.update_idletasks();app.state('zoomed')
+                r=mi.rcWork;w=max(600,r.right-r.left);h=max(450,r.bottom-r.top);x=r.left+20;y=r.top+20;ww=w-40;hh=h-40
+                app.state('normal');moved=False
+                try:
+                    hwnd=int(app.winfo_id());parent=int(ctypes.windll.user32.GetParent(hwnd) or 0);hwnd=parent or hwnd
+                    SWP_NOZORDER=0x0004;SWP_NOACTIVATE=0x0010
+                    moved=bool(ctypes.windll.user32.SetWindowPos(hwnd,0,int(x),int(y),int(ww),int(hh),SWP_NOZORDER|SWP_NOACTIVATE))
+                except Exception:pass
+                if not moved:app.geometry(f'{ww}x{hh}+{x}+{y}')
+                try:app._turto_monitor_position_method='SetWindowPos' if moved else 'geometry'
+                except Exception:pass
+                app.state('zoomed')
         except Exception:
             try:app.state('zoomed')
             except Exception:pass
