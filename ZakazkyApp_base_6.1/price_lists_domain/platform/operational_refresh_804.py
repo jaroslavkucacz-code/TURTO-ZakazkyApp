@@ -71,33 +71,6 @@ def _iso_date(value: str) -> date:
     return date.fromisoformat(value)
 
 
-def _install_fast_request_urgency() -> bool:
-    """Reuse the shared ISO-date cache for the inline Poptávky urgency rule."""
-    try:
-        from price_lists_domain.platform import worksets
-    except Exception:
-        return False
-    current = getattr(worksets, "_request_is_urgent", None)
-    if not callable(current) or getattr(current, "_turto_804_cached_iso", False):
-        return bool(callable(current))
-
-    def request_is_urgent(row: Any, today: date) -> bool:
-        try:
-            if row["received_date"] or int(row["archived"] or 0) or int(row["no_response"] or 0):
-                return False
-            raw = str(row["asked_date"] or "").strip()
-            if not raw:
-                return False
-            return (today - _iso_date(raw)).days > 3
-        except Exception:
-            return False
-
-    request_is_urgent._turto_804_cached_iso = True
-    request_is_urgent._turto_original = current
-    worksets._request_is_urgent = request_is_urgent
-    return True
-
-
 def _install_fast_action_deadlines(M: Any) -> bool:
     App = getattr(M, "App", None)
     if App is None:
@@ -407,7 +380,6 @@ def apply(M: Any) -> None:
     M._turto_operational_refresh_804 = True
 
     cached_dates = _install_cached_date_format(M)
-    request_urgency = _install_fast_request_urgency()
     action_deadlines = _install_fast_action_deadlines(M)
     action_order = _install_action_native_default_order(M)
     request_mivo_order = _install_request_mivo_native_default_order()
@@ -416,7 +388,6 @@ def apply(M: Any) -> None:
     M.OPERATIONAL_REFRESH_804 = {
         "owner": POLICY_OWNER,
         "fmt_date": "lru-4096-iso-fast-path" if cached_dates else "unchanged",
-        "request_urgency": "shared-iso-date-lru" if request_urgency else "unchanged",
         "action_soon": "date.fromisoformat-lru-1024" if action_deadlines else "unchanged",
         "action_attention": "sparse-tag-only" if action_deadlines else "unchanged",
         "action_default_order": "trust-sql-unless-manual-sort" if action_order else "unchanged",
@@ -436,8 +407,6 @@ __all__ = [
     "_closure_value",
     "_fast_iso_display",
     "_install_cached_date_format",
-    "_iso_date",
-    "_install_fast_request_urgency",
     "_install_fast_action_deadlines",
     "_sort_action_default",
     "_install_action_native_default_order",

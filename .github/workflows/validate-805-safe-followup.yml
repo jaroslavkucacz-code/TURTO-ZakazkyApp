@@ -3,9 +3,7 @@ name: Validate TURTO CRM 8.0.5 safe follow-up
 on:
   pull_request:
     paths:
-      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/operational_refresh_804.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/idle_cleanup_804.py'
-      - 'scripts/validate-804-request-urgency.py'
       - 'scripts/validate-804-same-user-startup.py'
       - '.github/workflows/validate-805-safe-followup.yml'
   workflow_dispatch:
@@ -28,11 +26,7 @@ jobs:
       - name: Compile changed runtime
         run: |
           python -m compileall -q \
-            ZakazkyApp_base_6.1/price_lists_domain/platform/operational_refresh_804.py \
             ZakazkyApp_base_6.1/price_lists_domain/platform/idle_cleanup_804.py \
-            scripts/validate-804-request-urgency.py \
             scripts/validate-804-same-user-startup.py
-      - name: Validate cached request urgency
-        run: python scripts/validate-804-request-urgency.py ZakazkyApp_base_6.1
       - name: Validate same-user startup fast path
         run: python scripts/validate-804-same-user-startup.py ZakazkyApp_base_6.1
