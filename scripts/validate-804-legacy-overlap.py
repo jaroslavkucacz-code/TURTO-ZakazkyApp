@@ -9,21 +9,21 @@ def main() -> None:
 
     v605 = (base / "crm_v605.py").read_text(encoding="utf-8")
     assert "def _patch_mivo" not in v605
-    assert "_patch_mivo()" not in v605
-    assert "v608_stability is the later owner of MIVO row state" in v605
     assert "def _patch_sort_reset" not in v605
-    assert "status_offer" not in v605
-    assert "def walk(" not in v605
+    assert "def _patch_late_font" not in v605
     assert "def _ensure" not in v605
     assert "CREATE TABLE IF NOT EXISTS recipient_usage" not in v605
-    assert "recipient_usage is owned/created by the later v608_stability layer" in v605
-    assert "LATE_FONT_TREES" in v605
-    assert "def _patch_late_font" in v605
-    assert "tree.tag_configure('status_late',font=('Calibri',10,'bold'))" in v605
-    assert "_turto_v605_late_font_only" in v605
+    assert "tag_configure" not in v605
+    assert "after_idle" not in v605
+    assert "M.App" not in v605
+    assert "_turto_v605_retired_804" in v605
 
     v608 = (base / "v608_stability.py").read_text(encoding="utf-8")
     assert "CREATE TABLE IF NOT EXISTS recipient_usage" in v608
+
+    v628 = (base / "v628_modernui_resize.py").read_text(encoding="utf-8")
+    assert "tree.tag_configure('status_late', font=('Calibri',10,'bold'))" in v628
+    assert "single owner of both status_late colors and its font" in v628
 
     v632 = (base / "v632_offerlinks.py").read_text(encoding="utf-8")
     assert "for name in ('refresh_requests','refresh_all'):" in v632
