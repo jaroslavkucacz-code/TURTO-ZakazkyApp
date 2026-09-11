@@ -2,6 +2,81 @@
 import datetime
 
 
+def _schedule_stabilize(app, stabilize, sort_projects=False):
+    """Keep one fast/late stabilization pair for the newest refresh burst.
+
+    Nested or rapidly repeated refreshes used to enqueue a fresh 50/420 ms pair
+    every time. The newest refresh now replaces the older pair while the stronger
+    project-sorting requirement is retained until the final late pass completes.
+    The two passes share only immutable count-query results from this one refresh
+    burst; any newer refresh creates a fresh cache together with fresh timers.
+    """
+    try:
+        generation=int(getattr(app,'_v638_stabilize_generation',0) or 0)+1
+        app._v638_stabilize_generation=generation
+        app._v638_stabilize_sort_projects=bool(
+            getattr(app,'_v638_stabilize_sort_projects',False) or sort_projects
+        )
+    except Exception:return ()
+
+    replaced=False
+    for attr in ('_v638_stabilize_fast_after','_v638_stabilize_late_after'):
+        token=getattr(app,attr,None)
+        if token is not None:
+            replaced=True
+            try:app.after_cancel(token)
+            except Exception:pass
+        try:setattr(app,attr,None)
+        except Exception:pass
+    if replaced:
+        try:app._v638_stabilize_coalesced=int(getattr(app,'_v638_stabilize_coalesced',0) or 0)+1
+        except Exception:pass
+
+    count_cache={}
+
+    def current():
+        try:return int(getattr(app,'_v638_stabilize_generation',0) or 0)==generation
+        except Exception:return False
+
+    def run_fast():
+        if not current():return
+        try:
+            stabilize(
+                app,
+                sort_projects=bool(getattr(app,'_v638_stabilize_sort_projects',False)),
+                count_cache=count_cache,
+            )
+        finally:
+            if current():
+                try:app._v638_stabilize_fast_after=None
+                except Exception:pass
+
+    def run_late():
+        if not current():return
+        try:
+            stabilize(
+                app,
+                sort_projects=bool(getattr(app,'_v638_stabilize_sort_projects',False)),
+                count_cache=count_cache,
+            )
+        finally:
+            if current():
+                try:
+                    app._v638_stabilize_fast_after=None
+                    app._v638_stabilize_late_after=None
+                    app._v638_stabilize_sort_projects=False
+                except Exception:pass
+            count_cache.clear()
+
+    try:
+        fast=app.after(50,run_fast)
+        late=app.after(420,run_late)
+        app._v638_stabilize_fast_after=fast
+        app._v638_stabilize_late_after=late
+        return fast,late
+    except Exception:return ()
+
+
 def apply(M):
     # ------------------------------------------------------------------
     # BUSINESS MODEL
@@ -28,7 +103,9 @@ def apply(M):
                 tree.heading(c,text=c,anchor=tree.column(c,'anchor'),command=lambda col=c,t=tree:app.sort_tree(t,col))
         except Exception:pass
 
-    def _project_offer_counts():
+    def _project_offer_counts(count_cache=None):
+        if isinstance(count_cache,dict) and 'project_offer_counts' in count_cache:
+            return count_cache['project_offer_counts']
         try:
             with M.db() as c:
                 rows=c.execute('''SELECT p.id,count(DISTINCT o.id) n
@@ -37,21 +114,27 @@ def apply(M):
                         (o.request_id IS NULL AND o.action_id IS NULL AND o.project_id=p.id)
                         OR o.request_id IN (SELECT r.id FROM requests r JOIN actions a ON a.id=r.action_id WHERE a.project_id=p.id)
                     GROUP BY p.id''').fetchall()
-            return {int(r['id']):int(r['n']) for r in rows}
-        except Exception:return {}
+            result={int(r['id']):int(r['n']) for r in rows}
+        except Exception:result={}
+        if isinstance(count_cache,dict):count_cache['project_offer_counts']=result
+        return result
 
-    def _request_offer_counts():
+    def _request_offer_counts(count_cache=None):
+        if isinstance(count_cache,dict) and 'request_offer_counts' in count_cache:
+            return count_cache['request_offer_counts']
         try:
             with M.db() as c:
                 rows=c.execute('SELECT request_id,count(*) n FROM supplier_offers WHERE request_id IS NOT NULL GROUP BY request_id').fetchall()
-            return {int(r['request_id']):int(r['n']) for r in rows}
-        except Exception:return {}
+            result={int(r['request_id']):int(r['n']) for r in rows}
+        except Exception:result={}
+        if isinstance(count_cache,dict):count_cache['request_offer_counts']=result
+        return result
 
     def _iid_num(iid,prefix):
         try:return int(str(iid).lstrip(prefix.upper()+prefix.lower()))
         except Exception:return None
 
-    def _restore_main_tables(app):
+    def _restore_main_tables(app,count_cache=None):
         # Příležitosti: never show offer count directly.
         at=getattr(app,'action_tree',None)
         if at is not None:
@@ -63,7 +146,7 @@ def apply(M):
             _heading_contract(app,rt,REQUEST_COLS)
             try:
                 rt.column('Nabídky',width=82,minwidth=70,anchor='center',stretch=False)
-                counts=_request_offer_counts()
+                counts=_request_offer_counts(count_cache)
                 for iid in rt.get_children():
                     rid=_iid_num(iid,'r')
                     if rid is not None:rt.set(iid,'Nabídky',str(counts.get(rid,0)))
@@ -79,7 +162,7 @@ def apply(M):
             _heading_contract(app,pt,cols)
             try:
                 pt.column('Nabídky',width=82,minwidth=70,anchor='center',stretch=False)
-                counts=_project_offer_counts()
+                counts=_project_offer_counts(count_cache)
                 for iid in pt.get_children():
                     pid=_iid_num(iid,'p')
                     if pid is not None:pt.set(iid,'Nabídky',str(counts.get(pid,0)))
@@ -127,8 +210,8 @@ def apply(M):
         # every handler registered by those modules.
         t._v638_clean_bindings=True
 
-    def _stabilize(app,sort_projects=False):
-        _restore_main_tables(app)
+    def _stabilize(app,sort_projects=False,count_cache=None):
+        _restore_main_tables(app,count_cache=count_cache)
         _remove_problematic_request_bindings(app)
         _style_urgent_requests(app)
         if sort_projects:_sort_projects_default(app)
@@ -141,17 +224,20 @@ def apply(M):
             if callable(final_layout):final_layout(app)
         except Exception:pass
 
-    # Apply after old wrappers finish their after_idle work. This makes the final
-    # contract deterministic and stops the v632/v637 add/remove column race.
+    # Apply after old wrappers finish their after_idle work. The 50/420 ms pair
+    # is shared across nested/rapid refreshes, so the newest refresh owns the
+    # timers while project sorting survives coalescing as the stronger request.
     for name in ('refresh_requests','refresh_actions','refresh_projects','refresh_all'):
         old=getattr(M.App,name,None)
         if not callable(old):continue
         def make(fn,method_name=name):
             def wrapped(self,*a,**k):
                 r=fn(self,*a,**k)
-                for ms in (50,420):
-                    try:self.after(ms,lambda s=self,n=method_name:_stabilize(s,sort_projects=n in ('refresh_projects','refresh_all')))
-                    except Exception:pass
+                _schedule_stabilize(
+                    self,
+                    _stabilize,
+                    sort_projects=method_name in ('refresh_projects','refresh_all'),
+                )
                 return r
             return wrapped
         setattr(M.App,name,make(old))

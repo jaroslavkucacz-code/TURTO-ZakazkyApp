@@ -179,8 +179,10 @@ def apply(M):
                 except Exception:pass
         tree.bind('<Button-3>',popup,add='+')
 
-    # Recompute visible counts after normal refreshes.
-    for name in ('refresh_actions','refresh_requests','refresh_all'):
+    # Recompute the Request-side visible counts after request/full refreshes.
+    # Příležitosti do not display these counts anymore, so refresh_actions must
+    # not trigger a query + full request-tree update unrelated to its own page.
+    for name in ('refresh_requests','refresh_all'):
         old=getattr(M.App,name,None)
         if not callable(old):continue
         def make(fn):

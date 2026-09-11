@@ -25,15 +25,19 @@ def apply(M):
     def refresh(self,*a,**k):
         before=getattr(self,'_v611_action_snapshot',{});r=old_refresh(self,*a,**k)
         try:
-            with M.db() as c:now={x['id']:dict(x) for x in c.execute("SELECT * FROM actions")}
+            with M.db() as c:
+                now={x['id']:dict(x) for x in c.execute("""SELECT id,status,name,company_id,salesperson_id,deadline,products,note
+                                                           FROM actions""")}
             if before:
-                labels={'name':'Název','company_id':'Společnost','salesperson_id':'Obchodník','deadline':'Deadline','products':'Co se řeší','note':'Poznámka'}
+                labels={'status':'Stav','name':'Název','company_id':'Společnost','salesperson_id':'Obchodník','deadline':'Deadline','products':'Co se řeší','note':'Poznámka'}
                 for aid,nv in now.items():
                     ov=before.get(aid)
                     if not ov:continue
                     for key,label in labels.items():
                         a=ov.get(key);b=nv.get(key)
-                        if str(a or '')!=str(b or ''):audit('Příležitost',aid,'Úprava',label,a,b,f"UPDATE actions SET {key}={q(a)} WHERE id={int(aid)}")
+                        if str(a or '')!=str(b or ''):
+                            action='Změna stavu' if key=='status' else 'Úprava'
+                            audit('Příležitost',aid,action,label,a,b,f"UPDATE actions SET {key}={q(a)} WHERE id={int(aid)}")
             self._v611_action_snapshot=now
         except:pass
         return r

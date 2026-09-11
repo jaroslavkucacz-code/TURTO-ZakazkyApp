@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 REQUEST_ATTENTION_TAG = "v770_request_attention"
+URGENT_REQUEST_TAG = "deadline_urgent"
 
 
 def _date_clause(field: str, mode: str, value: str):
@@ -121,6 +122,19 @@ def _request_tag(row):
     return "req_fresh"
 
 
+def _request_is_urgent(row, today: date) -> bool:
+    """Historical v637 red emphasis: unanswered regular request older than 3 days."""
+    if row["received_date"] or int(row["archived"] or 0) or int(row["no_response"] or 0):
+        return False
+    raw = str(row["asked_date"] or "").strip()
+    if not raw:
+        return False
+    try:
+        return (today - date.fromisoformat(raw)).days > 3
+    except Exception:
+        return False
+
+
 def _request_where(M, app, mivo: bool):
     if mivo:
         status = app.mivo_status_filter.get().casefold().strip()
@@ -209,12 +223,15 @@ def refresh_requests(M, app, mivo: bool = False):
             overdue_cache[key] = M.request_is_overdue(asked, received)
         return overdue_cache[key]
 
+    today = date.today()
     if not mivo:
         try:
-            # This is the same row tag configured by v770's historical idle
-            # callback. Applying it before insertion preserves the visual result
-            # while avoiding a second full Treeview walk after every refresh.
+            # Both historical request emphasis layers are now configured before
+            # insertion. v770 supplies bold overdue emphasis; v637 supplied red
+            # bold emphasis after >3 waiting days. Doing both inline avoids
+            # post-refresh full-tree scans and scroll/resize rescans.
             tree.tag_configure(REQUEST_ATTENTION_TAG, font=("Calibri", 10, "bold"))
+            tree.tag_configure(URGENT_REQUEST_TAG, foreground="#c62828", font=("Calibri", 10, "bold"))
         except Exception:
             pass
 
@@ -223,6 +240,7 @@ def refresh_requests(M, app, mivo: bool = False):
         asked = row["asked_date"]
         received = row["received_date"]
         attention = False
+        urgent = False
         if mivo:
             # MIVO uses no regular-request overdue highlight. Do not spend time
             # calculating a value that is never consumed by a callback.
@@ -238,10 +256,13 @@ def refresh_requests(M, app, mivo: bool = False):
                 row["action_name"] or "",row["item"] or "",row["recipients_snapshot"] or "",
             )
             attention = overdue_cached(asked, received) and not int(row["no_response"] or 0)
+            urgent = _request_is_urgent(row, today)
         iid = f"r{row['id']}"
         tags = [_request_tag(row)]
         if attention:
             tags.append(REQUEST_ATTENTION_TAG)
+        if urgent:
+            tags.append(URGENT_REQUEST_TAG)
         tree.insert("", "end", iid=iid, values=values, tags=tuple(tags))
         if iid in selected:tree.selection_add(iid)
     try:app.reapply_tree_sort(tree)

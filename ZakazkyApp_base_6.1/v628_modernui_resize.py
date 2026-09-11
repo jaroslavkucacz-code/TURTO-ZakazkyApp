@@ -43,23 +43,6 @@ def apply(M):
 
     M.App.show_page = show_page_light
 
-    def detach_hidden_pages(app):
-        try:
-            current = getattr(app, '_current_page', None) or 'dash'
-            for key, page in app.tabs.items():
-                if key == current:
-                    try:
-                        page.grid()
-                    except Exception:
-                        pass
-                else:
-                    try:
-                        page.grid_remove()
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-
     # ------------------------------------------------------------------
     # 2) DASHBOARD + NAVIGATION COMPOSITION
     # ------------------------------------------------------------------
@@ -213,9 +196,10 @@ def apply(M):
             if label is None:
                 return
 
-            # Poll only while Nabídky are visible. This is ordinary Outlook COM
-            # automation in the Tk loop, never code inside the native OLE Drop callback.
-            if getattr(app, '_current_page', None) == 'offers':
+            # Outlook COM is queried only while Nabídky are visible. Hidden
+            # pages use a slower wake-up so the idle CRM does less timer work.
+            offers_visible = getattr(app, '_current_page', None) == 'offers'
+            if offers_visible:
                 count = None
                 pythoncom = None
                 refs = []
@@ -263,7 +247,8 @@ def apply(M):
                     pass
 
             try:
-                app._offer_outlook_indicator_after = app.after(1600, refresh_selection)
+                delay = 1600 if offers_visible else 6000
+                app._offer_outlook_indicator_after = app.after(delay, refresh_selection)
             except Exception:
                 pass
 
@@ -310,6 +295,13 @@ def apply(M):
                     tree.tag_configure(tag, background=bg, foreground=fg)
                 except Exception:
                     pass
+            # v605 historically made late rows bold. The final v628 palette is
+            # now the single owner of both status_late colors and its font, so
+            # no extra theme wrapper/callback is needed in the legacy layer.
+            try:
+                tree.tag_configure('status_late', font=('Calibri',10,'bold'))
+            except Exception:
+                pass
             try:
                 style_name = str(tree.cget('style') or 'Treeview')
                 style = M.ttk.Style(tree)
@@ -328,8 +320,8 @@ def apply(M):
             pass
 
     def apply_modern_palette(app):
-        palette = DARK if is_dark(app) else LIGHT
         dark = is_dark(app)
+        palette = DARK if dark else LIGHT
         def walk(widget):
             try:
                 modernize_tree(widget, palette, dark)
@@ -339,6 +331,9 @@ def apply(M):
                 pass
         walk(app)
 
+    # Treeview tag/style configuration persists across data refreshes. Repaint
+    # only on a real theme change; the old refresh wrappers caused a full-window
+    # widget walk after every data load and are intentionally retired in 8.0.4.
     old_theme = getattr(M.App, 'apply_theme', None)
     if callable(old_theme):
         def apply_theme_modern(self, *args, **kwargs):
@@ -350,42 +345,19 @@ def apply(M):
             return result
         M.App.apply_theme = apply_theme_modern
 
+    # build_dash/build already schedule dashboard_layout through after_idle and
+    # runtime_optimization_803 detaches built hidden pages immediately. The old
+    # 1450/1550/1750 ms safety repeats are therefore redundant. Keep only the
+    # functional Outlook indicator startup.
     old_init = M.App.__init__
     def init(self, *args, **kwargs):
         result = old_init(self, *args, **kwargs)
-        try:
-            self.after(1450, lambda:detach_hidden_pages(self))
-        except Exception:
-            pass
-        try:
-            self.after(1550, lambda:apply_modern_palette(self))
-        except Exception:
-            pass
-        try:
-            self.after(1750, lambda:dashboard_layout(self))
-        except Exception:
-            pass
         try:
             self.after(1900, lambda:install_outlook_indicator(self))
         except Exception:
             pass
         return result
     M.App.__init__ = init
-
-    for refresh_name in ('refresh_dash','refresh_actions','refresh_requests','refresh_mivo_requests','refresh_offers','refresh_tasks','refresh_projects','refresh_people','refresh_companies','refresh_all'):
-        old = getattr(M.App, refresh_name, None)
-        if not callable(old):
-            continue
-        def make_wrapper(fn):
-            def wrapped(self, *args, **kwargs):
-                result = fn(self, *args, **kwargs)
-                try:
-                    self.after_idle(lambda:apply_modern_palette(self))
-                except Exception:
-                    pass
-                return result
-            return wrapped
-        setattr(M.App, refresh_name, make_wrapper(old))
 
     try:
         old_help = M.App.build_help

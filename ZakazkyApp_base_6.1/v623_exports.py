@@ -1,4 +1,4 @@
-# TURTO CRM 6.0.23 - Excel exports, product image preview, subject sync, canonical palette, monitor-aware startup
+# TURTO CRM 6.0.23 - Excel exports, product image preview, subject sync, monitor-aware startup
 import io, sys
 
 def apply(M):
@@ -34,65 +34,21 @@ def apply(M):
     except Exception:pass
 
     # ------------------------------------------------------------------
-    # 2) Canonical status palette. Every Treeview uses exactly the same
-    # colors for the same status, including Overview/current opportunities.
+    # 2) Historical status-palette repaint retired in 8.0.4.
+    #
+    # v623 used to recursively recolor every Treeview after apply_theme and
+    # after five common refresh methods. Later UI layers now own the tuned
+    # status palette and selection styling. Keeping the old repaint here both
+    # overwrote those newer colors and added a full widget-tree traversal to
+    # every refresh, so this layer intentionally no longer touches colors.
     # ------------------------------------------------------------------
-    LIGHT={
-        'status_active':('#b9d9ee','#103852'),'info':('#b9d9ee','#103852'),'req_fresh':('#b9d9ee','#103852'),
-        'status_offer':('#a9ddd5','#164d48'),
-        'status_wait':('#f4e0a8','#5c4408'),'waiting':('#f4e0a8','#5c4408'),'req_mid':('#f4e0a8','#5c4408'),
-        'status_soon':('#efd0a5','#66360a'),'soon':('#efd0a5','#66360a'),'req_old':('#efd0a5','#66360a'),
-        'status_late':('#efc2c2','#6c2020'),'late':('#efc2c2','#6c2020'),
-        'status_done':('#b7dfbf','#1f572d'),'done':('#b7dfbf','#1f572d'),'status_won':('#b7dfbf','#1f572d'),'won':('#b7dfbf','#1f572d'),'req_received':('#b7dfbf','#1f572d'),
-        'status_cancel':('#d8dde1','#485159'),'lost':('#d8dde1','#485159')
-    }
-    DARK={
-        'status_active':('#162b3a','#e7f2f8'),'info':('#162b3a','#e7f2f8'),'req_fresh':('#162b3a','#e7f2f8'),
-        'status_offer':('#163631','#e2f5f1'),
-        'status_wait':('#332c18','#f5e8c5'),'waiting':('#332c18','#f5e8c5'),'req_mid':('#332c18','#f5e8c5'),
-        'status_soon':('#35261b','#f7e6d6'),'soon':('#35261b','#f7e6d6'),'req_old':('#35261b','#f7e6d6'),
-        'status_late':('#381f21','#f8e4e4'),'late':('#381f21','#f8e4e4'),
-        'status_done':('#173222','#e4f5e8'),'done':('#173222','#e4f5e8'),'status_won':('#173222','#e4f5e8'),'won':('#173222','#e4f5e8'),'req_received':('#173222','#e4f5e8'),
-        'status_cancel':('#272d31','#e6eaec'),'lost':('#272d31','#e6eaec')
-    }
-    def palette_for(app):
-        try:
-            theme=app.theme_var.get() if hasattr(app,'theme_var') else M.get_setting('theme','Světlý')
-            return DARK if theme=='Tmavý' else LIGHT
-        except Exception:return LIGHT
-    def apply_palette(widget,palette):
-        try:
-            if isinstance(widget,M.ttk.Treeview):
-                for tag,(bg,fg) in palette.items():
-                    try:widget.tag_configure(tag,background=bg,foreground=fg)
-                    except Exception:pass
-            for c in widget.winfo_children():apply_palette(c,palette)
-        except Exception:pass
-    def recolor(app):
-        apply_palette(app,palette_for(app))
-    old_theme=getattr(M.App,'apply_theme',None)
-    if callable(old_theme):
-        def apply_theme(self,*a,**k):
-            r=old_theme(self,*a,**k)
-            try:self.after_idle(lambda:recolor(self))
-            except Exception:recolor(self)
-            return r
-        M.App.apply_theme=apply_theme
-    for nm in ('refresh_dash','refresh_actions','refresh_all','refresh_requests','refresh_offers'):
-        old=getattr(M.App,nm,None)
-        if not callable(old):continue
-        def wrap(fn):
-            def x(self,*a,**k):
-                r=fn(self,*a,**k)
-                try:self.after_idle(lambda:recolor(self))
-                except Exception:pass
-                return r
-            return x
-        setattr(M.App,nm,wrap(old))
 
     # ------------------------------------------------------------------
     # 3) Main window: place on monitor under the mouse, then maximize there.
-    # Uses Windows WORK AREA so taskbar remains respected.
+    # Uses Windows WORK AREA so taskbar remains respected. Do not call
+    # update_idletasks() here: that used to force the entire pending Tk layout
+    # queue during the 80 ms startup callback and dominated settled-startup time.
+    # SetWindowPos moves the native window synchronously before zooming instead.
     # ------------------------------------------------------------------
     def maximize_current_monitor(app):
         if not sys.platform.startswith('win'):
@@ -107,8 +63,17 @@ def apply(M):
             pt=wintypes.POINT();ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
             mon=ctypes.windll.user32.MonitorFromPoint(pt,2);mi=MI();mi.cbSize=ctypes.sizeof(MI)
             if ctypes.windll.user32.GetMonitorInfoW(mon,ctypes.byref(mi)):
-                r=mi.rcWork;w=max(600,r.right-r.left);h=max(450,r.bottom-r.top)
-                app.state('normal');app.geometry(f'{w-40}x{h-40}+{r.left+20}+{r.top+20}');app.update_idletasks();app.state('zoomed')
+                r=mi.rcWork;w=max(600,r.right-r.left);h=max(450,r.bottom-r.top);x=r.left+20;y=r.top+20;ww=w-40;hh=h-40
+                app.state('normal');moved=False
+                try:
+                    hwnd=int(app.winfo_id());parent=int(ctypes.windll.user32.GetParent(hwnd) or 0);hwnd=parent or hwnd
+                    SWP_NOZORDER=0x0004;SWP_NOACTIVATE=0x0010
+                    moved=bool(ctypes.windll.user32.SetWindowPos(hwnd,0,int(x),int(y),int(ww),int(hh),SWP_NOZORDER|SWP_NOACTIVATE))
+                except Exception:pass
+                if not moved:app.geometry(f'{ww}x{hh}+{x}+{y}')
+                try:app._turto_monitor_position_method='SetWindowPos' if moved else 'geometry'
+                except Exception:pass
+                app.state('zoomed')
         except Exception:
             try:app.state('zoomed')
             except Exception:pass
@@ -274,13 +239,12 @@ def apply(M):
         except Exception:pass
     M.App.build_offers=build_offers
 
-    # App init last: canonical palette + monitor-aware maximization.
+    # App init last: monitor-aware maximization only. Visual ownership belongs
+    # to later UI layers, so v623 deliberately performs no startup recolor.
     old_app_init=M.App.__init__
     def app_init(self,*a,**k):
         old_app_init(self,*a,**k)
         try:self.after(80,lambda:maximize_current_monitor(self))
-        except Exception:pass
-        try:self.after_idle(lambda:recolor(self))
         except Exception:pass
     M.App.__init__=app_init
 

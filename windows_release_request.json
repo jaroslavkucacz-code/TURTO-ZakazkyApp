@@ -1,6 +1,6 @@
 {
-  "version": "8.0.3",
+  "version": "8.0.4",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "notes": "Výkonový a runtime úklid TURTO CRM navazující na stabilní 8.0.2 bez změny databázového schématu a obchodní logiky. Omezeny jsou redundantní refreshe horní lišty, opakované průchody UI a pozdní stabilizační callbacky; skryté již vytvořené stránky se po startu okamžitě odpojí z layoutu. Českému řazení byla doplněna omezená LRU cache, Poptávky používají lokální cache datumů a overdue výpočtů a dialogové Map/Focus události se slučují do jednoho pending sweepu při zachování priority modal grabu. Odstraněny byly mrtvé pozůstatky deferred-page experimentu a redundantní runtime práce s ikonami; startup test nově ověřuje použití zabalených firemních ikon. Přidán kompaktní performance log startu. Všech 16 regresních workflow včetně reálného Windows UI, škálovacího benchmarku a čisté instalace/aktualizace/odinstalace před vydáním prošlo úspěšně."
+  "notes": "Bezpečnostně konzervativní výkonová aktualizace TURTO CRM navazující na 8.0.3. Opravuje přepisování dlouhodobě laděné světlé a tmavé palety po refreshi a odstraňuje redundantní celookenní repaint průchody, zbytečné refresh wrappery, duplicitní stabilizační timery a historické periodické UI pollingy. Optimalizace provozních tabulek snižují opakované formátování datumů, nadbytečné řazení a druhé průchody nad Příležitostmi a Úkoly; auditní historie a možnost bezpečného vrácení změn zůstávají zachovány. Aktualizace nepřináší záměrnou změnu obchodní logiky ani uživatelských dat. Přesný runtime checkpoint před přípravou vydání prošel 19/19 regresními workflow včetně reálného Windows UI startu, světlého i tmavého vizuálního kontraktu, škálovaného benchmarku tabulek a kontroly instalátoru."
 }

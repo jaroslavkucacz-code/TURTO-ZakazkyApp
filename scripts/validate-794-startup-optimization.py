@@ -110,23 +110,33 @@ def main() -> None:
     assert not startup._is_redundant_v760_finalize(261, finalize)
     assert not startup._is_redundant_v760_finalize(260, lambda: None)
 
-    palette = make_delayed_callback("v628_modernui_resize.py", "apply_modern_palette")
-    dashboard = make_delayed_callback("v628_modernui_resize.py", "dashboard_layout")
-    detach = make_delayed_callback("v628_modernui_resize.py", "detach_hidden_pages")
-    outlook = make_delayed_callback("v628_modernui_resize.py", "install_outlook_indicator")
-    assert startup._redundant_v628_cosmetic(1550, palette) == "apply_modern_palette"
-    assert startup._redundant_v628_cosmetic(1750, dashboard) == "dashboard_layout"
-    assert startup._redundant_v628_cosmetic(1450, detach) is None
-    assert startup._redundant_v628_cosmetic(1900, outlook) is None
-    assert startup._redundant_v628_cosmetic(1550, dashboard) is None
-    assert startup._redundant_v628_cosmetic(1750, palette) is None
+    # v628 now owns its palette directly and no longer schedules historical
+    # 1450/1550/1750 ms safety passes. Startup optimization must therefore have
+    # no v628-specific interception or metadata left.
+    startup_source = (
+        root / "price_lists_domain" / "platform" / "startup_optimization.py"
+    ).read_text(encoding="utf-8")
+    for obsolete in (
+        "V628_REDUNDANT_COSMETIC_DELAYS",
+        "_redundant_v628_cosmetic",
+        "_turto_v628_cosmetic_passes_coalesced",
+        "v628_delayed_cosmetics_suppressed",
+        "v628_hidden_page_detach_preserved_ms",
+    ):
+        assert obsolete not in startup_source, obsolete
+
+    v628_source = (root / "v628_modernui_resize.py").read_text(encoding="utf-8")
+    for obsolete_delay in ("after(1450", "after(1550", "after(1750"):
+        assert obsolete_delay not in v628_source, obsolete_delay
+    assert "after(1900" in v628_source
+    assert "install_outlook_indicator" in v628_source
 
     stabilize = make_delayed_callback("v638_table_updatefix.py", "_stabilize")
     assert not startup._is_redundant_v638_stabilize(900, stabilize)
     assert startup._is_redundant_v638_stabilize(2200, stabilize)
     assert startup._is_redundant_v638_stabilize(3800, stabilize)
     assert not startup._is_redundant_v638_stabilize(2201, stabilize)
-    assert not startup._is_redundant_v638_stabilize(2200, palette)
+    assert not startup._is_redundant_v638_stabilize(2200, lambda: None)
 
     with tempfile.TemporaryDirectory(prefix="turto794_start_") as td:
         db_path = pathlib.Path(td) / "assets.db"
@@ -167,12 +177,7 @@ def main() -> None:
             current.after(0, finalize)
             current.after(260, finalize)
             current.after(1200, finalize)
-            # Preserve functional v628 passes but coalesce two cosmetic repeats.
-            current.after(1450, detach)
-            current.after(1550, palette)
-            current.after(1750, dashboard)
-            current.after(1900, outlook)
-            # Preserve the first v638 safety pass, coalesce only very late repeats.
+            # Preserve first v638 safety pass, coalesce only very late repeats.
             current.after(900, stabilize)
             current.after(2200, stabilize)
             current.after(3800, stabilize)
@@ -182,12 +187,8 @@ def main() -> None:
 
         result = startup._call_previous_init_optimized(M, instance, previous_init)
         assert result == "ok"
-        assert [delay for delay, _callback, _args in instance.calls] == [0, 1450, 1900, 900, 135]
+        assert [delay for delay, _callback, _args in instance.calls] == [0, 900, 135]
         assert instance._turto_v760_finalizers_coalesced == (260, 1200)
-        assert instance._turto_v628_cosmetic_passes_coalesced == (
-            (1550, "apply_modern_palette"),
-            (1750, "dashboard_layout"),
-        )
         assert instance._turto_v638_startup_stabilizers_coalesced == (2200, 3800)
         assert instance._turto_plexus_backfill_candidates == 1
         assert instance._turto_plexus_backfill_pending == 0

@@ -1,5 +1,4 @@
 # TURTO CRM 6.0.37 - offers belong to real Actions (projects), not Opportunities
-import datetime
 
 
 def apply(M):
@@ -207,18 +206,25 @@ def apply(M):
                 except Exception:pass
         except Exception:pass
 
+    # Opportunity refreshes only need to ensure that the historical Nabídky
+    # column stays absent. Computing offer counts belongs to the real Akce table,
+    # so do not query/update that unrelated tree after every Příležitosti refresh.
     for name in ('refresh_actions','refresh_projects','refresh_all'):
         old=getattr(M.App,name,None)
         if not callable(old):continue
-        def make(fn):
+        def make(fn,include_project_counts):
             def wrapped(self,*a,**k):
                 r=fn(self,*a,**k)
                 try:
-                    self.after_idle(lambda:(_remove_offer_col_from_opportunities(self),_add_project_offer_column(self)))
+                    if include_project_counts:
+                        self.after_idle(lambda:(_remove_offer_col_from_opportunities(self),_add_project_offer_column(self)))
+                    else:
+                        self.after_idle(lambda:_remove_offer_col_from_opportunities(self))
                 except Exception:pass
                 return r
+            wrapped._turto_v637_project_offer_scope=('actions-and-projects' if include_project_counts else 'actions-only')
             return wrapped
-        setattr(M.App,name,make(old))
+        setattr(M.App,name,make(old,name!='refresh_actions'))
 
     # ------------------------------------------------------------------
     # REAL ACTION DETAIL (ProjectDialog): related offers.
@@ -288,65 +294,18 @@ def apply(M):
     except Exception:pass
 
     # ------------------------------------------------------------------
-    # DEADLINES: kill floating labels and use a native row tag instead.
-    # Native Treeview cannot draw a per-row border, so urgent waiting rows use
-    # red bold text while preserving the existing blue/green status background.
+    # REQUEST DEADLINES
     # ------------------------------------------------------------------
-    def _kill_labels(tree):
-        try:
-            for lab in list(getattr(tree,'_v633_deadline_labels',[]) or []):
-                try:lab.destroy()
-                except Exception:pass
-            tree._v633_deadline_labels=[]
-            tree.configure(show='headings')
-        except Exception:pass
-
-    def _style_urgent_requests(app):
-        t=getattr(app,'request_tree',None)
-        if t is None:return
-        _kill_labels(t)
-        try:t.tag_configure('deadline_urgent',foreground='#c62828',font=('Calibri',10,'bold'))
-        except Exception:pass
-        today=datetime.date.today()
-        try:
-            for iid in t.get_children():
-                vals=t.item(iid,'values');tags=[x for x in (t.item(iid,'tags') or ()) if x!='deadline_urgent']
-                status=str(vals[0] if vals else '').casefold()
-                raw=str(vals[2] if len(vals)>2 else '').strip()
-                urgent=False
-                if 'ček' in status:
-                    try:urgent=(today-datetime.datetime.strptime(raw,'%d.%m.%Y').date()).days>3
-                    except Exception:pass
-                if urgent:tags.append('deadline_urgent')
-                t.item(iid,tags=tuple(tags))
-        except Exception:pass
-
-    def _install_cleanup_events(app):
-        t=getattr(app,'request_tree',None)
-        if t is None or getattr(t,'_v637_cleanup',False):return
-        t._v637_cleanup=True
-        for seq in ('<Configure>','<MouseWheel>','<ButtonRelease-1>'):
-            try:t.bind(seq,lambda e,tr=t:tr.after_idle(lambda:(_kill_labels(tr),_style_urgent_requests(app))),add='+')
-            except Exception:pass
-
-    for name in ('refresh_requests','refresh_all'):
-        old=getattr(M.App,name,None)
-        if not callable(old):continue
-        def make2(fn):
-            def wrapped(self,*a,**k):
-                r=fn(self,*a,**k)
-                for ms in (0,20,120,350):
-                    try:self.after(ms,lambda s=self:(_style_urgent_requests(s),_install_cleanup_events(s)))
-                    except Exception:pass
-                return r
-            return wrapped
-        setattr(M.App,name,make2(old))
+    # v633 removed the old floating deadline overlays completely. The current
+    # SQL-first worksets refresh now applies the historical v637 red/bold
+    # `deadline_urgent` tag directly while each regular request row is inserted.
+    # No delayed refresh rescans or scroll/resize rescans are needed here.
 
     old_init=M.App.__init__
     def init(self,*a,**k):
         r=old_init(self,*a,**k)
         def later():
-            _remove_offer_col_from_opportunities(self);_add_project_offer_column(self);_style_urgent_requests(self);_install_cleanup_events(self)
+            _remove_offer_col_from_opportunities(self);_add_project_offer_column(self)
         try:self.after(3200,later)
         except Exception:pass
         return r

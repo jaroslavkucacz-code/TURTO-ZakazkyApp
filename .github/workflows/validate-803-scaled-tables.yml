@@ -6,11 +6,13 @@ on:
       - 'ZakazkyApp_base_6.1/app.py'
       - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/runtime_optimization_803.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/autocomplete_event_compat_803.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/lazy_refresh.py'
       - 'ZakazkyApp_base_6.1/v760_table_activity_performance.py'
       - 'scripts/benchmark-803-scaled-tables.py'
       - 'scripts/experiment-803-first-tree-fill.py'
       - 'scripts/profile-803-settled-runtime.py'
+      - 'scripts/profile-804-operational-refreshes.py'
       - '.github/workflows/validate-803-scaled-tables.yml'
   push:
     branches: [main]
@@ -18,11 +20,13 @@ on:
       - 'ZakazkyApp_base_6.1/app.py'
       - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/runtime_optimization_803.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/autocomplete_event_compat_803.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/lazy_refresh.py'
       - 'ZakazkyApp_base_6.1/v760_table_activity_performance.py'
       - 'scripts/benchmark-803-scaled-tables.py'
       - 'scripts/experiment-803-first-tree-fill.py'
       - 'scripts/profile-803-settled-runtime.py'
+      - 'scripts/profile-804-operational-refreshes.py'
       - '.github/workflows/validate-803-scaled-tables.yml'
 
 permissions:
@@ -54,6 +58,18 @@ jobs:
           if (-not $result.ok) { throw 'Scaled table benchmark failed' }
           if ($result.navigation_owner -ne 'price_lists_domain.platform.lazy_refresh') { throw 'Unexpected navigation owner' }
           Get-Content $env:TURTO_CRM_SCALE_RESULT
+      - name: Profile Příležitosti, Poptávky and Úkoly refreshes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:TURTO_DISABLE_AUTO_UPDATE = '1'
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-804-operation-profile-data'
+          $env:TURTO_CRM_OPERATION_PROFILE = Join-Path $env:RUNNER_TEMP 'turto-804-operation-profile.json'
+          python scripts/profile-804-operational-refreshes.py
+          $profile = Get-Content $env:TURTO_CRM_OPERATION_PROFILE -Raw | ConvertFrom-Json
+          if (-not $profile.ok) { throw 'Operational refresh profile failed' }
+          if ($profile.navigation_owner -ne 'price_lists_domain.platform.lazy_refresh') { throw 'Unexpected navigation owner in operation profile' }
+          Get-Content $env:TURTO_CRM_OPERATION_PROFILE
       - name: Compare first Příležitosti fill mapping policies
         shell: pwsh
         run: |
@@ -100,6 +116,7 @@ jobs:
           name: TURTO-CRM-803-scaled-table-profile
           path: |
             ${{ runner.temp }}\turto-803-scaled-tables.json
+            ${{ runner.temp }}\turto-804-operation-profile.json
             ${{ runner.temp }}\turto-803-fill-visible.json
             ${{ runner.temp }}\turto-803-fill-hidden.json
             ${{ runner.temp }}\turto-803-fill-detached.json

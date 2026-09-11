@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression checks for the low-risk TURTO CRM 8.0.3 runtime optimization."""
+"""Regression checks for the low-risk TURTO CRM 8.0.3/8.0.4 runtime optimization."""
 from __future__ import annotations
 
 import importlib.util
@@ -119,32 +119,6 @@ class FakeChromeApp:
         callback()
 
 
-def make_v628_palette_callback():
-    namespace = {}
-    exec(
-        compile(
-            "def outer():\n"
-            "    def apply_modern_palette(app):\n"
-            "        return app\n"
-            "    app = object()\n"
-            "    return lambda: apply_modern_palette(app)\n",
-            "v628_modernui_resize.py",
-            "exec",
-        ),
-        namespace,
-    )
-    return namespace["outer"]()
-
-
-class FakeIdleApp:
-    def __init__(self):
-        self.idle_callbacks = []
-
-    def after_idle(self, callback, *args):
-        self.idle_callbacks.append((callback, args))
-        return f"idle-{len(self.idle_callbacks)}"
-
-
 class FakeGrab:
     def __init__(self):
         self.lifts = 0
@@ -185,6 +159,7 @@ def main() -> None:
     module_path = base / "price_lists_domain" / "platform" / "runtime_optimization_803.py"
     bootstrap_path = base / "runtime_bootstrap.py"
     lazy_path = base / "price_lists_domain" / "platform" / "lazy_refresh.py"
+    v628_path = base / "v628_modernui_resize.py"
 
     assert module_path.is_file(), "8.0.3 runtime optimization owner is missing"
     optimization = load_module(module_path, "turto_runtime_optimization_test")
@@ -207,9 +182,30 @@ def main() -> None:
     assert "performance.log" in source
     assert "time.perf_counter()" in source
     assert 'self.bind("<Destroy>", unregister, add="+")' in source
-    assert "refresh_palette_skips=" in source
     assert "dialog_raise_coalesced=" in source
     assert "hidden_pages_detached=" in source
+
+    # 8.0.4 moved palette ownership back to the actual theme layer. The runtime
+    # optimizer must no longer proxy self.after_idle on every data refresh just
+    # to suppress a callback that v628 no longer creates.
+    for obsolete in (
+        "_is_redundant_v628_refresh_palette",
+        "_suppress_v628_refresh_palette",
+        "_turto_803_palette_suppressed",
+        "after_idle_proxy",
+        "refresh_palette_skips=",
+    ):
+        assert obsolete not in source, obsolete
+
+    v628 = v628_path.read_text(encoding="utf-8")
+    assert "#CFE7FA" in v628 and "#173A55" in v628
+    assert "apply_theme_modern" in v628
+    for method_name in (
+        "refresh_dash", "refresh_actions", "refresh_requests",
+        "refresh_mivo_requests", "refresh_offers", "refresh_tasks",
+        "refresh_projects", "refresh_people", "refresh_companies", "refresh_all",
+    ):
+        assert f"M.App.{method_name} =" not in v628, method_name
 
     # All pages still exist; only geometry for non-current pages is removed.
     pages = {key: FakePage() for key in ("dash", "actions", "requests", "settings")}
@@ -221,7 +217,6 @@ def main() -> None:
     assert pages["requests"].removed == 1
     assert pages["settings"].removed == 1
     assert page_app._turto_hidden_pages_detached_immediately == detached
-    # Unknown/unfinished startup state is a no-op rather than hiding every page.
     assert optimization._detach_hidden_pages_now(
         SimpleNamespace(tabs=pages, _current_page="")
     ) == ()
@@ -246,34 +241,11 @@ def main() -> None:
     assert info.hits == len(samples)
     assert info.misses == len(samples)
     assert info.currsize == len(samples)
-    # Non-string inputs bypass the cache so historical generic-call semantics stay exact.
     before = len(sort_calls)
     assert sort_module.czech_sort_key(None) == historical_sort_key(None)
     assert len(sort_calls) == before + 2
 
-    # v628's old refresh wrapper repaints the entire application on every table
-    # refresh. Match only that exact callback and preserve all unrelated idle work.
-    palette_callback = make_v628_palette_callback()
-    ordinary_callback = lambda: "functional-idle-work"
-    assert optimization._is_redundant_v628_refresh_palette(palette_callback) is True
-    assert optimization._is_redundant_v628_refresh_palette(ordinary_callback) is False
-
-    idle_app = FakeIdleApp()
-
-    def historical_refresh(self):
-        self.after_idle(palette_callback)
-        self.after_idle(ordinary_callback)
-        return "refresh-result"
-
-    optimized_refresh = optimization._suppress_v628_refresh_palette(historical_refresh)
-    assert optimized_refresh(idle_app) == "refresh-result"
-    assert len(idle_app.idle_callbacks) == 1
-    assert idle_app.idle_callbacks[0][0] is ordinary_callback
-    assert idle_app._turto_v628_refresh_palette_skips == 1
-    assert "after_idle" not in idle_app.__dict__
-
-    # Hundreds of descendant Map/FocusIn events used to run a full recursive
-    # Toplevel search each time. They now collapse into one pending idle sweep.
+    # Hundreds of descendant Map/FocusIn events collapse into one idle sweep.
     sweeps = []
 
     def historical_dialog_sweep(app, event=None):
@@ -289,7 +261,6 @@ def main() -> None:
     dialog_app.run_idle()
     assert len(sweeps) == 1
     assert dialog_app._turto_dialog_raise_after is None
-    # A new later event still schedules a new sweep; coalescing is not permanent.
     coalesced(dialog_app)
     assert len(dialog_app.pending) == 1
     dialog_app.run_idle()
@@ -303,8 +274,7 @@ def main() -> None:
     assert modal_app.pending == []
     assert len(sweeps) == 2
 
-    # Destroyed autocomplete widgets must leave the legacy process-wide registry
-    # immediately instead of waiting for a future unrelated mouse click.
+    # Destroyed autocomplete widgets leave the legacy process-wide registry.
     registry = []
     FakeAutocompleteEntry.registry = registry
     autocomplete_module = SimpleNamespace(
@@ -321,34 +291,28 @@ def main() -> None:
     # Business changes update only chrome that can actually become stale.
     chrome_app = FakeChromeApp()
     lazy_module._schedule_chrome(
-        SimpleNamespace(),
-        chrome_app,
-        methods=lazy_module.BUSINESS_CHROME_REFRESH,
+        SimpleNamespace(), chrome_app, methods=lazy_module.BUSINESS_CHROME_REFRESH,
     )
     chrome_app.run_pending()
     assert chrome_app.calls == ["refresh_header", "refresh_notifications"]
 
-    # Multiple pending requests are coalesced by union. A later full refresh must
-    # never be downgraded by an earlier selective request.
     chrome_app = FakeChromeApp()
     lazy_module._schedule_chrome(
-        SimpleNamespace(),
-        chrome_app,
-        methods=lazy_module.BUSINESS_CHROME_REFRESH,
+        SimpleNamespace(), chrome_app, methods=lazy_module.BUSINESS_CHROME_REFRESH,
     )
     lazy_module._schedule_chrome(SimpleNamespace(), chrome_app)
     assert chrome_app.cancelled == ["after-1"]
     chrome_app.run_pending()
     assert chrome_app.calls == list(lazy_module.CHROME_REFRESH)
 
-    # Applying the 8.0.3 owner must preserve canonical navigation/refresh methods.
+    # Applying the 8.0.3 owner preserves canonical navigation/refresh methods.
     original_show_page = FakeApp.show_page
     original_refresh_all = FakeApp.refresh_all
     with tempfile.TemporaryDirectory(prefix="turto-803-") as td:
         fake_module = SimpleNamespace(
             App=FakeApp,
             DATA_ROOT=Path(td),
-            APP_VERSION="8.0.2-dev",
+            APP_VERSION="8.0.4-dev",
             czech_sort_key=lambda value: tuple(str(value or "").casefold()),
         )
         optimization.apply(fake_module)
@@ -368,12 +332,12 @@ def main() -> None:
         for token in (
             "app_init=", "build_total=", "build_dash=", "apply_theme=",
             "czech_cache_hits=", "czech_cache_misses=", "czech_cache_size=",
-            "refresh_palette_skips=", "dialog_raise_coalesced=",
-            "hidden_pages_detached=",
+            "dialog_raise_coalesced=", "hidden_pages_detached=",
         ):
             assert token in log, token
+        assert "refresh_palette_skips=" not in log
 
-    # The pre-existing lazy refresh remains the one navigation/dirty-page owner.
+    # The pre-existing lazy refresh remains the navigation/dirty-page owner.
     lazy = lazy_path.read_text(encoding="utf-8")
     assert 'App.show_page = show_page' in lazy
     assert 'App.refresh_all = refresh_all' in lazy
@@ -390,7 +354,7 @@ def main() -> None:
     assert marker in bootstrap
     assert bootstrap.index(marker) > bootstrap.index(branding)
 
-    print("TURTO CRM 8.0.3 runtime optimization: OK")
+    print("TURTO CRM 8.0.3/8.0.4 runtime optimization: OK")
 
 
 if __name__ == "__main__":
