@@ -231,7 +231,8 @@ def assert_calibri_contract(window) -> dict[str, str]:
     }
 
 
-def exercise_refreshes(window) -> list[str]:
+def exercise_refreshes(window, theme: str) -> list[str]:
+    """Run every main-page refresh and identify the first visual overwrite."""
     completed = []
     for name in REFRESH_METHODS:
         method = getattr(window, name, None)
@@ -239,6 +240,10 @@ def exercise_refreshes(window) -> list[str]:
             raise AssertionError(f"Missing refresh method: {name}")
         method()
         window.update_idletasks()
+        try:
+            assert_tree_palette(window, theme)
+        except AssertionError as exc:
+            raise AssertionError(f"after {name}: {exc}") from exc
         completed.append(name)
     return completed
 
@@ -300,7 +305,7 @@ def main() -> None:
             window.apply_theme(theme, save=False)
             window.update_idletasks()
             before = assert_tree_palette(window, theme)
-            refreshed = exercise_refreshes(window)
+            refreshed = exercise_refreshes(window, theme)
             after = assert_tree_palette(window, theme)
             if before != after:
                 raise AssertionError(f"{theme}: visual Treeview contract changed after refresh")
