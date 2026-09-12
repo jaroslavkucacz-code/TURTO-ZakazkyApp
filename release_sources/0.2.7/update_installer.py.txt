@@ -1,0 +1,79 @@
+"""Detached installer: validate everything first, back up, replace, roll back on failure."""
+from __future__ import annotations
+import shutil,subprocess,sys,time,os
+from datetime import datetime
+from pathlib import Path
+sys.dont_write_bytecode=True
+from src.release_safety import validate_folder
+
+
+def normalize_package_root(folder):
+    folder=Path(folder);children=list(folder.iterdir())
+    if len(children)==1 and children[0].is_dir() and (children[0]/'app.pyw').exists():return children[0]
+    return folder
+
+
+def copy_update(source,target):
+    source=normalize_package_root(source);target=Path(target)
+    spec=validate_folder(source)
+    backup=target/'backup'/('app_'+datetime.now().strftime('%Y%m%d_%H%M%S_%f'));backup.mkdir(parents=True)
+    ordered=sorted(spec['files'],key=lambda name:name=='app.pyw')
+    existed=set();changed=[]
+    try:
+        for rel in ordered:
+            dst=target/rel
+            if dst.exists():
+                p=backup/rel;p.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(dst,p);existed.add(rel)
+        for rel in ordered:
+            dst=target/rel;dst.parent.mkdir(parents=True,exist_ok=True)
+            staged=dst.with_name(dst.name+'.turto-new')
+            try:
+                shutil.copy2(source/rel,staged);os.replace(staged,dst);changed.append(rel)
+            finally:staged.unlink(missing_ok=True)
+    except Exception:
+        for rel in reversed(changed):
+            dst=target/rel
+            if rel in existed:shutil.copy2(backup/rel,dst)
+            else:dst.unlink(missing_ok=True)
+        raise
+    for cache in list(target.rglob('__pycache__')):shutil.rmtree(cache,ignore_errors=True)
+    for pattern in ('patch_v*.py','patch_v*_data*.txt'):
+        for obsolete in target.glob(pattern):
+            try:obsolete.unlink(missing_ok=True)
+            except Exception:pass
+    for stale in target.rglob('*.pyc'):
+        try:stale.unlink(missing_ok=True)
+        except Exception:pass
+    # Remove obsolete release/build artefacts left by early update channels.
+    for stale_dir in (target/'.github',):
+        shutil.rmtree(stale_dir,ignore_errors=True)
+    for stale_name in ('version_manifest.example.json','OPRAVA_0.2.1.txt'):
+        try:(target/stale_name).unlink(missing_ok=True)
+        except Exception:pass
+    for note in target.glob('ZMENY_*.txt'):
+        if note.name!='ZMENY_0.2.7.txt':
+            try:note.unlink(missing_ok=True)
+            except Exception:pass
+    return backup
+
+
+def main():
+    if len(sys.argv)<3:return 2
+    source=Path(sys.argv[1]).resolve();target=Path(sys.argv[2]).resolve()
+    time.sleep(2)
+    try:copy_update(source,target)
+    except Exception:
+        import traceback
+        (target/'turto_update_error.log').write_text(traceback.format_exc(),encoding='utf-8')
+        try:
+            import tkinter as tk
+            from tkinter import messagebox
+            root=tk.Tk();root.withdraw();messagebox.showerror('Aktualizace nebyla provedena','Původní program byl obnoven. Podrobnosti: turto_update_error.log');root.destroy()
+        except Exception:pass
+        return 1
+    exe=Path(sys.executable)
+    if exe.name.lower()=='python.exe' and exe.with_name('pythonw.exe').exists():exe=exe.with_name('pythonw.exe')
+    subprocess.Popen([str(exe),str(target/'app.pyw')],cwd=target)
+    return 0
+
+if __name__=='__main__':raise SystemExit(main())
