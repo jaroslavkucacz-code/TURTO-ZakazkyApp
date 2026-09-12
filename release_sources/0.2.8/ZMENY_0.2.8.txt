@@ -1,0 +1,8 @@
+TURTO – Měsíční přehledy v0.2.8
+
+- Hotfix pádu v Pythonu 3.14 při opakovaném obnovování Windows ikony.
+- Odstraněno událostní obnovování ikony přes <Map>/<Visibility>, které mohlo vytvářet nekonečný řetězec callbacků.
+- Cesta k assets se v časovaných callbackách drží jako obyčejný řetězec, nikoli jako pathlib.Path objekt.
+- Veškerá práce s Windows ikonou je best-effort: chyba ikony už nesmí shodit hlavní Tkinter mainloop.
+- Zachována Windows identita a ikona z v0.2.7.
+- Databáze, importy, exporty a nastavení zůstávají beze změny.
