@@ -1,6 +1,6 @@
 {
-  "version": "8.0.5",
+  "version": "8.0.6",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "notes": "Další konzervativní optimalizace TURTO CRM navazující na verzi 8.0.4. Při startu se stejným aktivním uživatelem se již neopakuje celý cyklus změny uživatele, načtení vzhledu a obnovy přehledů. České databázové řazení využívá stávající omezenou cache přímo, bez dvou pomocných volání na každé porovnání; pravidla řazení včetně CH a čísel se nemění. Doplněny jsou regresní kontroly skutečných původních funkcí, neplatného nebo neaktivního uloženého uživatele a shody řazení s databázovými indexy i bez nich. Zachováno je Calibri, světlý a tmavý vzhled, stavy, filtry, auditní historie i dosavadní navigace. Aktualizace nemění databázové schéma ani nepřepisuje obchodní data; neobsahuje experiment s odloženým vytvářením Ceníků a Vydaných nabídek."
+  "notes": "TURTO CRM 8.0.6 opravuje zpracování přijatých cenových nabídek ve Windows instalaci. Interní Offer Engine se nyní správně balí do aplikace a frozen runtime jej načítá z interní PyInstaller cesty, takže jsou v instalovaném EXE dostupné parsery PohlCon/Jordahl, Leviat a GEROtop; odstraňuje se chyba ‚Chybí interní modul offers_engine‘. Distribuční kontrola dovoluje Python zdroje pouze uvnitř přesně vymezeného _internal/offers_engine a nadále zakazuje jiné volné Python soubory, databáze a instalační pozůstatky v aktualizačním ZIPu. Verze současně obsahuje ověřené čištění životního cyklu kontextových nabídek a související runtime optimalizace bez změny databázového schématu, obchodních dat, filtrů, auditní historie, Calibri ani světlého/tmavého vzhledu."
 }
