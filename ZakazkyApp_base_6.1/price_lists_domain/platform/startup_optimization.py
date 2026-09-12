@@ -20,6 +20,15 @@ V760_REDUNDANT_FINALIZE_DELAYS = frozenset({260, 1200})
 # Keep the first safety pass. Any page subsequently refreshed has its own 50/420
 # ms stabilizers, so the two very late startup-wide repetitions are redundant.
 V638_REDUNDANT_STABILIZE_DELAYS = frozenset({2200, 3800})
+# v750 schedules the same workspace reassertion at 0/80/260/760/1650 ms.
+# Keep the first 0 ms pass because it follows older zero-delay layout work; no
+# relevant owner rewrites those controls afterwards, so the four later repeats
+# only rescan the same widgets and recheck the same archive visibility.
+V750_REDUNDANT_WORKSPACE_DELAYS = frozenset({80, 260, 760, 1650})
+# v740 follows v710's delayed legacy MIVO-column-button passes.  Its 80 ms pass
+# has no intervening writer after the required 0 ms cleanup; later 260/760/1650
+# passes remain functional because they follow v710's 180/650/1500 ms passes.
+V740_REDUNDANT_TIDY_DELAYS = frozenset({80})
 
 
 def _callback_origin(callback: Any) -> tuple[str, str]:
@@ -73,6 +82,28 @@ def _is_redundant_v638_stabilize(delay: Any, callback: Any) -> bool:
     if _callback_origin(callback) != ("v638_table_updatefix.py", "<lambda>"):
         return False
     return "_stabilize" in _closure_callable_names(callback)
+
+
+def _is_redundant_v750_workspace(delay: Any, callback: Any) -> bool:
+    try:
+        milliseconds = int(delay)
+    except Exception:
+        return False
+    if milliseconds not in V750_REDUNDANT_WORKSPACE_DELAYS or not callable(callback):
+        return False
+    if _callback_origin(callback) != ("v750_context_filters_offer_format.py", "<lambda>"):
+        return False
+    return "configure_workspaces" in _closure_callable_names(callback)
+
+
+def _is_redundant_v740_tidy(delay: Any, callback: Any) -> bool:
+    try:
+        milliseconds = int(delay)
+    except Exception:
+        return False
+    if milliseconds not in V740_REDUNDANT_TIDY_DELAYS or not callable(callback):
+        return False
+    return _callback_origin(callback) == ("v740_offer_defaults.py", "tidy")
 
 
 def _is_v770_plexus_backfill(delay: Any, callback: Any) -> bool:
@@ -168,6 +199,8 @@ def _call_previous_init_optimized(M: Any, instance: Any, previous_init: Any, *ar
     previous_instance_after = state.get("after")
     v760_suppressed: list[int] = []
     v638_suppressed: list[int] = []
+    v750_suppressed: list[int] = []
+    v740_suppressed: list[int] = []
     plexus_before = 0
     plexus_after = 0
 
@@ -180,6 +213,14 @@ def _call_previous_init_optimized(M: Any, instance: Any, previous_init: Any, *ar
         if _is_redundant_v638_stabilize(delay, callback):
             v638_suppressed.append(int(delay))
             return f"turto-coalesced-v638-{len(v638_suppressed)}"
+
+        if _is_redundant_v750_workspace(delay, callback):
+            v750_suppressed.append(int(delay))
+            return f"turto-coalesced-v750-{len(v750_suppressed)}"
+
+        if _is_redundant_v740_tidy(delay, callback):
+            v740_suppressed.append(int(delay))
+            return f"turto-coalesced-v740-{len(v740_suppressed)}"
 
         if _is_v770_plexus_backfill(delay, callback):
             closure = _closure_map(callback)
@@ -204,6 +245,8 @@ def _call_previous_init_optimized(M: Any, instance: Any, previous_init: Any, *ar
                 instance.__dict__.pop("after", None)
             instance._turto_v760_finalizers_coalesced = tuple(v760_suppressed)
             instance._turto_v638_startup_stabilizers_coalesced = tuple(v638_suppressed)
+            instance._turto_v750_workspace_passes_coalesced = tuple(v750_suppressed)
+            instance._turto_v740_tidy_passes_coalesced = tuple(v740_suppressed)
             instance._turto_plexus_backfill_candidates = plexus_before
             instance._turto_plexus_backfill_pending = plexus_after
         except Exception:
@@ -235,6 +278,10 @@ def apply(M: Any) -> None:
         "v760_delayed_finalizers_suppressed": tuple(sorted(V760_REDUNDANT_FINALIZE_DELAYS)),
         "v638_first_startup_stabilizer_preserved_ms": 900,
         "v638_late_startup_stabilizers_suppressed": tuple(sorted(V638_REDUNDANT_STABILIZE_DELAYS)),
+        "v750_first_workspace_pass_preserved_ms": 0,
+        "v750_redundant_workspace_passes_suppressed": tuple(sorted(V750_REDUNDANT_WORKSPACE_DELAYS)),
+        "v740_functional_tidy_passes_preserved_ms": (0, 260, 760, 1650),
+        "v740_redundant_tidy_passes_suppressed": tuple(sorted(V740_REDUNDANT_TIDY_DELAYS)),
         "plexus_backfill": "unresolved-assets-only",
         "database_rows_rewritten_at_startup": False,
     }
@@ -245,4 +292,6 @@ __all__ = [
     "prune_plexus_backfill_ids",
     "V760_REDUNDANT_FINALIZE_DELAYS",
     "V638_REDUNDANT_STABILIZE_DELAYS",
+    "V750_REDUNDANT_WORKSPACE_DELAYS",
+    "V740_REDUNDANT_TIDY_DELAYS",
 ]
