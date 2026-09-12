@@ -2,8 +2,8 @@
   "app_id": "cz.turto.mesicni-prehledy",
   "version": "0.2.1",
   "minimum_version": "0.1.4",
-  "sha256": "145155115a6558001daf2c87059d8f8dd02f976c7d081f83082eac5a3a57ef11",
-  "notes": "Hotfix pádu po aktualizaci 0.2.0. Aktualizační balíček je nově publikován jako samostatný ověřovaný ZIP. Zachovává databázi, importy, exporty, nastavení a všechny funkce v0.2.0.",
+  "sha256": "",
+  "notes": "Hotfix pádu po aktualizaci 0.2.0. Opravený bootstrap už nenačítá poškozený patch_v020.py; data, importy, exporty a nastavení zůstávají zachované. Funkce v0.2.0 zůstávají beze změny.",
   "channel": "stable",
-  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/19fca94f1f9e1c03e21438d52fa4bcd949bb59cb/releases/0.2.1/TURTO_update_0.2.1.zip"
+  "url": "https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/archive/refs/heads/mesicni-prehledy-stable.zip"
 }
