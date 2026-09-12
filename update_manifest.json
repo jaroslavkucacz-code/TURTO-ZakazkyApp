@@ -1,9 +1,9 @@
 {
   "app_id": "cz.turto.mesicni-prehledy",
-  "version": "0.2.7",
-  "minimum_version": "0.2.6",
-  "sha256": "d50242cfc7595f9ae6b10306c05fd325bd368152c5fe7753498f18dc59e7729a",
-  "notes": "Oprava vazby běžícího okna na TURTO ikonu ve Windows: nativní IShellLink zástupce se skutečným AppUserModelID, explicitní COM inicializace a ověření AppID okna i zástupce. Ikona je navíc balená v klasickém DIB ICO formátu kompatibilním s WinAPI/Tk a nastavována samostatnou ověřenou WinAPI cestou. Přidána diagnostika windows_identity.log a další úklid starých release souborů. Data a nastavení zůstávají zachované.",
+  "version": "0.2.8",
+  "minimum_version": "0.2.7",
+  "sha256": "a9249beee1a3f8cbef336df10c04517f00ca25fea90285ed9f05952d8ffed533",
+  "notes": "Hotfix stability pro Python 3.14: odstraněna rekurze v pathlib při callbacku Windows ikony, zrušeno eventové obnovování ikony přes Map/Visibility a ikonový refresh už nikdy nesmí shodit hlavní UI. Data a nastavení zůstávají zachované.",
   "channel": "stable",
-  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/05c1daf10515208f989027dc6d938dbb98d55cc9/releases/0.2.7/TURTO_update_0.2.7.zip"
+  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/6e846d72b7b80ce40db314494378b089403579d0/releases/0.2.8/TURTO_update_0.2.8.zip"
 }
