@@ -1,0 +1,140 @@
+from __future__ import annotations
+
+import ctypes
+import os
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+
+def _vbs_quote(value: str) -> str:
+    return str(value).replace('"', '""')
+
+
+def _pythonw_executable() -> Path:
+    exe = Path(sys.executable)
+    if exe.name.lower() == 'python.exe':
+        candidate = exe.with_name('pythonw.exe')
+        if candidate.exists():
+            return candidate
+    return exe
+
+
+def apply_native_window_icon(window, root: str | Path) -> None:
+    """Force both Windows small and large window icons from the multi-size ICO.
+
+    Tk iconphoto/iconbitmap are kept as the portable path.  On Windows this
+    extra WM_SETICON step avoids the shell choosing a malformed/scaled icon
+    from pythonw.exe or from a single-size ICO cache.
+    """
+    if sys.platform != 'win32':
+        return
+    icon = Path(root).resolve() / 'assets' / 'app_icon.ico'
+    if not icon.exists():
+        return
+    try:
+        from ctypes import wintypes
+        user32 = ctypes.windll.user32
+        LoadImageW = user32.LoadImageW
+        LoadImageW.argtypes = [wintypes.HINSTANCE, wintypes.LPCWSTR, wintypes.UINT,
+                               ctypes.c_int, ctypes.c_int, wintypes.UINT]
+        LoadImageW.restype = wintypes.HANDLE
+        GetParent = user32.GetParent
+        GetParent.argtypes = [wintypes.HWND]
+        GetParent.restype = wintypes.HWND
+        SendMessageW = user32.SendMessageW
+        SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+        SendMessageW.restype = ctypes.c_ssize_t
+
+        window.update_idletasks()
+        child = wintypes.HWND(window.winfo_id())
+        parent = GetParent(child)
+        hwnds = [child]
+        if parent and int(parent) != int(child):
+            hwnds.append(parent)
+
+        IMAGE_ICON = 1
+        LR_LOADFROMFILE = 0x0010
+        WM_SETICON = 0x0080
+        ICON_SMALL = 0
+        ICON_BIG = 1
+        smx = user32.GetSystemMetrics(49) or 16
+        smy = user32.GetSystemMetrics(50) or 16
+        bigx = user32.GetSystemMetrics(11) or 32
+        bigy = user32.GetSystemMetrics(12) or 32
+
+        handles = []
+        small = LoadImageW(None, str(icon), IMAGE_ICON, smx, smy, LR_LOADFROMFILE)
+        big = LoadImageW(None, str(icon), IMAGE_ICON, bigx, bigy, LR_LOADFROMFILE)
+        for handle in (small, big):
+            if handle:
+                handles.append(handle)
+        for hwnd in hwnds:
+            if small:
+                SendMessageW(hwnd, WM_SETICON, ICON_SMALL, int(small))
+            if big:
+                SendMessageW(hwnd, WM_SETICON, ICON_BIG, int(big))
+        window._turto_native_icon_handles = handles
+    except Exception:
+        pass
+
+
+def ensure_windows_shortcuts(root: str | Path) -> None:
+    """Create/update TURTO shortcuts on Windows using only built-in WSH."""
+    if sys.platform != 'win32':
+        return
+
+    root = Path(root).resolve()
+    icon = root / 'assets' / 'app_icon.ico'
+    app = root / 'app.pyw'
+    if not icon.exists() or not app.exists():
+        return
+
+    exe = _pythonw_executable().resolve()
+    lines = [
+        'Set shell = CreateObject("WScript.Shell")',
+        'desktop = shell.SpecialFolders("Desktop")',
+        f'root = "{_vbs_quote(str(root))}"',
+        f'target = "{_vbs_quote(str(exe))}"',
+        f'args = Chr(34) & "{_vbs_quote(str(app))}" & Chr(34)',
+        f'icon = "{_vbs_quote(str(icon))},0"',
+        'For Each linkPath In Array(desktop & "\\TURTO - Mesicni prehledy.lnk", root & "\\TURTO - Mesicni prehledy.lnk")',
+        '  Set sc = shell.CreateShortcut(linkPath)',
+        '  sc.TargetPath = target',
+        '  sc.Arguments = args',
+        '  sc.WorkingDirectory = root',
+        '  sc.IconLocation = icon',
+        '  sc.Description = "TURTO - Mesicni prehledy"',
+        '  sc.Save',
+        'Next',
+    ]
+    script = '\r\n'.join(lines) + '\r\n'
+
+    tmp = None
+    try:
+        fd, name = tempfile.mkstemp(prefix='turto_shortcut_', suffix='.vbs')
+        os.close(fd)
+        tmp = Path(name)
+        tmp.write_text(script, encoding='utf-8-sig')
+        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+        subprocess.run(
+            ['cscript.exe', '//nologo', str(tmp)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=8,
+            check=False,
+            creationflags=flags,
+        )
+        try:
+            subprocess.run(['ie4uinit.exe', '-show'], stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL, timeout=5, check=False,
+                           creationflags=flags)
+        except Exception:
+            pass
+    finally:
+        if tmp:
+            try:
+                tmp.unlink(missing_ok=True)
+            except Exception:
+                pass
