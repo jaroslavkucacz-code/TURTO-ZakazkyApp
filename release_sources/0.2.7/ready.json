@@ -1,0 +1,8 @@
+{
+  "app_id": "cz.turto.mesicni-prehledy",
+  "version": "0.2.7",
+  "minimum_version": "0.2.6",
+  "previous_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/04c5969531f07ab86685bbb2f188a8178b6a00fa/releases/0.2.6/TURTO_update_0.2.6.zip",
+  "previous_sha256": "b715123b696527d3205a1707d33e250a0bb202222572d0f42ef1adea37ab37bb",
+  "notes": "Oprava vazby běžícího okna na TURTO ikonu ve Windows: nativní IShellLink zástupce se skutečným AppUserModelID, explicitní COM inicializace a ověření AppID okna i zástupce. Přidána diagnostika windows_identity.log a další úklid starých release souborů. Data a nastavení zůstávají zachované."
+}
