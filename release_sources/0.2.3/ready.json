@@ -1,0 +1,8 @@
+{
+  "app_id": "cz.turto.mesicni-prehledy",
+  "version": "0.2.3",
+  "minimum_version": "0.2.2",
+  "previous_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/64b7c4c8f514477ca29927c4b222f26c77a5b0ee/releases/0.2.2/TURTO_update_0.2.2.zip",
+  "previous_sha256": "91d91a3f7496af44c27a343871f004a1b50479b051f2c54139051885b26a9051",
+  "notes": "Oprava balení oficiální ikony TURTO. Ikona je nově součástí online aktualizace pro hlavní okno, Alt+Tab, hlavní panel Windows, branding aplikace a zástupce. Databáze, importy, exporty a nastavení zůstávají zachované."
+}
