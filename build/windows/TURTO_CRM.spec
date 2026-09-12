@@ -33,6 +33,28 @@ for name in ("turto_logo.png", "turto_logo.ico", "turto_crm.png", "turto_crm.ico
         datas.append((str(path), "."))
 datas += collect_data_files("price_lists_domain")
 
+# The legacy offer router intentionally loads parsers from physical source files:
+# Leviat is a .pyw SourceFileLoader module and supplier providers are discovered
+# by scanning offers_engine/providers/*.py. Hidden imports alone therefore work
+# in source mode but not inside a frozen PyInstaller archive. Keep a physical,
+# read-only copy under _MEIPASS/offers_engine for the frozen-safe loader.
+offer_engine_root = BASE / "offers_engine"
+required_offer_sources = (
+    offer_engine_root / "Nabidky_Router.py",
+    offer_engine_root / "Leviat_Nabidky.pyw",
+    offer_engine_root / "Gerotop_Parser_767.py",
+    offer_engine_root / "providers" / "pohlcon.py",
+)
+missing_offer_sources = [str(path) for path in required_offer_sources if not path.is_file()]
+if missing_offer_sources:
+    raise RuntimeError(
+        "Required offer-engine source missing: " + ", ".join(missing_offer_sources)
+    )
+for source in offer_engine_root.rglob("*"):
+    if source.is_file() and source.suffix.lower() in {".py", ".pyw"}:
+        relative_parent = source.parent.relative_to(BASE)
+        datas.append((str(source), str(relative_parent)))
+
 # tkinterdnd2 ships native payloads for many platforms and architectures. TURTO
 # CRM 8.0 is a Windows x64 build, so include only the two x64 variants required
 # by current/legacy Tcl runtimes. Python 3.14 uses Tcl/Tk 9, therefore the
