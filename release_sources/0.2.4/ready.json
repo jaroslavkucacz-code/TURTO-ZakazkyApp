@@ -1,0 +1,8 @@
+{
+  "app_id": "cz.turto.mesicni-prehledy",
+  "version": "0.2.4",
+  "minimum_version": "0.2.3",
+  "previous_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/bf672a354b4ca84940a161d39a3c358e1a33fa40/releases/0.2.3/TURTO_update_0.2.3.zip",
+  "previous_sha256": "7169f8c0c94210e64223c2547f9a29e88ae7c16f79a69cc7e7cb7a02b4dac077",
+  "notes": "Oprava ikony Windows: skutečný vícerozměrový ICO soubor, více PNG velikostí pro Tk, nativní WM_SETICON pro titulkovou a taskbar ikonu a obnovení zástupce. Databáze, importy, exporty a nastavení zůstávají zachované."
+}
