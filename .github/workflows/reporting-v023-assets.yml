@@ -18,7 +18,7 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PY'
-          import base64, hashlib, io, json, pathlib, urllib.request, zipfile
+          import base64, hashlib, io, json, pathlib, struct, urllib.request, zipfile
           root = pathlib.Path('release_sources/0.2.3')
           ready = json.loads((root/'ready.json').read_text(encoding='utf-8'))
           assert ready['app_id'] == 'cz.turto.mesicni-prehledy'
@@ -34,21 +34,26 @@ jobs:
               assert z.testzip() is None
               z.extractall(stage)
 
-          for rel in ('CHANGELOG.txt','ZMENY_0.2.3.txt','package_files.json','src/constants.py'):
+          for rel in ('ZMENY_0.2.3.txt','package_files.json','src/constants.py'):
               src = root/rel
               dst = stage/rel
               dst.parent.mkdir(parents=True, exist_ok=True)
               dst.write_bytes(src.read_bytes())
 
-          assets = {
-              'assets/app_icon.ico': 'assets/app_icon.ico.b64',
+          png_assets = {
               'assets/app_icon_48.png': 'assets/app_icon_48.png.b64',
               'assets/app_icon_64.png': 'assets/app_icon_64.png.b64',
           }
-          for rel, encoded in assets.items():
+          for rel, encoded in png_assets.items():
               dst = stage/rel
               dst.parent.mkdir(parents=True, exist_ok=True)
               dst.write_bytes(base64.b64decode((root/encoded).read_text(encoding='ascii'), validate=True))
+
+          # Jednoduchý standardní ICO kontejner s vloženým 64px PNG.
+          png64 = (stage/'assets/app_icon_64.png').read_bytes()
+          ico = struct.pack('<HHH', 0, 1, 1) + struct.pack('<BBBBHHII', 64, 64, 0, 0, 1, 32, len(png64), 22) + png64
+          (stage/'assets/app_icon.ico').write_bytes(ico)
+          assets = ('assets/app_icon.ico','assets/app_icon_48.png','assets/app_icon_64.png')
 
           spec = json.loads((stage/'package_files.json').read_text(encoding='utf-8'))
           assert spec['app_id'] == ready['app_id']
