@@ -1,0 +1,49 @@
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+DEFAULT_CONFIG = {
+    'database_path': 'data/turto_dashboard.db',
+    'export_dir': 'exports',
+    'import_archive_dir': 'imports',
+    'backup_dir': 'backup',
+    'update_manifest_url': 'https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/mesicni-prehledy-stable/update_manifest.json',
+    'theme': 'dark',
+    'default_period': '2026-08',
+}
+
+
+def app_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def config_path() -> Path:
+    return app_root() / 'config.json'
+
+
+def load_config() -> dict:
+    path = config_path()
+    cfg = DEFAULT_CONFIG.copy()
+    if path.exists():
+        try:
+            cfg.update(json.loads(path.read_text(encoding='utf-8')))
+        except Exception:
+            pass
+    # Od v0.1.4 je stabilní aktualizační kanál vestavěný. Starší config.json
+    # může obsahovat prázdnou hodnotu; v takovém případě ji automaticky opravíme.
+    if not str(cfg.get('update_manifest_url','')).strip():
+        cfg['update_manifest_url'] = DEFAULT_CONFIG['update_manifest_url']
+    return cfg
+
+
+def save_config(cfg: dict) -> None:
+    config_path().write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
+def resolve_path(value: str) -> Path:
+    p = Path(os.path.expandvars(os.path.expanduser(value)))
+    if not p.is_absolute():
+        p = app_root() / p
+    return p.resolve()

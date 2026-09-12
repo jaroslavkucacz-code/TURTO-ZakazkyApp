@@ -1,0 +1,175 @@
+from __future__ import annotations
+
+import shutil
+import sqlite3
+from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
+
+from .constants import DB_SCHEMA_VERSION
+
+
+SCHEMA = r'''
+PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS imports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    imported_at TEXT NOT NULL,
+    import_type TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    file_hash TEXT,
+    period_year INTEGER,
+    period_month INTEGER,
+    row_count INTEGER DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'OK',
+    notes TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS delivery_notes (
+    doc_no TEXT PRIMARY KEY,
+    doc_date TEXT NOT NULL,
+    base_amount REAL NOT NULL DEFAULT 0,
+    total_amount REAL NOT NULL DEFAULT 0,
+    customer TEXT DEFAULT '',
+    description TEXT DEFAULT '',
+    center TEXT DEFAULT '',
+    project TEXT DEFAULT '',
+    note TEXT DEFAULT '',
+    source_import_id INTEGER,
+    FOREIGN KEY(source_import_id) REFERENCES imports(id)
+);
+CREATE INDEX IF NOT EXISTS idx_delivery_date ON delivery_notes(doc_date);
+CREATE INDEX IF NOT EXISTS idx_delivery_center ON delivery_notes(center);
+CREATE INDEX IF NOT EXISTS idx_delivery_customer ON delivery_notes(customer);
+
+CREATE TABLE IF NOT EXISTS profit_documents (
+    doc_no TEXT PRIMARY KEY,
+    doc_date TEXT,
+    customer TEXT DEFAULT '',
+    profit_total REAL NOT NULL DEFAULT 0,
+    source_import_id INTEGER,
+    FOREIGN KEY(doc_no) REFERENCES delivery_notes(doc_no) ON DELETE CASCADE,
+    FOREIGN KEY(source_import_id) REFERENCES imports(id)
+);
+CREATE TABLE IF NOT EXISTS profit_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    doc_no TEXT NOT NULL,
+    code TEXT DEFAULT '',
+    name TEXT DEFAULT '',
+    item_text TEXT DEFAULT '',
+    quantity REAL DEFAULT 0,
+    profit_unit REAL DEFAULT 0,
+    profit_total REAL DEFAULT 0,
+    sales_unit REAL,
+    sales_total REAL,
+    cost_unit REAL,
+    cost_total REAL,
+    margin_amount REAL,
+    margin_percent REAL,
+    source_import_id INTEGER,
+    FOREIGN KEY(doc_no) REFERENCES profit_documents(doc_no) ON DELETE CASCADE,
+    FOREIGN KEY(source_import_id) REFERENCES imports(id)
+);
+CREATE INDEX IF NOT EXISTS idx_profit_items_doc ON profit_items(doc_no);
+CREATE INDEX IF NOT EXISTS idx_profit_items_code ON profit_items(code);
+
+CREATE TABLE IF NOT EXISTS overhead_docs (
+    invoice_no TEXT PRIMARY KEY,
+    doc_date TEXT NOT NULL,
+    due_date TEXT,
+    description TEXT DEFAULT '',
+    customer TEXT DEFAULT '',
+    total_amount REAL NOT NULL DEFAULT 0,
+    remaining_amount REAL NOT NULL DEFAULT 0,
+    center TEXT DEFAULT '',
+    source_import_id INTEGER,
+    FOREIGN KEY(source_import_id) REFERENCES imports(id)
+);
+CREATE INDEX IF NOT EXISTS idx_overhead_date ON overhead_docs(doc_date);
+
+CREATE TABLE IF NOT EXISTS monthly_summary (
+    period TEXT PRIMARY KEY,
+    profit_total REAL DEFAULT 0,
+    profit_m REAL DEFAULT 0,
+    profit_j REAL DEFAULT 0,
+    profit_h REAL DEFAULT 0,
+    profit_other REAL DEFAULT 0,
+    count_total INTEGER DEFAULT 0,
+    count_m INTEGER DEFAULT 0,
+    count_j INTEGER DEFAULT 0,
+    count_h INTEGER DEFAULT 0,
+    source TEXT DEFAULT 'legacy'
+);
+
+CREATE TABLE IF NOT EXISTS invoice_customer_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    period TEXT NOT NULL,
+    customer TEXT NOT NULL,
+    amount REAL NOT NULL DEFAULT 0,
+    source_import_id INTEGER,
+    UNIQUE(period, customer)
+);
+'''
+
+
+class Database:
+    def __init__(self, path: str | Path):
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.init_schema()
+
+    @contextmanager
+    def connect(self):
+        con = sqlite3.connect(self.path, timeout=20)
+        con.row_factory = sqlite3.Row
+        con.execute('PRAGMA foreign_keys=ON')
+        con.execute('PRAGMA synchronous=FULL')
+        con.execute('PRAGMA busy_timeout=20000')
+        try:
+            yield con
+            con.commit()
+        except Exception:
+            con.rollback()
+            raise
+        finally:
+            con.close()
+
+    def init_schema(self):
+        with sqlite3.connect(self.path, timeout=20) as con:
+            con.execute('PRAGMA journal_mode=DELETE')
+            con.execute('PRAGMA synchronous=FULL')
+            con.executescript(SCHEMA)
+            # Schéma 2: položky jsou připravené i na budoucí prodejní/nákladovou cenu
+            # a marži. Stávající databáze se rozšíří bez ztráty historických dat.
+            cols={r[1] for r in con.execute('PRAGMA table_info(profit_items)').fetchall()}
+            for name, sql_type in (
+                ('sales_unit','REAL'),('sales_total','REAL'),('cost_unit','REAL'),('cost_total','REAL'),
+                ('margin_amount','REAL'),('margin_percent','REAL')
+            ):
+                if name not in cols:
+                    con.execute(f'ALTER TABLE profit_items ADD COLUMN {name} {sql_type}')
+            con.execute('INSERT OR REPLACE INTO meta(key,value) VALUES (?,?)', ('schema_version', str(DB_SCHEMA_VERSION)))
+
+    def backup(self, backup_dir: str | Path) -> Path:
+        backup_dir = Path(backup_dir)
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        target = backup_dir / f'turto_dashboard_{stamp}.db'
+        with sqlite3.connect(self.path) as src, sqlite3.connect(target) as dst:
+            src.backup(dst)
+        return target
+
+    def scalar(self, sql: str, params=()):
+        with self.connect() as con:
+            row = con.execute(sql, params).fetchone()
+            return None if row is None else row[0]
+
+    def query(self, sql: str, params=()):
+        with self.connect() as con:
+            return con.execute(sql, params).fetchall()
+
+    def execute(self, sql: str, params=()):
+        with self.connect() as con:
+            return con.execute(sql, params)

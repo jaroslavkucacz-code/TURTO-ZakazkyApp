@@ -1,0 +1,199 @@
+from __future__ import annotations
+
+import hashlib
+import re
+import shutil
+from collections import Counter
+from datetime import datetime
+from pathlib import Path
+
+from .xlsx_reader import XlsxReader, excel_date
+
+MONTHS_CZ = {
+    'LEDEN': 1, 'ÚNOR': 2, 'BREZEN': 3, 'BŘEZEN': 3, 'DUBEN': 4,
+    'KVĚTEN': 5, 'KVETEN': 5, 'ČERVEN': 6, 'CERVEN': 6,
+    'ČERVENEC': 7, 'CERVENEC': 7, 'SRPEN': 8, 'ZÁŘÍ': 9, 'ZARI': 9,
+    'ŘÍJEN': 10, 'RIJEN': 10, 'LISTOPAD': 11, 'PROSINEC': 12,
+}
+
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open('rb') as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _register_import(con, import_type, path, file_hash, period_year=None, period_month=None, row_count=0, status='OK', notes=''):
+    cur = con.execute(
+        '''INSERT INTO imports(imported_at, import_type, file_name, file_hash, period_year, period_month, row_count, status, notes)
+           VALUES (?,?,?,?,?,?,?,?,?)''',
+        (datetime.now().isoformat(timespec='seconds'), import_type, path.name, file_hash, period_year, period_month, row_count, status, notes),
+    )
+    return cur.lastrowid
+
+
+def _pad(row, n):
+    return row + [None] * max(0, n - len(row))
+
+
+def _archive(path: Path, archive_dir: Path | None):
+    if not archive_dir:
+        return
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    target = archive_dir / path.name
+    if target.exists():
+        stem, suffix = path.stem, path.suffix
+        target = archive_dir / f'{stem}_{datetime.now():%Y%m%d_%H%M%S}{suffix}'
+    shutil.copy2(path, target)
+
+
+def import_xlsx(db, file_path: str | Path, archive_dir: str | Path | None = None) -> dict:
+    path = Path(file_path)
+    archive = Path(archive_dir) if archive_dir else None
+    digest = sha256_file(path)
+    result = {'file': path.name, 'components': [], 'warnings': []}
+
+    with XlsxReader(path) as reader:
+        sheets = reader.sheet_names
+        with db.connect() as con:
+            # Full summary workbook / POHODA export.
+            if 'DATA POHODA' in sheets:
+                info = _import_delivery_notes(con, reader, path, digest)
+                result['components'].append(info)
+            elif _looks_like_delivery_export(reader):
+                info = _import_delivery_notes(con, reader, path, digest, sheet_name=reader.sheet_names[0])
+                result['components'].append(info)
+
+            if 'zdroj režijní listy' in sheets:
+                info = _import_overheads(con, reader, path, digest, 'zdroj režijní listy')
+                result['components'].append(info)
+
+            if 'ZISKY' in sheets:
+                info = _import_legacy_summary(con, reader, path, digest)
+                result['components'].append(info)
+
+            if _looks_like_profit_report(reader):
+                info = _import_profit_report(con, reader, path, digest)
+                result['components'].append(info)
+
+            if not result['components']:
+                raise ValueError('Soubor nebyl rozpoznán jako podporovaný export POHODA / TURTO.')
+
+    _archive(path, archive)
+    return result
+
+
+def _looks_like_delivery_export(reader: XlsxReader):
+    try:
+        rows = list(reader.rows(reader.sheet_names[0]))[:3]
+    except Exception:
+        return False
+    for _, row in rows:
+        vals = {str(x).strip().lower() for x in row if x is not None}
+        if {'datum', 'číslo', 'firma', 'středisko'}.issubset(vals):
+            return True
+    return False
+
+
+def _looks_like_profit_report(reader: XlsxReader):
+    for _, row in list(reader.rows(reader.sheet_names[0]))[:6]:
+        if any(isinstance(v, str) and 'Zisk (zásoby)' in v for v in row):
+            return True
+    return False
+
+
+def _import_delivery_notes(con, reader, path, digest, sheet_name='DATA POHODA'):
+    rows = reader.rows(sheet_name)
+    header = None
+    header_row = None
+    data_rows = []
+    for rn, row in rows:
+        lowered = [str(v).strip().lower() if v is not None else '' for v in row]
+        if 'datum' in lowered and 'číslo' in lowered and ('kč základní' in lowered or 'celkem' in lowered):
+            header, header_row = row, rn
+            continue
+        if header is not None and rn > header_row:
+            data_rows.append(row)
+    if header is None:
+        raise ValueError(f'V listu {sheet_name} nebyla nalezena hlavička dokladů.')
+
+    index = {str(v).strip().lower(): i for i, v in enumerate(header) if v is not None}
+    ix_date = index.get('datum')
+    ix_no = index.get('číslo')
+    ix_base = index.get('kč základní', index.get('celkem'))
+    ix_total = index.get('celkem', ix_base)
+    ix_customer = index.get('firma')
+    ix_text = index.get('text')
+    ix_center = index.get('středisko')
+    ix_project = index.get('zakázka')
+    ix_note = index.get('poznámka')
+
+    parsed = []
+    dates = []
+    for row in data_rows:
+        row = _pad(row, max(index.values()) + 1)
+        doc = row[ix_no] if ix_no is not None else None
+        dt = excel_date(row[ix_date]) if ix_date is not None else None
+        if not doc or not dt:
+            continue
+        d = dt.date().isoformat()
+        dates.append(dt.date())
+        parsed.append((
+            str(doc).strip(), d, float(row[ix_base] or 0), float(row[ix_total] or 0),
+            str(row[ix_customer] or '').strip() if ix_customer is not None else '',
+            str(row[ix_text] or '').strip() if ix_text is not None else '',
+            str(row[ix_center] or '').strip().upper() if ix_center is not None else '',
+            str(row[ix_project] or '').strip() if ix_project is not None else '',
+            str(row[ix_note] or '').strip() if ix_note is not None else '',
+        ))
+
+    year = dates[-1].year if dates else None
+    month = dates[-1].month if dates else None
+    imp_id = _register_import(con, 'DATA_POHODA', path, digest, year, month, len(parsed), notes=f'List: {sheet_name}')
+    con.executemany(
+        '''INSERT INTO delivery_notes(doc_no,doc_date,base_amount,total_amount,customer,description,center,project,note,source_import_id)
+           VALUES (?,?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(doc_no) DO UPDATE SET
+             doc_date=excluded.doc_date, base_amount=excluded.base_amount, total_amount=excluded.total_amount,
+             customer=excluded.customer, description=excluded.description, center=excluded.center,
+             project=excluded.project, note=excluded.note, source_import_id=excluded.source_import_id''',
+        [r + (imp_id,) for r in parsed]
+    )
+    return {'type': 'DATA POHODA', 'rows': len(parsed), 'period': f'{year:04d}-{month:02d}' if year and month else ''}
+
+
+def _import_overheads(con, reader, path, digest, sheet_name):
+    all_rows = list(reader.rows(sheet_name))
+    if not all_rows:
+        return {'type': 'REŽIJNÍ LISTY', 'rows': 0, 'period': ''}
+    _, header = all_rows[0]
+    idx = {str(v).strip().lower(): i for i, v in enumerate(header) if v is not None}
+    parsed, dates = [], []
+    for _, row in all_rows[1:]:
+        row = _pad(row, max(idx.values()) + 1)
+        no = row[idx.get('číslo', 0)]
+        dt = excel_date(row[idx.get('datum', 1)])
+        if not no or not dt:
+            continue
+        due = excel_date(row[idx.get('splatno', 2)])
+        parsed.append((
+            str(no), dt.date().isoformat(), due.date().isoformat() if due else None,
+            str(row[idx.get('text', 3)] or ''), str(row[idx.get('firma', 4)] or ''),
+            float(row[idx.get('celkem', 5)] or 0), float(row[idx.get('k likvidaci', 6)] or 0),
+            str(row[idx.get('středisko', idx.get('středisko', 7))] or '').strip().upper(),
+        ))
+        dates.append(dt.date())
+    year = dates[-1].year if dates else None
+    month = dates[-1].month if dates else None
+    imp_id = _register_import(con, 'REZIJNI_LISTY', path, digest, year, month, len(parsed), notes=f'List: {sheet_name}')
+    con.executemany(
+        '''INSERT INTO overhead_docs(invoice_no,doc_date,due_date,description,customer,total_amount,remaining_amount,center,source_import_id)
+           VALUES (?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(invoice_no) DO UPDATE SET doc_date=excluded.doc_date,due_date=excluded.due_date,
+           description=excluded.description,customer=excluded.customer,total_amount=excluded.total_amount,
+           remaining_amount=excluded.remaining_amount,center=excluded.center,source_import_id=excluded.source_import_id''',
+        [r + (imp_id,) for r in parsed]
+    )
+    return {'type': 'REŽIJNÍ LISTY', 

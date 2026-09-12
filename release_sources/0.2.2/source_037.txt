@@ -1,0 +1,51 @@
+"""Page scrolling and responsive cards, isolated from the analytical UI."""
+import tkinter as tk
+from tkinter import ttk
+from .constants import COLORS
+
+
+class PageViewport(tk.Frame):
+    def __init__(self,master):
+        super().__init__(master,bg=COLORS['bg'])
+        self.canvas=tk.Canvas(self,bg=COLORS['bg'],highlightthickness=0,bd=0)
+        scroll=ttk.Scrollbar(self,orient='vertical',command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=scroll.set)
+        scroll.pack(side='right',fill='y');self.canvas.pack(side='left',fill='both',expand=True)
+        self.body=tk.Frame(self.canvas,bg=COLORS['bg'])
+        self.window=self.canvas.create_window(0,0,window=self.body,anchor='nw')
+        self.canvas.bind('<Configure>',self._fit);self.body.bind('<Configure>',self._region)
+        self.bind_all('<MouseWheel>',self._wheel,add='+')
+        self.bind_all('<Button-4>',self._wheel,add='+');self.bind_all('<Button-5>',self._wheel,add='+')
+
+    def _fit(self,event):
+        self.canvas.itemconfigure(self.window,width=max(1,event.width))
+        self._region()
+
+    def _region(self,event=None):
+        self.canvas.configure(scrollregion=self.canvas.bbox('all'))
+
+    def _wheel(self,event):
+        w=event.widget
+        if w.winfo_toplevel() is not self.winfo_toplevel():return
+        # Keep native row scrolling in tables, dropdowns and listboxes.
+        cur=w
+        while cur is not None:
+            if isinstance(cur,(ttk.Treeview,tk.Listbox,ttk.Combobox)):return
+            if cur is self:break
+            cur=getattr(cur,'master',None)
+        if cur is not self:return
+        if self.body.winfo_reqheight()<=self.canvas.winfo_height():return
+        step=-1 if getattr(event,'num',None)==4 else (1 if getattr(event,'num',None)==5 else (-1 if event.delta>0 else 1))
+        self.canvas.yview_scroll(step*3,'units')
+
+
+def responsive_grid(frame,widgets,wide_columns,narrow_columns=1,threshold=1180):
+    state=[None]
+    def arrange(event):
+        columns=wide_columns if event.width>=threshold else narrow_columns
+        if columns==state[0]:return
+        state[0]=columns
+        for c in range(wide_columns):frame.grid_columnconfigure(c,weight=0,minsize=0,uniform='')
+        for i,w in enumerate(widgets):w.grid(row=i//columns,column=i%columns,sticky='nsew',padx=(0 if i%columns==0 else 8,0),pady=(0 if i<columns else 8,0))
+        for c in range(columns):frame.grid_columnconfigure(c,weight=1,uniform='cards')
+    frame.bind('<Configure>',arrange,add='+')

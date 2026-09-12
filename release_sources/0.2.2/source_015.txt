@@ -1,0 +1,33 @@
+[0]+[x['value'] for x in items]);hi=max([0]+[x['value'] for x in items]);span=hi-lo or 1
+        zero=bar_left+(0-lo)/span*max(0,bar_right-bar_left)
+        for i,x in enumerate(items):
+            y=rowh*(i+.5);col=COLORS['red'] if x['value']<0 else self._colors.get(x['label'],'#8193A9')
+            c.create_oval(start_x,y-3,start_x+6,y+3,fill=col,outline='')
+            self._text(start_x+13,y,x['label'],width=label_width-14,size=font_size)
+            if bar_right>bar_left:
+                c.create_line(bar_left,y,bar_right,y,fill=COLORS['panel_soft'],width=6)
+                end=bar_left+(x['value']-lo)/span*(bar_right-bar_left)
+                c.create_line(zero,y,end,y,fill=col,width=6)
+                if negative:c.create_line(zero,y-6,zero,y+6,fill=COLORS['muted'])
+            self._text(w-pw-12,y,fmt(x['value']),anchor='e',size=font_size,bold=True,color=col,width=value_width-6)
+            if percent_on:self._text(w-5,y,fmt_pct(x['value']/total*100),anchor='e',size=font_size,color=COLORS['muted'])
+            self._hit_regions.append((start_x,y-rowh/2,w,y+rowh/2,x,total if positive else None))
+
+    def _item_at(self,event):
+        for x0,y0,x1,y1,item,total in self._hit_regions:
+            if x0<=event.x<=x1 and y0<=event.y<=y1:return item,total
+        for cx,cy,outer,inner,start,extent,item,total in self._wedges:
+            dx,dy=event.x-cx,cy-event.y;dist=math.hypot(dx,dy)
+            angle=math.degrees(math.atan2(dy,dx))%360
+            if inner<=dist<=outer and (start-angle)%360<=abs(extent):return item,total
+        return None
+    def _motion(self,event):
+        hit=self._item_at(event);self.canvas.delete('tooltip')
+        if hit:
+            item,total=hit;text=item['label']+'\n'+self._formatter()(item['value'])
+            if total:text+=' · '+fmt_pct(item['value']/total*100)
+            self._tooltip(text,event.x+12,event.y+15)
+        self.canvas.configure(cursor='hand2' if hit and hit[0]['source'] is not None and self.on_item_click else 'arrow')
+    def _click(self,event):
+        hit=self._item_at(event)
+        if hit and hit[0]['source'] is not None:self._notify(self.on_item_click,hit[0]['source'])

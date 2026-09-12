@@ -1,0 +1,101 @@
+"""Paginated management report. Local HTML/SVG only; no external resources."""
+from __future__ import annotations
+from html import escape
+from datetime import date
+from .constants import APP_NAME, APP_VERSION, center_display
+from .analytics import MONTH_NAMES, period_bounds
+from .chart_geometry import money, percent, count, number
+from .report_model import collect_report
+from . import report_svg as charts
+
+CSS='''
+@page { size:A4 landscape; margin:10mm 11mm; }
+*{box-sizing:border-box}body{margin:0;background:white;color:#172B43;font:12px/1.38 Calibri,Carlito,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{height:187mm;position:relative;break-after:page;page-break-after:always;padding-bottom:9mm}.page:last-child{break-after:auto;page-break-after:auto}
+.header{height:58px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #159F86;margin-bottom:12px;padding-bottom:9px}
+.brand{font-weight:800;font-size:23px;letter-spacing:1px}.eyebrow{font-size:10px;letter-spacing:1.1px;text-transform:uppercase;color:#61738A}
+.header .period{text-align:right;font-size:12px}.header .period b{display:block;font-size:17px}
+h1{font-size:24px;line-height:1.18;margin:0 0 4px;letter-spacing:-.4px}h2{font-size:15px;margin:0 0 4px}h3{font-size:13px;margin:0 0 4px}p{margin:0 0 7px}
+.subtitle{color:#61738A;font-size:11px;margin-bottom:12px}.muted{color:#61738A}.tiny{font-size:10px}.nowrap{white-space:nowrap}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}.kpi{border:1px solid #DCE5ED;border-top:3px solid #159F86;border-radius:6px;padding:9px 12px;min-height:79px}
+.kpi .label{font-size:11px;color:#61738A}.kpi .value{font-size:23px;line-height:1.25;font-weight:700;white-space:nowrap;margin:3px 0}.kpi .note{font-size:10px;color:#61738A}
+.card{border:1px solid #DFE7EF;border-radius:7px;padding:10px 12px;break-inside:avoid;page-break-inside:avoid;min-width:0}.card+.card{margin-top:10px}.grid>.card+.card{margin-top:0}
+.card .subtitle{margin:0 0 6px}.notice{padding:9px 12px;background:#EFF7F5;border-left:3px solid #159F86;border-radius:0 4px 4px 0;font-size:11px;line-height:1.4;margin-top:10px}
+.warning{background:#FBF6EB;border-color:#B67A16}.legend{display:flex;gap:19px;align-items:center;font-size:11px;margin:4px 0;color:#61738A}.legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px}.legend .bar{height:9px;width:9px;background:#159F86}.legend .profit{background:#B67A16}.legend .margin{height:0;border-top:2px dashed #3572BB}
+table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px}thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}th{color:#fff;background:#172B43;padding:6px 7px;text-align:left;line-height:1.2;font-size:10.5px}td{border-bottom:1px solid #E4EBF1;padding:6px 7px;vertical-align:top;line-height:1.28;overflow-wrap:anywhere}tr:nth-child(even) td{background:#F6F8FB}.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;overflow-wrap:normal}.compact td{padding:4px 6px;font-size:10.5px}
+.footer{position:absolute;bottom:0;left:0;right:0;border-top:1px solid #DFE7EF;padding-top:5px;display:flex;justify-content:space-between;font-size:9px;color:#61738A}
+.stat{padding:10px 12px;background:#F4F7FA;border-radius:5px}.stat b{display:block;font-size:20px;margin:3px 0}.break{margin-top:12px}.meta{font-size:11px;line-height:1.5}.positive{color:#137D69}.negative{color:#BE4C55}
+'''
+
+
+def esc(value):return escape(str(value if value is not None else '—'))
+
+
+def period_label(data):
+    names={'month':'Měsíc','ytd':'Od začátku roku','year':'Rok','rolling12':'Posledních 12 měsíců'}
+    a=date.fromisoformat(data['start']);b=date.fromisoformat(data['end'])
+    title=f'{MONTH_NAMES[data["month"]-1]} {data["year"]}' if data['mode']=='month' else (str(data['year']) if data['mode']=='year' else names[data['mode']])
+    return title, f'{a:%d.%m.%Y} – {b:%d.%m.%Y}'
+
+
+def table(headings,rows,widths=None,numeric=(),compact=False):
+    cls='compact' if compact else ''
+    cols='<colgroup>'+''.join(f'<col style="width:{w}%">' for w in widths)+'</colgroup>' if widths else ''
+    out=[f'<table class="{cls}">{cols}<thead><tr>']
+    out.extend(f'<th class="{"num" if i in numeric else ""}">{esc(x)}</th>' for i,x in enumerate(headings));out.append('</tr></thead><tbody>')
+    for row in rows:out.append('<tr>'+''.join(f'<td class="{"num" if i in numeric else ""}">{esc(x)}</td>' for i,x in enumerate(row))+'</tr>')
+    if not rows:out.append(f'<tr><td colspan="{len(headings)}" class="muted">Pro toto období nejsou dostupné záznamy.</td></tr>')
+    out.append('</tbody></table>');return ''.join(out)
+
+
+def card(title,body,subtitle=''):
+    return f'<div class="card"><h2>{esc(title)}</h2><div class="subtitle">{esc(subtitle)}</div>{body}</div>'
+
+
+def notice(text,warning=False):return f'<div class="notice {"warning" if warning else ""}">{esc(text)}</div>'
+
+
+def profit(row,key='profit'):
+    return money(row.get(key))+(' *' if not row.get('profit_complete',True) else '') if row.get('profit_available',True) else '—'
+
+
+def legacy_note(data):
+    c=data['kpis']['coverage']
+    msg=f"Zisk spárovaný na jednotlivé DL: {c['profit_docs']} / {c['total_docs']} dokladů."
+    if c['legacy_months']:msg+=f" U {c['legacy_months']} měsíců je zisk převzatý z historického souhrnu; nelze jej rozdělit zákazníkům a produktům."
+    if c['missing_months']:msg+=' Zisk je neúplný (*); marže za celé období se proto neuvádí.'
+    return msg
+
+
+def share_caption(rows,key):
+    return 'Obsahuje záporné hodnoty: místo koláče je použito částkové srovnání.' if any((number(x.get(key)) or 0)<0 for x in rows) else 'TOP 5 + ostatní; procenta ze součtu dostupných hodnot.'
+
+
+def build_html(analytics,year,month,mode='month'):
+    return render_report(collect_report(analytics,year,month,mode))
+
+
+def render_report(d):
+    k=d['kpis'];title,dates=period_label(d);pages=[]
+    sales=[dict(x,profit=x['profit'] if x.get('profit_available') else None) for x in d['sales']]
+    customers=[dict(x,profit=x['profit'] if x.get('profit_available') else None) for x in d['customers']]
+    products=d['products'];trend=d['trend']
+    context=('Kontext od ledna do vybraného měsíce' if d['mode']=='month' else 'Vývoj v rozsahu exportovaného období')
+    legend='<div class="legend"><span><i class="bar"></i>Obrat bez DPH</span><span><i class="profit"></i>Hrubý zisk</span><span><i class="margin"></i>Marže % · pravá osa</span></div>'
+    previous=(f"{k['yoy']:+.1f} % meziročně".replace('.',',') if k.get('yoy_available') else 'Srovnatelné předchozí období není k dispozici')
+    values=[('Obrat podle DL',money(k['revenue']),previous),('Hrubý zisk',profit(k),'Součet dostupných ziskových podkladů'),
+            ('Vážená marže',percent(k['margin']),'Zisk / prodejní hodnota bez DPH'),('Dodací listy',count(k['count']),'Počet dokladů za vybrané období'),
+            ('Průměrná hodnota DL',money(k['avg_order']),'Obrat / počet dodacích listů'),('Režijní listy',money(k['overhead']),'Samostatně; částka podle zdrojového exportu')]
+    kpis='<div class="kpis">'+''.join(f'<div class="kpi"><div class="label">{esc(a)}</div><div class="value">{esc(b)}</div><div class="note">{esc(c)}</div></div>' for a,b,c in values)+'</div>'
+    body=kpis+card('Obrat, zisk a marže',legend+charts.trend(trend,h=210),context)
+    body+=notice(legacy_note(d),not k['profit_complete'])
+    pages.append(('Manažerský souhrn','Přehled výsledků z dodacích listů; nikoli účetní výkaz zisku a ztráty.',body))
+
+    # Page 2: chronological detail. Zero and missing profit remain distinct.
+    rows=[]
+    for x in trend:
+        rows.append((x['period'],money(x['revenue']),profit(x),percent(x['margin']),count(x['count']),
+                     {'raw':'Zisk podle DL','legacy':'Historický souhrn','partial':'Částečný zisk','empty':'Bez dat','missing':'Zisk chybí'}[x['source']]))
+    body='<div class="grid">'+card('Počet dodacích listů',charts.month_bars(trend,'count',fmt='count',h=120),context)+card('Režijní listy podle středisek',charts.bars([dict(x,label=center_display(x['center'])) for x in d['overheads']],'amount','label',h=120),'Částka podle exportu, samostatně od hrubého zisku.')+'</div>'
+    body+='<div class="break">'+table(('Období','Obrat bez DPH','Dostupný zisk'

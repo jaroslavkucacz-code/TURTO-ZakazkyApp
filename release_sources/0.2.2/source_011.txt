@@ -1,0 +1,149 @@
+f, year, month, mode='month', limit=10):
+        start, end = self._where(year, month, mode)
+        rows = [dict(r) for r in self.db.query(
+            '''SELECT d.customer,
+                      SUM(d.base_amount) revenue,
+                      COALESCE(SUM(p.profit_total),0) profit,
+                      COUNT(DISTINCT d.doc_no) count,
+                      COUNT(DISTINCT p.doc_no) profit_docs,
+                      COALESCE(SUM(CASE WHEN p.doc_no IS NOT NULL THEN d.base_amount ELSE 0 END),0) profit_revenue
+               FROM delivery_notes d LEFT JOIN profit_documents p ON p.doc_no=d.doc_no
+               WHERE d.doc_date BETWEEN ? AND ? AND TRIM(d.customer)<>''
+               GROUP BY d.customer ORDER BY revenue DESC LIMIT ?''',
+            (start, end, limit)
+        )]
+        for x in rows:
+            x['revenue']=float(x.get('revenue') or 0)
+            x['profit']=float(x.get('profit') or 0)
+            x['count']=int(x.get('count') or 0)
+            x['profit_docs']=int(x.get('profit_docs') or 0)
+            x['profit_revenue']=float(x.get('profit_revenue') or 0)
+            x['profit_available']=x['profit_docs']>0
+            x['profit_complete']=x['count']>0 and x['profit_docs']>=x['count']
+            x['margin']=(x['profit']/x['profit_revenue']*100) if x['profit_available'] and x['profit_revenue'] else None
+        return rows
+
+    def customer_history(self, customer):
+        """Monthly history for one customer.
+
+        Revenue and delivery-note counts come from DATA POHODA for all available
+        months. Profit is deliberately exposed only for months where a raw
+        Zisk (zásoby) report is actually linked to that customer's documents;
+        older monthly summary profit cannot be safely allocated to customers.
+        """
+        rows = self.db.query(
+            '''SELECT substr(d.doc_date,1,7) period,
+                      COALESCE(SUM(d.base_amount),0) revenue,
+                      COUNT(DISTINCT d.doc_no) count,
+                      COALESCE(SUM(p.profit_total),0) profit,
+                      COUNT(DISTINCT p.doc_no) profit_docs,
+                      COALESCE(SUM(CASE WHEN p.doc_no IS NOT NULL THEN d.base_amount ELSE 0 END),0) profit_revenue,
+                      MAX(d.doc_date) last_date
+               FROM delivery_notes d
+               LEFT JOIN profit_documents p ON p.doc_no=d.doc_no
+               WHERE d.customer=? AND d.doc_date>='2000-01-01'
+               GROUP BY substr(d.doc_date,1,7)
+               ORDER BY period''',
+            (customer,)
+        )
+        out=[]
+        for r in rows:
+            item=dict(r)
+            item['revenue']=float(item.get('revenue') or 0)
+            item['profit']=float(item.get('profit') or 0)
+            item['count']=int(item.get('count') or 0)
+            item['profit_docs']=int(item.get('profit_docs') or 0)
+            item['profit_revenue']=float(item.get('profit_revenue') or 0)
+            item['profit_available']=item['profit_docs']>0
+            item['profit_complete']=item['count']>0 and item['profit_docs']>=item['count']
+            item['margin']=(item['profit']/item['profit_revenue']*100) if item['profit_available'] and item['profit_revenue'] else None
+            out.append(item)
+        return out
+
+    def top_documents(self, year, month, mode='month', center=None, limit=20):
+        start, end = self._where(year, month, mode)
+        params = [start, end]
+        extra = ''
+        if center in PRIMARY_CENTERS:
+            extra = ' AND d.center=?'
+            params.append(center)
+        elif center == 'OTHER':
+            extra = f' AND {self._other_sql("d")}'
+        params.append(limit)
+        return [dict(r) for r in self.db.query(
+            f'''SELECT d.doc_no,d.doc_date,d.customer,d.project,d.center,d.base_amount,
+                       COALESCE(p.profit_total,0) profit,
+                       CASE WHEN d.base_amount<>0 THEN COALESCE(p.profit_total,0)/d.base_amount*100 ELSE 0 END margin
+                FROM delivery_notes d LEFT JOIN profit_documents p ON p.doc_no=d.doc_no
+                WHERE d.doc_date BETWEEN ? AND ? {extra}
+                ORDER BY d.base_amount DESC LIMIT ?''', params
+        )]
+
+    def document_detail(self, doc_no):
+        """Detail dodacího listu včetně dostupných položkových dat.
+
+        Cenové a maržové sloupce jsou nullable; budoucí bohatší export z POHODY je
+        může naplnit bez změny rozhraní nebo databázového modelu.
+        """
+        rows = self.db.query(
+            '''SELECT d.doc_no,d.doc_date,d.customer,d.description,d.center,d.project,d.note,
+                      d.base_amount,d.total_amount,COALESCE(p.profit_total,0) profit_total,
+                      CASE WHEN d.base_amount<>0 AND p.doc_no IS NOT NULL
+                           THEN p.profit_total/d.base_amount*100 ELSE NULL END margin_percent,
+                      CASE WHEN p.doc_no IS NOT NULL THEN 1 ELSE 0 END profit_available
+               FROM delivery_notes d LEFT JOIN profit_documents p ON p.doc_no=d.doc_no
+               WHERE d.doc_no=?''', (doc_no,)
+        )
+        if not rows:
+            return None
+        items=[dict(r) for r in self.db.query(
+            '''SELECT id,doc_no,code,name,item_text,quantity,profit_unit,profit_total,
+                      sales_unit,sales_total,cost_unit,cost_total,margin_amount,margin_percent
+               FROM profit_items WHERE doc_no=? ORDER BY id''', (doc_no,)
+        )]
+        out=dict(rows[0]); out['items']=items
+        return out
+
+    def products(self, year, month, limit=100, mode='month'):
+        start, end = self._where(year, month, mode)
+        rows = [dict(r) for r in self.db.query(
+            '''SELECT i.code, i.name,
+                      COALESCE(SUM(i.quantity),0) quantity,
+                      COALESCE(SUM(i.profit_total),0) profit,
+                      COUNT(DISTINCT i.doc_no) documents,
+                      SUM(CASE WHEN i.sales_total IS NOT NULL THEN i.sales_total ELSE 0 END) sales,
+                      SUM(CASE WHEN i.cost_total IS NOT NULL THEN i.cost_total ELSE 0 END) cost,
+                      SUM(CASE WHEN i.sales_total IS NOT NULL THEN 1 ELSE 0 END) sales_rows
+               FROM profit_items i JOIN delivery_notes d ON d.doc_no=i.doc_no
+               WHERE d.doc_date BETWEEN ? AND ?
+               GROUP BY i.code,i.name ORDER BY profit DESC LIMIT ?''', (start, end, limit)
+        )]
+        for x in rows:
+            x['quantity']=float(x.get('quantity') or 0)
+            x['profit']=float(x.get('profit') or 0)
+            x['documents']=int(x.get('documents') or 0)
+            x['sales_rows']=int(x.get('sales_rows') or 0)
+            x['sales']=float(x.get('sales') or 0) if x['sales_rows'] else None
+            x['cost']=float(x.get('cost') or 0) if x['sales_rows'] else None
+            x['margin']=(x['profit']/x['sales']*100) if x['sales'] not in (None,0) else None
+        return rows
+
+    def item_data_coverage(self, year, month, mode='month'):
+        start, end = self._where(year, month, mode)
+        doc_count=int(self.db.scalar('''SELECT COUNT(DISTINCT d.doc_no) FROM delivery_notes d
+             JOIN profit_items i ON i.doc_no=d.doc_no WHERE d.doc_date BETWEEN ? AND ?''',(start,end)) or 0)
+        total_docs=int(self.db.scalar('''SELECT COUNT(*) FROM delivery_notes WHERE doc_date BETWEEN ? AND ?''',(start,end)) or 0)
+        sales_rows=int(self.db.scalar('''SELECT COUNT(*) FROM profit_items i JOIN delivery_notes d ON d.doc_no=i.doc_no
+             WHERE d.doc_date BETWEEN ? AND ? AND i.sales_total IS NOT NULL''',(start,end)) or 0)
+        return {'item_docs':doc_count,'total_docs':total_docs,'sales_available':sales_rows>0}
+
+    def overheads(self, year, month, mode='month'):
+        start, end = self._where(year, month, mode)
+        return [dict(r) for r in self.db.query(
+            '''SELECT center, SUM(total_amount) amount, COUNT(*) count FROM overhead_docs
+               WHERE doc_date BETWEEN ? AND ? GROUP BY center ORDER BY amount DESC''', (start, end)
+        )]
+
+    def available_periods(self):
+        rows = self.db.query("SELECT DISTINCT substr(doc_date,1,7) period FROM delivery_notes WHERE doc_date>='2000-01-01' ORDER BY period DESC")
+        return [r['period'] for r in rows]

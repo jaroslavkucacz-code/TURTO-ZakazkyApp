@@ -1,0 +1,73 @@
+,'Marže','DL','Zdroj zisku'),rows,(12,22,22,12,8,24),(1,2,3,4),True)+'</div>'
+    body+=notice('Pomlčka znamená chybějící údaj, nikoli nulový výkon. Nulové částky se zobrazí jako 0 Kč. Měsíce po posledním dostupném záznamu nejsou vykreslené.')
+    pages.append(('Měsíční vývoj',context+'. Ukazatele odpovídají tabulce pod grafy.',body))
+
+    # Page 3: all four sales groups, including unassigned.
+    body='<div class="grid">'+card('Podíl na obratu',charts.shares(sales,'revenue','name'),share_caption(sales,'revenue'))+card('Zisk obchodníků',charts.bars(sales,'profit','name'),'Částkové srovnání; zisk může obsahovat historické souhrny.')+'</div>'
+    rows=[(x['name'],money(x['revenue']),profit(x),percent(x['margin']),count(x['count']),money(x['avg_order']),percent(x.get('profit_share')) if k['profit_available'] and k['profit'] else '—') for x in sorted(sales,key=lambda x:x.get('profit') or 0,reverse=True)]
+    body+='<div class="break">'+table(('Obchodník','Obrat','Zisk','Marže','DL','Ø hodnota DL','Podíl na zisku'),rows,(16,18,18,11,7,17,13),(1,2,3,4,5,6))+'</div>'
+    body+=notice('J = Jirka · H = Honza · M = Milan. Neznámé a prázdné kódy středisek jsou zahrnuté jako Nezařazené. '+legacy_note(d))
+    pages.append(('Výkon obchodníků','Obrat, zisk, marže i objem dokladů ve společném období.',body))
+
+    # Page 4: customer charts draw from the full customer set, not the top table.
+    body='<div class="grid">'+card('Zastoupení zákazníků',charts.shares(customers,'revenue','customer',h=128),share_caption(customers,'revenue'))+card('TOP zákazníci podle zisku',charts.bars(customers,'profit','customer',h=128,limit=5),'Pouze dostupný zisk spárovaných dodacích listů.')+'</div>'
+    rows=[(x['customer'],money(x['revenue']),profit(x),percent(x['margin'])+(' *' if x['margin'] is not None and not x['profit_complete'] else ''),count(x['count']),f"{x['profit_docs']} / {x['count']}") for x in sorted(customers,key=lambda x:x['revenue'],reverse=True)[:10]]
+    body+='<h2 class="break">TOP 10 zákazníků podle obratu</h2>'+table(('Zákazník','Obrat','Dostupný zisk','Marže známých DL','DL','DL se ziskem'),rows,(33,18,18,14,6,11),(1,2,3,4,5),True)
+    body+=notice(f"Zákazníků ve zdrojovém výběru: {len(customers)}. Hvězdička (*) označuje částečný zisk nebo marži pouze z DL se známým ziskem. Neznámé zákazníky ({d['no_customer']['count']} DL, {money(d['no_customer']['revenue'])}) nelze přiřadit do zákaznického žebříčku.")
+    pages.append(('Zákazníci a jejich zastoupení','Grafy vycházejí ze všech pojmenovaných zákazníků vybraného období.',body))
+
+    # Page 5: no fictitious sales or margins when line prices are unavailable.
+    cov=d['items']
+    detail=f"Položkové podklady: {cov['item_docs']} / {cov['total_docs']} dodacích listů.\n\n"
+    detail+=('Prodejní hodnoty jsou dostupné alespoň pro některé položky. * označuje neúplné pokrytí cen; marže je počítaná pouze na oceněných řádcích.' if cov['sales_available'] else 'Položkový prodej a pořizovací náklad současný export neobsahuje. Zisk je známý, ale procentní marži bez prodejní hodnoty nelze určit.')
+    body='<div class="grid">'+card('TOP produkty podle zisku',charts.bars(products,'profit','name',h=128,limit=5),'Zisk položek ze spárovaných skladových dokladů.')+card('Dostupnost položkových dat',charts.coverage(cov['item_docs'],cov['total_docs'],'Dodací listy s položkami',h=80)+f'<div class="tiny muted">{esc(detail).replace(chr(10),"<br>")}</div>')+'</div>'
+    rows=[]
+    for x in products[:10]:
+        suffix=' *' if x.get('sales') is not None and not x.get('sales_complete') else ''
+        qty=f'{x["quantity"]:,.2f}'.replace(',',' ').replace('.',',').rstrip('0').rstrip(',')
+        rows.append((x['code'],x['name'],qty,money(x['profit']),money(x.get('sales'))+suffix,percent(x.get('margin'))+suffix,count(x['documents'])))
+    body+='<h2 class="break">TOP 10 produktů podle zisku</h2>'+table(('Kód','Produkt','Množství','Zisk','Prodej','Marže','DL'),rows,(17,31,10,14,13,9,6),(2,3,4,5,6),True)
+    body+=notice(f"Produktových kombinací kód / název: {len(products)}. Množství je uvedeno v jednotkách zdrojového exportu; množství různých produktů nesčítáme. Historický souhrnný zisk se na položky nerozděluje.")
+    pages.append(('Produkty a položkový zisk','Nejvýznamnější položky a připravené cenové ukazatele.',body))
+
+    # Pages 6–7: readable full names, never a 24-row tiny-font table.
+    docs=d['documents']
+    chunks=[docs[i:i+12] for i in range(0,len(docs),12)] or [[]]
+    for index,part in enumerate(chunks):
+        head=f'Největší dodací listy · {index*12+1}–{index*12+len(part)}' if part else 'Dodací listy'
+        rows=[(x['doc_no'],x['doc_date'],center_display(x['center']),x['customer'],x['project'] or '—',money(x['base_amount']),money(x['profit']),percent(x['margin'])) for x in part]
+        body=table(('Doklad','Datum','Obchodník','Zákazník','Zakázka','Částka bez DPH','Zisk','Marže'),rows,(12,10,10,22,12,14,12,8),(5,6,7),True)
+        body+=notice('Pořadí je podle hodnoty DL bez DPH. Zisk a marže jednotlivých dokladů se uvádí pouze při dostupném spárovaném ziskovém reportu. Částky vycházejí z databáze; historický souhrn se na DL nerozpočítává.')
+        body+='<div class="break">'+card('Zisk vybraných velkých dokladů',charts.bars(part,'profit','doc_no',w=1000,h=80,limit=4),'Srovnání pouze mezi doklady uvedenými na této stránce.')+'</div>'
+        pages.append((head,'Detail největších dokladů ve vybraném období. Úplné položky DL jsou v aplikaci.',body))
+
+    # Last page: source transparency and data quality instead of guessed KPIs.
+    coverage=k['coverage'];items=d['items']
+    body='<div class="grid">'+card('Pokrytí zisku podle dokladů',charts.coverage(coverage['profit_docs'],coverage['total_docs'],'Spárované ziskové doklady'))+card('Pokrytí položkového detailu',charts.coverage(items['item_docs'],items['total_docs'],'Dodací listy s položkami'))+'</div>'
+    unassigned=[(x['center'],count(x['count']),money(x['revenue'])) for x in d['unassigned']]
+    body+='<div class="grid break">'+card('Nezařazená střediska',table(('Kód','DL','Obrat'),unassigned,(40,20,40),(1,2)))+card('Jak číst report','<div class="meta">Obrat = hodnota dodacích listů bez DPH, nikoli vydané faktury.<br>Zisk = skladový hrubý zisk z dostupných podkladů, nikoli čistý zisk firmy.<br>Marže = zisk / odpovídající prodejní hodnota.<br>Pomlčka = údaj chybí nebo podíl nemá platný základ.<br>* = částečná hodnota nebo neúplné pokrytí.</div>')+'</div>'
+    ir=[(x['imported_at'].replace('T',' '),x['import_type'],x['file_name'],count(x['row_count']),x['status']) for x in d['imports'][:6]]
+    body+='<h2 class="break">Použité importy a historické podklady</h2>'+table(('Načteno','Typ','Zdrojový soubor','Řádky importu','Stav'),ir,(19,21,39,13,8),(3,),True)
+    body+=notice(legacy_note(d)+' Report je vytvořen z jednoho konzistentního snímku databáze; při jeho přípravě se zdrojová data nemění.',not coverage['complete'])
+    pages.append(('Dostupnost dat a zdroje','Rozlišení kompletních, historických a chybějících podkladů.',body))
+
+    out=['<!doctype html><html lang="cs"><head><meta charset="utf-8">',f'<title>TURTO | Manažerský report | {esc(title)}</title><style>{CSS}</style></head><body>']
+    for i,(heading,sub,body) in enumerate(pages,1):
+        out.append(f'<section class="page"><header class="header"><div><div class="brand">TURTO</div><div class="eyebrow">Měsíční přehledy · manažerský report</div></div><div class="period"><b>{esc(title)}</b>{esc(dates)}</div></header><h1>{esc(heading)}</h1><div class="subtitle">{esc(sub)}</div><main>{body}</main><footer class="footer"><span>Interní report · verze {APP_VERSION} · Export {esc(d["generated"])}</span><span>{i} / {len(pages)}</span></footer></section>')
+    out.append(PAGINATION+'</body></html>');return ''.join(out)
+
+
+# Fixed-size designed pages, with a measured overflow fallback for unusual names,
+# fonts or exceptionally tall rows. Rows and footers are never silently clipped.
+PAGINATION = r"""<script>
+(function(){
+ function continuation(page){
+   let n=document.createElement('section');n.className='page';
+   for(let q of ['header','h1','.subtitle']) n.append(page.querySelector(q).cloneNode(true));
+   if(!n.querySelector('h1').textContent.includes('pokračování'))n.querySelector('h1').textContent+=' (pokračování)';
+   n.append(document.createElement('main'));n.append(page.querySelector('footer').cloneNode(true));
+   page.after(n);return n;
+ }
+ function paginate(){
+   let loops=0;
+   for(let page of Array.from(docu

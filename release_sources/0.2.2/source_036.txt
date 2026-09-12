@@ -1,0 +1,23 @@
+',APP_VERSION)}.")
+        except Exception as e: messagebox.showerror('Aktualizace',str(e))
+    def _auto_check_updates(self):
+        url=self.cfg.get('update_manifest_url','').strip()
+        if not url:
+            return
+        try:
+            r=check_update(url)
+            if r.get('available') and r.get('url'):
+                text=f"Je dostupná nová verze {r['latest']}.\n\n{r.get('notes','')}\n\nChcete ji nyní stáhnout a nainstalovat?"
+                if messagebox.askyesno('Dostupná aktualizace',text):
+                    package=prepare_update(r['url'],r.get('sha256',''))
+                    launch_installer(package)
+                    self.destroy()
+        except Exception:
+            # Automatická kontrola nesmí bránit spuštění programu; ruční kontrola
+            # v Nastavení zobrazí podrobnou chybu.
+            pass
+
+    def update_status(self):
+        last=self.db.query('SELECT imported_at,file_name FROM imports ORDER BY id DESC LIMIT 1'); txt=f'Databáze: {self.db.path}'
+        if last: txt+=f"   •   Poslední import: {last[0]['imported_at'].replace('T',' ')} – {last[0]['file_name']}"
+        self.status.config(text=txt)

@@ -1,0 +1,94 @@
+ts(self):
+        root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True); self.title_block(root,'Importy','Historie načtených dat a kontrola zdrojů')
+        bar=tk.Frame(root,bg=COLORS['bg']); bar.pack(fill='x',pady=(0,10)); tk.Button(bar,text='Importovat Excel',command=self.do_import,bg=COLORS['teal'],fg='#06251D',relief='flat',padx=14,pady=8,font=('Calibri',10,'bold')).pack(side='left'); tk.Label(bar,text='Podporováno: DATA POHODA, režijní listy, Zisk (zásoby), historický list ZISKY',bg=COLORS['bg'],fg=COLORS['muted']).pack(side='left',padx=14)
+        p=Panel(root,'Historie importů'); p.pack(fill='both',expand=True); tree=self._tree(p.body,('date','type','file','period','rows','status'),('Datum','Typ','Soubor','Období','Řádky','Stav'),(145,160,350,100,80,80),22,anchors=('w','w','w','c','e','c'))
+        rows=self.db.query('SELECT * FROM imports ORDER BY id DESC LIMIT 300')
+        for x in rows: tree.insert('', 'end',values=(x['imported_at'].replace('T',' '),x['import_type'],x['file_name'],f"{x['period_year'] or ''}-{x['period_month']:02d}" if x['period_month'] else '',x['row_count'],x['status']))
+
+    def page_settings(self):
+        root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True); self.title_block(root,'Nastavení','Databáze, zálohy a online aktualizace')
+        p=Panel(root,'Databáze'); p.pack(fill='x'); dbp=str(resolve_path(self.cfg['database_path'])); tk.Label(p.body,text='Aktuální databáze',bg=COLORS['panel'],fg=COLORS['muted']).grid(row=0,column=0,sticky='w'); e=tk.Entry(p.body,bg=COLORS['panel_soft'],fg=COLORS['text'],insertbackground=COLORS['text'],relief='flat'); e.insert(0,dbp); e.config(state='readonly'); e.grid(row=1,column=0,sticky='ew',pady=(4,8),ipady=6); p.body.grid_columnconfigure(0,weight=1)
+        tk.Button(p.body,text='Přesunout / zvolit sdílenou databázi…',command=self.change_db,bg=COLORS['panel_soft'],fg=COLORS['text'],relief='flat',padx=12,pady=7).grid(row=1,column=1,padx=8)
+        tk.Button(p.body,text='Vytvořit zálohu',command=self.make_backup,bg=COLORS['panel_soft'],fg=COLORS['text'],relief='flat',padx=12,pady=7).grid(row=1,column=2)
+        up=Panel(root,'Online aktualizace'); up.pack(fill='x',pady=(12,0))
+        update_url=self.cfg.get('update_manifest_url','').strip()
+        state_text='Aktivní – GitHub aktualizační kanál je připojen' if update_url else 'Aktualizační kanál není dostupný'
+        state_color=COLORS['teal'] if update_url else COLORS['amber']
+        tk.Label(up.body,text=f'Aktuální verze: {APP_VERSION}',bg=COLORS['panel'],fg=COLORS['text'],font=('Calibri',10,'bold')).grid(row=0,column=0,sticky='w')
+        tk.Label(up.body,text=state_text,bg=COLORS['panel'],fg=state_color,font=('Calibri',9,'bold')).grid(row=0,column=1,sticky='e')
+        tk.Label(up.body,text='Kanál: TURTO-Mesicni-Prehledy · stabilní',bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',9)).grid(row=1,column=0,sticky='w',pady=(8,0))
+        tk.Label(up.body,text='Kontrola probíhá automaticky po spuštění programu.',bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',9)).grid(row=2,column=0,sticky='w',pady=(2,0))
+        up.body.grid_columnconfigure(0,weight=1)
+        tk.Button(up.body,text='Zkontrolovat aktualizace',command=self.check_updates,bg=COLORS['teal'],fg='#06251D',relief='flat',padx=14,pady=8,font=('Calibri',10,'bold')).grid(row=1,column=1,rowspan=2,padx=(14,0),sticky='e')
+        info=Panel(root,'O programu'); info.pack(fill='x',pady=(12,0)); tk.Label(info.body,text='TURTO – Měsíční přehledy\nVytvořil Ing. Jaroslav Kučera\nDatová vrstva je oddělená od UI a připravená pro pozdější centrální databázi.',justify='left',bg=COLORS['panel'],fg=COLORS['muted']).pack(anchor='w')
+
+    def do_import(self):
+        paths=filedialog.askopenfilenames(title='Vyber exporty z POHODY',filetypes=[('Excel','*.xlsx'),('Všechny soubory','*.*')]);
+        if not paths: return
+        messages=[]
+        try:
+            archive=resolve_path(self.cfg['import_archive_dir'])
+            for p in paths:
+                res=import_xlsx(self.db,p,archive)
+                messages.append(Path(p).name+': '+', '.join(f"{x['type']} ({x['rows']})" for x in res['components']))
+            self._populate_periods(); self.refresh_current(); messagebox.showinfo('Import dokončen','\n'.join(messages))
+        except Exception as e: messagebox.showerror('Import se nezdařil',str(e))
+
+    def export_xlsx(self):
+        y,m=self.period(); default=f'TURTO_prehled_{y}_{m:02d}.xlsx'; path=filedialog.asksaveasfilename(defaultextension='.xlsx',initialdir=str(resolve_path(self.cfg['export_dir'])),initialfile=default,filetypes=[('Excel','*.xlsx')]);
+        if not path:return
+        try: export_excel(path,self.analytics,y,m,self.mode_key()); messagebox.showinfo('Export','Excel byl vytvořen:\n'+path)
+        except Exception as e: messagebox.showerror('Export se nezdařil',str(e))
+    def export_pdf(self):
+        if getattr(self,'_pdf_busy',False):
+            messagebox.showinfo('PDF report','Předchozí report se ještě připravuje.',parent=self)
+            return
+        y,m=self.period(); mode=self.mode_key()
+        path=filedialog.asksaveasfilename(defaultextension='.pdf',initialdir=str(resolve_path(self.cfg['export_dir'])),initialfile=f'TURTO_report_{y}_{m:02d}_{mode}.pdf',filetypes=[('PDF','*.pdf')])
+        if not path:return
+        from queue import Queue, Empty
+        from threading import Thread
+        result=Queue(); self._pdf_busy=True
+        progress=tk.Toplevel(self); progress.title('Export PDF'); progress.configure(bg=COLORS['panel']); progress.resizable(False,False)
+        progress.transient(self)
+        tk.Label(progress,text='Připravuji podrobný PDF report…',bg=COLORS['panel'],fg=COLORS['text'],font=('Calibri',12,'bold'),padx=24,pady=18).pack()
+        tk.Label(progress,text='Grafy, tabulky a kontrola dostupnosti dat.\nProgram můžete dál používat.',bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',10),padx=24,pady=12).pack()
+        progress.protocol('WM_DELETE_WINDOW',progress.withdraw)
+        def worker():
+            try:
+                export_pdf(path,self.analytics,y,m,mode); result.put((True,path))
+            except Exception as exc:result.put((False,str(exc)))
+        def poll():
+            try:ok,text=result.get_nowait()
+            except Empty:
+                self.after(120,poll); return
+            self._pdf_busy=False
+            if progress.winfo_exists():progress.destroy()
+            if ok:messagebox.showinfo('Export','PDF report byl vytvořen:\n'+text,parent=self)
+            else:messagebox.showerror('Export se nezdařil',text,parent=self)
+        Thread(target=worker,daemon=True,name='TURTO-PDF').start();self.after(120,poll)
+
+    def change_db(self):
+        path=filedialog.asksaveasfilename(title='Umístění společné databáze',defaultextension='.db',filetypes=[('SQLite databáze','*.db')]);
+        if not path:return
+        try:
+            new=Path(path); new.parent.mkdir(parents=True,exist_ok=True)
+            if not new.exists(): shutil.copy2(self.db.path,new)
+            self.cfg['database_path']=str(new); save_config(self.cfg); messagebox.showinfo('Databáze','Nové umístění bylo uloženo. Program nyní ukončete a spusťte znovu.')
+        except Exception as e: messagebox.showerror('Databáze',str(e))
+    def make_backup(self):
+        try: p=self.db.backup(resolve_path(self.cfg['backup_dir'])); messagebox.showinfo('Záloha','Záloha vytvořena:\n'+str(p))
+        except Exception as e: messagebox.showerror('Záloha',str(e))
+    def check_updates(self):
+        try:
+            r=check_update(self.cfg.get('update_manifest_url','').strip())
+            if not r.get('configured'): messagebox.showinfo('Aktualizace','Online aktualizační kanál není dostupný.')
+            elif r.get('available'):
+                text=f"K dispozici je verze {r['latest']}.\n\n{r.get('notes','')}\n\nChcete ji stáhnout a nainstalovat? Databáze, importy, exporty a lokální nastavení zůstanou zachované."
+                if r.get('url') and messagebox.askyesno('Aktualizace', text):
+                    package=prepare_update(r['url'], r.get('sha256',''))
+                    launch_installer(package)
+                    self.destroy()
+                elif not r.get('url'):
+                    messagebox.showinfo('Aktualizace', text+'\n\nManifest neobsahuje URL balíčku.')
+            else: messagebox.showinfo('Aktualizace',f"Verze je aktuální.\n\nPoužíváte nejnovější verzi {r.get('current

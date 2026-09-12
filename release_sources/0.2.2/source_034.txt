@@ -1,0 +1,81 @@
+oney'),('revenue','Obrat','money'),('count','Počet DL','count')),initial_metric='profit',title_note='Zisk lze na úrovni obchodníků využít i ze starších měsíčních souhrnů.',max_items=6,height=245).pack(fill='both',expand=True)
+        sp=Panel(root,'Souhrn výkonu obchodníků'); sp.pack(fill='x',pady=(12,0))
+        tree=self._tree(sp.body,('name','revenue','profit','margin','count','avg','pshare'),('Obchodník','Obrat','Zisk','Marže','DL','Ø DL','Podíl na zisku'),(145,145,140,90,60,130,120),height=4,anchors=('w','e','e','e','e','e','e'))
+        for x in ranked: tree.insert('', 'end',values=(x['name'],fmt_money(x['revenue']),((fmt_money(x['profit'])+(' *' if not x.get('profit_complete',True) else '')) if x.get('profit_available',True) else '—'),fmt_pct(x['margin']),x['count'],fmt_money(x['avg_order']),fmt_pct(x.get('profit_share',0))))
+        p=Panel(root,'Největší doklady'); p.pack(fill='both',expand=True,pady=(12,0)); tree=self._tree(p.body,('center','doc','customer','project','amount','profit','margin'),('Středisko','DL','Zákazník','Projekt','Částka','Zisk','Marže'),(120,105,220,220,130,120,85),12,anchors=('w','w','w','w','e','e','e'))
+        doc_map={}
+        for x in self.analytics.top_documents(y,m,mode,limit=50):
+            iid=tree.insert('', 'end',values=(center_display(x['center']),x['doc_no'],x['customer'],x['project'],fmt_money(x['base_amount']),fmt_money(x['profit']),fmt_pct(x['margin']))); doc_map[iid]=x['doc_no']
+        def open_doc(event=None):
+            if event is not None and getattr(event,'keysym','') != 'Return' and tree.identify_region(event.x,event.y) != 'cell':return
+            iid=tree.identify_row(event.y) if event is not None and getattr(event,'keysym','') != 'Return' else tree.focus()
+            if not iid and tree.selection(): iid=tree.selection()[0]
+            doc_no=doc_map.get(iid)
+            if doc_no: self.open_document_detail(doc_no)
+        tree.bind('<Double-1>',open_doc); tree.bind('<Return>',open_doc)
+        tk.Label(p.body,text='Dvojklikem na řádek otevřete položky dodacího listu.',bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',8),anchor='w').pack(fill='x',pady=(6,0))
+
+    def open_document_detail(self,doc_no):
+        data=self.analytics.document_detail(doc_no)
+        if not data:
+            messagebox.showinfo('Dodací list','Dodací list se nepodařilo najít v databázi.')
+            return
+        win=tk.Toplevel(self); win.title(f"{doc_no} – položky dodacího listu"); win.geometry('1380x780'); win.minsize(1050,650); win.configure(bg=COLORS['bg'])
+        try: win.transient(self)
+        except Exception: pass
+        head=tk.Frame(win,bg=COLORS['bg']); head.pack(fill='x',padx=20,pady=(18,8))
+        tk.Label(head,text=f"Dodací list {doc_no}",bg=COLORS['bg'],fg=COLORS['text'],font=('Calibri',20,'bold')).pack(anchor='w')
+        subtitle=f"{data.get('customer') or '—'} · {data.get('doc_date') or '—'} · {center_display(data.get('center'))}"
+        tk.Label(head,text=subtitle,bg=COLORS['bg'],fg=COLORS['muted'],font=('Calibri',10)).pack(anchor='w',pady=(2,0))
+        if data.get('description'):
+            tk.Label(head,text=data.get('description'),bg=COLORS['bg'],fg=COLORS['text'],font=('Calibri',10),anchor='w').pack(anchor='w',pady=(5,0))
+
+        cards=tk.Frame(win,bg=COLORS['bg']); cards.pack(fill='x',padx=20,pady=(0,12))
+        profit_available=bool(data.get('profit_available')); margin=data.get('margin_percent')
+        vals=[
+            ('Částka bez DPH',fmt_money(data.get('base_amount') or 0),'hodnota DL'),
+            ('Zisk',fmt_money(data.get('profit_total') or 0) if profit_available else '—','z reportu Zisk (zásoby)' if profit_available else 'ziskový report chybí'),
+            ('Marže',fmt_pct(margin) if margin is not None else '—','marže celého DL'),
+            ('Položek',str(len(data.get('items') or [])),'položkových řádků')
+        ]
+        for i,(a,b,c) in enumerate(vals):
+            Card(cards,a,b,c,accent=COLORS['amber'] if i in (1,2) else COLORS['teal']).grid(row=0,column=i,sticky='nsew',padx=(0 if i==0 else 7,0)); cards.grid_columnconfigure(i,weight=1)
+
+        panel=Panel(win,'Položky dodacího listu'); panel.pack(fill='both',expand=True,padx=20,pady=(0,16))
+        tk.Label(panel.body,text='Prodejní cena, náklad a položková marže jsou připravené pro budoucí export z POHODY. Pokud je zdroj zatím neobsahuje, zobrazí se —.',bg=COLORS['panel'],fg=COLORS['amber'],font=('Calibri',8),anchor='w').pack(fill='x',pady=(0,6))
+        tree=self._tree(panel.body,('code','name','item_text','qty','sales','cost','profit_unit','profit','margin'),('Kód','Název','Poznámka / balení','Množství','Prodej','Náklad','Zisk / j.','Zisk','Marže'),(160,330,190,90,115,115,105,115,85),height=16,anchors=('w','w','w','e','e','e','e','e','e'))
+        def maybe_money(v): return fmt_money(v) if v is not None else '—'
+        def maybe_pct(v): return fmt_pct(v) if v is not None else '—'
+        items=data.get('items') or []
+        for item in items:
+            tree.insert('', 'end',values=(
+                item.get('code') or '—',item.get('name') or '—',item.get('item_text') or '',fmt_num(item.get('quantity') or 0),
+                maybe_money(item.get('sales_total')),maybe_money(item.get('cost_total')),fmt_money(item.get('profit_unit') or 0,2),fmt_money(item.get('profit_total') or 0),maybe_pct(item.get('margin_percent'))))
+        if not items:
+            tk.Label(panel.body,text='Pro tento dodací list nejsou položková data z reportu Zisk (zásoby) dostupná.',bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',10)).pack(anchor='w',pady=10)
+
+    def page_customers(self):
+        root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True); self.title_block(root,'Zákazníci','Podíly odběratelů • kliknutím na zákazníka v grafu otevřete jeho historii')
+        y,m=self.period(); mode=self.mode_key(); rows=self.analytics.top_customers(y,m,mode,-1)
+        chart_rows=[]
+        for x in rows:
+            q=dict(x); q['label']=q.get('customer','—'); q['profit']=q['profit'] if q.get('profit_available') else None; chart_rows.append(q)
+        cp=Panel(root,'Zastoupení zákazníků'); cp.pack(fill='x')
+        ShareChart(cp.body,chart_rows,metrics=(('profit','Zisk','money'),('revenue','Obrat','money'),('count','Počet DL','count')),initial_metric='revenue',title_note='TOP 6 + ostatní z celého období. Zisk pouze ze spárovaných DL; záporné hodnoty jsou v režimu podílů zobrazené sloupcově.',max_items=6,on_item_click=lambda r:self.open_customer_detail(r.get('customer')) if r.get('customer') else None,height=255).pack(fill='both',expand=True)
+        p=Panel(root,'Všichni zákazníci za vybrané období'); p.pack(fill='both',expand=True,pady=(12,0)); self.customer_table(p.body,rows,compact=False)
+
+    def page_products(self):
+        root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True); self.title_block(root,'Produkty','Položkový zisk a dostupný obrat ve stejném období jako zbytek přehledu')
+        y,m=self.period(); mode=self.mode_key(); rows=self.analytics.products(y,m,-1,mode); coverage=self.analytics.item_data_coverage(y,m,mode)
+        chart_rows=[]
+        for x in rows:
+            q=dict(x); q['label']=((q.get('code') or '')+' – '+(q.get('name') or '')).strip(' –'); q['revenue']=q.get('sales'); q['count']=q.get('documents'); chart_rows.append(q)
+        note=f"Položková data: {coverage['item_docs']} z {coverage['total_docs']} DL. Obrat produktu se zpřístupní, jakmile položkový export obsahuje prodejní hodnotu."
+        cp=Panel(root,'Zastoupení produktů'); cp.pack(fill='x')
+        ShareChart(cp.body,chart_rows,metrics=(('profit','Zisk','money'),('revenue','Obrat','money'),('count','Počet DL','count')),initial_metric='profit',title_note=note,max_items=6,exclude_negative_from_shares=True,height=255).pack(fill='both',expand=True)
+        p=Panel(root,'Produkty za vybrané období'); p.pack(fill='both',expand=True,pady=(12,0)); tree=self._tree(p.body,('code','name','qty','profit','sales','margin','docs'),('Kód','Produkt','Množství','Zisk','Dostupný obrat','Marže','DL'),(155,410,100,130,130,90,65),20,anchors=('w','w','e','e','e','e','e'))
+        for x in rows:
+            sales=fmt_money(x['sales']) if x.get('sales') is not None else '—'; margin=fmt_pct(x['margin']) if x.get('margin') is not None else '—'
+            tree.insert('', 'end',values=(x['code'],x['name'],fmt_num(x['quantity']),fmt_money(x['profit']),sales,margin,x['documents']))
+
+    def page_impor

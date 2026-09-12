@@ -1,0 +1,154 @@
+th_click,
+            height=300,
+        )
+        chart.pack(fill='both',expand=True)
+        return chart
+
+    def _on_trend_month_click(self,row):
+        period=row.get('period')
+        if period:
+            self.period_var.set(period); self.mode_var.set('Měsíc'); self.show_page('Obrat & marže')
+
+
+    def chart_margin(self,parent,margin):
+        canvas=tk.Canvas(parent,bg=COLORS['panel'],highlightthickness=0,bd=0)
+        canvas.pack(fill='both',expand=True)
+        val=max(0.0,min(float(margin or 0),100.0))
+        def draw(event=None):
+            canvas.delete('all')
+            w=max(canvas.winfo_width(),180); h=max(canvas.winfo_height(),180)
+            size=max(80,min(w,h)-40); x0=(w-size)/2; y0=(h-size)/2; x1=x0+size; y1=y0+size
+            ring=max(12,int(size*.11))
+            canvas.create_arc(x0,y0,x1,y1,start=0,extent=359.9,style='arc',outline=COLORS['panel_soft'],width=ring)
+            if val>0:
+                canvas.create_arc(x0,y0,x1,y1,start=90,extent=-(359.9*val/100.0),style='arc',outline=COLORS['teal'],width=ring)
+            canvas.create_text(w/2,h/2-4,text=f'{margin:.1f} %'.replace('.',','),fill=COLORS['text'],font=('Calibri',17,'bold'))
+            canvas.create_text(w/2,h/2+22,text='vážená marže',fill=COLORS['muted'],font=('Calibri',8))
+        canvas.bind('<Configure>',draw)
+        parent.after_idle(draw)
+
+    def sales_ranking(self,parent,rows):
+        ranked=sorted(rows,key=lambda x:x.get('profit',0),reverse=True)
+        max_profit=max([abs(float(x.get('profit') or 0)) for x in ranked]+[1.0])
+        for x in ranked:
+            is_other=x.get('code')=='OTHER'
+            profit=float(x.get('profit') or 0)
+            accent=COLORS['amber'] if is_other else (COLORS['red'] if profit<0 else COLORS['teal'])
+            head=tk.Frame(parent,bg=COLORS['panel']); head.pack(fill='x',pady=(7,2))
+            tk.Label(head,text=x['name'],bg=COLORS['panel'],fg=COLORS['amber'] if is_other else COLORS['text'],font=('Calibri',10,'bold')).pack(side='left')
+            tk.Label(head,text='Zisk '+((fmt_money(profit)+(' *' if not x.get('profit_complete',True) else '')) if x.get('profit_available',True) else '—'),bg=COLORS['panel'],fg=accent,font=('Calibri',10,'bold')).pack(side='right')
+            bar=tk.Frame(parent,bg=COLORS['panel_soft'],height=8); bar.pack(fill='x'); bar.pack_propagate(False)
+            fill=tk.Frame(bar,bg=accent); fill.place(relx=0,rely=0,relwidth=max(.015,min(1.0,abs(profit)/max_profit)),relheight=1)
+            tk.Label(parent,text=f"Obrat {fmt_money(x['revenue'])}  ·  marže {fmt_pct(x['margin'])}  ·  {x['count']} DL",bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',8)).pack(anchor='e',pady=(2,1))
+
+    def _tree(self,parent,cols,headings,widths=None,height=8,anchors=None):
+        # Jednotná tabulka s okamžitým vyhledáváním a řazením klikem na záhlaví.
+        # Po opuštění záložky se tabulka znovu vytvoří, takže se řazení automaticky
+        # vrátí do původního pořadí dat.
+        search_bar=tk.Frame(parent,bg=COLORS['panel'])
+        search_bar.pack(fill='x',pady=(0,7))
+        tk.Label(search_bar,text='Hledat',bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',9)).pack(side='left',padx=(0,7))
+        search_var=tk.StringVar()
+        search_entry=tk.Entry(search_bar,textvariable=search_var,bg=COLORS['panel_soft'],fg=COLORS['text'],insertbackground=COLORS['text'],relief='flat',font=('Calibri',10))
+        search_entry.pack(side='left',fill='x',expand=True,ipady=5)
+        result_lbl=tk.Label(search_bar,text='',bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',8))
+        result_lbl.pack(side='right',padx=(9,0))
+        clear_btn=tk.Button(search_bar,text='×',command=lambda: search_var.set(''),bg=COLORS['panel_soft'],fg=COLORS['muted'],activebackground=COLORS['border'],activeforeground=COLORS['text'],relief='flat',bd=0,font=('Calibri',13,'bold'),width=2)
+        clear_btn.pack(side='right',padx=(6,0))
+
+        holder=tk.Frame(parent,bg=COLORS['panel'])
+        holder.pack(fill='both',expand=True)
+        tree=ttk.Treeview(holder,columns=cols,show='headings',height=height,style='Dark.Treeview')
+        tree._heading_text={c:headings[i] for i,c in enumerate(cols)}
+        tree._sort_col=None
+        tree._sort_reverse=False
+        for i,c in enumerate(cols):
+            anchor=(anchors[i] if anchors else ('w' if i==0 else 'e'))
+            tree.heading(c,text=headings[i],anchor=anchor)
+            tree.column(c,width=(widths[i] if widths else 120),anchor=anchor,minwidth=45)
+        scroll=ttk.Scrollbar(holder,orient='vertical',command=tree.yview)
+        hscroll=ttk.Scrollbar(holder,orient='horizontal',command=tree.xview)
+        tree.configure(yscrollcommand=scroll.set,xscrollcommand=hscroll.set)
+        tree.grid(row=0,column=0,sticky='nsew'); scroll.grid(row=0,column=1,sticky='ns'); hscroll.grid(row=1,column=0,sticky='ew')
+        holder.grid_rowconfigure(0,weight=1); holder.grid_columnconfigure(0,weight=1)
+
+        original_insert=tree.insert
+        tree._search_iids=[]
+        def tracked_insert(parent_iid,index,**kw):
+            iid=original_insert(parent_iid,index,**kw)
+            if not parent_iid:
+                tree._search_iids.append(iid)
+                if search_var.get().strip() or tree._sort_col:
+                    tree.after_idle(apply_filter)
+                else:
+                    result_lbl.config(text=f'{len(tree._search_iids)} řádků')
+            return iid
+        tree.insert=tracked_insert
+
+        def normalize(value):
+            return str(value if value is not None else '').lower().replace('\u00a0',' ').strip()
+
+        def sort_value(value):
+            # Přirozené řazení pro datumy, částky, procenta a počty; ostatní jako text.
+            text=str(value if value is not None else '').strip()
+            if not text or text in ('—','-'):
+                return (3,'')
+            # ISO datum / datum s časem
+            import re
+            m=re.match(r'^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?',text)
+            if m:
+                y=int(m.group(1)); mo=int(m.group(2)); d=int(m.group(3) or 1)
+                return (0,y*10000+mo*100+d)
+            m=re.match(r'^(\d{1,2})[.](\d{1,2})[.](\d{2,4})',text)
+            if m:
+                d=int(m.group(1)); mo=int(m.group(2)); y=int(m.group(3)); y += 2000 if y<100 else 0
+                return (0,y*10000+mo*100+d)
+            # Čísla, Kč, %, p.b., hvězdička u částečného zisku apod.
+            cleaned=text.replace('Kč','').replace('%','').replace('*','').replace(' ','').replace('\u00a0','').replace(',','.').strip()
+            if re.fullmatch(r'[-+]?\d+(?:\.\d+)?',cleaned):
+                try: return (1,float(cleaned))
+                except ValueError: pass
+            return (2,normalize(text))
+
+        def visible_iids():
+            q=normalize(search_var.get())
+            out=[]
+            for iid in tree._search_iids:
+                if not tree.exists(iid):continue
+                vals=tree.item(iid,'values')
+                hay=' | '.join(normalize(v) for v in vals)
+                if not q or q in hay:
+                    out.append(iid)
+            return out
+
+        def refresh_headings():
+            for c in cols:
+                label=tree._heading_text[c]
+                if c==tree._sort_col:
+                    label += '  ▼' if tree._sort_reverse else '  ▲'
+                tree.heading(c,text=label)
+
+        def sort_by_column(col):
+            if tree._sort_col==col:
+                tree._sort_reverse=not tree._sort_reverse
+            else:
+                tree._sort_col=col
+                tree._sort_reverse=False
+            refresh_headings()
+            apply_filter()
+
+        for c in cols:
+            # default argument je nutný, aby každý handler držel svůj sloupec
+            tree.heading(c,command=lambda column=c: sort_by_column(column))
+
+        def apply_filter(*_):
+            q=normalize(search_var.get())
+            visible=visible_iids()
+            if tree._sort_col:
+                idx=cols.index(tree._sort_col)
+                # Stabilní sort: při shodě zůstává původní pořadí z importu.
+                order={iid:i for i,iid in enumerate(tree._search_iids)}
+                missing=[iid for iid in visible if sort_value(tree.item(iid,'values')[idx])[0]==3]
+                visible=[iid for iid in visible if iid not in set(missing)]
+                visible.sort(key=lambda iid:sort_value(tree.item(iid,'values')[idx]),reverse=tree._sort_reverse)
+                visible

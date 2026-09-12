@@ -1,0 +1,11 @@
+       raise RuntimeError('PDF export se nepodařil přes systémový prohlížeč.'+(f'\n{detail}' if detail else ''))
+        staged=None
+        try:
+            with tempfile.NamedTemporaryFile(prefix='.turto_pdf_',suffix='.tmp',dir=path.parent,delete=False) as f:
+                staged=Path(f.name); f.write(rendered.read_bytes())
+            os.replace(staged,path)
+        except PermissionError as exc:
+            raise RuntimeError('PDF nelze uložit. Zavřete původní PDF v prohlížeči nebo zvolte jiný název souboru.') from exc
+        finally:
+            if staged is not None:staged.unlink(missing_ok=True)
+    return path

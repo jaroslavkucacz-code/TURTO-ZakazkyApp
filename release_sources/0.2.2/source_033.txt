@@ -1,0 +1,102 @@
+.extend(missing)
+            # detach/reattach zachová data i vazby na dvojklik zákazníka.
+            visible_set=set(visible)
+            for iid in tree._search_iids:
+                if tree.exists(iid) and iid not in visible_set:
+                    tree.detach(iid)
+            for iid in visible:
+                tree.move(iid,'','end')
+            total=len(tree._search_iids)
+            result_lbl.config(text=(f'{len(visible)} / {total} řádků' if q else f'{total} řádků'))
+
+        search_var.trace_add('write',apply_filter)
+        tree.search_var=search_var
+        tree.search_entry=search_entry
+        tree.apply_filter=apply_filter
+        tree.sort_by_column=sort_by_column
+        return tree
+
+    def customer_table(self,parent,rows,compact=False):
+        if compact:
+            tree=self._tree(parent,('customer','revenue','profit'),('Zákazník','Obrat','Zisk'),(210,115,105),height=6,anchors=('w','e','e'))
+        else:
+            tree=self._tree(parent,('customer','revenue','profit','margin','count'),('Zákazník','Obrat','Zisk','Marže','DL'),(360,145,135,95,75),height=18,anchors=('w','e','e','e','e'))
+        item_customers={}
+        for x in rows:
+            rev=float(x.get('revenue') or 0); prof=float(x.get('profit') or 0); cnt=int(x.get('count') or 0); profit_docs=int(x.get('profit_docs',cnt) or 0)
+            available=bool(x.get('profit_available',profit_docs>0)); complete=bool(x.get('profit_complete',cnt==0 or profit_docs>=cnt))
+            margin=x.get('margin')
+            profit_text=(fmt_money(prof)+(' *' if available and not complete else '')) if available else '—'
+            margin_text=(fmt_pct(margin)+(' *' if available and not complete else '')) if margin is not None else '—'
+            values=(x['customer'],fmt_money(rev),profit_text) if compact else (x['customer'],fmt_money(rev),profit_text,margin_text,cnt)
+            iid=tree.insert('', 'end', values=values); item_customers[iid]=x['customer']
+        def open_selected(event=None):
+            iid=tree.focus()
+            if not iid and tree.selection(): iid=tree.selection()[0]
+            customer=item_customers.get(iid)
+            if customer: self.open_customer_detail(customer)
+        tree.bind('<Double-1>',open_selected); tree.bind('<Return>',open_selected)
+        return tree
+
+    def open_customer_detail(self,customer):
+        history=self.analytics.customer_history(customer)
+        if not history:
+            messagebox.showinfo('Zákazník','Pro zákazníka nejsou dostupná historická data.')
+            return
+        win=tk.Toplevel(self); win.title(f'{customer} – historie'); win.geometry('1120x760'); win.minsize(900,650); win.configure(bg=COLORS['bg'])
+        try: win.transient(self)
+        except Exception: pass
+        head=tk.Frame(win,bg=COLORS['bg']); head.pack(fill='x',padx=20,pady=(18,10))
+        tk.Label(head,text=customer,bg=COLORS['bg'],fg=COLORS['text'],font=('Calibri',20,'bold')).pack(anchor='w')
+        tk.Label(head,text='Historie podle dodacích listů z dostupných dat POHODA',bg=COLORS['bg'],fg=COLORS['muted'],font=('Calibri',9)).pack(anchor='w',pady=(2,0))
+        total_rev=sum(x['revenue'] for x in history); total_count=sum(x['count'] for x in history)
+        available=[x for x in history if x['profit_available']]; raw_profit=sum(x['profit'] for x in available)
+        last=max((x.get('last_date') or '' for x in history),default='')
+        cards=tk.Frame(win,bg=COLORS['bg']); cards.pack(fill='x',padx=20,pady=(0,12))
+        vals=[('Obrat celkem',fmt_money(total_rev),'v celé dostupné historii'),('Počet DL',str(total_count),f'{len(history)} měsíců s odběrem'),('Zisk z dostupných reportů',fmt_money(raw_profit),f'zisková data: {len(available)} z {len(history)} měsíců'),('Poslední odběr',last if last else '—','datum posledního DL')]
+        for i,(a,b,c) in enumerate(vals):
+            Card(cards,a,b,c,accent=COLORS['amber'] if i==2 and len(available)<len(history) else COLORS['teal']).grid(row=0,column=i,sticky='nsew',padx=(0 if i==0 else 7,0)); cards.grid_columnconfigure(i,weight=1)
+        chart=Panel(win,'Měsíční vývoj zákazníka'); chart.pack(fill='both',expand=True,padx=20,pady=(0,10)); self.chart_customer_history(chart.body,history)
+        tab=Panel(win,'Historie po měsících'); tab.pack(fill='both',expand=True,padx=20,pady=(0,16))
+        note=tk.Label(tab.body,text='Zisk a marže jsou zobrazeny pouze v měsících, pro které byl importován report Zisk (zásoby).',bg=COLORS['panel'],fg=COLORS['amber'],font=('Calibri',8),anchor='w')
+        note.pack(fill='x',pady=(0,6))
+        tree=self._tree(tab.body,('period','revenue','profit','margin','count'),('Období','Obrat','Zisk','Marže','DL'),(130,180,180,110,80),height=8,anchors=('w','e','e','e','e'))
+        for x in reversed(history):
+            suffix=' *' if x.get('profit_available') and not x.get('profit_complete',True) else ''
+            profit_txt=(fmt_money(x['profit'])+suffix) if x['profit_available'] else '—'
+            margin_txt=(fmt_pct(x['margin'])+suffix) if x['margin'] is not None else '—'
+            tree.insert('', 'end',values=(x['period'],fmt_money(x['revenue']),profit_txt,margin_txt,x['count']))
+
+    def chart_customer_history(self,parent,history):
+        data=[]
+        for x in history[-30:]:
+            period=str(x.get('period') or '')
+            label=(period[5:7]+'/'+period[2:4]) if len(period)>=7 else period
+            revenue=float(x.get('revenue') or 0); profit=float(x.get('profit') or 0); available=bool(x.get('profit_available')); margin=x.get('margin') if available else None
+            data.append({'label':label,'full_label':period,'revenue':revenue,'profit':profit,'margin':margin,'profit_available':available,'profit_complete':x.get('profit_complete',True),'has_data':True})
+        chart=BusinessChart(parent,data,subtitle='Historie zákazníka • Kč vlevo / marže % vpravo',show_mode_switch=True,trim_trailing_empty=False,height=275)
+        chart.pack(fill='both',expand=True); return chart
+
+    def product_compact(self,parent,rows):
+        for x in rows:
+            f=tk.Frame(parent,bg=COLORS['panel']); f.pack(fill='x',pady=5); tk.Label(f,text=(x['code'] or '—')[:16],bg=COLORS['panel'],fg=COLORS['text'],font=('Calibri',9,'bold')).pack(side='left'); tk.Label(f,text=fmt_money(x['profit']),bg=COLORS['panel'],fg=COLORS['amber'],font=('Calibri',9)).pack(side='right')
+        if not rows: tk.Label(parent,text='Pro toto období nejsou položková data.',bg=COLORS['panel'],fg=COLORS['muted']).pack(anchor='w')
+    def insights(self,parent,k,sales):
+        assigned=[x for x in sales if x.get('code')!='OTHER']
+        best=assigned[0]['name'] if assigned else '—'
+        texts=[f"Meziroční změna obratu: {k['yoy']:+.1f} %",f"Vážená marže: {fmt_pct(k['margin'])}",f"Nejvyšší obrat má {best}.",f"Nezařazené: {k['unassigned_count']} DL · {fmt_money(k['unassigned_revenue'])}",f"Režijní listy: {fmt_money(k['overhead'])}","Produktová % marže čeká na položkovou prodejní cenu."]
+        for i,t in enumerate(texts):
+            fg=COLORS['amber'] if i in (3,5) else COLORS['text']
+            tk.Label(parent,text='• '+t,wraplength=260,justify='left',anchor='w',bg=COLORS['panel'],fg=fg,font=('Calibri',9)).pack(fill='x',pady=4)
+
+    def page_revenue(self):
+        root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True); self.title_block(root,'Obrat & marže','Měsíční vývoj, zisk a režijní listy')
+        y,m=self.period(); p=Panel(root,'Vývoj vybraného období'); p.pack(fill='both',expand=True); self.chart_trend(p.body,y)
+        table=Panel(root,'Měsíční souhrn'); table.pack(fill='both',expand=True,pady=(12,0)); tree=self._tree(table.body,('m','r','p','mar'),('Měsíc','Obrat','Zisk','Marže'),(140,170,170,100),12,anchors=('w','e','e','e'))
+        for x in selected_trend(self.analytics,y,m,self.mode_key()): tree.insert('', 'end', values=(x.get('full_label',MONTH_NAMES[x['month']-1]),fmt_money(x['revenue']),fmt_money(x['profit']),fmt_pct(x['margin'])))
+
+    def page_sales(self):
+        root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True); self.title_block(root,'Obchodníci','Výkon středisek M / J / H včetně nezařazených dokladů')
+        y,m=self.period(); mode=self.mode_key(); rows=self.analytics.salespeople(y,m,mode); ranked=sorted(rows,key=lambda x:x['profit'],reverse=True)
+        chartp=Panel(root,'Podíly obchodníků a srovnání výkonu'); chartp.pack(fill='x')
+        ShareChart(chartp.body,rows,metrics=(('profit','Zisk','m

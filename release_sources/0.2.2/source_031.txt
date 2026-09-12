@@ -1,0 +1,99 @@
+ft',bg='#0D1524',fg='#53657A',font=('Calibri',9)).pack(side='bottom',anchor='w',padx=20,pady=22)
+
+        right=tk.Frame(self,bg=COLORS['bg']); right.pack(side='left',fill='both',expand=True)
+        top=tk.Frame(right,bg=COLORS['bg'],height=92); top.pack(fill='x'); top.pack_propagate(False)
+        left=tk.Frame(top,bg=COLORS['bg']); left.pack(side='left',fill='y',padx=22,pady=(10,8))
+
+        period_box=tk.Frame(left,bg=COLORS['bg'])
+        period_box.pack(side='left',fill='y',padx=(0,12))
+        tk.Label(period_box,text='OBDOBÍ',bg=COLORS['bg'],fg='#B7C4D3',font=('Calibri',8,'bold')).pack(anchor='w',pady=(0,4))
+        self.period_var=tk.StringVar(value=self.cfg.get('default_period','2026-08'))
+        self.period_cb=ttk.Combobox(period_box,textvariable=self.period_var,width=12,state='readonly',style='Dark.TCombobox')
+        self.period_cb.pack(anchor='w')
+        self.period_cb.bind('<<ComboboxSelected>>',lambda e:self.refresh_current())
+
+        mode_box=tk.Frame(left,bg=COLORS['bg'])
+        mode_box.pack(side='left',fill='y',padx=(0,12))
+        tk.Label(mode_box,text='ROZSAH',bg=COLORS['bg'],fg='#B7C4D3',font=('Calibri',8,'bold')).pack(anchor='w',pady=(0,4))
+        self.mode_var=tk.StringVar(value='Měsíc')
+        mode=ttk.Combobox(mode_box,textvariable=self.mode_var,values=['Měsíc','YTD','Rok','Posledních 12 měsíců'],width=20,state='readonly',style='Dark.TCombobox')
+        mode.pack(anchor='w'); mode.bind('<<ComboboxSelected>>',lambda e:self.refresh_current())
+
+        compare=tk.Frame(left,bg=COLORS['panel'],highlightbackground=COLORS['border'],highlightthickness=1,bd=0,padx=12,pady=7)
+        compare.pack(side='left',anchor='s',pady=(18,0))
+        tk.Label(compare,text='POROVNÁNÍ',bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',7,'bold')).pack(anchor='w')
+        tk.Label(compare,text='Předchozí rok',bg=COLORS['panel'],fg=COLORS['text'],font=('Calibri',10,'bold')).pack(anchor='w',pady=(1,0))
+
+        actions=tk.Frame(top,bg=COLORS['bg']); actions.pack(side='right',padx=22,pady=24)
+        tk.Button(actions,text='Importovat data',command=self.do_import,bg=COLORS['teal'],fg='#06251D',activebackground=COLORS['teal2'],relief='flat',bd=0,font=('Calibri',10,'bold'),padx=16,pady=9).pack(side='left',padx=4)
+        exp=tk.Menubutton(actions,text='Export',bg=COLORS['panel_soft'],fg=COLORS['text'],activebackground=COLORS['border'],activeforeground=COLORS['text'],relief='flat',bd=0,font=('Calibri',10,'bold'),padx=16,pady=9)
+        menu=tk.Menu(exp,tearoff=0); menu.add_command(label='Excel – kompletní přehled',command=self.export_xlsx); menu.add_command(label='PDF – manažerský report',command=self.export_pdf); exp.config(menu=menu); exp.pack(side='left',padx=4)
+
+        self.viewport=PageViewport(right);self.viewport.pack(fill='both',expand=True,padx=22,pady=(0,10));self.container=self.viewport.body
+        statusbar=tk.Frame(right,bg=COLORS['bg']); statusbar.pack(fill='x',padx=22,pady=(0,7))
+        self.status=tk.Label(statusbar,text='',anchor='w',bg=COLORS['bg'],fg=COLORS['muted'],font=('Calibri',8)); self.status.pack(side='left',fill='x',expand=True)
+        tk.Label(statusbar,text='Vytvořil Ing. Jaroslav Kučera',anchor='e',bg=COLORS['bg'],fg='#607086',font=('Calibri',8)).pack(side='right')
+
+    def _populate_periods(self):
+        periods=self.analytics.available_periods()
+        self.period_cb['values']=periods
+        if self.period_var.get() not in periods and periods:
+            self.period_var.set(periods[0])
+
+    def mode_key(self):
+        return {'Měsíc':'month','YTD':'ytd','Rok':'year','Posledních 12 měsíců':'rolling12'}.get(self.mode_var.get(),'month')
+    def period(self):
+        try: y,m=map(int,self.period_var.get().split('-')); return y,m
+        except Exception: return 2026,8
+
+    def show_page(self,name):
+        for n,b in self.nav_buttons.items():
+            b.config(bg=COLORS['panel_soft'] if n==name else '#0D1524',fg=COLORS['text'] if n==name else '#C7D2E0')
+        for child in self.container.winfo_children(): child.destroy()
+        self.viewport.canvas.yview_moveto(0)
+        self.current_page=name
+        maker={'Přehled':self.page_overview,'Obrat & marže':self.page_revenue,'Obchodníci':self.page_sales,'Zákazníci':self.page_customers,'Produkty':self.page_products,'Importy':self.page_imports,'Nastavení':self.page_settings}[name]
+        try:
+            maker()
+        except Exception:
+            log=Path(__file__).resolve().parents[1]/'turto_error.log'
+            try: log.write_text(traceback.format_exc(),encoding='utf-8')
+            except Exception: pass
+            err=tk.Frame(self.container,bg=COLORS['bg']); err.pack(fill='both',expand=True,padx=24,pady=24)
+            tk.Label(err,text='Tuto část se nepodařilo zobrazit.',bg=COLORS['bg'],fg=COLORS['red'],font=('Calibri',18,'bold')).pack(anchor='w')
+            tk.Label(err,text='Program zůstal spuštěný. Podrobnosti jsou v turto_error.log.',bg=COLORS['bg'],fg=COLORS['muted'],font=('Calibri',10)).pack(anchor='w',pady=(6,0))
+        self.update_status()
+
+    def refresh_current(self): self.show_page(self.current_page)
+    def title_block(self,parent,title,subtitle):
+        f=tk.Frame(parent,bg=COLORS['bg']); f.pack(fill='x',pady=(4,16)); tk.Label(f,text=title,bg=COLORS['bg'],fg=COLORS['text'],font=('Calibri',22,'bold')).pack(anchor='w'); tk.Label(f,text=subtitle,bg=COLORS['bg'],fg=COLORS['muted'],font=('Calibri',10)).pack(anchor='w',pady=(3,0))
+
+    def page_overview(self):
+        root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True)
+        self.title_block(root,'Přehled výkonnosti','Klíčové ukazatele za vybrané období')
+        y,m=self.period(); mode=self.mode_key(); k=self.analytics.kpis(y,m,mode)
+        cards=tk.Frame(root,bg=COLORS['bg']); cards.pack(fill='x')
+        unassigned_note=(f"{k['unassigned_count']} nezařazených · {fmt_money(k['unassigned_revenue'])}" if k['unassigned_count'] else 'všechny doklady jsou přiřazené')
+        vals=[('Obrat',fmt_money(k['revenue']),(f"{k['yoy']:+.1f} % vs. předchozí rok" if k.get('yoy_available') else 'srovnání není dostupné')),('Hrubý zisk',(fmt_money(k['profit'])+(' *' if not k['profit_complete'] else '')) if k['profit_available'] else '—','zisk z dostupných reportů'),('Průměrná marže',fmt_pct(k['margin']),'vážená marže'),('Počet DL',str(k['count']),unassigned_note),('Ø hodnota DL',fmt_money(k['avg_order']),'průměr na doklad'),('Režijní listy',fmt_money(k['overhead']),'za vybrané období')]
+        for i,(a,b,c) in enumerate(vals):
+            card=Card(cards,a,b,c,accent=COLORS['teal'] if not c.startswith('-') else COLORS['red']); card.grid(row=0,column=i,sticky='nsew',padx=(0 if i==0 else 6,0),ipady=2); cards.grid_columnconfigure(i,weight=1)
+        responsive_grid(cards,cards.winfo_children(),6,3)
+        mid=tk.Frame(root,bg=COLORS['bg']); mid.pack(fill='both',expand=True,pady=(14,0)); mid.grid_columnconfigure(0,weight=3); mid.grid_columnconfigure(1,weight=2); mid.grid_rowconfigure(0,weight=1)
+        p=Panel(mid,'Obrat po měsících'); p.grid(row=0,column=0,sticky='nsew',padx=(0,7)); self.chart_trend(p.body,y)
+        p3=Panel(mid,'Výkon obchodníků'); p3.grid(row=0,column=1,sticky='nsew',padx=(7,0)); self.sales_ranking(p3.body,self.analytics.salespeople(y,m,mode))
+        bot=tk.Frame(root,bg=COLORS['bg']); bot.pack(fill='both',expand=True,pady=(14,0)); bot.grid_columnconfigure(0,weight=2); bot.grid_columnconfigure(1,weight=1); bot.grid_columnconfigure(2,weight=1)
+        cp=Panel(bot,'Top zákazníci'); cp.grid(row=0,column=0,sticky='nsew',padx=(0,7)); self.customer_table(cp.body,self.analytics.top_customers(y,m,mode,6),compact=True)
+        pp=Panel(bot,'Produkty – nejvyšší zisk'); pp.grid(row=0,column=1,sticky='nsew',padx=7); self.product_compact(pp.body,self.analytics.products(y,m,5,mode))
+        ip=Panel(bot,'Rychlý přehled'); ip.grid(row=0,column=2,sticky='nsew',padx=(7,0)); self.insights(ip.body,k,self.analytics.salespeople(y,m,mode))
+        responsive_grid(bot,[cp,pp,ip],3,1)
+
+    def chart_trend(self,parent,year):
+        y,m=self.period()
+        data=selected_trend(self.analytics,y,m,self.mode_key())
+        trim_trailing=True
+        chart=BusinessChart(
+            parent,data,
+            subtitle=('Vývoj od ledna do vybraného měsíce' if self.mode_key()=='month' else 'Vývoj vybraného období')+' · Kč vlevo / % vpravo',
+            show_mode_switch=True,
+            trim_trailing_empty=trim_trailing,
+            on_period_click=self._on_trend_mon

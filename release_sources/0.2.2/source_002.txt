@@ -1,0 +1,22 @@
+@echo off
+cd /d "%~dp0"
+set PY=py
+%PY% --version >nul 2>nul
+if errorlevel 1 set PY=python
+%PY% --version
+if errorlevel 1 (
+  echo Python nebyl nalezen.
+  pause
+  exit /b 1
+)
+echo.
+echo Instaluji potrebne balicky...
+%PY% -m pip install -r requirements.txt
+if errorlevel 1 (
+  echo Instalace balicku se nezdarila.
+  pause
+  exit /b 1
+)
+echo.
+echo Hotovo. Program spustite pres START_TURTO.bat
+pause

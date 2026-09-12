@@ -1,0 +1,149 @@
+from __future__ import annotations
+
+import html
+import os
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+
+from .analytics import MONTH_NAMES
+from .constants import APP_NAME, APP_VERSION, CENTER_NAMES, center_display
+
+
+def money(v):
+    return f'{float(v or 0):,.0f} Kč'.replace(',', ' ')
+
+
+def pct(v):
+    return f'{float(v or 0):.1f} %'.replace('.', ',')
+
+
+def export_excel(path: str | Path, analytics, year, month, mode='month'):
+    """Create an XLSX workbook.
+
+    XlsxWriter is imported lazily on purpose.  The application can therefore
+    start and be used even when the optional Excel-export package has not yet
+    been installed.
+    """
+    try:
+        import xlsxwriter
+    except Exception as exc:
+        raise RuntimeError(
+            'Pro export do Excelu chybí balíček XlsxWriter. Spusťte INSTALL.bat '\
+            'nebo příkaz: py -m pip install XlsxWriter'
+        ) from exc
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    wb = xlsxwriter.Workbook(path)
+    wb.set_properties({'title': APP_NAME, 'comments': f'Verze {APP_VERSION}'})
+    dark = '#172033'; teal = '#1CC8A0'; white = '#FFFFFF'
+    title = wb.add_format({'bold': True, 'font_size': 18, 'font_color': white, 'bg_color': dark, 'align': 'left', 'valign': 'vcenter'})
+    hdr = wb.add_format({'bold': True, 'font_color': white, 'bg_color': dark, 'border': 0, 'align': 'left', 'valign': 'vcenter'})
+    hdr_num = wb.add_format({'bold': True, 'font_color': white, 'bg_color': dark, 'border': 0, 'align': 'right', 'valign': 'vcenter'})
+    money_fmt = wb.add_format({'num_format': '# ##0 "Kč"', 'font_color': '#253246'})
+    pct_fmt = wb.add_format({'num_format': '0.0%', 'font_color': '#253246'})
+    normal = wb.add_format({'font_color': '#253246'})
+    kpi_label = wb.add_format({'bold': True, 'font_color': '#64748B'})
+    kpi_value = wb.add_format({'bold': True, 'font_size': 16, 'font_color': dark})
+
+    k = analytics.kpis(year, month, mode)
+    ws = wb.add_worksheet('Souhrn')
+    ws.hide_gridlines(2); ws.set_column('A:A', 3); ws.set_column('B:G', 20)
+    ws.merge_range('B2:G3', 'TURTO – Měsíční přehledy', title)
+    labels = [('Obrat', k['revenue']), ('Hrubý zisk', k['profit'] if k.get('profit_available',True) else None), ('Marže', (k['margin']/100 if k['margin'] is not None else None)), ('Počet DL', k['count']), ('Ø hodnota DL', k['avg_order']), ('Režijní listy', k['overhead'])]
+    for i,(lab,val) in enumerate(labels):
+        c = 1+i
+        ws.write(5,c,lab,kpi_label)
+        fmt = pct_fmt if lab=='Marže' else (normal if lab=='Počet DL' else money_fmt)
+        ws.write(6,c,val,fmt if lab!='Počet DL' else kpi_value)
+    trend = analytics.monthly_trend(year)
+    ws.write('B10','Měsíc',hdr); ws.write('C10','Obrat',hdr_num); ws.write('D10','Zisk',hdr_num)
+    for r,item in enumerate(trend, 10):
+        ws.write(r,1,MONTH_NAMES[item['month']-1],normal); ws.write(r,2,item['revenue'],money_fmt); ws.write(r,3,item['profit'],money_fmt)
+    chart = wb.add_chart({'type':'column'})
+    chart.add_series({'name':'Obrat','categories':f'=Souhrn!$B$11:$B$22','values':f'=Souhrn!$C$11:$C$22','fill':{'color':teal},'border':{'none':True}})
+    chart.set_title({'name':f'Obrat po měsících {year}'}); chart.set_legend({'none':True}); chart.set_style(10)
+    ws.insert_chart('E10', chart, {'x_scale':1.4,'y_scale':1.2})
+
+    sales = analytics.salespeople(year, month, mode)
+    s = wb.add_worksheet('Obchodníci'); s.hide_gridlines(2); s.set_column('A:A', 16); s.set_column('B:F', 18)
+    s.write('A1','Obchodník',hdr); [s.write(0,c,h,hdr_num) for c,h in enumerate(['Obrat','Zisk','Marže','Počet DL','Ø DL'],1)]
+    for r,x in enumerate(sales,1):
+        s.write(r,0,x['name']); s.write(r,1,x['revenue'],money_fmt); s.write(r,2,x['profit'] if x.get('profit_available',True) else None,money_fmt); s.write(r,3,(x['margin']/100 if x.get('margin') is not None else None),pct_fmt); s.write(r,4,x['count']); s.write(r,5,x['avg_order'],money_fmt)
+
+    c = wb.add_worksheet('Zákazníci'); c.hide_gridlines(2); c.set_column('A:A', 38); c.set_column('B:E', 18)
+    c.write('A1','Zákazník',hdr); [c.write(0,col,h,hdr_num) for col,h in enumerate(['Obrat','Dostupný zisk','Marže','Počet DL'],1)]
+    for r,x in enumerate(analytics.top_customers(year,month,mode,200),1):
+        cnt=int(x.get('count') or 0); pd=int(x.get('profit_docs') or 0); complete=(cnt==0 or pd>=cnt)
+        c.write(r,0,x['customer']); c.write(r,1,x['revenue'],money_fmt)
+        if pd>0: c.write(r,2,x['profit'],money_fmt)
+        else: c.write(r,2,'—')
+        if x.get('margin') is not None: c.write(r,3,float(x['margin'])/100,pct_fmt)
+        else: c.write(r,3,'—')
+        c.write(r,4,cnt)
+    c.write(len(analytics.top_customers(year,month,mode,200))+2,0,'Pozn.: Zisk zákazníků je dostupný pouze pro měsíce s importovaným reportem Zisk (zásoby).',normal)
+
+    p = wb.add_worksheet('Produkty'); p.hide_gridlines(2); p.set_column('A:A',18); p.set_column('B:B',55); p.set_column('C:E',18)
+    p.write('A1','Kód',hdr); p.write('B1','Produkt',hdr); [p.write(0,col,h,hdr_num) for col,h in enumerate(['Množství','Zisk','Počet DL'],2)]
+    for r,x in enumerate(analytics.products(year,month,500,mode),1):
+        p.write(r,0,x['code']); p.write(r,1,x['name']); p.write(r,2,x['quantity']); p.write(r,3,x['profit'],money_fmt); p.write(r,4,x['documents'])
+
+    d = wb.add_worksheet('Největší DL'); d.hide_gridlines(2); d.set_column('A:A',14); d.set_column('B:B',10); d.set_column('C:D',35); d.set_column('E:G',18)
+    [d.write(0,col,h,hdr) for col,h in enumerate(['DL','Středisko','Zákazník','Projekt'])]; [d.write(0,col,h,hdr_num) for col,h in enumerate(['Částka','Zisk','Marže'],4)]
+    for r,x in enumerate(analytics.top_documents(year,month,mode,limit=200),1):
+        d.write(r,0,x['doc_no']); d.write(r,1,center_display(x['center'])); d.write(r,2,x['customer']); d.write(r,3,x['project']); d.write(r,4,x['base_amount'],money_fmt); d.write(r,5,x['profit'],money_fmt); d.write(r,6,(x['margin']/100 if x.get('margin') is not None else None),pct_fmt)
+
+    wb.close()
+    return path
+
+
+def _build_pdf_html(analytics, year, month, mode='month'):
+    from .reporting import build_html
+    return build_html(analytics,year,month,mode)
+
+
+def _find_pdf_browser():
+    candidates=[]
+    if os.name=='nt':
+        for env in ('PROGRAMFILES(X86)','PROGRAMFILES','LOCALAPPDATA'):
+            base=os.environ.get(env)
+            if base:
+                candidates += [
+                    Path(base)/'Microsoft/Edge/Application/msedge.exe',
+                    Path(base)/'Google/Chrome/Application/chrome.exe',
+                ]
+    for name in ('msedge','microsoft-edge','google-chrome','chromium','chromium-browser'):
+        p=shutil.which(name)
+        if p: candidates.append(Path(p))
+    for p in candidates:
+        if p.exists(): return p
+    return None
+
+
+def export_pdf(path: str | Path, analytics, year, month, mode='month'):
+    """Generate a real PDF using the trusted system browser print engine.
+
+    This avoids Python native graphics/PDF DLLs, which can be blocked by
+    corporate Windows application-control policies.  Edge is standard on
+    supported Windows installations and handles Czech text, CSS and SVG.
+    """
+    path=Path(path).resolve(); path.parent.mkdir(parents=True,exist_ok=True)
+    browser=_find_pdf_browser()
+    if not browser:
+        raise RuntimeError('Pro PDF export nebyl nalezen Microsoft Edge ani Chrome.')
+    with tempfile.TemporaryDirectory(prefix='turto_pdf_') as td:
+        td=Path(td)
+        html_path=td/'report.html'; html_path.write_text(_build_pdf_html(analytics,year,month,mode),encoding='utf-8')
+        profile=td/'browser_profile'
+        rendered=td/'rendered.pdf'
+        args=[str(browser),'--headless','--disable-gpu','--no-first-run','--virtual-time-budget=2000',f'--user-data-dir={profile}',f'--print-to-pdf={rendered}','--no-pdf-header-footer','--print-to-pdf-no-header']
+        if os.name!='nt' and hasattr(os,'geteuid') and os.geteuid()==0:
+            args.append('--no-sandbox')
+        args.append(html_path.as_uri())
+        flags=getattr(subprocess,'CREATE_NO_WINDOW',0) if os.name=='nt' else 0
+        cp=subprocess.run(args,capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=90,creationflags=flags)
+        if cp.returncode!=0 or not rendered.exists() or rendered.stat().st_size<1000 or not rendered.read_bytes().startswith(b'%PDF-'):
+            detail=(cp.stderr or cp.stdout or '').strip()[-1500:]
+     

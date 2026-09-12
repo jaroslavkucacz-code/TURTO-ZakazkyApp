@@ -1,0 +1,193 @@
+from __future__ import annotations
+
+from calendar import monthrange
+from datetime import date
+
+from .constants import CENTER_NAMES, PRIMARY_CENTERS
+
+MONTH_NAMES = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec']
+MONTH_SHORT_NAMES = ['Led','Úno','Bře','Dub','Kvě','Čvn','Čvc','Srp','Zář','Říj','Lis','Pro']
+
+
+def period_bounds(year: int, month: int, mode='month'):
+    if mode == 'year':
+        return date(year, 1, 1), date(year, 12, 31)
+    if mode == 'ytd':
+        return date(year, 1, 1), date(year, month, monthrange(year, month)[1])
+    if mode == 'rolling12':
+        end = date(year, month, monthrange(year, month)[1])
+        y, m = year, month
+        for _ in range(11):
+            m -= 1
+            if m == 0:
+                m, y = 12, y - 1
+        return date(y, m, 1), end
+    return date(year, month, 1), date(year, month, monthrange(year, month)[1])
+
+
+def _next_month(d: date) -> date:
+    return date(d.year + (1 if d.month == 12 else 0), 1 if d.month == 12 else d.month + 1, 1)
+
+
+class Analytics:
+    def __init__(self, db):
+        self.db = db
+
+    def _where(self, year, month, mode='month'):
+        start, end = period_bounds(year, month, mode)
+        return start.isoformat(), end.isoformat()
+
+    @staticmethod
+    def _other_sql(alias=''):
+        p = f'{alias}.' if alias else ''
+        return f"(COALESCE(TRIM({p}center),'')='' OR {p}center NOT IN ('J','H','M'))"
+
+    def _raw_profit_exists(self, year: int, month: int) -> bool:
+        start, end = period_bounds(year, month, 'month')
+        n = self.db.scalar(
+            '''SELECT COUNT(*) FROM profit_documents p
+               JOIN delivery_notes d ON d.doc_no=p.doc_no
+               WHERE d.doc_date BETWEEN ? AND ?''',
+            (start.isoformat(), end.isoformat())
+        ) or 0
+        return int(n) > 0
+
+    def _raw_profit_month(self, year: int, month: int, center: str | None = None) -> float:
+        start, end = period_bounds(year, month, 'month')
+        params = [start.isoformat(), end.isoformat()]
+        extra = ''
+        if center in PRIMARY_CENTERS:
+            extra = ' AND d.center=?'
+            params.append(center)
+        elif center == 'OTHER':
+            extra = f' AND {self._other_sql("d")}'
+        return float(self.db.scalar(
+            f'''SELECT COALESCE(SUM(p.profit_total),0) FROM profit_documents p
+                JOIN delivery_notes d ON d.doc_no=p.doc_no
+                WHERE d.doc_date BETWEEN ? AND ? {extra}''', params
+        ) or 0)
+
+    def _legacy_profit_month(self, year: int, month: int, center: str | None = None) -> float:
+        period = f'{year:04d}-{month:02d}'
+        row = self.db.query(
+            '''SELECT profit_total,profit_m,profit_j,profit_h,profit_other
+               FROM monthly_summary WHERE period=?''', (period,)
+        )
+        if not row:
+            return 0.0
+        r = row[0]
+        if center == 'M': return float(r['profit_m'] or 0)
+        if center == 'J': return float(r['profit_j'] or 0)
+        if center == 'H': return float(r['profit_h'] or 0)
+        total = float(r['profit_total'] or 0)
+        if center == 'OTHER':
+            explicit = float(r['profit_other'] or 0)
+            residual = total - float(r['profit_m'] or 0) - float(r['profit_j'] or 0) - float(r['profit_h'] or 0)
+            # Older sheets often left profit_other blank/zero although the total
+            # contains a small unassigned remainder. Preserve that remainder.
+            return explicit if abs(explicit) > 1e-9 else residual
+        return total
+
+    def _profit_for_period(self, year, month, mode='month', center: str | None = None):
+        start, end = period_bounds(year, month, mode)
+        cursor = start.replace(day=1)
+        total = 0.0
+        while cursor <= end:
+            if self._raw_profit_exists(cursor.year, cursor.month):
+                total += self._raw_profit_month(cursor.year, cursor.month, center)
+            else:
+                total += self._legacy_profit_month(cursor.year, cursor.month, center)
+            cursor = _next_month(cursor)
+        return total
+
+    def kpis(self, year, month, mode='month'):
+        start, end = self._where(year, month, mode)
+        row = self.db.query(
+            '''SELECT COALESCE(SUM(base_amount),0) revenue, COUNT(*) cnt
+               FROM delivery_notes WHERE doc_date BETWEEN ? AND ?''', (start, end)
+        )[0]
+        revenue, count = float(row['revenue'] or 0), int(row['cnt'] or 0)
+        profit = self._profit_for_period(year, month, mode)
+        margin = profit / revenue * 100 if revenue else 0
+        avg = revenue / count if count else 0
+        overhead = float(self.db.scalar(
+            '''SELECT COALESCE(SUM(total_amount),0) FROM overhead_docs
+               WHERE doc_date BETWEEN ? AND ?''', (start, end)
+        ) or 0)
+        unassigned = self.db.query(
+            f'''SELECT COALESCE(SUM(base_amount),0) revenue, COUNT(*) cnt
+                FROM delivery_notes WHERE doc_date BETWEEN ? AND ? AND {self._other_sql()}''', (start, end)
+        )[0]
+        yoy = self._yoy_revenue(year, month, mode, revenue)
+        return {
+            'revenue': revenue, 'profit': profit, 'margin': margin, 'count': count,
+            'avg_order': avg, 'overhead': overhead, 'yoy': yoy,
+            'unassigned_count': int(unassigned['cnt'] or 0),
+            'unassigned_revenue': float(unassigned['revenue'] or 0),
+            'unassigned_profit': self._profit_for_period(year, month, mode, 'OTHER'),
+        }
+
+    def _yoy_revenue(self, year, month, mode, current):
+        if year <= 1900:
+            return 0
+        start, end = self._where(year - 1, month, mode)
+        prev = float(self.db.scalar(
+            '''SELECT COALESCE(SUM(base_amount),0) FROM delivery_notes
+               WHERE doc_date BETWEEN ? AND ?''', (start, end)
+        ) or 0)
+        return ((current / prev) - 1) * 100 if prev else 0
+
+    def monthly_trend(self, year):
+        out = []
+        for m in range(1, 13):
+            start, end = self._where(year, m, 'month')
+            row = self.db.query(
+                '''SELECT COALESCE(SUM(base_amount),0) revenue, COUNT(*) cnt
+                   FROM delivery_notes WHERE doc_date BETWEEN ? AND ?''', (start, end)
+            )[0]
+            rev = float(row['revenue'] or 0)
+            count = int(row['cnt'] or 0)
+            profit = float(self._profit_for_period(year, m, 'month'))
+            margin = profit / rev * 100 if rev else 0.0
+            out.append({
+                'month': m,
+                'label': MONTH_SHORT_NAMES[m-1],
+                'full_label': f'{MONTH_NAMES[m-1]} {year}',
+                'revenue': rev,
+                'profit': profit,
+                'margin': margin,
+                'count': count,
+                'has_data': count > 0 or abs(rev) > 1e-9 or abs(profit) > 1e-9,
+            })
+        return out
+
+    def salespeople(self, year, month, mode='month'):
+        start, end = self._where(year, month, mode)
+        rows = []
+        groups = [('M','Milan'),('J','Jirka'),('H','Honza'),('OTHER','Nezařazené')]
+        for code, name in groups:
+            if code == 'OTHER':
+                sql = f'''SELECT COALESCE(SUM(base_amount),0) revenue, COUNT(*) cnt
+                          FROM delivery_notes WHERE doc_date BETWEEN ? AND ? AND {self._other_sql()}'''
+                params = (start, end)
+            else:
+                sql = '''SELECT COALESCE(SUM(base_amount),0) revenue, COUNT(*) cnt
+                         FROM delivery_notes WHERE doc_date BETWEEN ? AND ? AND center=?'''
+                params = (start, end, code)
+            r = self.db.query(sql, params)[0]
+            revenue, cnt = float(r['revenue'] or 0), int(r['cnt'] or 0)
+            profit = float(self._profit_for_period(year, month, mode, code))
+            rows.append({
+                'code': code, 'name': name, 'revenue': revenue, 'profit': profit,
+                'margin': profit / revenue * 100 if revenue else 0, 'count': cnt,
+                'avg_order': revenue / cnt if cnt else 0,
+            })
+        rows.sort(key=lambda x: x['revenue'], reverse=True)
+        total = sum(x['revenue'] for x in rows)
+        total_profit = sum(x['profit'] for x in rows)
+        for x in rows:
+            x['share'] = x['revenue'] / total * 100 if total else 0
+            x['profit_share'] = x['profit'] / total_profit * 100 if total_profit else 0
+        return rows
+
+    def top_customers(sel

@@ -1,0 +1,36 @@
+ment.querySelectorAll('.page'))){
+     let current=page;
+     while(current && ++loops<150){
+       let main=current.querySelector('main'),next=null;
+       const limit=()=>current.querySelector('footer').getBoundingClientRect().top-12;
+       while(main.getBoundingClientRect().bottom>limit() && main.children.length){
+         let last=main.lastElementChild;
+         let tab=last.tagName==='TABLE'?last:last.querySelector('table');
+         if(tab && tab.tBodies.length && tab.tBodies[0].rows.length>1){
+           let rows=Array.from(tab.tBodies[0].rows),cut=rows.findIndex(r=>r.getBoundingClientRect().bottom>limit()-5);
+           if(cut>0 && cut<rows.length){
+             if(!next)next=continuation(current);
+             let cloned=last.cloneNode(true),ct=cloned.tagName==='TABLE'?cloned:cloned.querySelector('table');ct.tBodies[0].innerHTML='';
+             rows.slice(cut).forEach(r=>ct.tBodies[0].append(r));next.querySelector('main').prepend(cloned);break;
+           }
+         }
+         if(main.children.length===1){
+           // Pathologically large single block: let the print layout flow rather
+           // than hide text. Normal tables above are split at real row bounds.
+           current.style.height='auto';current.style.minHeight='187mm';
+           current.querySelector('footer').style.position='static';break;
+         }
+         if(!next)next=continuation(current);
+         next.querySelector('main').prepend(last);
+         if(main.lastElementChild && /^H[23]$/.test(main.lastElementChild.tagName)) next.querySelector('main').prepend(main.lastElementChild);
+       }
+       current=next;
+     }
+   }
+   let pages=Array.from(document.querySelectorAll('.page'));
+   pages.forEach((p,i)=>p.querySelector('footer span:last-child').textContent=(i+1)+' / '+pages.length);
+   window.TURTO_REPORT_READY=true;
+ }
+ paginate();
+ document.fonts.ready.then(paginate);
+})();</script>"""

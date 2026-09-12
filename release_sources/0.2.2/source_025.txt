@@ -1,0 +1,3 @@
+).fetchone())
+        return data
+    finally:mem.close()

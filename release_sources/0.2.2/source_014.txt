@@ -1,0 +1,129 @@
+nts=[]
+            for cx,row in zip(self._centers,self._data):
+                v=series_value(row,key)
+                if v is None:
+                    if points:segments.append(points);points=[]
+                else:points.extend((cx,scale.position(v,top,bottom)))
+            if points:segments.append(points)
+            for pts in segments:
+                if len(pts)>=4:
+                    # Straight segments hit every real value; no spline overshoot.
+                    c.create_line(*pts,fill=color,width=2.5,dash=dash or (),joinstyle='round',capstyle='round')
+                for i in range(0,len(pts),2):c.create_oval(pts[i]-2,pts[i+1]-2,pts[i]+2,pts[i+1]+2,fill=color,outline=COLORS['panel'])
+        # Pixel-based thinning keeps 30-month histories readable at small widths.
+        last_end=-100
+        for i,(cx,row) in enumerate(zip(self._centers,self._data)):
+            label=str(row.get('label',''));width=f.measure(label)
+            if cx-width/2>=last_end+9 and cx+width/2<=w-3:
+                self._text(cx,bottom+fh+5,label,anchor='center',color=COLORS['muted']);last_end=cx+width/2
+        note='Chybějící data = mezera, nikoli nula.'
+        if any(r.get('profit_complete') is False and r.get('profit_available') for r in self._data):note='* Zisk je částečný; marže jen tam, kde je podklad.'
+        self._text(left,h-nh/2-3,note,width=w-left-3,size=8,color=COLORS['muted'])
+        if self._hover_index is not None and self._hover_index<len(self._data):self._draw_tooltip(self._hover_index)
+
+    def _draw_tooltip(self,index):
+        r=self._data[index];lines=[str(r.get('full_label') or r.get('period') or r.get('label') or '')]
+        for k,label,_ in self.SERIES:
+            if self._enabled[k]:
+                v=series_value(r,k);value=fmt_pct(v) if k=='margin' else fmt_money(v)
+                lines.append(label+': '+value+(' *' if k=='profit' and r.get('profit_complete') is False and v is not None else ''))
+        if r.get('source')=='legacy':lines.append('Zisk: historický měsíční souhrn')
+        self._tooltip('\n'.join(lines),self._centers[index]+12,self._plot_bounds[1]+10)
+
+    def _index_at(self,event):
+        l,t,r,b=self._plot_bounds
+        if not self._centers or not(l<=event.x<=r and t<=event.y<=b):return None
+        return min(range(len(self._centers)),key=lambda i:abs(self._centers[i]-event.x))
+
+    def _motion(self,event):
+        index=self._index_at(event)
+        if index!=self._hover_index:self._hover_index=index;self._draw()
+        self.canvas.configure(cursor='hand2' if index is not None and self._on_period_click else 'arrow')
+
+    def _leave(self,event=None):
+        if self._hover_index is not None:self._hover_index=None;self._draw()
+
+    def _click(self,event):
+        index=self._index_at(event)
+        if index is not None:self._notify(self._on_period_click,self._data[index])
+
+
+class ShareChart(_CanvasFrame):
+    PALETTE=PALETTE
+    def __init__(self,master,rows,*,metrics,initial_metric,title_note='',max_items=6,
+                 exclude_negative_from_shares=False,on_item_click=None,height=245):
+        super().__init__(master)
+        self.rows=[dict(x) for x in rows];self.metrics=metrics;self.max_items=max_items
+        self._colors={str(r.get('label') or r.get('name') or r.get('customer') or r.get('code') or 'Bez názvu'):PALETTE[i%len(PALETTE)] for i,r in enumerate(self.rows)}
+        self._colors.update({'Milan':COLORS['teal'],'Jirka':COLORS['amber'],'Honza':COLORS['blue'],'Nezařazené':'#8193A9'})
+        self.metric=initial_metric if any(x[0]==initial_metric for x in metrics) else metrics[0][0]
+        self.view='shares';self.on_item_click=on_item_click;self._note=title_note;self._hit_regions=[];self._wedges=[]
+        top=tk.Frame(self,bg=COLORS['panel']);top.pack(fill='x',pady=(0,5))
+        self.metric_buttons={};self.view_buttons={}
+        for key,label,_ in metrics:
+            b=tk.Button(top,text=label,command=lambda k=key:self.set_metric(k),relief='flat',bd=0,padx=8,pady=5,font=('Calibri',9),state='normal' if self._metric_available(key) else 'disabled')
+            b.pack(side='left',padx=(0,5));self.metric_buttons[key]=b
+        views=tk.Frame(self,bg=COLORS['panel']);views.pack(fill='x',pady=(0,4))
+        for key,label in (('shares','Podíly %'),('compare','Srovnání')):
+            b=tk.Button(views,text=label,command=lambda k=key:self.set_view(k),relief='flat',bd=0,padx=8,pady=4,font=('Calibri',9))
+            b.pack(side='left',padx=(0,5));self.view_buttons[key]=b
+        self._refresh_buttons();self._canvas(height)
+        self.canvas.bind('<Button-1>',self._click);self.canvas.bind('<Motion>',self._motion);self.canvas.bind('<Leave>',lambda e:self.canvas.delete('tooltip'))
+
+    def _metric_available(self,key):return any(series_value(r,key) is not None for r in self.rows)
+    def set_metric(self,key):
+        if any(x[0]==key for x in self.metrics) and self._metric_available(key):self.metric=key;self._refresh_buttons();self._draw()
+    def set_view(self,key):
+        if key in ('shares','compare'):self.view=key;self._refresh_buttons();self._draw()
+    def _refresh_buttons(self):
+        for key,b in self.metric_buttons.items():b.configure(bg=COLORS['panel_alt'] if key==self.metric else COLORS['panel_soft'],fg=COLORS['teal'] if key==self.metric else COLORS['muted'],disabledforeground=COLORS['muted'],activebackground=COLORS['border'])
+        for key,b in self.view_buttons.items():b.configure(bg=COLORS['panel_alt'] if key==self.view else COLORS['panel_soft'],fg=COLORS['text'] if key==self.view else COLORS['muted'],activebackground=COLORS['border'])
+    def _formatter(self):
+        return {'count':count,'pct':fmt_pct}.get(next((x[2] for x in self.metrics if x[0]==self.metric),'money'),fmt_money)
+
+    def _draw(self,event=None):
+        c=self.canvas;c.delete('all');self._hit_regions=[];self._wedges=[]
+        w=c.winfo_width();h=c.winfo_height()
+        if w<180 or h<100:return
+        items,missing,negative=grouped(self.rows,self.metric,self.max_items)
+        if not items:
+            self._text(w/2,h/2,'Pro zvolený ukazatel nejsou data.',width=w-15,anchor='center',color=COLORS['muted']);return
+        note=self._note
+        if negative:note='Záporné hodnoty: používá se srovnání, nikoli koláč. '+note
+        if missing:note+=f' Bez hodnoty: {missing}.'
+        nf=self._font(8);nw=w-8
+        # Measure the wrapped footnote, then reserve exactly that space.
+        test=c.create_text(4,h-3,text=note,anchor='sw',width=nw,font=nf,tags=('labels',),fill=COLORS['muted'])
+        nb=c.bbox(test);nh=(nb[3]-nb[1]+14) if note else 8
+        required=(self._font(9).metrics('linespace')+7)*len(items)+nh+8
+        if h<required and int(float(c.cget('height')))<required:c.configure(height=required)
+        chart_h=h-nh
+        if chart_h<70:c.delete(test);return
+        fmt=self._formatter();total=sum(x['value'] for x in items)
+        positive=not negative and total>0
+        donut=self.view=='shares' and positive and w>=720
+        start_x=12
+        if donut:
+            size=min(185,chart_h-12,w*.23);x0=12;y0=(chart_h-size)/2
+            cx=x0+size/2;cy=y0+size/2;start=90
+            for i,x in enumerate(items):
+                if x['value']<=0:continue
+                extent=-359.99*x['value']/total
+                c.create_arc(x0,y0,x0+size,y0+size,start=start,extent=extent,fill=self._colors.get(x['label'],'#8193A9'),outline=COLORS['panel'])
+                self._wedges.append((cx,cy,size/2,size*.30,start,extent,x,total));start+=extent
+            hole=size*.62;c.create_oval(cx-hole/2,cy-hole/2,cx+hole/2,cy+hole/2,fill=COLORS['panel'],outline='')
+            self._text(cx,cy-12,'CELKEM',anchor='center',size=8,color=COLORS['muted'])
+            self._text(cx,cy+10,fmt(total),width=hole-6,anchor='center',size=10,bold=True)
+            start_x=x0+size+28
+        percent_on=self.view=='shares' and positive
+        pw=65 if percent_on else 0
+        value_width=max(110,max(self._font(9,True).measure(fmt(x['value'])) for x in items)+14)
+        avail=w-start_x-value_width-pw-28
+        label_width=max(35,avail*.50);bar_left=start_x+label_width+14;bar_right=w-value_width-pw-16
+        if bar_right-bar_left<35:
+            label_width=max(30,w-start_x-value_width-pw-26);bar_left=bar_right
+        rowh=min(35,chart_h/max(1,len(items)))
+        font_size=9 if rowh>=22 else 8
+        self._compact=rowh<22
+        # Both positive and negative amounts share a real signed horizontal axis.
+        lo=min(

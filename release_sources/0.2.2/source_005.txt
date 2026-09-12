@@ -1,0 +1,10 @@
+TURTO – Měsíční přehledy 0.2.2
+- Rozšířený manažerský PDF report s přehledem, trendy, obchodníky, zákazníky, produkty, DL a zdroji.
+- Vektorové grafy, tiskové barvy, číslování stran, správný rozsah Měsíc / YTD / Rok / 12 měsíců.
+- PDF neobsahuje jméno autora aplikace. Podpis zůstává v programu.
+- Report používá jeden konzistentní snímek databáze. Při chybě nepřepíše původní PDF.
+- Čitelnější osy, popisky a tooltipy; dlouhé názvy mají plný text po najetí.
+- Záporné hodnoty se vykreslují pod nulou; chybějící zisk netvoří falešné nuly.
+- Podíly nepoužívají koláč při záporných částkách. Srovnání má oddělené oblasti textu a sloupců.
+- Řídké popisky dlouhých zákaznických historií. Klik na měsíc přejde do měsíčního přehledu.
+- Částečné a historické podklady jsou výslovně označené. Žádné odhady položkových cen.

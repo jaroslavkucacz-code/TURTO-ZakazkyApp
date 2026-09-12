@@ -1,0 +1,66 @@
+from __future__ import annotations
+import hashlib,json,re,shutil,stat,subprocess,sys,tempfile,time,urllib.request,zipfile
+from pathlib import Path,PurePosixPath
+from urllib.parse import urlsplit,urlunsplit,parse_qsl,urlencode
+from .constants import APP_VERSION
+from .config import app_root
+from .release_safety import APP_ID,allowed_path,validate_folder
+
+
+def _version_tuple(value):
+    if not re.fullmatch(r'v?\d+\.\d+\.\d+',str(value).strip()):raise ValueError('Neplatná verze v aktualizačním manifestu.')
+    return tuple(int(p) for p in str(value).strip().lstrip('v').split('.'))
+
+
+def check_update(manifest_url):
+    if not manifest_url.strip():return {'configured':False,'current':APP_VERSION}
+    parts=urlsplit(manifest_url)
+    if parts.scheme!='https':raise ValueError('Aktualizační kanál musí používat HTTPS.')
+    q=dict(parse_qsl(parts.query));q['_turto_check']=str(time.time_ns())
+    url=urlunsplit((parts.scheme,parts.netloc,parts.path,urlencode(q),parts.fragment))
+    req=urllib.request.Request(url,headers={'User-Agent':'TURTO-Mesicni-Prehledy','Cache-Control':'no-cache'})
+    with urllib.request.urlopen(req,timeout=10) as r:data=json.loads(r.read(64*1024).decode('utf-8'))
+    if data.get('app_id',APP_ID)!=APP_ID:raise ValueError('Manifest patří jinému programu.')
+    latest=str(data.get('version','0.0.0'))
+    return {'configured':True,'current':APP_VERSION,'latest':latest,
+            'available':_version_tuple(latest)>_version_tuple(APP_VERSION),
+            'url':data.get('url',''),'sha256':data.get('sha256',''),'notes':data.get('notes','')}
+
+
+def prepare_update(download_url,sha256=''):
+    if urlsplit(download_url).scheme!='https':raise ValueError('Balíček musí být stažen přes HTTPS.')
+    if not re.fullmatch('[0-9a-fA-F]{64}',sha256):raise ValueError('V manifestu chybí platný kontrolní součet. Aktualizace nebyla nainstalována.')
+    temp=Path(tempfile.mkdtemp(prefix='turto_update_'))
+    try:
+        archive=temp/'update.zip';digest=hashlib.sha256();size=0
+        req=urllib.request.Request(download_url,headers={'User-Agent':'TURTO-Mesicni-Prehledy'})
+        with urllib.request.urlopen(req,timeout=45) as r,archive.open('wb') as f:
+            while chunk:=r.read(256*1024):
+                size+=len(chunk)
+                if size>80*1024*1024:raise ValueError('Aktualizační balíček je příliš velký.')
+                digest.update(chunk);f.write(chunk)
+        if digest.hexdigest().lower()!=sha256.lower():raise ValueError('Kontrolní součet aktualizace nesouhlasí. Původní program zůstal beze změny.')
+        target=temp/'package';target.mkdir()
+        with zipfile.ZipFile(archive) as z:
+            infos=z.infolist()
+            if len(infos)>2000 or sum(x.file_size for x in infos)>150*1024*1024:raise ValueError('Neočekávaná velikost rozbalené aktualizace.')
+            for item in infos:
+                if item.is_dir():continue
+                if not allowed_path(item.filename) or stat.S_ISLNK(item.external_attr>>16):raise ValueError('Balíček obsahuje nepovolenou cestu.')
+            if z.testzip() is not None:raise ValueError('Aktualizační ZIP je poškozený.')
+            z.extractall(target)
+        spec=validate_folder(target)
+        if _version_tuple(spec['version'])<=_version_tuple(APP_VERSION):raise ValueError('Balíček není novější než nainstalovaná verze.')
+        return target
+    except Exception:
+        shutil.rmtree(temp,ignore_errors=True);raise
+
+
+def launch_installer(package_dir):
+    root=app_root();source=Path(package_dir)
+    # Execute the verified installer from the package, not an obsolete installed copy.
+    installer=source/'update_installer.py'
+    if not installer.exists():installer=root/'update_installer.py'
+    kwargs={'cwd':root}
+    if sys.platform=='win32':kwargs['creationflags']=getattr(subprocess,'CREATE_NO_WINDOW',0)
+    subprocess.Popen([sys.executable,str(installer),str(source),str(root)],**kwargs)

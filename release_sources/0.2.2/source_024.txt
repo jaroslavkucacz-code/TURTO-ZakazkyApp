@@ -1,0 +1,135 @@
+"""Read-only reporting views. Missing values are not inferred or allocated."""
+from __future__ import annotations
+from datetime import date, datetime
+import sqlite3
+from .analytics import Analytics as BaseAnalytics, period_bounds, _next_month, MONTH_NAMES, MONTH_SHORT_NAMES
+from .constants import PRIMARY_CENTERS
+
+
+class Analytics(BaseAnalytics):
+    def profit_coverage(self, year, month, mode='month'):
+        start,end=period_bounds(year,month,mode)
+        raw={r['period']:dict(r) for r in self.db.query('''
+            SELECT substr(d.doc_date,1,7) period, COUNT(*) documents,
+              COUNT(p.doc_no) profit_docs, SUM(d.base_amount) revenue,
+              SUM(CASE WHEN p.doc_no IS NOT NULL THEN d.base_amount ELSE 0 END) matched_revenue
+            FROM delivery_notes d LEFT JOIN profit_documents p ON d.doc_no=p.doc_no
+            WHERE d.doc_date BETWEEN ? AND ? GROUP BY period''',(start.isoformat(),end.isoformat()))}
+        legacy={r['period']:dict(r) for r in self.db.query('SELECT * FROM monthly_summary WHERE period BETWEEN ? AND ?',
+                 (start.isoformat()[:7],end.isoformat()[:7]))}
+        months=[]; cursor=start
+        while cursor<=end:
+            key=cursor.strftime('%Y-%m'); r=raw.get(key,{})
+            n=int(r.get('documents') or 0); p=int(r.get('profit_docs') or 0)
+            has_legacy=key in legacy and legacy[key].get('profit_total') is not None
+            status=('raw' if p==n else 'partial') if p else ('legacy' if has_legacy else ('missing' if n else 'empty'))
+            months.append({'period':key,'count':n,'profit_docs':p,'source':status,
+                           'revenue':float(r.get('revenue') or 0)})
+            cursor=_next_month(cursor)
+        active=[x for x in months if x['count'] or x['source']=='legacy']
+        return {'months':months,'total_docs':sum(x['count'] for x in months),
+                'profit_docs':sum(x['profit_docs'] for x in months),
+                'available':any(x['source'] in ('raw','partial','legacy') for x in active),
+                'complete':bool(active) and all(x['source'] in ('raw','legacy') for x in active),
+                'legacy_months':sum(x['source']=='legacy' for x in active),
+                'missing_months':sum(x['source'] in ('partial','missing') for x in active)}
+
+    def kpis(self,year,month,mode='month'):
+        x=super().kpis(year,month,mode); coverage=self.profit_coverage(year,month,mode)
+        x.update(profit_available=coverage['available'],profit_complete=coverage['complete'],coverage=coverage)
+        if not coverage['complete'] or not x['revenue']: x['margin']=None
+        a,b=self._where(year-1,month,mode)
+        prev=self.db.query('SELECT COUNT(*) count, SUM(base_amount) amount FROM delivery_notes WHERE doc_date BETWEEN ? AND ?',(a,b))[0]
+        x['previous_revenue']=float(prev['amount']) if prev['count'] else None
+        x['yoy_available']=bool(prev['count'] and prev['amount'])
+        return x
+
+    def salespeople(self,year,month,mode='month'):
+        rows=super().salespeople(year,month,mode); coverage=self.profit_coverage(year,month,mode)
+        for x in rows:
+            x['profit_available']=coverage['available']; x['profit_complete']=coverage['complete']
+            if not coverage['complete'] or not x['revenue']:x['margin']=None
+        return rows
+
+    def monthly_trend(self,year):
+        rows=super().monthly_trend(year)
+        coverage={x['period']:x for x in self.profit_coverage(year,12,'year')['months']}
+        for x in rows:
+            p=f'{year}-{x["month"]:02d}'; source=coverage[p]['source']
+            x.update(period=p,profit_available=source in ('raw','partial','legacy'),
+                     profit_complete=source in ('raw','legacy'),source=source)
+            if not x['profit_available']:x['profit']=None
+            if not x['profit_complete'] or not x['revenue']:x['margin']=None
+            if not x['count'] and source=='empty':x['revenue']=None
+        return rows
+
+    def top_documents(self,year,month,mode='month',center=None,limit=20):
+        rows=super().top_documents(year,month,mode,center,limit)
+        a,b=self._where(year,month,mode)
+        known={r['doc_no'] for r in self.db.query('''SELECT p.doc_no FROM profit_documents p JOIN delivery_notes d
+                 ON d.doc_no=p.doc_no WHERE d.doc_date BETWEEN ? AND ?''',(a,b))}
+        for r in rows:
+            r['profit_available']=r['doc_no'] in known
+            if not r['profit_available']:r['profit']=None; r['margin']=None
+            elif not r['base_amount']:r['margin']=None
+        return rows
+
+    def products(self,year,month,limit=100,mode='month'):
+        rows=super().products(year,month,limit,mode)
+        a,b=self._where(year,month,mode)
+        extra={(r['code'],r['name']):dict(r) for r in self.db.query('''SELECT i.code,i.name,COUNT(*) item_rows,
+          SUM(CASE WHEN sales_total IS NOT NULL THEN profit_total ELSE 0 END) priced_profit,
+          COUNT(cost_total) cost_rows, SUM(cost_total) known_cost FROM profit_items i JOIN delivery_notes d ON d.doc_no=i.doc_no
+          WHERE d.doc_date BETWEEN ? AND ? GROUP BY i.code,i.name''',(a,b))}
+        for x in rows:
+            e=extra[(x['code'],x['name'])];x.update(e)
+            x['sales_complete']=x['sales_rows']==x['item_rows']
+            x['cost']=float(x['known_cost']) if x['cost_rows'] else None
+            # The numerator is restricted to exactly the same rows as sales.
+            x['margin']=(float(x['priced_profit'] or 0)/x['sales']*100) if x['sales'] not in (None,0) else None
+        return rows
+
+
+def selected_trend(analytics,year,month,mode):
+    chart_mode='ytd' if mode=='month' else mode
+    a,b=period_bounds(year,month,chart_mode)
+    out=[]
+    for y in range(a.year,b.year+1):
+        out.extend(x for x in analytics.monthly_trend(y) if a.strftime('%Y-%m')<=x['period']<=b.strftime('%Y-%m'))
+    # No artificial fall to zero after the last imported period.
+    while out and not out[-1]['has_data']:out.pop()
+    if a.year!=b.year:
+        for x in out:x['label']=x['period'][5:]+'/'+x['period'][2:4]
+    return out
+
+
+class _Snapshot:
+    def __init__(self, con):self.con=con
+    def query(self,sql,params=()):return self.con.execute(sql,params).fetchall()
+    def scalar(self,sql,params=()):
+        r=self.con.execute(sql,params).fetchone();return r[0] if r else None
+
+
+def collect_report(analytics,year,month,mode='month'):
+    """All report queries see a single SQLite backup snapshot, never mixed imports."""
+    mem=sqlite3.connect(':memory:');mem.row_factory=sqlite3.Row
+    try:
+        with sqlite3.connect(analytics.db.path) as source:source.backup(mem)
+        a=Analytics(_Snapshot(mem));start,end=period_bounds(year,month,mode)
+        data={'year':year,'month':month,'mode':mode,'start':start.isoformat(),'end':end.isoformat(),
+              'generated':datetime.now().strftime('%d.%m.%Y %H:%M'),
+              'kpis':a.kpis(year,month,mode),'trend':selected_trend(a,year,month,mode),
+              'sales':a.salespeople(year,month,mode),'customers':a.top_customers(year,month,mode,-1),
+              'products':a.products(year,month,-1,mode),'documents':a.top_documents(year,month,mode,limit=24),
+              'items':a.item_data_coverage(year,month,mode),'overheads':a.overheads(year,month,mode)}
+        data['previous_trend']={x['month']:x for x in a.monthly_trend(year-1)}
+        data['imports']=[dict(x) for x in mem.execute('''SELECT * FROM imports WHERE id IN (
+          SELECT source_import_id FROM delivery_notes WHERE doc_date BETWEEN ? AND ?
+          UNION SELECT p.source_import_id FROM profit_documents p JOIN delivery_notes d ON d.doc_no=p.doc_no WHERE d.doc_date BETWEEN ? AND ?
+          UNION SELECT source_import_id FROM overhead_docs WHERE doc_date BETWEEN ? AND ?)
+          OR import_type='HISTORICKY_SOUHRN' ORDER BY id DESC LIMIT 12''',(start.isoformat(),end.isoformat())*3)]
+        data['unassigned']=[dict(x) for x in mem.execute('''SELECT COALESCE(NULLIF(TRIM(center),''),'(prázdné)') center,
+            COUNT(*) count, SUM(base_amount) revenue FROM delivery_notes WHERE doc_date BETWEEN ? AND ?
+            AND (COALESCE(TRIM(center),'')='' OR center NOT IN ('J','H','M')) GROUP BY center''',(start.isoformat(),end.isoformat()))]
+        data['no_customer']=dict(mem.execute('''SELECT COUNT(*) count, COALESCE(SUM(base_amount),0) revenue
+             FROM delivery_notes WHERE doc_date BETWEEN ? AND ? AND COALESCE(TRIM(customer),'')='' ''',(start.isoformat(),end.isoformat())

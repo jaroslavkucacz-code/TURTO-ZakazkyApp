@@ -1,0 +1,160 @@
+"""Responsive Tk charts. No Matplotlib, Pillow or native graphics extensions."""
+from __future__ import annotations
+import math
+import tkinter as tk
+from tkinter import font as tkfont
+from .constants import COLORS
+from .chart_geometry import axis, grouped, series_value, number, money as fmt_money, percent as fmt_pct, count
+
+PALETTE=(COLORS['teal'],COLORS['amber'],COLORS['blue'],'#AB96DF','#D693B3','#96C5A4','#8193A9','#BF9780')
+
+
+def _fit(font,text,width):
+    text=str(text).replace('\n',' ')
+    if font.measure(text)<=width:return text
+    lo,hi=0,len(text)
+    while lo<hi:
+        mid=(lo+hi+1)//2
+        if font.measure(text[:mid]+'…')<=width:lo=mid
+        else:hi=mid-1
+    return text[:lo]+'…' if width>font.measure('…') else ''
+
+
+class _CanvasFrame(tk.Frame):
+    def __init__(self,master):
+        super().__init__(master,bg=COLORS['panel'])
+        self._pending=None
+        self._fonts={}
+        self.bind('<Destroy>',self._destroyed,add='+')
+
+    def _font(self,size=9,bold=False):
+        key=(size,bold)
+        if key not in self._fonts:self._fonts[key]=tkfont.Font(self,family='Calibri',size=size,weight='bold' if bold else 'normal')
+        return self._fonts[key]
+
+    def _canvas(self,height):
+        self.canvas=tk.Canvas(self,bg=COLORS['panel'],highlightthickness=0,bd=0,height=height)
+        self.canvas.pack(fill='both',expand=True)
+        self.canvas.bind('<Configure>',self._schedule)
+        self._schedule()
+
+    def _schedule(self,event=None):
+        if self._pending is None:self._pending=self.after_idle(self._scheduled_draw)
+
+    def _scheduled_draw(self):
+        self._pending=None
+        if self.winfo_exists():self._draw()
+
+    def _destroyed(self,event):
+        if event.widget is self and self._pending is not None:
+            try:self.after_cancel(self._pending)
+            except tk.TclError:pass
+            self._pending=None
+
+    def _text(self,x,y,text,*,width=None,size=9,bold=False,color=None,anchor='w',tag='labels'):
+        font=self._font(size,bold)
+        text=_fit(font,text,width) if width is not None else str(text)
+        return self.canvas.create_text(x,y,text=text,font=font,fill=color or COLORS['text'],anchor=anchor,tags=(tag,))
+
+    def _tooltip(self,text,x,y):
+        c=self.canvas;c.delete('tooltip');w=c.winfo_width();h=c.winfo_height()
+        font=self._font(9)
+        width=max(30,min(w-28,max(font.measure(s) for s in text.split('\n'))))
+        item=c.create_text(14,10,text=text,anchor='nw',font=font,width=width,fill=COLORS['text'],tags=('tooltip',))
+        box=c.bbox(item)
+        # Extremely long names must not push a tooltip outside the chart.
+        remaining=text
+        while box and box[3]-box[1]+18>h-4 and len(remaining)>8:
+            remaining=remaining[:max(8,int(len(remaining)*.85))].rstrip()
+            c.itemconfigure(item,text=remaining+'…');box=c.bbox(item)
+        tw,th=box[2]-box[0]+24,box[3]-box[1]+18
+        x=max(2,min(x,w-tw-2));y=max(2,min(y,h-th-2))
+        c.move(item,x+12-box[0],y+9-box[1])
+        rect=c.create_rectangle(x,y,x+tw,y+th,fill='#0D1524',outline=COLORS['border'],tags=('tooltip',))
+        c.tag_lower(rect,item)
+
+    def _notify(self,callback,data):
+        if callback:
+            try:callback(data)
+            except Exception:
+                import sys
+                self._root().report_callback_exception(*sys.exc_info())
+
+
+class BusinessChart(_CanvasFrame):
+    SERIES=(('revenue','Obrat',COLORS['teal']),('profit','Zisk',COLORS['amber']),('margin','Marže %',COLORS['blue']))
+
+    def __init__(self,master,data,*,subtitle='Částky vlevo · marže na pravé ose',show_mode_switch=True,
+                 trim_trailing_empty=False,on_period_click=None,height=290,initial_enabled=('revenue','profit','margin')):
+        super().__init__(master)
+        self._all_data=[dict(x) for x in data];self._data=self._all_data[:]
+        if trim_trailing_empty:
+            while self._data and not (self._data[-1].get('has_data') or any((series_value(self._data[-1],k) or 0)!=0 for k in ('revenue','profit'))):self._data.pop()
+        self._enabled={k:k in initial_enabled for k,_,_ in self.SERIES}
+        if not any(self._enabled.values()):self._enabled['revenue']=True
+        self._hover_index=None;self._centers=[];self._plot_bounds=(0,0,0,0);self._on_period_click=on_period_click
+        caption=tk.Label(self,text=subtitle,bg=COLORS['panel'],fg=COLORS['muted'],justify='left',anchor='w',font=('Calibri',9))
+        caption.pack(fill='x',pady=(0,7))
+        caption.bind('<Configure>',lambda e:caption.configure(wraplength=max(40,e.width-4)))
+        self._buttons={}
+        if show_mode_switch:
+            bar=tk.Frame(self,bg=COLORS['panel']);bar.pack(fill='x',pady=(0,6))
+            for k,label,color in self.SERIES:
+                b=tk.Button(bar,text=label,command=lambda key=k:self.toggle(key),font=('Calibri',9,'bold'),padx=9,pady=5,relief='flat',bd=0)
+                b.pack(side='left',padx=(0,5));self._buttons[k]=b
+            self._refresh_buttons()
+        self._canvas(height)
+        self.canvas.bind('<Motion>',self._motion);self.canvas.bind('<Leave>',self._leave);self.canvas.bind('<Button-1>',self._click)
+
+    def _refresh_buttons(self):
+        for k,label,color in self.SERIES:
+            if k in self._buttons:
+                active=self._enabled[k]
+                self._buttons[k].configure(text=('✓ ' if active else '')+label,bg=COLORS['panel_alt'] if active else COLORS['panel_soft'],
+                    fg=color if active else COLORS['muted'],activebackground=COLORS['border'],activeforeground=COLORS['text'])
+
+    def toggle(self,key):
+        if key not in self._enabled:return
+        if self._enabled[key] and sum(self._enabled.values())==1:return
+        self._enabled[key]=not self._enabled[key];self._hover_index=None;self._refresh_buttons();self._draw()
+
+    def _draw(self,event=None):
+        c=self.canvas;c.delete('all');w=c.winfo_width();h=c.winfo_height();self._centers=[]
+        if w<150 or h<125:return
+        if not self._data:
+            self._text(w/2,h/2,'Pro vybrané období nejsou data.',width=w-16,anchor='center',color=COLORS['muted']);return
+        mo=self._enabled['revenue'] or self._enabled['profit'];po=self._enabled['margin']
+        ma=axis([series_value(r,k) for r in self._data for k in ('revenue','profit') if self._enabled[k]])
+        pa=axis([series_value(r,'margin') for r in self._data],True)
+        f=self._font(9)
+        left=max(56,max(f.measure(ma.label(v)) for v in ma.ticks())+16) if mo else 12
+        right=max(68,max(f.measure(pa.label(v)) for v in pa.ticks())+16) if po else 12
+        fh=f.metrics('linespace');nh=self._font(8).metrics('linespace')
+        top=max(40,fh+18);bottom=h-(2*fh+nh+15);xr=w-right
+        if xr-left<75 or bottom-top<40:return
+        self._plot_bounds=(left,top,xr,bottom);self._axes=(ma,pa)
+        slot=(xr-left)/len(self._data);self._centers=[left+(i+.5)*slot for i in range(len(self._data))]
+        if self._hover_index is not None and self._hover_index<len(self._data):
+            cx=self._centers[self._hover_index]
+            c.create_rectangle(cx-slot*.48,top,cx+slot*.48,bottom,fill=COLORS['panel_alt'],outline='')
+        grid=ma if mo else pa
+        for v in grid.ticks():
+            y=grid.position(v,top,bottom)
+            c.create_line(left,y,xr,y,fill=COLORS['grid'] if v==0 else '#253348',width=1)
+        if mo:
+            self._text(left-8,12,ma.unit,anchor='e',size=8,bold=True,color=COLORS['muted'])
+            for v in ma.ticks():self._text(left-8,ma.position(v,top,bottom),ma.label(v),anchor='e',color=COLORS['muted'])
+        if po:
+            self._text(xr+8,12,'Marže %',size=8,bold=True,color=COLORS['blue'])
+            for v in pa.ticks():self._text(xr+8,pa.position(v,top,bottom),pa.label(v),color=COLORS['blue'])
+        if self._enabled['revenue']:
+            bw=max(2,min(42,slot*.54));zero=ma.position(0,top,bottom)
+            for cx,row in zip(self._centers,self._data):
+                v=series_value(row,'revenue')
+                if v is None:continue
+                y=ma.position(v,top,bottom)
+                if abs(y-zero)<1:c.create_line(cx-bw/2,zero,cx+bw/2,zero,fill=COLORS['teal'],width=2)
+                else:c.create_rectangle(cx-bw/2,min(y,zero),cx+bw/2,max(y,zero),fill=COLORS['teal'],outline='')
+        for key,color,dash,scale in (('profit',COLORS['amber'],None,ma),('margin',COLORS['blue'],(5,3),pa)):
+            if not self._enabled[key]:continue
+            segments=[];poi

@@ -1,0 +1,89 @@
+TURTO – Měsíční přehledy
+Verze 0.2.2 – rozšířený PDF report a kontrola grafů
+
+SPUŠTĚNÍ
+1. Poprvé spusťte INSTALL.bat.
+2. Potom používejte START_TURTO.bat.
+3. Program se spouští přes pythonw, takže neotevírá černé konzolové okno.
+
+NOVINKY 0.2.2
+- Podrobný PDF report: souhrn, měsíce, obchodníci, zákazníci, produkty, 24 největších DL a zdroje.
+- U dodaných dat má report osm stran A4 na šířku. Dlouhé texty se zalamují a tabulky pokračují na další straně.
+- Kladné i záporné hodnoty, mezery pro chybějící data, oddělená pravá osa marže.
+- Popisky měřené podle písma, adaptivní počet popisků měsíců, čitelné legendy a ohraničené tooltipy.
+- Posuvná pracovní plocha pro menší obrazovky.
+- PDF se připravuje na pozadí a všechny jeho sekce používají jeden konzistentní snímek databáze.
+- Nové aktualizace vyžadují SHA-256 a kontrolu všech programových souborů.
+
+CO JE V TÉTO VERZI
+- tmavý manažerský dashboard v češtině
+- výběr období: měsíc / YTD / rok / posledních 12 měsíců
+- obrat, zisk, vážená marže, počet DL, průměrná hodnota DL, režijní listy
+- měsíční graf obratu a zisku (čistý Tkinter, bez nativních grafických DLL)
+- výkon obchodníků M=Milan, J=Jirka, H=Honza včetně obratu, zisku, marže a podílu na zisku
+- TOP zákazníci a největší doklady
+- dvojklik na zákazníka otevře měsíční historii obratu, dostupného zisku, marže a počtu DL
+- produktový přehled ze sestavy Zisk (zásoby)
+- historie importů
+- import XLSX bez nutnosti mít nainstalovaný Excel
+- export kompletního přehledu do Excelu
+- export manažerského reportu do PDF
+- databáze oddělená od programu
+- možnost později přepnout databázi na sdílené umístění
+- zálohování databáze
+- online aktualizace přes stabilní GitHub kanál: automatická kontrola verze, stažení aktualizace, zachování dat a restart aplikace
+
+ZDROJOVÁ DATA
+Databáze v balíčku je předvyplněná z dodaných souborů:
+- GRAFY 2026 (version 1).xlsx
+- Zisk_(zásoby).xlsx
+Původní Excel soubory nejsou součástí balíčku.
+
+DŮLEŽITÉ
+Historické zisky před srpnem 2026 jsou převzaté z existujícího listu ZISKY. Srpen 2026 je již napojen na položkový report Zisk (zásoby). Nové měsíce budeme ukládat z raw exportů a historické souhrny postupně nahradíme.
+
+Produktová procentní marže zatím není zobrazena, protože současný položkový export obsahuje zisk, ale ne prodejní hodnotu každé položky.
+
+DATABÁZE
+Výchozí: data\turto_dashboard.db
+V Nastavení lze zvolit jiné umístění. Po přesunu je potřeba program restartovat.
+
+Vytvořil Ing. Jaroslav Kučera
+
+
+OPRAVA 0.1.2
+- odstraněn Matplotlib a ReportLab kvůli blokování nativních DLL firemní zásadou Windows
+- grafy se vykreslují čistě přes Tkinter Canvas
+- PDF se vytváří přes systémový Microsoft Edge/Chrome z interního HTML/SVG reportu
+- Excel export používá pouze čistě Pythonový XlsxWriter a načítá se až při exportu
+
+
+Změny v0.1.2
+-------------
+- Nezařazené doklady/střediska se zobrazují ve firemních součtech i jako samostatná skupina.
+- PDF neobsahuje údaj o autorovi; v programu zůstává „Vytvořil Ing. Jaroslav Kučera“.
+- Zarovnání tabulek je sjednocené (text vlevo, čísla vpravo).
+- Online aktualizátor je technicky ověřen; ostrý online kanál se aktivuje nastavením URL manifestu.
+
+
+Změny v0.1.3
+-------------
+- Zisk obchodníků je zvýrazněn jako hlavní výkonový ukazatel vedle obratu.
+- Zákazníci mají klikací detail s historií.
+- Zisk zákazníků se zobrazuje jen z reálně importovaných reportů Zisk (zásoby), nikoli odhadem.
+
+
+ONLINE AKTUALIZACE
+Od verze 0.1.4 je stabilní aktualizační kanál nastaven automaticky. Program kontroluje novou verzi po spuštění a kontrolu lze spustit ručně v Nastavení.
+
+
+IKONA A ZÁSTUPCE
+------------------
+Od v0.1.8 používá aplikace vlastní ikonu TURTO. Při spuštění ve Windows se program pokusí vytvořit/aktualizovat zástupce „TURTO - Mesicni prehledy“ na ploše a ve složce aplikace.
+
+
+HOTFIX 0.2.1
+-------------
+- opravuje pád po online aktualizaci 0.2.0 způsobený poškozeným souborem patch_v020.py
+- online aktualizace od této verze používají plný ZIP balíček s SHA-256 kontrolou místo dlouhých vložených datových řetězců
+- zachovává všechny funkce a data z 0.2.0

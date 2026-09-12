@@ -1,0 +1,45 @@
+from __future__ import annotations
+
+import ctypes
+import sys
+import traceback
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# Stable Windows identity: this keeps the application separate from a generic
+# Python/Tk process and lets Windows use the TURTO icon on the taskbar.
+APP_USER_MODEL_ID = 'cz.turto.mesicni-prehledy'
+
+try:
+    if sys.platform == 'win32':
+        try:
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
+        except Exception:
+            pass
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        except Exception:
+            pass
+
+    # Create/update the application shortcut with the same icon. Failure is
+    # intentionally non-fatal (for example when WSH is disabled by policy).
+    try:
+        from src.windows_integration import ensure_windows_shortcuts
+        ensure_windows_shortcuts(ROOT)
+    except Exception:
+        pass
+
+    from src.ui import App
+    app = App()
+    app.mainloop()
+except Exception:
+    log = ROOT / 'turto_error.log'
+    log.write_text(traceback.format_exc(), encoding='utf-8')
+    try:
+        import tkinter.messagebox as mb
+        mb.showerror('TURTO – chyba', f'Program se nepodařilo spustit.\n\nPodrobnosti jsou v souboru:\n{log}')
+    except Exception:
+        pass

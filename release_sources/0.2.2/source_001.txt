@@ -1,0 +1,82 @@
+TURTO – Měsíční přehledy 0.2.2
+- Rozšířený manažerský PDF report s přehledem, trendy, obchodníky, zákazníky, produkty, DL a zdroji.
+- Vektorové grafy, tiskové barvy, číslování stran, správný rozsah Měsíc / YTD / Rok / 12 měsíců.
+- PDF neobsahuje jméno autora aplikace. Podpis zůstává v programu.
+- Report používá jeden konzistentní snímek databáze. Při chybě nepřepíše původní PDF.
+- Čitelnější osy, popisky a tooltipy; dlouhé názvy mají plný text po najetí.
+- Záporné hodnoty se vykreslují pod nulou; chybějící zisk netvoří falešné nuly.
+- Podíly nepoužívají koláč při záporných částkách. Srovnání má oddělené oblasti textu a sloupců.
+- Řídké popisky dlouhých zákaznických historií. Klik na měsíc přejde do měsíčního přehledu.
+- Částečné a historické podklady jsou výslovně označené. Žádné odhady položkových cen.
+
+
+v0.2.1 – 2026-09-12
+- hotfix pádu po online aktualizaci 0.2.0 (poškozený patch_v020.py)
+- přechod online distribuce na plné ZIP balíčky s SHA-256 kontrolou
+- bez změny databáze a analytických funkcí
+
+v0.2.0
+- Sjednocené grafy, podílové analýzy a stabilizační opravy.
+
+
+v0.1.9 – 2026-09-11
+- přepracovaný graf Obrat po měsících přes společnou komponentu BusinessChart
+- přepínač Obrat + zisk / Obrat / Zisk / Marže
+- hover měsíce s tooltipem: obrat, zisk a marže
+- skrytí koncových budoucích měsíců bez dat v aktuálním roce
+- jemnější mřížka, zaoblené sloupce a hladší zisková křivka
+- stejná grafová komponenta použita i v historii zákazníka
+- připravený click-handler pro budoucí detail měsíce
+- ruční kontrola aktualizací při nenalezení novější verze zobrazí „Verze je aktuální.“
+0.1.6
+- Lepší čitelnost horní lišty a filtrů.
+
+TURTO – Měsíční přehledy v0.1.4
+- Okamžité vyhledávání ve všech tabulkách napříč všemi sloupci.
+- Počet zobrazených / celkových řádků u filtru.
+- Svislé posuvníky u tabulek.
+- Pevně připojený online aktualizační kanál GitHub; bez ručního zadávání URL.
+- Automatická kontrola aktualizací po startu zůstává aktivní.
+
+v0.1.3 – 2026-09-11
+- výkon obchodníků zvýrazňuje zisk vedle obratu a marže
+- dashboard řadí obchodníky podle zisku a zobrazuje zisk přímo v žebříčku
+- detail obchodníků doplněn o podíl na celkovém zisku
+- zákazníky lze otevřít dvojklikem a zobrazit jejich měsíční historii
+- detail zákazníka: obrat, dostupný zisk, marže, počet DL a graf vývoje
+- historický zisk zákazníka se nezobrazuje odhadem; je uveden jen pro měsíce s reportem Zisk (zásoby)
+- Excel/PDF označují zisk zákazníků jako dostupný pouze z importovaných ziskových reportů
+
+v0.1.2 – 2026-09-11
+- nezařazené doklady zahrnuty do KPI a zobrazeny jako samostatná skupina
+- sjednocené zarovnání záhlaví a buněk tabulek
+- odstraněn autor z PDF, zachován v aplikaci
+- ověřen update manifest, download, SHA-256 a zachování lokálních dat
+- automatická kontrola aktualizace po startu při aktivním kanálu
+
+0.1.1 – oprava spuštění na firemně zabezpečených Windows
+- odstraněna závislost na Matplotlib (_backend_agg DLL blokovaná Application Control)
+- odstraněna závislost na ReportLab
+- runtime grafy překresleny na Tkinter Canvas
+- PDF export používá systémový Edge/Chrome a HTML/SVG šablonu
+- externí knihovna pro Excel se importuje až při exportu
+- aplikace se při startu neopírá o nativní DLL balíčků z Python user site
+
+TURTO – Měsíční přehledy
+
+0.1.0 – první zkušební verze
+- nové tmavé dashboardové rozhraní
+- databáze s reálnými daty z dodaných Excelů
+- import DATA POHODA, Zisk (zásoby), režijních listů a historického souhrnu
+- KPI: obrat, zisk, marže, počet DL, průměrná hodnota DL, režijní listy
+- M/J/H = Milan / Jirka / Honza
+- sekce obchodníků, zákazníků, produktů a importů
+- Excel a PDF export
+- zálohy a přepnutí databázové cesty
+- připravený online updater přes manifest: stažení nové verze, zachování dat a restart
+0.1.5
+- řazení všech tabulek klikem na záhlaví (vzestupně/sestupně)
+- indikace aktivního řazení šipkou
+- automatický návrat na výchozí řazení po změně hlavní záložky
+- kombinace řazení s průběžným vyhledáváním
+

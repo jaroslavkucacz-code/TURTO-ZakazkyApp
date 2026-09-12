@@ -1,0 +1,158 @@
+from __future__ import annotations
+
+import os
+import shutil
+import traceback
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox, font as tkfont
+from .ui_layout import PageViewport, responsive_grid
+from pathlib import Path
+from datetime import datetime
+
+from .analytics import MONTH_NAMES
+from .report_model import Analytics, selected_trend
+from .charts import BusinessChart, ShareChart
+from .config import load_config, save_config, resolve_path
+from .constants import APP_NAME, APP_VERSION, COLORS, CENTER_NAMES, center_display
+from .db import Database
+from .exports import export_excel, export_pdf
+from .importers import import_xlsx
+from .updater import check_update, prepare_update, launch_installer
+
+
+def fmt_money(v, decimals=0):
+    if v is None:return '—'
+    return (f'{v:,.{decimals}f} Kč').replace(',', ' ').replace('.', ',')
+
+def fmt_num(v):
+    try:
+        n=float(v)
+        txt=f'{n:,.2f}'.replace(',', ' ').replace('.', ',')
+        return txt.rstrip('0').rstrip(',')
+    except Exception:
+        return str(v if v is not None else '—')
+
+def fmt_pct(v):
+    if v is None:return '—'
+    return f'{v:.1f} %'.replace('.', ',')
+
+
+class Card(tk.Frame):
+    def __init__(self, master, title, value='—', subtitle='', accent=None, **kw):
+        super().__init__(master, bg=COLORS['panel'], highlightbackground=COLORS['border'], highlightthickness=1, bd=0, **kw)
+        self.configure(padx=16,pady=12)
+        self.title_lbl=tk.Label(self,text=title,bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',10),anchor='w',justify='left');self.title_lbl.pack(fill='x')
+        self.value_lbl=tk.Label(self,text=value,bg=COLORS['panel'],fg=COLORS['text'],font=('Calibri',18,'bold'))
+        self.value_lbl.pack(anchor='w',pady=(6,2))
+        self.sub_lbl=tk.Label(self,text=subtitle,bg=COLORS['panel'],fg=accent or COLORS['teal'],font=('Calibri',9))
+        self.sub_lbl.configure(anchor='w',justify='left');self.sub_lbl.pack(fill='x')
+        self._value_font=tkfont.Font(self,family='Calibri',size=18,weight='bold')
+        self.value_lbl.configure(font=self._value_font)
+        self.bind('<Configure>',self._fit_text,add='+')
+    def _fit_text(self,event):
+        width=max(35,event.width-36); text=self.value_lbl.cget('text')
+        signature=(width,text)
+        if getattr(self,'_fit_signature',None)==signature:return
+        self._fit_signature=signature
+        self.title_lbl.configure(wraplength=width);self.sub_lbl.configure(wraplength=width)
+        probe=tkfont.Font(self,family='Calibri',size=18,weight='bold')
+        size=18
+        for size in (18,17,16,15,14,13,12):
+            probe.configure(size=size)
+            if probe.measure(text)<=width:break
+        if int(self._value_font.cget('size'))!=size:self._value_font.configure(size=size)
+    def set(self,value,subtitle='',accent=None):
+        self.value_lbl.config(text=value)
+        self.sub_lbl.config(text=subtitle,fg=accent or COLORS['teal'])
+
+
+class Panel(tk.Frame):
+    def __init__(self, master, title, **kw):
+        super().__init__(master,bg=COLORS['panel'],highlightbackground=COLORS['border'],highlightthickness=1,bd=0,**kw)
+        head=tk.Frame(self,bg=COLORS['panel']); head.pack(fill='x',padx=14,pady=(12,4))
+        tk.Label(head,text=title,bg=COLORS['panel'],fg=COLORS['text'],font=('Calibri',12,'bold')).pack(side='left')
+        self.body=tk.Frame(self,bg=COLORS['panel']); self.body.pack(fill='both',expand=True,padx=12,pady=(4,12))
+
+
+class App(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.cfg=load_config()
+        for key in ('export_dir','import_archive_dir','backup_dir'):
+            resolve_path(self.cfg[key]).mkdir(parents=True, exist_ok=True)
+        self.db=Database(resolve_path(self.cfg['database_path']))
+        self.analytics=Analytics(self.db)
+        self.title(f'{APP_NAME}  {APP_VERSION}')
+        self.geometry('1500x900'); self.minsize(1180,720); self.configure(bg=COLORS['bg'])
+        self._apply_app_icon()
+        try:
+            self.state('zoomed')
+        except Exception:
+            pass
+        self.option_add('*Font','Calibri 10')
+        self._setup_ttk()
+        self.pages={}; self.nav_buttons={}; self.current_page='Přehled'
+        self._build_layout(); self._populate_periods(); self.show_page('Přehled'); self.after(1800,self._auto_check_updates)
+
+    def _apply_app_icon(self):
+        # One consistent TURTO icon in the title bar, Alt+Tab and Windows
+        # taskbar. iconphoto(default=True) also applies to future Toplevels.
+        assets=Path(__file__).resolve().parents[1] / 'assets'
+        ico=assets / 'app_icon.ico'
+        png=assets / 'app_icon_64.png'
+        try:
+            if ico.exists():
+                self.iconbitmap(default=str(ico))
+        except Exception:
+            pass
+        try:
+            if png.exists():
+                self._app_icon_img=tk.PhotoImage(file=str(png))
+                self.iconphoto(True,self._app_icon_img)
+        except Exception:
+            pass
+
+    def _setup_ttk(self):
+        s=ttk.Style(self); s.theme_use('clam')
+        s.configure('Dark.Treeview',background=COLORS['panel'],fieldbackground=COLORS['panel'],foreground=COLORS['text'],rowheight=28,borderwidth=0,font=('Calibri',10))
+        s.configure('Dark.Treeview.Heading',background=COLORS['panel_soft'],foreground=COLORS['text'],font=('Calibri',10,'bold'),relief='flat',padding=(7,6))
+        s.map('Dark.Treeview',background=[('selected',COLORS['panel_soft'])],foreground=[('selected',COLORS['text'])])
+
+        # Readonly TCombobox uses its own state map on Windows. Without an explicit
+        # map the OS theme can force a pale field while leaving the text white.
+        s.configure('Dark.TCombobox',
+                    fieldbackground=COLORS['panel_soft'],background=COLORS['panel_soft'],
+                    foreground=COLORS['text'],arrowcolor=COLORS['text'],
+                    bordercolor=COLORS['border'],lightcolor=COLORS['border'],
+                    darkcolor=COLORS['border'],borderwidth=1,relief='flat',
+                    padding=(9,6),font=('Calibri',11))
+        s.map('Dark.TCombobox',
+              fieldbackground=[('readonly',COLORS['panel_soft']),('focus',COLORS['panel_alt'])],
+              background=[('readonly',COLORS['panel_soft']),('active',COLORS['panel_alt'])],
+              foreground=[('readonly',COLORS['text']),('disabled',COLORS['muted'])],
+              selectbackground=[('readonly',COLORS['panel_soft'])],
+              selectforeground=[('readonly',COLORS['text'])],
+              bordercolor=[('focus',COLORS['teal']),('readonly',COLORS['border'])],
+              arrowcolor=[('readonly',COLORS['text']),('active',COLORS['teal'])])
+        self.option_add('*TCombobox*Listbox.background', COLORS['panel_soft'])
+        self.option_add('*TCombobox*Listbox.foreground', COLORS['text'])
+        self.option_add('*TCombobox*Listbox.selectBackground', COLORS['teal'])
+        self.option_add('*TCombobox*Listbox.selectForeground', '#06251D')
+        self.option_add('*TCombobox*Listbox.font', 'Calibri 11')
+
+    def _build_layout(self):
+        self.sidebar=tk.Frame(self,bg='#0D1524',width=220); self.sidebar.pack(side='left',fill='y'); self.sidebar.pack_propagate(False)
+        brand=tk.Frame(self.sidebar,bg='#0D1524'); brand.pack(fill='x',padx=14,pady=(20,20))
+        icon_path=Path(__file__).resolve().parents[1] / 'assets' / 'app_icon_48.png'
+        try:
+            self._brand_icon=tk.PhotoImage(file=str(icon_path))
+            tk.Label(brand,image=self._brand_icon,bg='#0D1524',bd=0).pack(side='left',padx=(0,10))
+        except Exception:
+            self._brand_icon=None
+        brand_text=tk.Frame(brand,bg='#0D1524'); brand_text.pack(side='left',fill='x',expand=True)
+        tk.Label(brand_text,text='TURTO',bg='#0D1524',fg=COLORS['text'],font=('Calibri',21,'bold')).pack(anchor='w')
+        tk.Label(brand_text,text='MĚSÍČNÍ PŘEHLEDY',bg='#0D1524',fg=COLORS['muted'],font=('Calibri',8,'bold')).pack(anchor='w')
+        for name in ['Přehled','Obrat & marže','Obchodníci','Zákazníci','Produkty','Importy','Nastavení']:
+            b=tk.Button(self.sidebar,text=name,anchor='w',relief='flat',bd=0,bg='#0D1524',fg='#C7D2E0',activebackground=COLORS['panel_soft'],activeforeground=COLORS['text'],font=('Calibri',11),padx=20,pady=11,command=lambda n=name:self.show_page(n))
+            b.pack(fill='x',padx=8,pady=2); self.nav_buttons[name]=b
+        tk.Label(self.sidebar,text='Lepší data.\nSilnější rozhodnutí.',justify='le
