@@ -1,0 +1,26 @@
+    def _apply_app_icon(self):
+        # Supply multiple sizes to Tk and a genuine multi-resolution ICO to
+        # Windows. This keeps the title bar / Alt+Tab / taskbar crisp even at
+        # different DPI scaling factors.
+        assets=Path(__file__).resolve().parents[1] / 'assets'
+        ico=assets / 'app_icon.ico'
+        try:
+            if ico.exists():
+                self.iconbitmap(default=str(ico))
+        except Exception:
+            pass
+        self._app_icon_images=[]
+        try:
+            for size in (16,20,24,32,40,48,64,128,256):
+                p=assets / f'app_icon_{size}.png'
+                if p.exists():
+                    self._app_icon_images.append(tk.PhotoImage(file=str(p)))
+            if self._app_icon_images:
+                self.iconphoto(True,*self._app_icon_images)
+        except Exception:
+            pass
+        try:
+            from .windows_integration import apply_native_window_icon
+            self.after(50,lambda:apply_native_window_icon(self,Path(__file__).resolve().parents[1]))
+        except Exception:
+            pass
