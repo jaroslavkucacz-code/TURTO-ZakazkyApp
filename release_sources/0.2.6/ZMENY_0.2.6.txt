@@ -1,0 +1,7 @@
+TURTO – Měsíční přehledy v0.2.6
+
+- Taskbar: okno dostává explicitní Shell AppUserModelID, RelaunchCommand a RelaunchIconResource.
+- Zástupci na ploše, ve Start menu a ve složce programu dostávají stejný AppUserModelID.
+- Oprava párování aktivního pythonw/Tk okna se zástupcem TURTO na hlavním panelu.
+- Aktualizátor odstraňuje historické patch_v*.py / patch data a Python cache.
+- Databáze, importy, exporty a nastavení zůstávají zachované.
