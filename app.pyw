@@ -12,22 +12,10 @@ if str(ROOT) not in sys.path:
 APP_USER_MODEL_ID = 'cz.turto.mesicni-prehledy'
 
 try:
-    # Online balíček v0.1.8 nasadí ikonu a Windows integraci.
-    patch_file = ROOT / 'patch_v018.py'
+    # Hotfix 0.2.1: nepouštět poškozený patch_v020.py.
+    patch_file = ROOT / 'patch_v021.py'
     if patch_file.exists():
-        from patch_v018 import apply_patch
-        apply_patch(ROOT)
-
-    # v0.1.9 přidává přepracované BusinessChart grafy a potvrzení aktuální verze.
-    patch_file = ROOT / 'patch_v019.py'
-    if patch_file.exists():
-        from patch_v019 import apply_patch
-        apply_patch(ROOT)
-
-    # v0.2.0 sjednocuje hlavní graf, přidává podílové grafy a stabilizační opravy.
-    patch_file = ROOT / 'patch_v020.py'
-    if patch_file.exists():
-        from patch_v020 import apply_patch
+        from patch_v021 import apply_patch
         apply_patch(ROOT)
 
     if sys.platform == 'win32':
@@ -40,8 +28,6 @@ try:
         except Exception:
             pass
 
-    # Vytvoření/obnova zástupce s vlastní ikonou je best-effort; firemní politika
-    # Windows ji může zakázat, což nesmí zabránit spuštění programu.
     try:
         from src.windows_integration import ensure_windows_shortcuts
         ensure_windows_shortcuts(ROOT)
