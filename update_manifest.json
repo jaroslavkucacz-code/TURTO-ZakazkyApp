@@ -1,7 +1,7 @@
 {
-  "version": "0.1.9",
+  "version": "0.2.0",
   "url": "https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/archive/refs/heads/mesicni-prehledy-stable.zip",
   "sha256": "",
-  "notes": "Přepracovaný graf Obrat po měsících: modernější vzhled, přepínač Obrat + zisk / Obrat / Zisk / Marže, hover s tooltipem, skrytí budoucích měsíců bez dat a společná grafová komponenta. Ruční kontrola aktualizací nově vždy potvrdí, když je verze aktuální.",
+  "notes": "Jednotný graf Obrat / Zisk / Marže s pravou osou pro marži; nové podílové a srovnávací grafy v záložkách Obchodníci, Zákazníci a Produkty; opravené období u produktů, korektní práce s chybějícím ziskem a stabilizační kontrola aplikace.",
   "channel": "stable"
 }
