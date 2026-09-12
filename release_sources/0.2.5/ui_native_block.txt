@@ -1,0 +1,5 @@
+        try:
+            from .windows_integration import install_native_icon_refresh
+            install_native_icon_refresh(self,Path(__file__).resolve().parents[1])
+        except Exception:
+            pass
