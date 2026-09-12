@@ -1,0 +1,8 @@
+{
+  "app_id": "cz.turto.mesicni-prehledy",
+  "version": "0.2.6",
+  "minimum_version": "0.2.5",
+  "previous_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/af4cbce1887e247bb97dfe0a98fd3fbe130450ee/releases/0.2.5/TURTO_update_0.2.5.zip",
+  "previous_sha256": "21383520f323cd773ee1c1acfb2eb410816561e929d43d5068342716f3850015",
+  "notes": "Oprava ikony aktivního okna na hlavním panelu Windows: explicitní AppUserModelID a RelaunchIconResource přímo na Shell okně, stejné AppUserModelID na zástupcích. Aktualizace zároveň odstraňuje historické patch_v soubory a Python cache. Data a nastavení zůstávají zachované."
+}
