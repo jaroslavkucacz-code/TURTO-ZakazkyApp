@@ -1,0 +1,124 @@
+name: Publish reporting 0.2.8 Python 3.14 recursion hotfix
+on:
+  push:
+    branches: [mesicni-prehledy-stable]
+    paths: ['release_sources/0.2.8/ready.json']
+permissions:
+  contents: write
+concurrency:
+  group: reporting-release
+  cancel-in-progress: false
+
+jobs:
+  validate-windows:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.14'
+      - name: Validate safe icon callbacks on Python 3.14
+        shell: pwsh
+        run: |
+          @'
+          import hashlib, io, json, pathlib, re, shutil, sys, urllib.request, zipfile
+          sys.dont_write_bytecode=True
+          root=pathlib.Path('release_sources/0.2.8')
+          ready=json.loads((root/'ready.json').read_text(encoding='utf-8'))
+          with urllib.request.urlopen(ready['previous_url'],timeout=30) as r: previous=r.read()
+          assert hashlib.sha256(previous).hexdigest()==ready['previous_sha256']
+          stage=pathlib.Path('_candidate_028')
+          shutil.rmtree(stage,ignore_errors=True);stage.mkdir()
+          with zipfile.ZipFile(io.BytesIO(previous)) as z:
+              assert z.testzip() is None
+              z.extractall(stage)
+          p=stage/'src/constants.py';s=p.read_text(encoding='utf-8');s,n=re.subn(r"APP_VERSION = '[^']+'","APP_VERSION = '0.2.8'",s,count=1);assert n==1;p.write_text(s,encoding='utf-8')
+          (stage/'src/windows_integration.py').write_text((root/'windows_integration.py.txt').read_text(encoding='utf-8'),encoding='utf-8')
+          note=(root/'ZMENY_0.2.8.txt').read_text(encoding='utf-8')
+          (stage/'ZMENY_0.2.8.txt').write_text(note,encoding='utf-8')
+          ch=stage/'CHANGELOG.txt';ch.write_text(note.rstrip()+'\n\n'+ch.read_text(encoding='utf-8'),encoding='utf-8')
+          files={q.relative_to(stage).as_posix():hashlib.sha256(q.read_bytes()).hexdigest() for q in sorted(stage.rglob('*')) if q.is_file() and q.name!='package_files.json'}
+          (stage/'package_files.json').write_text(json.dumps({'app_id':ready['app_id'],'version':'0.2.8','files':files},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          for rel in files:
+              data=(stage/rel).read_bytes()
+              if pathlib.PurePosixPath(rel).suffix in ('.py','.pyw'):
+                  compile(data,rel,'exec')
+          sys.path.insert(0,str(stage.resolve()))
+          from src.release_safety import validate_folder
+          validate_folder(stage)
+          from src import windows_integration as wi
+          src=(stage/'src/windows_integration.py').read_text(encoding='utf-8')
+          assert "window.bind(sequence" not in src
+          assert "'<Visibility>'" not in src and "'<Map>'" not in src
+          class FakeWindow:
+              def __init__(self): self.jobs=[]
+              def after(self,delay,fn): self.jobs.append((delay,fn)); return len(self.jobs)
+          fake=FakeWindow()
+          wi.install_native_icon_refresh(fake,str(stage.resolve()))
+          assert len(fake.jobs)==5, fake.jobs
+          for _,fn in list(fake.jobs): fn()
+          class BadPath:
+              def __fspath__(self): raise RecursionError('simulated pathlib recursion')
+          bad=FakeWindow()
+          wi.install_native_icon_refresh(bad,BadPath())
+          assert bad.jobs==[]
+          print('PY314_ICON_CALLBACK_SAFETY_OK')
+          '@ | python -
+
+  publish:
+    needs: validate-windows
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build verified 0.2.8 package
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib,io,json,pathlib,re,shutil,urllib.request,zipfile
+          root=pathlib.Path('release_sources/0.2.8')
+          ready=json.loads((root/'ready.json').read_text(encoding='utf-8'))
+          with urllib.request.urlopen(ready['previous_url'],timeout=30) as r: previous=r.read()
+          assert hashlib.sha256(previous).hexdigest()==ready['previous_sha256']
+          stage=pathlib.Path('_release_028');shutil.rmtree(stage,ignore_errors=True);stage.mkdir()
+          with zipfile.ZipFile(io.BytesIO(previous)) as z:
+              assert z.testzip() is None;z.extractall(stage)
+          p=stage/'src/constants.py';s=p.read_text(encoding='utf-8');s,n=re.subn(r"APP_VERSION = '[^']+'","APP_VERSION = '0.2.8'",s,count=1);assert n==1;p.write_text(s,encoding='utf-8')
+          (stage/'src/windows_integration.py').write_text((root/'windows_integration.py.txt').read_text(encoding='utf-8'),encoding='utf-8')
+          note=(root/'ZMENY_0.2.8.txt').read_text(encoding='utf-8')
+          (stage/'ZMENY_0.2.8.txt').write_text(note,encoding='utf-8')
+          ch=stage/'CHANGELOG.txt';ch.write_text(note.rstrip()+'\n\n'+ch.read_text(encoding='utf-8'),encoding='utf-8')
+          files={q.relative_to(stage).as_posix():hashlib.sha256(q.read_bytes()).hexdigest() for q in sorted(stage.rglob('*')) if q.is_file() and q.name!='package_files.json'}
+          (stage/'package_files.json').write_text(json.dumps({'app_id':ready['app_id'],'version':'0.2.8','files':files},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          for rel in files:
+              data=(stage/rel).read_bytes()
+              if pathlib.PurePosixPath(rel).suffix in ('.py','.pyw'): compile(data,rel,'exec')
+          buf=io.BytesIO()
+          with zipfile.ZipFile(buf,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
+              for q in sorted(stage.rglob('*')):
+                  if not q.is_file(): continue
+                  rel=q.relative_to(stage).as_posix();info=zipfile.ZipInfo(rel,date_time=(2026,9,12,23,30,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o100644<<16;z.writestr(info,q.read_bytes())
+              assert z.testzip() is None
+          data=buf.getvalue();target=pathlib.Path('releases/0.2.8/TURTO_update_0.2.8.zip');target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+          pathlib.Path('_release_028_sha.txt').write_text(hashlib.sha256(data).hexdigest(),encoding='ascii')
+          print('PACKAGE',len(data),hashlib.sha256(data).hexdigest())
+          PY
+      - name: Publish package and stable manifest
+        shell: bash
+        run: |
+          git config user.name 'TURTO Release Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add releases/0.2.8/TURTO_update_0.2.8.zip
+          git diff --cached --quiet || git commit -m 'Build verified TURTO reporting 0.2.8 package'
+          export PACKAGE_COMMIT=$(git rev-parse HEAD)
+          export PACKAGE_SHA=$(cat _release_028_sha.txt)
+          python3 - <<'PY'
+          import json,os,pathlib
+          r=json.loads(pathlib.Path('release_sources/0.2.8/ready.json').read_text(encoding='utf-8'))
+          m={'app_id':r['app_id'],'version':r['version'],'minimum_version':r['minimum_version'],'sha256':os.environ['PACKAGE_SHA'],'notes':r['notes'],'channel':'stable','url':'https://raw.githubusercontent.com/'+os.environ['GITHUB_REPOSITORY']+'/'+os.environ['PACKAGE_COMMIT']+'/releases/0.2.8/TURTO_update_0.2.8.zip'}
+          pathlib.Path('update_manifest.json').write_text(json.dumps(m,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+          git add update_manifest.json
+          git diff --cached --quiet || git commit -m 'Publish TURTO reporting 0.2.8 stable manifest'
+          git push origin HEAD:mesicni-prehledy-stable
