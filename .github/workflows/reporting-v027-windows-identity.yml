@@ -53,12 +53,12 @@ jobs:
           import tkinter as tk
           from src.windows_identity_fix import APP_ID,create_shortcut,shortcut_app_id,set_window_identity,window_app_id,_icon_handles
           ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
-          test_link=stage/'identity-test.lnk'
-          assert create_shortcut(test_link,stage), 'shortcut creation failed'
+          test_link=(stage/'identity-test.lnk').resolve()
+          assert create_shortcut(test_link,stage.resolve()), 'shortcut creation failed'
           assert shortcut_app_id(test_link)==APP_ID, (shortcut_app_id(test_link),APP_ID)
           win=tk.Tk();win.title('TURTO identity test');win.geometry('320x180+30+30');win.update()
           from src.windows_integration import apply_native_window_icon
-          apply_native_window_icon(win,stage);assert set_window_identity(win,stage);win.update()
+          apply_native_window_icon(win,stage.resolve());assert set_window_identity(win,stage.resolve());win.update()
           assert window_app_id(win)==APP_ID, (window_app_id(win),APP_ID)
           small,big=_icon_handles(win);assert small and big,(small,big)
           win.destroy();test_link.unlink(missing_ok=True)
