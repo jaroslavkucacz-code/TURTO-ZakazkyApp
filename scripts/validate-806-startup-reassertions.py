@@ -68,9 +68,17 @@ def menu_state(tree, owner: str) -> dict:
     script = str(state.get("script") or "")
     if not command or not script or not tree.tk.call("info", "commands", command):
         raise AssertionError(f"Missing live Tcl callback for {owner}")
-    if str(tree.bind("<Button-3>") or "") != script:
-        raise AssertionError(f"Right-click binding drift for {owner}")
-    return {"owner": owner, "menus": len(menus)}
+    current_binding = str(tree.bind("<Button-3>") or "")
+    # v632_offerlinks deliberately appends its related-offers callback at 1800 ms
+    # on Actions/Requests.  The lifecycle owner must still be present, but it is
+    # not the only legitimate Tcl script after the application has fully settled.
+    if script not in current_binding:
+        raise AssertionError(f"Owned right-click callback disappeared for {owner}")
+    return {
+        "owner": owner,
+        "menus": len(menus),
+        "foreign_binding_appended": current_binding != script,
+    }
 
 
 def main() -> None:
@@ -108,8 +116,9 @@ def main() -> None:
             callback_errors.append("".join(traceback.format_exception(exc_type, exc, tb)).strip())
         window.report_callback_exception = report_callback_exception
 
-        # v710's final legacy writer runs at 1500 ms and v740's preserved cleanup
-        # at 1650 ms.  Settle past both before validating the final UI.
+        # v710's final legacy writer runs at 1500 ms, v740's preserved cleanup
+        # at 1650 ms and v632 adds its related-offers binding at 1800 ms. Settle
+        # past all three before validating the final composed UI.
         deadline = time.monotonic() + 2.2
         while time.monotonic() < deadline:
             window.update(); time.sleep(0.01)
