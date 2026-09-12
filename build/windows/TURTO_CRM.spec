@@ -1,6 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
 import sys
+import zipfile
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
@@ -33,11 +34,10 @@ for name in ("turto_logo.png", "turto_logo.ico", "turto_crm.png", "turto_crm.ico
         datas.append((str(path), "."))
 datas += collect_data_files("price_lists_domain")
 
-# The legacy offer router intentionally loads parsers from physical source files:
-# Leviat is a .pyw SourceFileLoader module and supplier providers are discovered
-# by scanning offers_engine/providers/*.py. Hidden imports alone therefore work
-# in source mode but not inside a frozen PyInstaller archive. Keep a physical,
-# read-only copy under _MEIPASS/offers_engine for the frozen-safe loader.
+# The legacy Offer Engine needs its parser sources as real files at runtime, but
+# the updater already shipped in TURTO CRM 8.0.5 deliberately rejects loose
+# .py/.pyw files in update payloads. Build one immutable internal archive instead;
+# the 8.0.6 frozen loader extracts it only into a process-private temp directory.
 offer_engine_root = BASE / "offers_engine"
 required_offer_sources = (
     offer_engine_root / "Nabidky_Router.py",
@@ -50,10 +50,23 @@ if missing_offer_sources:
     raise RuntimeError(
         "Required offer-engine source missing: " + ", ".join(missing_offer_sources)
     )
-for source in offer_engine_root.rglob("*"):
-    if source.is_file() and source.suffix.lower() in {".py", ".pyw"}:
-        relative_parent = source.parent.relative_to(BASE)
-        datas.append((str(source), str(relative_parent)))
+generated_dir = ROOT / "build" / "windows" / "_generated"
+generated_dir.mkdir(parents=True, exist_ok=True)
+offer_engine_bundle = generated_dir / "offers_engine_bundle.zip"
+with zipfile.ZipFile(
+    offer_engine_bundle,
+    "w",
+    compression=zipfile.ZIP_DEFLATED,
+    compresslevel=9,
+) as archive:
+    for source in sorted(offer_engine_root.rglob("*")):
+        if (
+            source.is_file()
+            and "__pycache__" not in source.parts
+            and source.suffix.lower() in {".py", ".pyw"}
+        ):
+            archive.write(source, source.relative_to(offer_engine_root).as_posix())
+datas.append((str(offer_engine_bundle), "."))
 
 # tkinterdnd2 ships native payloads for many platforms and architectures. TURTO
 # CRM 8.0 is a Windows x64 build, so include only the two x64 variants required

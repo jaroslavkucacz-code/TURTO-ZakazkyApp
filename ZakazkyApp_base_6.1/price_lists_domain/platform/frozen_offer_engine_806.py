@@ -1,36 +1,118 @@
 """Frozen-safe loader for the legacy TURTO price-offer parser engine.
 
-The historical CRM loader intentionally loads ``offers_engine/Nabidky_Router.py``
-from real files because the router itself discovers provider ``*.py`` files and
-loads the legacy Leviat ``.pyw`` parser from disk.  PyInstaller hidden imports are
-therefore not sufficient on their own: a frozen build also needs a physical copy
-of the parser source tree under ``sys._MEIPASS``.
+The historical offer router intentionally loads provider Python files and the
+legacy Leviat ``.pyw`` parser from real files.  A Windows 8.x update, however,
+must remain acceptable to the updater already shipped in 8.0.5, which rejects
+loose ``.py``/``.pyw`` files in update payloads.  The frozen application therefore
+ships one hash-protected ``offers_engine_bundle.zip`` data file and materializes
+its trusted parser sources into a process-private temporary directory on demand.
 
 Source/development execution is deliberately unchanged and delegates to the
-historical loader.  Only a frozen Windows payload uses the bundled physical tree.
+historical loader.  Only frozen Windows execution uses the runtime archive.
 """
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+import shutil
+import stat
 import sys
+import tempfile
 from typing import Any
+import zipfile
 
 POLICY_OWNER = "price_lists_domain.platform.frozen_offer_engine_806"
 ROUTER_MODULE_NAME = "_zakazky_nabidky_router"
+BUNDLE_NAME = "offers_engine_bundle.zip"
+MAX_BUNDLE_UNCOMPRESSED = 16 * 1024 * 1024
+_REQUIRED_FILES = {
+    "nabidky_router.py",
+    "leviat_nabidky.pyw",
+    "gerotop_parser_767.py",
+    "providers/pohlcon.py",
+}
+_FROZEN_ENGINE_TEMP: tempfile.TemporaryDirectory | None = None
+_FROZEN_ENGINE_ROOT: Path | None = None
+
+
+def _frozen_bundle_path() -> Path | None:
+    """Resolve the immutable Offer Engine archive bundled by PyInstaller."""
+    if not getattr(sys, "frozen", False):
+        return None
+    bundle_root = getattr(sys, "_MEIPASS", None)
+    if bundle_root:
+        return Path(str(bundle_root)) / BUNDLE_NAME
+    return Path(sys.executable).resolve().parent / "_internal" / BUNDLE_NAME
+
+
+def _materialize_bundle(bundle: Path) -> Path:
+    """Safely extract the trusted internal parser archive for this process."""
+    global _FROZEN_ENGINE_TEMP, _FROZEN_ENGINE_ROOT
+    if _FROZEN_ENGINE_ROOT is not None and _FROZEN_ENGINE_ROOT.is_dir():
+        return _FROZEN_ENGINE_ROOT
+
+    if not bundle.is_file():
+        raise RuntimeError(
+            "Chybí interní balík offers_engine v instalaci TURTO CRM: "
+            f"{bundle}"
+        )
+
+    holder = tempfile.TemporaryDirectory(prefix="turto_offer_engine_")
+    engine = Path(holder.name) / "offers_engine"
+    engine.mkdir(parents=True, exist_ok=True)
+    total = 0
+    names: set[str] = set()
+    try:
+        with zipfile.ZipFile(bundle) as archive:
+            for info in archive.infolist():
+                raw_name = str(info.filename or "").replace("\\", "/")
+                rel = PurePosixPath(raw_name)
+                if not raw_name or rel.is_absolute() or ".." in rel.parts:
+                    raise RuntimeError("Interní Offer Engine obsahuje nepovolenou cestu.")
+                mode = (info.external_attr >> 16) & 0o170000
+                if mode == stat.S_IFLNK:
+                    raise RuntimeError("Interní Offer Engine nesmí obsahovat symbolické odkazy.")
+                if info.is_dir() or raw_name.endswith("/"):
+                    continue
+                if Path(rel.name).suffix.lower() not in {".py", ".pyw"}:
+                    raise RuntimeError(
+                        f"Interní Offer Engine obsahuje neočekávaný soubor: {raw_name}"
+                    )
+                total += int(info.file_size or 0)
+                if total > MAX_BUNDLE_UNCOMPRESSED:
+                    raise RuntimeError("Interní Offer Engine překračuje povolenou velikost.")
+                destination = engine.joinpath(*rel.parts)
+                try:
+                    destination.resolve().relative_to(engine.resolve())
+                except Exception as exc:
+                    raise RuntimeError(
+                        "Interní Offer Engine se pokusil zapisovat mimo dočasnou složku."
+                    ) from exc
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                with archive.open(info, "r") as source, destination.open("wb") as output:
+                    shutil.copyfileobj(source, output, length=1024 * 1024)
+                names.add(rel.as_posix().casefold())
+
+        missing = sorted(_REQUIRED_FILES.difference(names))
+        if missing:
+            raise RuntimeError(
+                "Interní Offer Engine je neúplný; chybí: " + ", ".join(missing)
+            )
+    except Exception:
+        holder.cleanup()
+        raise
+
+    _FROZEN_ENGINE_TEMP = holder
+    _FROZEN_ENGINE_ROOT = engine
+    return engine
 
 
 def _frozen_engine_root() -> Path | None:
-    """Return the physical PyInstaller offer-engine directory, if available."""
-    bundle = getattr(sys, "_MEIPASS", None)
-    if bundle:
-        return Path(str(bundle)) / "offers_engine"
-    if getattr(sys, "frozen", False):
-        # Fail-safe for onedir launchers where the runtime exposes only the EXE
-        # directory.  Current PyInstaller sets _MEIPASS, but this keeps the
-        # payload discoverable without falling back to user-writable locations.
-        return Path(sys.executable).resolve().parent / "_internal" / "offers_engine"
-    return None
+    """Return a process-private physical Offer Engine tree for frozen execution."""
+    bundle = _frozen_bundle_path()
+    if bundle is None:
+        return None
+    return _materialize_bundle(bundle)
 
 
 def _load_physical_router(engine: Path):
@@ -92,7 +174,8 @@ def apply(M: Any) -> None:
         "owner": POLICY_OWNER,
         "installed": True,
         "source_mode": "historical-loader",
-        "frozen_mode": "physical-meipass-offers-engine",
+        "frozen_mode": "temporary-runtime-archive",
+        "bundle_name": BUNDLE_NAME,
         "database_rows_rewritten": False,
     }
 
@@ -101,6 +184,9 @@ __all__ = [
     "apply",
     "POLICY_OWNER",
     "ROUTER_MODULE_NAME",
+    "BUNDLE_NAME",
+    "_frozen_bundle_path",
+    "_materialize_bundle",
     "_frozen_engine_root",
     "_load_physical_router",
 ]

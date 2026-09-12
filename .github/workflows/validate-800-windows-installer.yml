@@ -127,10 +127,7 @@ jobs:
           $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $updateZip))
           try {
             $forbidden = @($archive.Entries | Where-Object {
-              $isPython = $_.FullName -match '(?i)\.(py|pyw)$'
-              $isOfferEngineRuntime = $_.FullName -match '(?i)[\\/]_internal[\\/]offers_engine[\\/]'
-              $_.FullName -match '(?i)\.(db|sqlite|sqlite3)$' -or
-              ($isPython -and -not $isOfferEngineRuntime) -or
+              $_.FullName -match '(?i)\.(db|sqlite|sqlite3|py|pyw)$' -or
               $_.FullName -match '(?i)(requirements\.txt|Spustit_Zakazky|Nainstalovat_knihovny)' -or
               $_.Name -match '(?i)^unins'
             })
@@ -141,16 +138,6 @@ jobs:
             if (-not ($names -match 'TURTO CRM\.exe$')) { throw 'Main EXE missing from update ZIP' }
             if (-not ($names -match 'TURTO CRM Updater\.exe$')) { throw 'Updater EXE missing from update ZIP' }
             if (-not ($names -match 'version\.json$')) { throw 'version.json missing from update ZIP' }
-            foreach ($requiredOfferEngineFile in @(
-              'Nabidky_Router\.py$',
-              'Leviat_Nabidky\.pyw$',
-              'Gerotop_Parser_767\.py$',
-              'providers[\\/]pohlcon\.py$'
-            )) {
-              if (-not ($names -match "(?i)[\\/]_internal[\\/]offers_engine[\\/].*$requiredOfferEngineFile")) {
-                throw "Required Offer Engine runtime file missing from update ZIP: $requiredOfferEngineFile"
-              }
-            }
           }
           finally {
             $archive.Dispose()
