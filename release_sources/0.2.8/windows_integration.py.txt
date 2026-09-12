@@ -1,0 +1,335 @@
+from __future__ import annotations
+
+import ctypes
+import os
+import subprocess
+import sys
+import tempfile
+import uuid
+from pathlib import Path
+
+APP_USER_MODEL_ID = 'cz.turto.mesicni-prehledy'
+
+
+def _root_string(root) -> str:
+    """Return a plain absolute string path without retaining pathlib objects in callbacks."""
+    try:
+        if isinstance(root, str):
+            value = root
+        else:
+            value = os.fspath(root)
+        return os.path.abspath(value)
+    except BaseException:
+        return ''
+
+
+def _vbs_quote(value: str) -> str:
+    return str(value).replace('"', '""')
+
+
+def _pythonw_executable() -> Path:
+    exe = Path(sys.executable)
+    if exe.name.lower() == 'python.exe':
+        candidate = exe.with_name('pythonw.exe')
+        if candidate.exists():
+            return candidate
+    return exe
+
+
+def _guid(value: str):
+    from ctypes import wintypes
+    class GUID(ctypes.Structure):
+        _fields_ = [
+            ('Data1', wintypes.DWORD),
+            ('Data2', wintypes.WORD),
+            ('Data3', wintypes.WORD),
+            ('Data4', ctypes.c_ubyte * 8),
+        ]
+    return GUID.from_buffer_copy(uuid.UUID(value).bytes_le)
+
+
+def _set_property_store_strings(store_ptr, values) -> bool:
+    if not store_ptr:
+        return False
+    from ctypes import wintypes
+
+    class GUID(ctypes.Structure):
+        _fields_ = [
+            ('Data1', wintypes.DWORD),
+            ('Data2', wintypes.WORD),
+            ('Data3', wintypes.WORD),
+            ('Data4', ctypes.c_ubyte * 8),
+        ]
+
+    class PROPERTYKEY(ctypes.Structure):
+        _fields_ = [('fmtid', GUID), ('pid', wintypes.DWORD)]
+
+    class PVUNION(ctypes.Union):
+        _fields_ = [('pwszVal', wintypes.LPWSTR), ('ptr', ctypes.c_void_p)]
+
+    class PROPVARIANT(ctypes.Structure):
+        _anonymous_ = ('u',)
+        _fields_ = [
+            ('vt', ctypes.c_ushort),
+            ('wReserved1', ctypes.c_ushort),
+            ('wReserved2', ctypes.c_ushort),
+            ('wReserved3', ctypes.c_ushort),
+            ('u', PVUNION),
+        ]
+
+    WINFUNCTYPE = ctypes.WINFUNCTYPE
+    vtbl = ctypes.cast(store_ptr, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
+    SetValue = WINFUNCTYPE(
+        ctypes.c_long, ctypes.c_void_p,
+        ctypes.POINTER(PROPERTYKEY), ctypes.POINTER(PROPVARIANT)
+    )(vtbl[6])
+    Commit = WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p)(vtbl[7])
+    Release = WINFUNCTYPE(ctypes.c_ulong, ctypes.c_void_p)(vtbl[2])
+
+    fmtid = GUID.from_buffer_copy(uuid.UUID('9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3').bytes_le)
+    VT_LPWSTR = 31
+    ok = True
+    buffers = []
+    try:
+        for pid, value in values:
+            buf = ctypes.create_unicode_buffer(str(value))
+            buffers.append(buf)
+            pv = PROPVARIANT()
+            pv.vt = VT_LPWSTR
+            pv.pwszVal = ctypes.cast(buf, wintypes.LPWSTR)
+            key = PROPERTYKEY(fmtid, int(pid))
+            if SetValue(store_ptr, ctypes.byref(key), ctypes.byref(pv)) < 0:
+                ok = False
+        if Commit(store_ptr) < 0:
+            ok = False
+    finally:
+        Release(store_ptr)
+    return ok
+
+
+def _set_window_app_properties(hwnd: int, root: Path) -> None:
+    if sys.platform != 'win32' or not hwnd:
+        return
+    try:
+        from ctypes import wintypes
+        shell32 = ctypes.windll.shell32
+        fn = shell32.SHGetPropertyStoreForWindow
+        fn.argtypes = [wintypes.HWND, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+        fn.restype = ctypes.c_long
+        iid = _guid('886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99')
+        store = ctypes.c_void_p()
+        if fn(wintypes.HWND(hwnd), ctypes.byref(iid), ctypes.byref(store)) < 0 or not store.value:
+            return
+        exe = _pythonw_executable().resolve()
+        app = root / 'app.pyw'
+        icon = root / 'assets' / 'app_icon.ico'
+        _set_property_store_strings(store, [
+            (2, f'"{exe}" "{app}"'),
+            (3, f'{icon},0'),
+            (5, APP_USER_MODEL_ID),
+        ])
+    except BaseException:
+        return
+
+
+def _set_shortcut_app_id(path: Path) -> None:
+    if sys.platform != 'win32' or not path.exists():
+        return
+    try:
+        from ctypes import wintypes
+        shell32 = ctypes.windll.shell32
+        fn = shell32.SHGetPropertyStoreFromParsingName
+        fn.argtypes = [wintypes.LPCWSTR, ctypes.c_void_p, wintypes.DWORD, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+        fn.restype = ctypes.c_long
+        iid = _guid('886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99')
+        store = ctypes.c_void_p()
+        if fn(str(path), None, 0x00000002, ctypes.byref(iid), ctypes.byref(store)) >= 0 and store.value:
+            _set_property_store_strings(store, [(5, APP_USER_MODEL_ID)])
+    except BaseException:
+        return
+
+
+def apply_native_window_icon(window, root) -> None:
+    """Best-effort Windows icon update. This function must never break the UI loop."""
+    if sys.platform != 'win32':
+        return
+    try:
+        root_text = _root_string(root)
+        if not root_text:
+            return
+        root_path = Path(root_text)
+        icon = root_path / 'assets' / 'app_icon.ico'
+        if not icon.exists():
+            return
+
+        from ctypes import wintypes
+        user32 = ctypes.windll.user32
+        LoadImageW = user32.LoadImageW
+        LoadImageW.argtypes = [wintypes.HINSTANCE, wintypes.LPCWSTR, wintypes.UINT, ctypes.c_int, ctypes.c_int, wintypes.UINT]
+        LoadImageW.restype = wintypes.HANDLE
+        SendMessageW = user32.SendMessageW
+        SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+        SendMessageW.restype = ctypes.c_ssize_t
+        GetParent = user32.GetParent
+        GetParent.argtypes = [wintypes.HWND]
+        GetParent.restype = wintypes.HWND
+        GetAncestor = user32.GetAncestor
+        GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
+        GetAncestor.restype = wintypes.HWND
+
+        if ctypes.sizeof(ctypes.c_void_p) == 8:
+            SetClassLongPtrW = user32.SetClassLongPtrW
+            SetClassLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_ssize_t]
+            SetClassLongPtrW.restype = ctypes.c_ssize_t
+        else:
+            SetClassLongPtrW = user32.SetClassLongW
+            SetClassLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int, wintypes.LONG]
+            SetClassLongPtrW.restype = wintypes.LONG
+
+        window.update_idletasks()
+        child = wintypes.HWND(window.winfo_id())
+        root_hwnd = GetAncestor(child, 2)
+        hwnds = []
+
+        def add_hwnd(h):
+            if h:
+                value = int(h)
+                if value and value not in hwnds:
+                    hwnds.append(value)
+
+        add_hwnd(child)
+        add_hwnd(root_hwnd)
+        cur = child
+        for _ in range(8):
+            cur = GetParent(cur)
+            if not cur:
+                break
+            add_hwnd(cur)
+
+        IMAGE_ICON = 1
+        LR_LOADFROMFILE = 0x0010
+        WM_SETICON = 0x0080
+        ICON_SMALL = 0
+        ICON_BIG = 1
+        GCLP_HICON = -14
+        GCLP_HICONSM = -34
+        smx = user32.GetSystemMetrics(49) or 16
+        smy = user32.GetSystemMetrics(50) or 16
+        bigx = user32.GetSystemMetrics(11) or 32
+        bigy = user32.GetSystemMetrics(12) or 32
+
+        small = LoadImageW(None, str(icon), IMAGE_ICON, smx, smy, LR_LOADFROMFILE)
+        big = LoadImageW(None, str(icon), IMAGE_ICON, bigx, bigy, LR_LOADFROMFILE)
+        handles = [h for h in (small, big) if h]
+
+        for value in hwnds:
+            hwnd = wintypes.HWND(value)
+            if small:
+                SendMessageW(hwnd, WM_SETICON, ICON_SMALL, int(small))
+                try:
+                    SetClassLongPtrW(hwnd, GCLP_HICONSM, int(small))
+                except BaseException:
+                    pass
+            if big:
+                SendMessageW(hwnd, WM_SETICON, ICON_BIG, int(big))
+                try:
+                    SetClassLongPtrW(hwnd, GCLP_HICON, int(big))
+                except BaseException:
+                    pass
+
+        shell_hwnd = int(root_hwnd) if root_hwnd else int(child)
+        _set_window_app_properties(shell_hwnd, root_path)
+        old = getattr(window, '_turto_native_icon_handles', [])
+        window._turto_native_icon_handles = old + handles
+    except BaseException:
+        return
+
+
+def install_native_icon_refresh(window, root) -> None:
+    """Finite, guarded icon refresh. No Map/Visibility event loop bindings."""
+    if sys.platform != 'win32':
+        return
+    root_text = _root_string(root)
+    if not root_text:
+        return
+    state = {'pending': False}
+
+    def safe_apply():
+        state['pending'] = False
+        try:
+            apply_native_window_icon(window, root_text)
+        except BaseException:
+            pass
+
+    def schedule(delay):
+        try:
+            window.after(delay, safe_apply)
+        except BaseException:
+            pass
+
+    for delay in (0, 120, 500, 1500, 3000):
+        schedule(delay)
+
+
+def ensure_windows_shortcuts(root) -> None:
+    if sys.platform != 'win32':
+        return
+    root_text = _root_string(root)
+    if not root_text:
+        return
+    try:
+        root_path = Path(root_text)
+        icon = root_path / 'assets' / 'app_icon.ico'
+        app = root_path / 'app.pyw'
+        if not icon.exists() or not app.exists():
+            return
+        exe = _pythonw_executable().resolve()
+        lines = [
+            'Set shell = CreateObject("WScript.Shell")',
+            'desktop = shell.SpecialFolders("Desktop")',
+            'programs = shell.SpecialFolders("Programs")',
+            f'root = "{_vbs_quote(root_text)}"',
+            f'target = "{_vbs_quote(str(exe))}"',
+            f'args = Chr(34) & "{_vbs_quote(str(app))}" & Chr(34)',
+            f'icon = "{_vbs_quote(str(icon))},0"',
+            'For Each linkPath In Array(desktop & "\\TURTO - Mesicni prehledy.lnk", programs & "\\TURTO - Mesicni prehledy.lnk", root & "\\TURTO - Mesicni prehledy.lnk")',
+            '  Set sc = shell.CreateShortcut(linkPath)',
+            '  sc.TargetPath = target',
+            '  sc.Arguments = args',
+            '  sc.WorkingDirectory = root',
+            '  sc.IconLocation = icon',
+            '  sc.Description = "TURTO - Mesicni prehledy"',
+            '  sc.Save',
+            'Next',
+        ]
+        script = '\r\n'.join(lines) + '\r\n'
+        tmp = None
+        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+        try:
+            fd, name = tempfile.mkstemp(prefix='turto_shortcut_', suffix='.vbs')
+            os.close(fd)
+            tmp = Path(name)
+            tmp.write_text(script, encoding='utf-8-sig')
+            subprocess.run(['cscript.exe', '//nologo', str(tmp)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=8, check=False, creationflags=flags)
+        finally:
+            if tmp:
+                try:
+                    tmp.unlink(missing_ok=True)
+                except BaseException:
+                    pass
+
+        appdata = os.environ.get('APPDATA', '')
+        profile = os.environ.get('USERPROFILE', '')
+        links = [root_path / 'TURTO - Mesicni prehledy.lnk']
+        if profile:
+            links.append(Path(profile) / 'Desktop' / 'TURTO - Mesicni prehledy.lnk')
+        if appdata:
+            links.append(Path(appdata) / 'Microsoft' / 'Windows' / 'Start Menu' / 'Programs' / 'TURTO - Mesicni prehledy.lnk')
+        for link in links:
+            _set_shortcut_app_id(link)
+        try:
+            subprocess.run(['ie4uinit.exe', '-show'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5, check=False, creationflags=flags)
+        except BaseException:
+            pass
+    except BaseException:
+        return
