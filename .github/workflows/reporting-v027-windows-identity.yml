@@ -24,7 +24,7 @@ jobs:
         shell: pwsh
         run: |
           @'
-          import ctypes, hashlib, io, json, pathlib, re, shutil, sys, tempfile, urllib.request, zipfile
+          import ctypes, hashlib, io, json, pathlib, re, shutil, sys, urllib.request, zipfile
           sys.dont_write_bytecode=True
           from PIL import Image
           root=pathlib.Path('release_sources/0.2.7')
@@ -40,11 +40,11 @@ jobs:
           p=stage/'src/constants.py';s=p.read_text(encoding='utf-8');s,n=re.subn(r"APP_VERSION = '[^']+'","APP_VERSION = '0.2.7'",s,count=1);assert n==1;p.write_text(s,encoding='utf-8')
           p=stage/'app.pyw';s=p.read_text(encoding='utf-8')
           old="    from src.ui import App\n    app = App()\n    app.mainloop()\n"
-          new="    from src.ui import App\n    app = App()\n    try:\n        from src.windows_identity_fix import install_windows_identity\n        install_windows_identity(app, ROOT)\n    except Exception:\n        pass\n    app.mainloop()\n"
+          new="    from src.ui import App\n    app = App()\n    try:\n        from src.windows_identity_fix import install_windows_identity\n        install_windows_identity(app, ROOT)\n    except Exception:\n        pass\n    try:\n        from src.window_icon_fix import install_window_icon\n        install_window_icon(app, ROOT)\n    except Exception:\n        pass\n    app.mainloop()\n"
           assert old in s;s=s.replace(old,new);p.write_text(s,encoding='utf-8')
           (stage/'src/windows_identity_fix.py').write_text((root/'windows_identity_fix.py.txt').read_text(encoding='utf-8'),encoding='utf-8')
+          (stage/'src/window_icon_fix.py').write_text((root/'window_icon_fix.py.txt').read_text(encoding='utf-8'),encoding='utf-8')
           (stage/'update_installer.py').write_text((root/'update_installer.py.txt').read_text(encoding='utf-8'),encoding='utf-8')
-          # Windows LoadImage/Tk are more reliable with classic BMP/DIB ICO frames.
           icon_src=Image.open(stage/'assets/app_icon_64.png').convert('RGBA')
           icon_src.save(stage/'assets/app_icon.ico',format='ICO',sizes=[(16,16),(20,20),(24,24),(32,32),(40,40),(48,48),(64,64)],bitmap_format='bmp')
           note=(root/'ZMENY_0.2.7.txt').read_text(encoding='utf-8')
@@ -57,16 +57,17 @@ jobs:
           from src.release_safety import validate_folder
           validate_folder(stage)
           import tkinter as tk
-          from src.windows_identity_fix import APP_ID,create_shortcut,shortcut_app_id,set_window_identity,window_app_id,_icon_handles
+          from src.windows_identity_fix import APP_ID,create_shortcut,shortcut_app_id,set_window_identity,window_app_id
+          from src.window_icon_fix import apply_window_icon_now
           ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
           test_link=(stage/'identity-test.lnk').resolve()
           assert create_shortcut(test_link,stage.resolve()), 'shortcut creation failed'
           assert shortcut_app_id(test_link)==APP_ID, (shortcut_app_id(test_link),APP_ID)
           win=tk.Tk();win.title('TURTO identity test');win.geometry('320x180+30+30');win.update()
-          from src.windows_integration import apply_native_window_icon
-          apply_native_window_icon(win,stage.resolve());assert set_window_identity(win,stage.resolve());win.update()
+          assert set_window_identity(win,stage.resolve());win.update()
           assert window_app_id(win)==APP_ID, (window_app_id(win),APP_ID)
-          small,big=_icon_handles(win);assert small and big,(small,big)
+          small,big=apply_window_icon_now(win,stage.resolve());win.update()
+          assert small and big,(small,big)
           win.destroy();test_link.unlink(missing_ok=True)
           print('WINDOWS_IDENTITY_OK',APP_ID,small,big)
           '@ | python -
@@ -95,9 +96,10 @@ jobs:
           p=stage/'src/constants.py';s=p.read_text(encoding='utf-8');s,n=re.subn(r"APP_VERSION = '[^']+'","APP_VERSION = '0.2.7'",s,count=1);assert n==1;p.write_text(s,encoding='utf-8')
           p=stage/'app.pyw';s=p.read_text(encoding='utf-8')
           old="    from src.ui import App\n    app = App()\n    app.mainloop()\n"
-          new="    from src.ui import App\n    app = App()\n    try:\n        from src.windows_identity_fix import install_windows_identity\n        install_windows_identity(app, ROOT)\n    except Exception:\n        pass\n    app.mainloop()\n"
+          new="    from src.ui import App\n    app = App()\n    try:\n        from src.windows_identity_fix import install_windows_identity\n        install_windows_identity(app, ROOT)\n    except Exception:\n        pass\n    try:\n        from src.window_icon_fix import install_window_icon\n        install_window_icon(app, ROOT)\n    except Exception:\n        pass\n    app.mainloop()\n"
           assert old in s;s=s.replace(old,new);p.write_text(s,encoding='utf-8')
           (stage/'src/windows_identity_fix.py').write_text((root/'windows_identity_fix.py.txt').read_text(encoding='utf-8'),encoding='utf-8')
+          (stage/'src/window_icon_fix.py').write_text((root/'window_icon_fix.py.txt').read_text(encoding='utf-8'),encoding='utf-8')
           (stage/'update_installer.py').write_text((root/'update_installer.py.txt').read_text(encoding='utf-8'),encoding='utf-8')
           icon_src=Image.open(stage/'assets/app_icon_64.png').convert('RGBA')
           icon_src.save(stage/'assets/app_icon.ico',format='ICO',sizes=[(16,16),(20,20),(24,24),(32,32),(40,40),(48,48),(64,64)],bitmap_format='bmp')
