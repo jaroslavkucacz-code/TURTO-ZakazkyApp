@@ -50,7 +50,7 @@ jobs:
 
           (stage/'src/windows_integration.py').write_text((root/'windows_integration.py.txt').read_text(encoding='utf-8'), encoding='utf-8')
 
-          sizes = (16,20,24,32,40,48,64,128,256)
+          sizes = (16,20,24,32,40,48,64)
           pngs = []
           for size in sizes:
               raw = base64.b64decode((root/f'assets/app_icon_{size}.png.b64').read_text(encoding='ascii'), validate=True)
@@ -91,7 +91,7 @@ jobs:
               if path.suffix in ('.py','.pyw'):
                   compile(data,rel,'exec')
           assert b"APP_VERSION = '0.2.4'" in constants.read_bytes()
-          assert len(ico) > 50000 and ico[:4] == b'\x00\x00\x01\x00'
+          assert len(ico) > 15000 and ico[:4] == b'\x00\x00\x01\x00'
 
           all_names = actual + ['package_files.json']
           buffer=io.BytesIO()
