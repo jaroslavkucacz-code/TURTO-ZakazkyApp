@@ -1,0 +1,6 @@
+TURTO – Měsíční přehledy v0.2.3
+
+- Oprava balení oficiální ikony aplikace.
+- Ikona je součástí aktualizace pro hlavní okno, Alt+Tab, hlavní panel Windows a branding vlevo.
+- Aktualizace doplní složku assets i do instalací, kde chyběla.
+- Beze změny databáze, importů, exportů a nastavení.
