@@ -48,8 +48,9 @@ jobs:
               dst = stage/rel
               dst.parent.mkdir(parents=True, exist_ok=True)
               dst.write_bytes(base64.b64decode((root/encoded).read_text(encoding='ascii'), validate=True))
+              assert dst.read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
 
-          # Jednoduchý standardní ICO kontejner s vloženým 64px PNG.
+          # Standardní ICO kontejner s vloženým 64px PNG; Windows ho umí škálovat i pro lištu a zástupce.
           png64 = (stage/'assets/app_icon_64.png').read_bytes()
           ico = struct.pack('<HHH', 0, 1, 1) + struct.pack('<BBBBHHII', 64, 64, 0, 0, 1, 32, len(png64), 22) + png64
           (stage/'assets/app_icon.ico').write_bytes(ico)
@@ -59,6 +60,12 @@ jobs:
           assert spec['app_id'] == ready['app_id']
           assert spec['version'] == ready['version']
           files = spec['files']
+
+          # Ikony jsou binární artefakty sestavené v tomto ověřovaném kroku; jejich kontrolní součty zapíšeme do manifestu balíčku.
+          for rel in assets:
+              files[rel] = hashlib.sha256((stage/rel).read_bytes()).hexdigest()
+          (stage/'package_files.json').write_text(json.dumps(spec, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+
           actual = {p.relative_to(stage).as_posix() for p in stage.rglob('*') if p.is_file()}
           assert actual == set(files) | {'package_files.json'}, sorted(actual ^ (set(files)|{'package_files.json'}))
           for rel, digest in files.items():
