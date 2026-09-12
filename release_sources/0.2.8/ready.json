@@ -4,5 +4,6 @@
   "minimum_version": "0.2.7",
   "previous_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/05c1daf10515208f989027dc6d938dbb98d55cc9/releases/0.2.7/TURTO_update_0.2.7.zip",
   "previous_sha256": "d50242cfc7595f9ae6b10306c05fd325bd368152c5fe7753498f18dc59e7729a",
-  "notes": "Hotfix stability pro Python 3.14: odstraněna rekurze v pathlib při callbacku Windows ikony, zrušeno eventové obnovování ikony přes Map/Visibility a ikonový refresh už nikdy nesmí shodit hlavní UI. Data a nastavení zůstávají zachované."
+  "notes": "Hotfix stability pro Python 3.14: odstraněna rekurze v pathlib při callbacku Windows ikony, zrušeno eventové obnovování ikony přes Map/Visibility a ikonový refresh už nikdy nesmí shodit hlavní UI. Data a nastavení zůstávají zachované.",
+  "build_request": 1
 }
