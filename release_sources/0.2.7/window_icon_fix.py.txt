@@ -1,0 +1,78 @@
+from __future__ import annotations
+
+import ctypes
+import sys
+from pathlib import Path
+
+
+def _root_hwnd(window):
+    from ctypes import wintypes
+    user32=ctypes.windll.user32
+    user32.GetAncestor.argtypes=[wintypes.HWND,wintypes.UINT]
+    user32.GetAncestor.restype=wintypes.HWND
+    window.update_idletasks()
+    child=wintypes.HWND(window.winfo_id())
+    return int(user32.GetAncestor(child,2) or child)
+
+
+def apply_window_icon_now(window,root):
+    """Set title/taskbar HICON on the actual Tk top-level HWND and verify it."""
+    if sys.platform!='win32': return (0,0)
+    from ctypes import wintypes
+    root=Path(root).resolve();icon=root/'assets'/'app_icon.ico'
+    if not icon.exists(): return (0,0)
+    user32=ctypes.windll.user32
+    LoadImageW=user32.LoadImageW
+    LoadImageW.argtypes=[wintypes.HINSTANCE,wintypes.LPCWSTR,wintypes.UINT,ctypes.c_int,ctypes.c_int,wintypes.UINT]
+    LoadImageW.restype=wintypes.HANDLE
+    SendMessageW=user32.SendMessageW
+    SendMessageW.argtypes=[wintypes.HWND,wintypes.UINT,wintypes.WPARAM,wintypes.LPARAM]
+    SendMessageW.restype=ctypes.c_ssize_t
+    hwnd=wintypes.HWND(_root_hwnd(window))
+    smx=user32.GetSystemMetrics(49) or 16;smy=user32.GetSystemMetrics(50) or 16
+    bigx=user32.GetSystemMetrics(11) or 32;bigy=user32.GetSystemMetrics(12) or 32
+    IMAGE_ICON=1;LR_LOADFROMFILE=0x10;WM_SETICON=0x80
+    small=LoadImageW(None,str(icon),IMAGE_ICON,smx,smy,LR_LOADFROMFILE)
+    big=LoadImageW(None,str(icon),IMAGE_ICON,bigx,bigy,LR_LOADFROMFILE)
+    # Fallback to the shell extractor if LoadImage rejects a particular ICO encoding.
+    if not small or not big:
+        try:
+            shell32=ctypes.windll.shell32
+            fn=shell32.ExtractIconExW
+            fn.argtypes=[wintypes.LPCWSTR,ctypes.c_int,ctypes.POINTER(wintypes.HICON),ctypes.POINTER(wintypes.HICON),wintypes.UINT]
+            fn.restype=wintypes.UINT
+            large=wintypes.HICON();small2=wintypes.HICON()
+            if fn(str(icon),0,ctypes.byref(large),ctypes.byref(small2),1):
+                if not small and small2: small=small2
+                if not big and large: big=large
+        except Exception:
+            pass
+    if small: SendMessageW(hwnd,WM_SETICON,0,int(small))
+    if big: SendMessageW(hwnd,WM_SETICON,1,int(big))
+    # Also set class defaults for shell redraws/minimize/restore.
+    try:
+        setter=user32.SetClassLongPtrW if ctypes.sizeof(ctypes.c_void_p)==8 else user32.SetClassLongW
+        setter.argtypes=[wintypes.HWND,ctypes.c_int,ctypes.c_ssize_t if ctypes.sizeof(ctypes.c_void_p)==8 else wintypes.LONG]
+        if small: setter(hwnd,-34,int(small))
+        if big: setter(hwnd,-14,int(big))
+    except Exception:
+        pass
+    got_small=int(SendMessageW(hwnd,0x007F,0,0) or 0)
+    got_big=int(SendMessageW(hwnd,0x007F,1,0) or 0)
+    handles=[h for h in (small,big) if h]
+    window._turto_verified_icon_handles=getattr(window,'_turto_verified_icon_handles',[])+handles
+    return got_small,got_big
+
+
+def install_window_icon(window,root):
+    if sys.platform!='win32': return
+    root=Path(root).resolve()
+    def apply():
+        try: apply_window_icon_now(window,root)
+        except Exception: pass
+    for ms in (0,80,250,700,1500,3000):
+        try: window.after(ms,apply)
+        except Exception: pass
+    for seq in ('<Map>','<Visibility>'):
+        try: window.bind(seq,lambda _e: window.after_idle(apply),add='+')
+        except Exception: pass
