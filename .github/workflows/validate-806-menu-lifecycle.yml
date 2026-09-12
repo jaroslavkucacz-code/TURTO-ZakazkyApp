@@ -1,32 +1,38 @@
-name: Validate TURTO CRM 8.0.6 menu lifecycle
+name: Validate TURTO CRM 8.0.6 cleanup
 on:
   pull_request:
     paths:
       - 'ZakazkyApp_base_6.1/v740_offer_defaults.py'
       - 'ZakazkyApp_base_6.1/v750_context_filters_offer_format.py'
+      - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/context_menu_lifecycle.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/startup_optimization.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/action_archive_cleanup_806.py'
       - 'scripts/validate-806-menu-lifecycle.py'
       - 'scripts/validate-806-startup-reassertions.py'
+      - 'scripts/validate-806-action-archive-single-pass.py'
       - '.github/workflows/validate-806-menu-lifecycle.yml'
   push:
     branches: [main]
     paths:
       - 'ZakazkyApp_base_6.1/v740_offer_defaults.py'
       - 'ZakazkyApp_base_6.1/v750_context_filters_offer_format.py'
+      - 'ZakazkyApp_base_6.1/runtime_bootstrap.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/context_menu_lifecycle.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/startup_optimization.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/action_archive_cleanup_806.py'
       - 'scripts/validate-806-menu-lifecycle.py'
       - 'scripts/validate-806-startup-reassertions.py'
+      - 'scripts/validate-806-action-archive-single-pass.py'
       - '.github/workflows/validate-806-menu-lifecycle.yml'
 permissions:
   contents: read
 jobs:
-  windows-menu-lifecycle:
+  windows-cleanup:
     runs-on: windows-latest
-    timeout-minutes: 14
+    timeout-minutes: 16
     env:
       PYTHONIOENCODING: utf-8
       TURTO_DISABLE_AUTO_UPDATE: '1'
@@ -62,6 +68,14 @@ jobs:
           $env:TURTO_CRM_806_REASSERT_RESULT = Join-Path $env:RUNNER_TEMP 'turto-806-startup-reassertions.json'
           python scripts/validate-806-startup-reassertions.py
           if ($LASTEXITCODE -ne 0) { throw 'Startup reassertion coalescing regression' }
+      - name: Verify single-pass Příležitosti archive visibility
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-806-action-archive-data'
+          $env:TURTO_CRM_806_ARCHIVE_RESULT = Join-Path $env:RUNNER_TEMP 'turto-806-action-archive.json'
+          python scripts/validate-806-action-archive-single-pass.py
+          if ($LASTEXITCODE -ne 0) { throw 'Příležitosti archive single-pass regression' }
       - name: Verify full runtime menu ownership after delayed startup passes
         shell: pwsh
         run: |
@@ -94,10 +108,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TURTO-CRM-806-menu-verification
+          name: TURTO-CRM-806-cleanup-verification
           path: |
             ${{ runner.temp }}/turto-806-menu-parity.json
             ${{ runner.temp }}/turto-806-startup-reassertions.json
+            ${{ runner.temp }}/turto-806-action-archive.json
             ${{ runner.temp }}/turto-806-menu-runtime.json
             ${{ runner.temp }}/turto-806-visual-contract.json
             ${{ runner.temp }}/turto-806-startup.json
