@@ -1,0 +1,8 @@
+{
+  "app_id": "cz.turto.mesicni-prehledy",
+  "version": "0.2.5",
+  "minimum_version": "0.2.4",
+  "previous_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/2e0aeeced0346c3988161dcdfed1fe4fb1d7d6c9/releases/0.2.4/TURTO_update_0.2.4.zip",
+  "previous_sha256": "5775b264ef1b5777b78475cfe2a5fceed9f25dc34193d291acfdcaa7bacefc25",
+  "notes": "Oprava Windows ikony po ověření na 0.2.4: aplikace nově nastavuje ikonu na skutečný top-level HWND přes GA_ROOT, současně nastavuje WM_SETICON i class icon a ikonu znovu aplikuje po namapování/maximalizaci okna. Databáze a nastavení zůstávají zachované."
+}
