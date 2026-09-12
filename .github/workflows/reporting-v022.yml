@@ -1,0 +1,78 @@
+name: Publish verified reporting 0.2.2
+on:
+  push:
+    branches: [mesicni-prehledy-stable]
+    paths: ['release_payloads/0.2.2/ready.json']
+permissions:
+  contents: write
+concurrency:
+  group: reporting-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Verify every byte and compile program before publication
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, io, json, pathlib, re, zipfile
+          root = pathlib.Path('release_payloads/0.2.2')
+          ready = json.loads((root/'ready.json').read_text(encoding='utf-8'))
+          assert ready['app_id'] == 'cz.turto.mesicni-prehledy'
+          assert ready['version'] == '0.2.2'
+          parts = []
+          for record in ready['chunks']:
+              name = record['name']
+              assert re.fullmatch(r'part_[0-9]{3}\.txt', name)
+              part = (root/name).read_bytes()
+              assert hashlib.sha256(part).hexdigest() == record['sha256'], name
+              parts.append(part.decode('ascii'))
+          data = base64.b64decode(''.join(parts), validate=True)
+          assert len(data) == ready['bytes']
+          assert hashlib.sha256(data).hexdigest() == ready['sha256']
+          with zipfile.ZipFile(io.BytesIO(data)) as z:
+              assert z.testzip() is None
+              spec = json.loads(z.read('package_files.json'))
+              assert spec['version'] == ready['version']
+              assert spec['app_id'] == ready['app_id']
+              assert set(z.namelist()) == set(spec['files']) | {'package_files.json'}
+              assert 'app.pyw' in spec['files']
+              for name, digest in spec['files'].items():
+                  path = pathlib.PurePosixPath(name)
+                  assert not path.is_absolute() and '..' not in path.parts
+                  assert ':' not in name and '\\' not in name
+                  assert path.parts[0] not in ('data', 'imports', 'exports', 'backup', 'assets')
+                  assert path.name != 'config.json'
+                  blob = z.read(name)
+                  assert hashlib.sha256(blob).hexdigest() == digest, name
+                  if path.suffix in ('.py', '.pyw'):
+                      compile(blob, name, 'exec')
+              assert b"APP_VERSION = '0.2.2'" in z.read('src/constants.py')
+              assert b'patch_v020' not in z.read('app.pyw')
+          target = pathlib.Path('releases/0.2.2/TURTO_update_0.2.2.zip')
+          target.parent.mkdir(parents=True, exist_ok=True)
+          target.write_bytes(data)
+          print('Verified:', len(data), 'bytes;', len(spec['files']), 'files;', ready['sha256'])
+          PY
+      - name: Publish immutable package, then manifest
+        shell: bash
+        run: |
+          git config user.name 'TURTO Release Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add releases/0.2.2/TURTO_update_0.2.2.zip
+          git diff --cached --quiet || git commit -m 'Build verified reporting 0.2.2 ZIP'
+          export PACKAGE_COMMIT=$(git rev-parse HEAD)
+          python3 - <<'PY'
+          import json, os, pathlib
+          r = json.loads(pathlib.Path('release_payloads/0.2.2/ready.json').read_text(encoding='utf-8'))
+          manifest = {k:r[k] for k in ('app_id','version','minimum_version','sha256','notes')}
+          manifest['channel'] = 'stable'
+          manifest['url'] = 'https://raw.githubusercontent.com/' + os.environ['GITHUB_REPOSITORY'] + '/' + os.environ['PACKAGE_COMMIT'] + '/releases/0.2.2/TURTO_update_0.2.2.zip'
+          pathlib.Path('update_manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+          PY
+          git add update_manifest.json
+          git diff --cached --quiet || git commit -m 'Publish verified reporting 0.2.2 stable manifest'
+          git push origin HEAD:mesicni-prehledy-stable
