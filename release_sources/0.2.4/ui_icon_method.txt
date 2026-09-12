@@ -11,7 +11,7 @@
             pass
         self._app_icon_images=[]
         try:
-            for size in (16,20,24,32,40,48,64,128,256):
+            for size in (16,20,24,32,40,48,64):
                 p=assets / f'app_icon_{size}.png'
                 if p.exists():
                     self._app_icon_images.append(tk.PhotoImage(file=str(p)))
