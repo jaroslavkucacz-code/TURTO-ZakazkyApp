@@ -1,0 +1,8 @@
+TURTO – Měsíční přehledy v0.2.4
+
+- Oprava ikony ve Windows titulku, Alt+Tab a na hlavním panelu.
+- Nový skutečný vícerozměrový ICO soubor: 16/20/24/32/40/48/64/128/256 px.
+- Tk dostává samostatné PNG varianty jednotlivých velikostí.
+- Windows navíc dostává malou i velkou ikonu přes WM_SETICON.
+- Zástupce se při startu znovu vytvoří a obnoví se shell cache ikon.
+- Beze změny databáze, importů, exportů a nastavení.
