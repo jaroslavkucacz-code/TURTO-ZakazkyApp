@@ -170,6 +170,18 @@ def _source_root(package: Path, temp_root: Path) -> Path:
     return temp_root
 
 
+def _allowed_offer_engine_source(path: Path, root: Path) -> bool:
+    """Allow only the physical Python sources required by the frozen Offer Engine."""
+    if path.suffix.lower() not in {".py", ".pyw"}:
+        return False
+    try:
+        rel = path.relative_to(root)
+    except ValueError:
+        return False
+    parts = tuple(part.casefold() for part in rel.parts)
+    return len(parts) >= 3 and parts[0] == "_internal" and parts[1] == "offers_engine"
+
+
 def _validate_release(
     target: Path,
     expected_version: str | None = None,
@@ -204,7 +216,10 @@ def _validate_release(
             if installed:
                 continue
             raise RuntimeError("Windows payload nesmí přepisovat Inno Setup odinstalační metadata.")
-        if path.suffix.lower() in FORBIDDEN_PAYLOAD_SUFFIXES:
+        if (
+            path.suffix.lower() in FORBIDDEN_PAYLOAD_SUFFIXES
+            and not _allowed_offer_engine_source(path, target)
+        ):
             raise RuntimeError(f"Windows payload obsahuje nepovolený soubor: {path.name}")
         if path.name.casefold() in {
             "requirements.txt",
