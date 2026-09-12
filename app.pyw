@@ -24,6 +24,12 @@ try:
         from patch_v019 import apply_patch
         apply_patch(ROOT)
 
+    # v0.2.0 sjednocuje hlavní graf, přidává podílové grafy a stabilizační opravy.
+    patch_file = ROOT / 'patch_v020.py'
+    if patch_file.exists():
+        from patch_v020 import apply_patch
+        apply_patch(ROOT)
+
     if sys.platform == 'win32':
         try:
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
