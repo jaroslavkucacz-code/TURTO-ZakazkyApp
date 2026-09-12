@@ -152,7 +152,7 @@ def prune_plexus_backfill_ids(M: Any, ids: list[int]) -> tuple[int, int]:
         unresolved = {int(row[0]) for row in rows}
     except Exception:
         return before, before
-n
+
     ids[:] = [value for value in unique if value in unresolved]
     return before, len(ids)
 
