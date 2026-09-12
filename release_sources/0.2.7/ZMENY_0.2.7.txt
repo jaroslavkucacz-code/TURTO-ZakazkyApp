@@ -1,0 +1,7 @@
+TURTO – Měsíční přehledy v0.2.7
+
+- Oprava identity aplikace ve Windows Shell: zástupce se vytváří nativně přes IShellLink a ukládá skutečný AppUserModelID.
+- COM je před prací s property store explicitně inicializován; vlastnosti okna se zapisují přes systémový PROPVARIANT helper.
+- Zachována vícerozměrová ikona a nativní WM_SETICON.
+- Přidán lokální windows_identity.log pro ověření process/window/shortcut AppUserModelID a icon handles.
+- Aktualizátor odstraňuje staré .github/release artefakty a historické ZMENY soubory; data, importy, exporty a config.json zůstávají zachované.
