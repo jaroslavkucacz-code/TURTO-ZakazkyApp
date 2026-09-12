@@ -1,9 +1,9 @@
 {
   "app_id": "cz.turto.mesicni-prehledy",
-  "version": "0.2.5",
-  "minimum_version": "0.2.4",
-  "sha256": "21383520f323cd773ee1c1acfb2eb410816561e929d43d5068342716f3850015",
-  "notes": "Oprava Windows ikony po ověření na 0.2.4: aplikace nově nastavuje ikonu na skutečný top-level HWND přes GA_ROOT, současně nastavuje WM_SETICON i class icon a ikonu znovu aplikuje po namapování/maximalizaci okna. Databáze a nastavení zůstávají zachované.",
+  "version": "0.2.6",
+  "minimum_version": "0.2.5",
+  "sha256": "b715123b696527d3205a1707d33e250a0bb202222572d0f42ef1adea37ab37bb",
+  "notes": "Oprava ikony aktivního okna na hlavním panelu Windows: explicitní AppUserModelID a RelaunchIconResource přímo na Shell okně, stejné AppUserModelID na zástupcích. Aktualizace zároveň odstraňuje historické patch_v soubory a Python cache. Data a nastavení zůstávají zachované.",
   "channel": "stable",
-  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/af4cbce1887e247bb97dfe0a98fd3fbe130450ee/releases/0.2.5/TURTO_update_0.2.5.zip"
+  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/04c5969531f07ab86685bbb2f188a8178b6a00fa/releases/0.2.6/TURTO_update_0.2.6.zip"
 }
