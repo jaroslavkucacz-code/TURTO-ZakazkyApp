@@ -223,7 +223,12 @@ def main() -> None:
     assert "pricing_rule_source_snapshot" in layer
     assert "product_code=internal_code" in layer
     assert "name=internal_name" in layer
-    assert 'tree.bind("<Button-3>", popup, add=False)' in layer
+    # The binding moved to a shared lifecycle helper; the actual callbacks and
+    # menu contents are additionally compared with 8.0.5 in the real-Tk suite.
+    assert 'replace_context_menus(tree, "v740:offers", (header_menu, row_menu), popup)' in layer
+    lifecycle = (source / "price_lists_domain" / "platform" / "context_menu_lifecycle.py").read_text(encoding="utf-8")
+    assert '_SEQUENCE = "<Button-3>"' in lifecycle
+    assert 'command = tree.bind(_SEQUENCE, popup, add=False)' in lifecycle
     assert "Všichni dodavatelé" in layer
     assert "self.help_button" in layer
     assert "remove_columns_buttons(mivo)" in layer

@@ -1,6 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
 import sys
+import zipfile
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
@@ -32,6 +33,40 @@ for name in ("turto_logo.png", "turto_logo.ico", "turto_crm.png", "turto_crm.ico
     if path.is_file():
         datas.append((str(path), "."))
 datas += collect_data_files("price_lists_domain")
+
+# The legacy Offer Engine needs its parser sources as real files at runtime, but
+# the updater already shipped in TURTO CRM 8.0.5 deliberately rejects loose
+# .py/.pyw files in update payloads. Build one immutable internal archive instead;
+# the 8.0.6 frozen loader extracts it only into a process-private temp directory.
+offer_engine_root = BASE / "offers_engine"
+required_offer_sources = (
+    offer_engine_root / "Nabidky_Router.py",
+    offer_engine_root / "Leviat_Nabidky.pyw",
+    offer_engine_root / "Gerotop_Parser_767.py",
+    offer_engine_root / "providers" / "pohlcon.py",
+)
+missing_offer_sources = [str(path) for path in required_offer_sources if not path.is_file()]
+if missing_offer_sources:
+    raise RuntimeError(
+        "Required offer-engine source missing: " + ", ".join(missing_offer_sources)
+    )
+generated_dir = ROOT / "build" / "windows" / "_generated"
+generated_dir.mkdir(parents=True, exist_ok=True)
+offer_engine_bundle = generated_dir / "offers_engine_bundle.zip"
+with zipfile.ZipFile(
+    offer_engine_bundle,
+    "w",
+    compression=zipfile.ZIP_DEFLATED,
+    compresslevel=9,
+) as archive:
+    for source in sorted(offer_engine_root.rglob("*")):
+        if (
+            source.is_file()
+            and "__pycache__" not in source.parts
+            and source.suffix.lower() in {".py", ".pyw"}
+        ):
+            archive.write(source, source.relative_to(offer_engine_root).as_posix())
+datas.append((str(offer_engine_bundle), "."))
 
 # tkinterdnd2 ships native payloads for many platforms and architectures. TURTO
 # CRM 8.0 is a Windows x64 build, so include only the two x64 variants required

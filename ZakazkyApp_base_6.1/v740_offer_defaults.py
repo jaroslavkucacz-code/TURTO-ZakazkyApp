@@ -51,6 +51,9 @@ def apply(M) -> None:
     try:
         from price_lists_domain.issued_offers import editor as issued_editor
         from price_lists_domain.issued_offers import service
+        from price_lists_domain.platform.context_menu_lifecycle import (
+            reuse_context_menus, replace_context_menus,
+        )
         from price_lists_domain.platform import commercial_workspace
         import v710_cleanup
     except Exception:
@@ -1761,6 +1764,12 @@ def apply(M) -> None:
         except Exception:
             pass
 
+        if reuse_context_menus(tree, "v740:offers", (
+            getattr(tree, "_v740_header_menu", None),
+            getattr(tree, "_v740_row_menu", None),
+        )):
+            return
+
         header_menu = M.tk.Menu(tree, tearoff=False)
         header_menu.add_command(
             label="Nastavit zobrazené sloupce…",
@@ -1848,7 +1857,7 @@ def apply(M) -> None:
                     pass
             return "break"
 
-        tree.bind("<Button-3>", popup, add=False)
+        replace_context_menus(tree, "v740:offers", (header_menu, row_menu), popup)
         tree._v740_header_menu = header_menu
         tree._v740_row_menu = row_menu
         tree._v740_context_owner = True
