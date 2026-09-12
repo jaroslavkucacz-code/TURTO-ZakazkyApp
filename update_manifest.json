@@ -1,9 +1,9 @@
 {
   "app_id": "cz.turto.mesicni-prehledy",
-  "version": "0.2.2",
-  "minimum_version": "0.2.1",
-  "sha256": "91d91a3f7496af44c27a343871f004a1b50479b051f2c54139051885b26a9051",
-  "notes": "Rozšířený PDF report s více grafy a tabulkami, kontrolou dostupnosti dat a 24 největšími DL. Opravy popisků a měřítek grafů, záporných/chybějících hodnot, dlouhých názvů a menších oken. Ověřovaný ZIP místo startovacích patchů; data a nastavení zůstávají zachované.",
+  "version": "0.2.3",
+  "minimum_version": "0.2.2",
+  "sha256": "7169f8c0c94210e64223c2547f9a29e88ae7c16f79a69cc7e7cb7a02b4dac077",
+  "notes": "Oprava balení oficiální ikony TURTO. Ikona je nově součástí online aktualizace pro hlavní okno, Alt+Tab, hlavní panel Windows, branding aplikace a zástupce. Databáze, importy, exporty a nastavení zůstávají zachované.",
   "channel": "stable",
-  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/64b7c4c8f514477ca29927c4b222f26c77a5b0ee/releases/0.2.2/TURTO_update_0.2.2.zip"
+  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/bf672a354b4ca84940a161d39a3c358e1a33fa40/releases/0.2.3/TURTO_update_0.2.3.zip"
 }
