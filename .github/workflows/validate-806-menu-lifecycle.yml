@@ -5,8 +5,10 @@ on:
       - 'ZakazkyApp_base_6.1/v740_offer_defaults.py'
       - 'ZakazkyApp_base_6.1/v750_context_filters_offer_format.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/context_menu_lifecycle.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/startup_optimization.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py'
       - 'scripts/validate-806-menu-lifecycle.py'
+      - 'scripts/validate-806-startup-reassertions.py'
       - '.github/workflows/validate-806-menu-lifecycle.yml'
   push:
     branches: [main]
@@ -14,15 +16,17 @@ on:
       - 'ZakazkyApp_base_6.1/v740_offer_defaults.py'
       - 'ZakazkyApp_base_6.1/v750_context_filters_offer_format.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/context_menu_lifecycle.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/startup_optimization.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py'
       - 'scripts/validate-806-menu-lifecycle.py'
+      - 'scripts/validate-806-startup-reassertions.py'
       - '.github/workflows/validate-806-menu-lifecycle.yml'
 permissions:
   contents: read
 jobs:
   windows-menu-lifecycle:
     runs-on: windows-latest
-    timeout-minutes: 12
+    timeout-minutes: 14
     env:
       PYTHONIOENCODING: utf-8
       TURTO_DISABLE_AUTO_UPDATE: '1'
@@ -50,6 +54,14 @@ jobs:
       - name: Install runtime dependencies
         shell: pwsh
         run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+      - name: Verify coalesced startup UI reassertions
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:TURTO_CRM_DATA_ROOT = Join-Path $env:RUNNER_TEMP 'turto-806-reassert-data'
+          $env:TURTO_CRM_806_REASSERT_RESULT = Join-Path $env:RUNNER_TEMP 'turto-806-startup-reassertions.json'
+          python scripts/validate-806-startup-reassertions.py
+          if ($LASTEXITCODE -ne 0) { throw 'Startup reassertion coalescing regression' }
       - name: Verify full runtime menu ownership after delayed startup passes
         shell: pwsh
         run: |
@@ -85,6 +97,7 @@ jobs:
           name: TURTO-CRM-806-menu-verification
           path: |
             ${{ runner.temp }}/turto-806-menu-parity.json
+            ${{ runner.temp }}/turto-806-startup-reassertions.json
             ${{ runner.temp }}/turto-806-menu-runtime.json
             ${{ runner.temp }}/turto-806-visual-contract.json
             ${{ runner.temp }}/turto-806-startup.json
