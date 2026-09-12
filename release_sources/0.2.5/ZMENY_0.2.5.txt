@@ -1,0 +1,7 @@
+TURTO – Měsíční přehledy v0.2.5
+
+- Oprava titulkové a taskbar ikony na Windows/Tkinter.
+- Ikona se aplikuje na skutečný top-level HWND (GA_ROOT), ne jen na vnitřní Tk okno.
+- Nastavení WM_SETICON i class icon pro malou a velkou variantu.
+- Opakovaná aplikace po namapování a maximalizaci okna.
+- Beze změny databáze, importů, exportů a nastavení.
