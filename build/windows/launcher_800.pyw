@@ -122,6 +122,32 @@ def _validate_frozen_tkdnd_payload() -> list[str]:
     return variants
 
 
+def _validate_offer_engine_payload(app) -> list[str]:
+    """Load the real router and require the principal frozen supplier parsers."""
+    router = app._load_offer_router()
+    parser_rows = router.parsers()
+    suppliers = sorted(
+        {
+            str(row.get("supplier") or "").strip()
+            for row in parser_rows
+            if isinstance(row, dict) and str(row.get("supplier") or "").strip()
+        }
+    )
+    joined = "\n".join(suppliers).casefold()
+    required = {
+        "GEROtop": "gerotop",
+        "Leviat": "leviat",
+        "PohlCon": "pohlcon",
+    }
+    missing = [label for label, marker in required.items() if marker not in joined]
+    if missing:
+        raise RuntimeError(
+            "Offer Engine neobsahuje povinné parsery: " + ", ".join(missing)
+            + "; dostupné: " + ", ".join(suppliers)
+        )
+    return suppliers
+
+
 _smoke_checkpoint("launcher-start")
 
 import data_location
@@ -172,6 +198,7 @@ if not _baseline_schema_ready(app):
 
 _run_phase("runtime-apply", lambda: runtime_bootstrap.apply_all(app))
 _run_phase("exe-policy", lambda: exe_distribution.apply(app))
+offer_parsers = _run_phase("offer-engine", lambda: _validate_offer_engine_payload(app))
 
 # Final idempotent schema/migration passes preserve the proven legacy startup
 # sequence while keeping a new 8.0 installation self-contained.
@@ -209,6 +236,7 @@ if SMOKE_TEST:
                 "database": str(app.DB),
                 "tables": tables,
                 "tkdnd_variants": tkdnd_variants,
+                "offer_parsers": offer_parsers,
                 "frozen": bool(getattr(sys, "frozen", False)),
             },
             ensure_ascii=False,
