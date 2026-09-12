@@ -9,9 +9,13 @@ on:
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/startup_optimization.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/action_archive_cleanup_806.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/frozen_offer_engine_806.py'
+      - 'build/windows/TURTO_CRM.spec'
+      - 'build/windows/launcher_800.pyw'
       - 'scripts/validate-806-menu-lifecycle.py'
       - 'scripts/validate-806-startup-reassertions.py'
       - 'scripts/validate-806-action-archive-single-pass.py'
+      - 'scripts/validate-806-frozen-offer-engine.py'
       - '.github/workflows/validate-806-menu-lifecycle.yml'
   push:
     branches: [main]
@@ -23,9 +27,13 @@ on:
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/startup_optimization.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/ui_cleanup_793.py'
       - 'ZakazkyApp_base_6.1/price_lists_domain/platform/action_archive_cleanup_806.py'
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/frozen_offer_engine_806.py'
+      - 'build/windows/TURTO_CRM.spec'
+      - 'build/windows/launcher_800.pyw'
       - 'scripts/validate-806-menu-lifecycle.py'
       - 'scripts/validate-806-startup-reassertions.py'
       - 'scripts/validate-806-action-archive-single-pass.py'
+      - 'scripts/validate-806-frozen-offer-engine.py'
       - '.github/workflows/validate-806-menu-lifecycle.yml'
 permissions:
   contents: read
@@ -60,6 +68,12 @@ jobs:
       - name: Install runtime dependencies
         shell: pwsh
         run: python -m pip install -r ZakazkyApp_base_6.1/requirements.txt
+      - name: Verify frozen Offer Engine loader and package contract
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python scripts/validate-806-frozen-offer-engine.py
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen Offer Engine contract regression' }
       - name: Verify coalesced startup UI reassertions
         shell: pwsh
         run: |
