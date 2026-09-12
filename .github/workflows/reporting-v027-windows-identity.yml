@@ -45,7 +45,7 @@ jobs:
           (stage/'src/windows_identity_fix.py').write_text((root/'windows_identity_fix.py.txt').read_text(encoding='utf-8'),encoding='utf-8')
           (stage/'update_installer.py').write_text((root/'update_installer.py.txt').read_text(encoding='utf-8'),encoding='utf-8')
           # Windows LoadImage/Tk are more reliable with classic BMP/DIB ICO frames.
-          icon_src=Image.open(stage/'assets/app_icon_256.png').convert('RGBA')
+          icon_src=Image.open(stage/'assets/app_icon_64.png').convert('RGBA')
           icon_src.save(stage/'assets/app_icon.ico',format='ICO',sizes=[(16,16),(20,20),(24,24),(32,32),(40,40),(48,48),(64,64)],bitmap_format='bmp')
           note=(root/'ZMENY_0.2.7.txt').read_text(encoding='utf-8')
           for f in stage.glob('ZMENY_*.txt'): f.unlink()
@@ -99,7 +99,7 @@ jobs:
           assert old in s;s=s.replace(old,new);p.write_text(s,encoding='utf-8')
           (stage/'src/windows_identity_fix.py').write_text((root/'windows_identity_fix.py.txt').read_text(encoding='utf-8'),encoding='utf-8')
           (stage/'update_installer.py').write_text((root/'update_installer.py.txt').read_text(encoding='utf-8'),encoding='utf-8')
-          icon_src=Image.open(stage/'assets/app_icon_256.png').convert('RGBA')
+          icon_src=Image.open(stage/'assets/app_icon_64.png').convert('RGBA')
           icon_src.save(stage/'assets/app_icon.ico',format='ICO',sizes=[(16,16),(20,20),(24,24),(32,32),(40,40),(48,48),(64,64)],bitmap_format='bmp')
           note=(root/'ZMENY_0.2.7.txt').read_text(encoding='utf-8')
           for f in stage.glob('ZMENY_*.txt'): f.unlink()
