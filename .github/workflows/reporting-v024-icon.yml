@@ -1,0 +1,137 @@
+name: Publish reporting 0.2.4 Windows icon fix
+on:
+  push:
+    branches: [mesicni-prehledy-stable]
+    paths: ['release_sources/0.2.4/ready.json']
+permissions:
+  contents: write
+concurrency:
+  group: reporting-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build and verify 0.2.4 update
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, io, json, pathlib, re, struct, urllib.request, zipfile
+          root = pathlib.Path('release_sources/0.2.4')
+          ready = json.loads((root/'ready.json').read_text(encoding='utf-8'))
+          assert ready['app_id'] == 'cz.turto.mesicni-prehledy'
+          assert ready['version'] == '0.2.4'
+
+          with urllib.request.urlopen(ready['previous_url'], timeout=30) as r:
+              previous = r.read()
+          assert hashlib.sha256(previous).hexdigest() == ready['previous_sha256']
+
+          stage = pathlib.Path('_release_024')
+          stage.mkdir(exist_ok=True)
+          with zipfile.ZipFile(io.BytesIO(previous)) as z:
+              assert z.testzip() is None
+              z.extractall(stage)
+
+          constants = stage/'src/constants.py'
+          text = constants.read_text(encoding='utf-8')
+          text, n = re.subn(r"APP_VERSION = '[^']+'", "APP_VERSION = '0.2.4'", text, count=1)
+          assert n == 1
+          constants.write_text(text, encoding='utf-8')
+
+          ui = stage/'src/ui.py'
+          text = ui.read_text(encoding='utf-8')
+          start = text.index('    def _apply_app_icon(self):')
+          end = text.index('\n    def _setup_ttk(self):', start)
+          method = (root/'ui_icon_method.txt').read_text(encoding='utf-8').rstrip('\n')
+          text = text[:start] + method + text[end:]
+          ui.write_text(text, encoding='utf-8')
+
+          (stage/'src/windows_integration.py').write_text((root/'windows_integration.py.txt').read_text(encoding='utf-8'), encoding='utf-8')
+
+          sizes = (16,20,24,32,40,48,64,128,256)
+          pngs = []
+          for size in sizes:
+              raw = base64.b64decode((root/f'assets/app_icon_{size}.png.b64').read_text(encoding='ascii'), validate=True)
+              assert raw.startswith(b'\x89PNG\r\n\x1a\n')
+              assert struct.unpack('>II', raw[16:24]) == (size,size)
+              dst = stage/f'assets/app_icon_{size}.png'
+              dst.parent.mkdir(parents=True, exist_ok=True)
+              dst.write_bytes(raw)
+              pngs.append((size,raw))
+
+          offset = 6 + 16*len(pngs)
+          entries = []
+          bodies = []
+          for size, raw in pngs:
+              wh = 0 if size == 256 else size
+              entries.append(struct.pack('<BBBBHHII', wh, wh, 0, 0, 1, 32, len(raw), offset))
+              bodies.append(raw)
+              offset += len(raw)
+          ico = struct.pack('<HHH',0,1,len(pngs)) + b''.join(entries) + b''.join(bodies)
+          (stage/'assets/app_icon.ico').write_bytes(ico)
+
+          note = (root/'ZMENY_0.2.4.txt').read_text(encoding='utf-8')
+          (stage/'ZMENY_0.2.4.txt').write_text(note,encoding='utf-8')
+          changelog = stage/'CHANGELOG.txt'
+          changelog.write_text(note.rstrip()+'\n\n'+changelog.read_text(encoding='utf-8'),encoding='utf-8')
+
+          actual = sorted(p.relative_to(stage).as_posix() for p in stage.rglob('*') if p.is_file() and p.name != 'package_files.json')
+          files = {rel:hashlib.sha256((stage/rel).read_bytes()).hexdigest() for rel in actual}
+          spec = {'app_id':ready['app_id'],'version':ready['version'],'files':files}
+          (stage/'package_files.json').write_text(json.dumps(spec,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+
+          for rel in actual:
+              path = pathlib.PurePosixPath(rel)
+              assert not path.is_absolute() and '..' not in path.parts and ':' not in rel and '\\' not in rel
+              assert path.parts[0] not in ('data','imports','exports','backup') and path.name != 'config.json'
+              data=(stage/rel).read_bytes()
+              assert hashlib.sha256(data).hexdigest()==files[rel]
+              if path.suffix in ('.py','.pyw'):
+                  compile(data,rel,'exec')
+          assert b"APP_VERSION = '0.2.4'" in constants.read_bytes()
+          assert len(ico) > 50000 and ico[:4] == b'\x00\x00\x01\x00'
+
+          all_names = actual + ['package_files.json']
+          buffer=io.BytesIO()
+          with zipfile.ZipFile(buffer,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:
+              for rel in sorted(all_names):
+                  info=zipfile.ZipInfo(rel,date_time=(2026,9,12,21,45,0))
+                  info.compress_type=zipfile.ZIP_DEFLATED
+                  info.external_attr=0o100644<<16
+                  z.writestr(info,(stage/rel).read_bytes())
+              assert z.testzip() is None
+          data=buffer.getvalue()
+          target=pathlib.Path('releases/0.2.4/TURTO_update_0.2.4.zip')
+          target.parent.mkdir(parents=True,exist_ok=True)
+          target.write_bytes(data)
+          pathlib.Path('_release_024_sha.txt').write_text(hashlib.sha256(data).hexdigest(),encoding='ascii')
+          print('Verified 0.2.4 ZIP:',len(data),hashlib.sha256(data).hexdigest())
+          PY
+      - name: Publish immutable package, then stable manifest
+        shell: bash
+        run: |
+          git config user.name 'TURTO Release Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add releases/0.2.4/TURTO_update_0.2.4.zip
+          git diff --cached --quiet || git commit -m 'Build verified TURTO reporting 0.2.4 package'
+          export PACKAGE_COMMIT=$(git rev-parse HEAD)
+          export PACKAGE_SHA=$(cat _release_024_sha.txt)
+          python3 - <<'PY'
+          import json, os, pathlib
+          ready=json.loads(pathlib.Path('release_sources/0.2.4/ready.json').read_text(encoding='utf-8'))
+          manifest={
+              'app_id':ready['app_id'],
+              'version':ready['version'],
+              'minimum_version':ready['minimum_version'],
+              'sha256':os.environ['PACKAGE_SHA'],
+              'notes':ready['notes'],
+              'channel':'stable',
+              'url':'https://raw.githubusercontent.com/'+os.environ['GITHUB_REPOSITORY']+'/'+os.environ['PACKAGE_COMMIT']+'/releases/0.2.4/TURTO_update_0.2.4.zip',
+          }
+          pathlib.Path('update_manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+          git add update_manifest.json
+          git diff --cached --quiet || git commit -m 'Publish TURTO reporting 0.2.4 stable manifest'
+          git push origin HEAD:mesicni-prehledy-stable
