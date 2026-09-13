@@ -1,0 +1,10 @@
+TURTO – Měsíční přehledy 1.0.1
+
+- Přechod na standardní Windows instalaci přes Inno Setup.
+- Instalace pouze pro aktuálního uživatele do %LOCALAPPDATA%\Programs\TURTO Mesicni Prehledy.
+- Bez požadavku na administrátorská práva (PrivilegesRequired=lowest), stejně jako u TURTO CRM.
+- Nativní TURTO_Mesicni_Prehledy.exe s vlastní ikonou; Python není pro běžný provoz potřeba.
+- Samostatný nainstalovaný updater, který se nespouští z náhodné dočasné EXE cesty.
+- Databáze, config.json, importy, exporty a zálohy jsou oddělené od programu v %LOCALAPPDATA%\TURTO\MesicniPrehledy.
+- Automatická migrace stávajících dat při přechodu z 0.2.8.
+- Odinstalace programu neodstraňuje firemní databázi ani uživatelská data.
