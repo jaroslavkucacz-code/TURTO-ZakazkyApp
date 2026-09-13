@@ -257,8 +257,16 @@ def main() -> None:
         assert "def _download_windows_package" in exe_policy
         assert "actual_sha != expected_sha" in exe_policy
         assert "M._turto_windows_expected_update_sha256" in exe_policy
-        assert "tempfile.mkdtemp" in exe_policy
-        assert "shutil.copy2(installed_updater, temp_updater)" in exe_policy
+        assert '_UPDATER_STAGE_DIR = "UpdaterRuntime"' in exe_policy
+        assert "def _updater_stage_root" in exe_policy
+        assert 'Path(local) / "TURTO CRM" / _UPDATER_STAGE_DIR' in exe_policy
+        assert "def _cleanup_stale_legacy_updaters" in exe_policy
+        assert "def _prepare_updater_stage" in exe_policy
+        assert "expected != actual" in exe_policy
+        assert "_UPDATER_HEALTH_DELAY_MS = 800" in exe_policy
+        assert "process.poll()" in exe_policy
+        assert "tempfile.mkdtemp" not in exe_policy
+        assert "shutil.copy2(installed_updater, staged)" in exe_policy
         assert "M._download_update_package = download_package" in exe_policy
 
         updater = (repo / "build" / "windows" / "updater_800.pyw").read_text(encoding="utf-8")
