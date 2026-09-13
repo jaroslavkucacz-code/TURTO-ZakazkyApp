@@ -4,5 +4,6 @@
   "minimum_version": "0.2.7",
   "previous_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/6e846d72b7b80ce40db314494378b089403579d0/releases/0.2.8/TURTO_update_0.2.8.zip",
   "previous_sha256": "a9249beee1a3f8cbef336df10c04517f00ca25fea90285ed9f05952d8ffed533",
-  "notes": "TURTO – Měsíční přehledy 1.0: první nativní Windows vydání. Program se po aktualizaci spouští jako TURTO_Mesicni_Prehledy.exe, nikoli jako pythonw.exe; vlastní TURTO ikona je vložena přímo do EXE. Python už není pro běžný provoz potřeba. Databáze, importy, exporty, zálohy a config.json zůstávají zachované."
+  "notes": "TURTO – Měsíční přehledy 1.0: první nativní Windows vydání. Program se po aktualizaci spouští jako TURTO_Mesicni_Prehledy.exe, nikoli jako pythonw.exe; vlastní TURTO ikona je vložena přímo do EXE. Python už není pro běžný provoz potřeba. Databáze, importy, exporty, zálohy a config.json zůstávají zachované.",
+  "build_request": 1
 }
