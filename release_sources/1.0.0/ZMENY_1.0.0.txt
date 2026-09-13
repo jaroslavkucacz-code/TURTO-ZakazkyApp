@@ -1,0 +1,9 @@
+TURTO – Měsíční přehledy 1.0.0
+
+- První nativní Windows vydání programu.
+- Program běží jako TURTO_Mesicni_Prehledy.exe, nikoli jako pythonw.exe.
+- Vlastní TURTO ikona je vložena přímo do EXE a používá se na hlavním panelu, v Alt+Tab i ve Správci úloh.
+- Pro běžný provoz už není potřeba lokální instalace Pythonu ani balíčků pip.
+- Zachována stávající databáze, importy, exporty, zálohy, config.json i online aktualizace.
+- Online aktualizátor je připraven i pro další nativní verze prostřednictvím odděleného TURTO_Update_Helper.exe.
+- Windows integrace ikony byla zjednodušena; kosmetická chyba ikony už nemůže shodit hlavní UI.
