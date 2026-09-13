@@ -1,0 +1,97 @@
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import sys
+import time
+import traceback
+from datetime import datetime
+from pathlib import Path
+
+MAIN_EXE = 'TURTO_Mesicni_Prehledy.exe'
+UPDATER_EXE = 'TURTO_Mesicni_Prehledy_Updater.exe'
+
+
+def _copy_tree_transaction(source: Path, target: Path) -> Path:
+    from src.release_safety import validate_folder
+
+    spec = validate_folder(source)
+    backup = target/'backup_app'/('app_'+datetime.now().strftime('%Y%m%d_%H%M%S_%f'))
+    backup.mkdir(parents=True, exist_ok=True)
+
+    protected_names = {'data', 'imports', 'exports', 'backup', 'backup_app', 'config.json'}
+    copied = []
+    try:
+        for rel in ('_internal', 'assets', MAIN_EXE):
+            src = target/rel
+            if not src.exists():
+                continue
+            dst = backup/rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if src.is_dir():
+                shutil.copytree(src, dst)
+            else:
+                shutil.copy2(src, dst)
+
+        if (target/'_internal').exists():
+            shutil.rmtree(target/'_internal', ignore_errors=True)
+        if (target/'assets').exists():
+            shutil.rmtree(target/'assets', ignore_errors=True)
+
+        for rel in sorted(spec['files']):
+            if rel == UPDATER_EXE:
+                continue
+            p = Path(rel)
+            if p.parts and p.parts[0] in protected_names:
+                continue
+            src = source/rel
+            dst = target/rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            staged = dst.with_name(dst.name+'.turto-new')
+            shutil.copy2(src, staged)
+            os.replace(staged, dst)
+            copied.append(rel)
+
+        if not (target/MAIN_EXE).exists():
+            raise RuntimeError('Po aktualizaci chybí hlavní TURTO aplikace.')
+        return backup
+    except Exception:
+        try:
+            if (backup/'_internal').exists():
+                shutil.rmtree(target/'_internal', ignore_errors=True)
+                shutil.copytree(backup/'_internal', target/'_internal')
+            if (backup/'assets').exists():
+                shutil.rmtree(target/'assets', ignore_errors=True)
+                shutil.copytree(backup/'assets', target/'assets')
+            if (backup/MAIN_EXE).exists():
+                shutil.copy2(backup/MAIN_EXE, target/MAIN_EXE)
+        except Exception:
+            pass
+        raise
+
+
+def main() -> int:
+    if len(sys.argv) < 3:
+        return 2
+    source = Path(sys.argv[1]).resolve()
+    target = Path(sys.argv[2]).resolve()
+    time.sleep(2.0)
+    try:
+        _copy_tree_transaction(source, target)
+    except Exception:
+        try:
+            (target/'turto_update_error.log').write_text(traceback.format_exc(), encoding='utf-8')
+        except Exception:
+            pass
+        return 1
+    try:
+        subprocess.Popen([str(target/MAIN_EXE)], cwd=target,
+                         creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0) if sys.platform == 'win32' else 0)
+    except Exception:
+        return 3
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
