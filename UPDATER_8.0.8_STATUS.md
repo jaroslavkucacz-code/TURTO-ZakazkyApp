@@ -1,10 +1,9 @@
-# TURTO CRM 8.0.8 updater hotfix (work in progress)
+# TURTO CRM 8.0.8 updater hotfix — validation stage
 
-Based on main b614872eb09c03bb06eefc0999a01ca6da711bee (8.0.7).
-Core code is committed on hotfix-808-updater-safety, NOT released yet.
+Core and cancellation handling are committed on hotfix-808-updater-safety. Not released yet.
 
-Architecture: onedir updater without UPX; reuse verified working bundle; receipt stops recreation of missing/quarantined files; OS-owned lock; readiness handshake; non-destructive Windows process wait; stage and validate a complete installation before directory rename; keep old directory if rollback fails; do not change database location or ESET policy.
+New behavioral tests cover stage reuse/quarantine simulation, preflight/rename/rollback failures, real Windows file locks, live process waiting, cross-process locks, handshake cancellation, payload/hash validation and safe-channel separation. Windows CI builds the onedir application/updater and tests the exact installer, actual frozen update, rollback, repair install and uninstall with byte-level business-database checks. ESET itself is not available on the hosted runner; no ESET compatibility guarantee is made.
 
-Migration: first install 8.0.8 using official Setup. Do not move the old latest-windows.json channel off 8.0.7. New versions read latest-windows-v2.json. This prevents using the known-bad 8.0.7 updater to install its own fix.
+Migration: install 8.0.8 once with official Setup. The unsafe legacy latest-windows.json must remain on 8.0.7. New applications read latest-windows-v2.json.
 
-Still required: cancellation checks after handshake; behavioral source tests including Windows file locks; build/smoke workflow adaptation for onedir; successful frozen install/update/rollback/uninstall tests; publish release and safe manifest only after tests.
+Pending: successful CI results; publication workflow promoting the exact validated artifacts; release 8.0.8 and safe-channel manifest. Do not change main/update channels before successful verification.
