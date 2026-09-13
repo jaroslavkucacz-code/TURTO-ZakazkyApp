@@ -1,0 +1,134 @@
+from __future__ import annotations
+
+import base64
+import hashlib
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import traceback
+from pathlib import Path
+
+PAYLOAD_GLOB = 'setup_payload_*.py'
+PAYLOAD_META = 'setup_payload_meta.py'
+INSTALL_SUBDIR = Path('Programs') / 'TURTO Mesicni Prehledy'
+DATA_SUBDIR = Path('TURTO') / 'MesicniPrehledy'
+MAIN_EXE = 'TURTO_Mesicni_Prehledy.exe'
+
+
+def _local_appdata() -> Path:
+    value = str(os.environ.get('LOCALAPPDATA', '')).strip()
+    if value:
+        return Path(value)
+    return Path.home()/'AppData'/'Local'
+
+
+def _payload_text(path: Path) -> str:
+    text = path.read_text(encoding='ascii')
+    m = re.search(r'DATA\s*=\s*"""(.*?)"""', text, re.S)
+    if not m:
+        raise ValueError(f'Neplatná část instalačního balíčku: {path.name}')
+    return ''.join(m.group(1).split())
+
+
+def _decode_setup(source: Path) -> tuple[Path, Path]:
+    meta = source/'src'/PAYLOAD_META
+    chunks = sorted((source/'src').glob(PAYLOAD_GLOB))
+    if not meta.exists() or not chunks:
+        raise FileNotFoundError('V aktualizaci chybí instalační balíček TURTO 1.0.1.')
+    ns = {}
+    exec(compile(meta.read_bytes(), str(meta), 'exec'), ns)
+    expected_sha = str(ns.get('SETUP_SHA256', '')).lower()
+    expected_size = int(ns.get('SETUP_SIZE', 0) or 0)
+    if not re.fullmatch(r'[0-9a-f]{64}', expected_sha) or expected_size <= 0:
+        raise ValueError('Neplatná metadata instalačního balíčku.')
+
+    temp = Path(tempfile.mkdtemp(prefix='turto_setup_101_'))
+    setup = temp/'TURTO_Mesicni_Prehledy_Setup_1.0.1.exe'
+    digest = hashlib.sha256()
+    written = 0
+    with setup.open('wb') as f:
+        for chunk in chunks:
+            raw = base64.b64decode(_payload_text(chunk), validate=True)
+            digest.update(raw)
+            f.write(raw)
+            written += len(raw)
+    if written != expected_size or digest.hexdigest().lower() != expected_sha:
+        shutil.rmtree(temp, ignore_errors=True)
+        raise ValueError('Kontrolní součet instalátoru nesouhlasí.')
+    return temp, setup
+
+
+def _merge_dir(source: Path, destination: Path) -> None:
+    if not source.is_dir():
+        return
+    for item in source.rglob('*'):
+        rel = item.relative_to(source)
+        dst = destination/rel
+        if item.is_dir():
+            dst.mkdir(parents=True, exist_ok=True)
+            continue
+        if dst.exists():
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(item, dst)
+
+
+def _migrate_user_data(legacy_root: Path) -> Path:
+    data_root = _local_appdata()/DATA_SUBDIR
+    data_root.mkdir(parents=True, exist_ok=True)
+    for name in ('data', 'imports', 'exports', 'backup'):
+        _merge_dir(legacy_root/name, data_root/name)
+    legacy_cfg = legacy_root/'config.json'
+    new_cfg = data_root/'config.json'
+    if legacy_cfg.is_file() and not new_cfg.exists():
+        shutil.copy2(legacy_cfg, new_cfg)
+    return data_root
+
+
+def main() -> int:
+    if len(sys.argv) < 3:
+        return 2
+    source = Path(sys.argv[1]).resolve()
+    legacy_root = Path(sys.argv[2]).resolve()
+    temp = None
+    try:
+        data_root = _migrate_user_data(legacy_root)
+        temp, setup = _decode_setup(source)
+        install_root = _local_appdata()/INSTALL_SUBDIR
+        args = [
+            str(setup), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-',
+            f'/DIR={install_root}',
+        ]
+        proc = subprocess.run(args, cwd=temp, timeout=180)
+        if proc.returncode != 0:
+            raise RuntimeError(f'Instalátor skončil s kódem {proc.returncode}.')
+        exe = install_root/MAIN_EXE
+        if not exe.exists():
+            raise FileNotFoundError('Po instalaci nebyl nalezen TURTO_Mesicni_Prehledy.exe.')
+        try:
+            (legacy_root/'PRESUNUTO_NA_TURTO_1.0.1.txt').write_text(
+                'TURTO – Měsíční přehledy 1.0.1 bylo nainstalováno do:\n'
+                + str(install_root) + '\n\nUživatelská data jsou v:\n' + str(data_root) + '\n',
+                encoding='utf-8',
+            )
+        except Exception:
+            pass
+        subprocess.Popen([str(exe)], cwd=install_root,
+                         creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0) if sys.platform == 'win32' else 0)
+        return 0
+    except Exception:
+        try:
+            (legacy_root/'turto_update_error.log').write_text(traceback.format_exc(), encoding='utf-8')
+        except Exception:
+            pass
+        return 1
+    finally:
+        if temp is not None:
+            shutil.rmtree(temp, ignore_errors=True)
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
