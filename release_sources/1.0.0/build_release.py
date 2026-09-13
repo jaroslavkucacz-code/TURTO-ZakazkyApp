@@ -19,6 +19,11 @@ ROOT = pathlib.Path(__file__).resolve().parent
 REPO = ROOT.parents[1]
 
 
+def _check_zip(data: bytes) -> None:
+    with zipfile.ZipFile(io.BytesIO(data), 'r') as z:
+        assert z.testzip() is None
+
+
 def run() -> None:
     os.chdir(REPO)
     root = pathlib.Path('release_sources/1.0.0')
@@ -31,8 +36,8 @@ def run() -> None:
     previous_dir = pathlib.Path('_previous_100')
     shutil.rmtree(previous_dir, ignore_errors=True)
     previous_dir.mkdir()
+    _check_zip(previous)
     with zipfile.ZipFile(io.BytesIO(previous)) as z:
-        assert z.testzip() is None
         z.extractall(previous_dir)
     old_safety_path = pathlib.Path('_old_release_safety.py')
     old_safety_path.write_bytes((previous_dir/'src/release_safety.py').read_bytes())
@@ -124,8 +129,8 @@ def run() -> None:
                 rel = pathlib.PurePosixPath('_internal')/p.relative_to(main_dir/'_internal').as_posix()
                 z.write(p, rel.as_posix())
         z.write(helper, 'TURTO_Update_Helper.exe')
-        assert z.testzip() is None
     native_data = native_buf.getvalue()
+    _check_zip(native_data)
     native_sha = hashlib.sha256(native_data).hexdigest()
     assert len(native_data) < 70*1024*1024, len(native_data)
 
@@ -185,8 +190,8 @@ def run() -> None:
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o100644 << 16
             z.writestr(info, p.read_bytes())
-        assert z.testzip() is None
     update_data = update_buf.getvalue()
+    _check_zip(update_data)
     assert len(update_data) < 78*1024*1024, len(update_data)
     release_dir = pathlib.Path('releases/1.0.0')
     release_dir.mkdir(parents=True, exist_ok=True)
@@ -201,7 +206,9 @@ def run() -> None:
                     z.writestr(info, nz.read(info.filename))
         z.writestr('START_TURTO.bat', (root/'START_TURTO.bat.txt').read_bytes())
         z.writestr('README.txt', (root/'README.txt').read_bytes())
-    (release_dir/'TURTO_Mesicni_Prehledy_1.0.0_Windows.zip').write_bytes(portable.getvalue())
+    portable_data = portable.getvalue()
+    _check_zip(portable_data)
+    (release_dir/'TURTO_Mesicni_Prehledy_1.0.0_Windows.zip').write_bytes(portable_data)
     print('TURTO_1_0_OK', 'update=', len(update_data), 'native=', len(native_data), 'chunks=', len(list((stage/'src').glob('native_payload_*.py'))))
 
 
