@@ -15,6 +15,7 @@ import textwrap
 import urllib.request
 import zipfile
 
+sys.dont_write_bytecode = True
 ROOT = pathlib.Path(__file__).resolve().parent
 REPO = ROOT.parents[1]
 
@@ -22,6 +23,16 @@ REPO = ROOT.parents[1]
 def _check_zip(data: bytes) -> None:
     with zipfile.ZipFile(io.BytesIO(data), 'r') as z:
         assert z.testzip() is None
+
+
+def _clean_python_cache(folder: pathlib.Path) -> None:
+    for cache in list(folder.rglob('__pycache__')):
+        shutil.rmtree(cache, ignore_errors=True)
+    for pyc in list(folder.rglob('*.pyc')):
+        try:
+            pyc.unlink(missing_ok=True)
+        except Exception:
+            pass
 
 
 def run() -> None:
@@ -75,6 +86,7 @@ def run() -> None:
     changelog = stage/'CHANGELOG.txt'
     changelog.write_text(note.rstrip()+'\n\n'+changelog.read_text(encoding='utf-8'), encoding='utf-8')
     (stage/'package_files.json').unlink(missing_ok=True)
+    _clean_python_cache(stage)
     for p in list(stage.rglob('*.py')) + list(stage.rglob('*.pyw')):
         compile(p.read_bytes(), p.as_posix(), 'exec')
 
@@ -148,6 +160,9 @@ def run() -> None:
         f"NATIVE_SHA256='{native_sha}'\nNATIVE_SIZE={len(native_data)}\n", encoding='ascii'
     )
 
+    # PyInstaller can leave cache files in the source tree. They must never be
+    # part of the legacy-compatible transition package.
+    _clean_python_cache(stage)
     files = {
         p.relative_to(stage).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in sorted(stage.rglob('*')) if p.is_file() and p.name != 'package_files.json'
@@ -179,6 +194,12 @@ def run() -> None:
     assert installed_exe.exists()
     cp = subprocess.run([str(installed_exe), '--turto-self-test'], timeout=30)
     assert cp.returncode == 0, cp.returncode
+
+    # The import-based bridge test above is not allowed to mutate the final
+    # package contents either.
+    _clean_python_cache(stage)
+    final_actual = {p.relative_to(stage).as_posix() for p in stage.rglob('*') if p.is_file()}
+    assert final_actual == set(files) | {'package_files.json'}
 
     update_buf = io.BytesIO()
     with zipfile.ZipFile(update_buf, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
