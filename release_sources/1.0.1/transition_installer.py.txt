@@ -116,8 +116,15 @@ def main() -> int:
             )
         except Exception:
             pass
-        subprocess.Popen([str(exe)], cwd=install_root,
-                         creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0) if sys.platform == 'win32' else 0)
+        if os.environ.get('TURTO_TRANSITION_TEST') == '1':
+            env = os.environ.copy()
+            env['TURTO_REPORTING_DATA_ROOT'] = str(data_root)
+            check = subprocess.run([str(exe), '--turto-self-test'], cwd=install_root, env=env, timeout=60)
+            if check.returncode != 0:
+                raise RuntimeError(f'Self-test nainstalované aplikace skončil kódem {check.returncode}.')
+        else:
+            subprocess.Popen([str(exe)], cwd=install_root,
+                             creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0) if sys.platform == 'win32' else 0)
         return 0
     except Exception:
         try:
