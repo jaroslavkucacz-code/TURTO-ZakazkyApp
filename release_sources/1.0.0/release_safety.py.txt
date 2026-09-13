@@ -1,0 +1,45 @@
+"""Package validation shared by the downloader and the detached installer."""
+from __future__ import annotations
+import hashlib
+import json
+from pathlib import Path, PurePosixPath
+
+APP_ID='cz.turto.mesicni-prehledy'
+PROTECTED={'data','imports','exports','backup','config.json','turto_error.log','windows_identity.log'}
+ROOT_FILES={
+    'app.pyw','update_installer.py','requirements.txt','README.txt','CHANGELOG.txt',
+    'START_TURTO.bat','INSTALL.bat','package_files.json','release_notes.txt',
+    'TURTO_Mesicni_Prehledy.exe','TURTO_Update_Helper.exe'
+}
+
+
+def allowed_path(name):
+    if not isinstance(name,str) or '\\' in name or ':' in name:return False
+    p=PurePosixPath(name)
+    if p.is_absolute() or '..' in p.parts or not p.parts or any(x.startswith('.') for x in p.parts):return False
+    if p.parts[0] in PROTECTED:return False
+    if len(p.parts)==1:return p.name in ROOT_FILES or (p.name.startswith('ZMENY_') and p.suffix=='.txt')
+    if p.parts[0]=='src':return p.suffix=='.py'
+    if p.parts[0]=='assets':return p.suffix.lower() in ('.ico','.png')
+    if p.parts[0]=='_internal':return True
+    return False
+
+
+def validate_folder(folder):
+    folder=Path(folder)
+    spec=json.loads((folder/'package_files.json').read_text(encoding='utf-8'))
+    if spec.get('app_id')!=APP_ID:raise ValueError('Balíček patří jinému programu.')
+    files=spec.get('files')
+    if not isinstance(files,dict) or not files:raise ValueError('Neúplný seznam souborů aktualizace.')
+    if 'app.pyw' not in files and 'TURTO_Mesicni_Prehledy.exe' not in files:
+        raise ValueError('Balíček neobsahuje spustitelnou aplikaci.')
+    actual={p.relative_to(folder).as_posix() for p in folder.rglob('*') if p.is_file()}
+    if actual!=set(files)|{'package_files.json'}:raise ValueError('Obsah balíčku neodpovídá seznamu souborů.')
+    for rel,digest in files.items():
+        if not allowed_path(rel):raise ValueError('Nepovolená cesta v aktualizaci: '+rel)
+        p=folder/rel
+        if p.is_symlink():raise ValueError('Odkazy nejsou v aktualizaci povoleny.')
+        data=p.read_bytes()
+        if hashlib.sha256(data).hexdigest()!=digest:raise ValueError('Poškozený soubor aktualizace: '+rel)
+        if p.suffix in ('.py','.pyw'):compile(data,rel,'exec')
+    return spec
