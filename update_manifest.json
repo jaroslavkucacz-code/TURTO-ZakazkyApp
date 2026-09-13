@@ -1,9 +1,12 @@
 {
   "app_id": "cz.turto.mesicni-prehledy",
-  "version": "0.2.8",
-  "minimum_version": "0.2.7",
-  "sha256": "a9249beee1a3f8cbef336df10c04517f00ca25fea90285ed9f05952d8ffed533",
-  "notes": "Hotfix stability pro Python 3.14: odstraněna rekurze v pathlib při callbacku Windows ikony, zrušeno eventové obnovování ikony přes Map/Visibility a ikonový refresh už nikdy nesmí shodit hlavní UI. Data a nastavení zůstávají zachované. Nativní 1.0 je dočasně stažena ze stabilního kanálu do vyřešení důvěryhodného digitálního podpisu EXE.",
+  "version": "1.0.1",
+  "minimum_version": "0.2.8",
+  "sha256": "3892d1fa9ebc8864e0fdf006849b89f852f7e3be423d4d79c0aa12e7f790b258",
+  "notes": "TURTO – Měsíční přehledy 1.0.1: nativní Windows instalace podle osvědčeného modelu TURTO CRM. Instalace probíhá pouze pro aktuálního uživatele do %LOCALAPPDATA%\\Programs bez požadavku na administrátorská práva. Při přechodu z 0.2.8 se databáze, config.json, importy, exporty a zálohy bezpečně převedou do oddělené uživatelské datové složky.",
   "channel": "stable",
-  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/6e846d72b7b80ce40db314494378b089403579d0/releases/0.2.8/TURTO_update_0.2.8.zip"
+  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/939c4ac189fd37b6aa98ea8528b553aaefee7093/releases/1.0.1/TURTO_update_1.0.1.zip",
+  "installer_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/939c4ac189fd37b6aa98ea8528b553aaefee7093/releases/1.0.1/TURTO_Mesicni_Prehledy_Setup_1.0.1.exe",
+  "installer_sha256": "e4aeef3a459b1c7a6d4d4bc4f98572a4bf43a7470326999fb178d9a894368994",
+  "install_scope": "current_user"
 }
