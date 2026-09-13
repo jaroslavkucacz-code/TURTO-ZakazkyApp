@@ -1,0 +1,13 @@
+@echo off
+cd /d "%~dp0"
+if exist "TURTO_Mesicni_Prehledy.exe" (
+    echo TURTO - Mesicni prehledy 1.0 je nativni Windows aplikace.
+    echo Python neni pro bezny provoz potreba.
+    echo.
+    echo Program spustite pres TURTO_Mesicni_Prehledy.exe nebo START_TURTO.bat
+    pause
+    exit /b 0
+)
+echo Nativni EXE nebylo nalezeno. Pouzijte aktualizaci/instalacni balicek verze 1.0.
+pause
+exit /b 1
