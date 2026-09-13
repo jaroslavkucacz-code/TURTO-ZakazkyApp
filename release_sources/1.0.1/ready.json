@@ -1,0 +1,8 @@
+{
+  "app_id": "cz.turto.mesicni-prehledy",
+  "version": "1.0.1",
+  "minimum_version": "0.2.8",
+  "previous_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/6e846d72b7b80ce40db314494378b089403579d0/releases/0.2.8/TURTO_update_0.2.8.zip",
+  "previous_sha256": "a9249beee1a3f8cbef336df10c04517f00ca25fea90285ed9f05952d8ffed533",
+  "notes": "TURTO – Měsíční přehledy 1.0.1: nativní Windows instalace podle osvědčeného modelu TURTO CRM. Instalace probíhá pouze pro aktuálního uživatele do %LOCALAPPDATA%\\Programs bez požadavku na administrátorská práva. Při přechodu z 0.2.8 se databáze, config.json, importy, exporty a zálohy bezpečně převedou do oddělené uživatelské datové složky."
+}
