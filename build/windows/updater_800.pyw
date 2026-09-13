@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -33,8 +32,15 @@ def _stage_root() -> Path:
     return Path(local) / "TURTO CRM" / "UpdaterRuntime" if local else Path(tempfile.gettempdir()) / "turto_crm_updater_stage"
 
 
+def _check_cancelled() -> None:
+    if _READY_PATH is not None and _READY_PATH.with_name(_READY_PATH.name.replace("ready-", "cancel-", 1)).exists():
+        raise safety.UpdateBlocked("Spuštění aktualizace bylo zrušeno. Instalace zůstala nedotčená.")
+
+
 def _wait_for_process(pid: int) -> None:
+    _check_cancelled()
     safety.wait_for_process(pid)
+    _check_cancelled()
 
 
 def _read_version_manifest(root: Path) -> dict:
@@ -109,13 +115,13 @@ def _safe_extract(package: Path, temp_root: Path) -> None:
             raw = str(info.filename or "").replace("\\", "/")
             rel = PurePosixPath(raw)
             parts = raw.rstrip("/").split("/")
-            if (not raw or rel.is_absolute() or any(p in {"", ".", ".."} or ":" in p or p.endswith((".", " ")) or p.split(".")[0].upper() in reserved for p in parts)):
+            if not raw or rel.is_absolute() or any(p in {"", ".", ".."} or ":" in p or p.endswith((".", " ")) or p.split(".")[0].upper() in reserved for p in parts):
                 raise RuntimeError("Aktualizační ZIP obsahuje nepovolenou cestu.")
             key = "/".join(parts).casefold()
             if key in seen:
                 raise RuntimeError("Aktualizační ZIP obsahuje kolidující názvy souborů.")
             seen.add(key)
-            if (info.external_attr >> 16) & 0o170000 == stat.S_IFLNK or info.flag_bits & 1:
+            if ((info.external_attr >> 16) & 0o170000) == stat.S_IFLNK or info.flag_bits & 1:
                 raise RuntimeError("Aktualizační ZIP obsahuje odkaz nebo šifrovaný soubor.")
             total += info.file_size
             if total > MAX_UNCOMPRESSED_PAYLOAD:
@@ -151,6 +157,8 @@ def _validate_release(target: Path, expected_version: str | None = None, *, inst
         raise RuntimeError(f"Verze payloadu {version} neodpovídá očekávané verzi {expected_version}.")
     if manifest.get("updater_format") == "onedir-v1":
         safety.bundle_files(target / UPDATER_EXE)
+        if not list((target / "_internal").glob("python*.dll")):
+            raise RuntimeError("Chybí Python runtime hlavního programu.")
     for path in safety.plain_files(target):
         if path.name.casefold().startswith("unins"):
             if installed:
@@ -166,10 +174,11 @@ def _validate_release(target: Path, expected_version: str | None = None, *, inst
 def _copy_release(source: Path, target: Path) -> None:
     target.mkdir(parents=True, exist_ok=True)
     for path in safety.plain_files(source):
-        rel = path.relative_to(source)
-        destination = target / rel
+        destination = target / path.relative_to(source)
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, destination)
+        if _hash_file(path) != _hash_file(destination):
+            raise RuntimeError(f"Kopie souboru neodpovídá zdroji: {path.name}")
 
 
 def _check_data_outside_install(target: Path) -> None:
@@ -194,8 +203,6 @@ def _replace_program_with_rollback(source: Path, target: Path, *, current_versio
     snapshot = _snapshot_program(target, current_version)
     if snapshot is None:
         raise RuntimeError("Nepodařilo se vytvořit zálohu programu před aktualizací.")
-    # Directory-level recovery means the původní verze byla automaticky obnovena
-    # message is reported only when the original directory was actually restored.
     safety.replace_directory(source, target, copy_release=_copy_release, validate=_validate_release, owned=PROGRAM_DIRS | PROGRAM_FILES, expected_version=expected_version)
     return snapshot
 
@@ -240,12 +247,11 @@ def main() -> None:
                 source_version = _validate_release(source, expected_version)
                 if mode == "update" and source_version == current_version:
                     raise RuntimeError("Aktualizační payload má stejnou verzi jako instalace.")
+                _check_cancelled()
                 if _READY_PATH is not None:
                     safety.write_json(_READY_PATH, {"status": "ready", "pid": os.getpid(), "token": sys.argv[9]})
                     _READY_SENT = True
                 _wait_for_process(pid)
-                # No data backup or installed program change precedes a confirmed
-                # parent exit. Other open CRM instances are caught by preflight.
                 safety.preflight_files(target)
                 label = "pred_navratem" if mode == "rollback" else "pred_aktualizaci"
                 db_backup = _database_backup(label)
@@ -276,7 +282,8 @@ if __name__ == "__main__":
             root = data_location.data_root() / "updates"
             root.mkdir(parents=True, exist_ok=True)
             (root / "update_error.log").write_text(str(exc), encoding="utf-8")
-            if os.name == "nt" and (_READY_PATH is None or _READY_SENT):
+            ci_probe = bool(os.environ.get("TURTO_CRM_SMOKE_RESULT")) and os.environ.get("TURTO_DISABLE_AUTO_UPDATE") == "1"
+            if os.name == "nt" and (_READY_PATH is None or _READY_SENT) and not ci_probe:
                 import ctypes
                 ctypes.windll.user32.MessageBoxW(None, str(exc), "TURTO CRM – aktualizace nebyla dokončena", 0x10)
         except Exception:
