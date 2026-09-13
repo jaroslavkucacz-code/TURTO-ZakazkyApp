@@ -1,0 +1,15 @@
+{
+  "format": "turto-crm-windows-update-v1",
+  "channel": "windows",
+  "version": "8.0.8",
+  "package": "TURTO_CRM_Update_8.0.8.zip",
+  "sha256": "99be947509722a8ba8a70f33fc30b3e34a43ef8b3371cc000e1aa45800aa96f0",
+  "download_url": "https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/releases/download/v8.0.8/TURTO_CRM_Update_8.0.8.zip",
+  "installer": "TURTO_CRM_Setup_8.0.8.exe",
+  "installer_sha256": "4a567c4f8827f89eba4d70b854207917814dda47e09abd08c5f1bc5fc7a31c66",
+  "installer_url": "https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/releases/download/v8.0.8/TURTO_CRM_Setup_8.0.8.exe",
+  "source_commit": "e86fde121f30370b76cf1bfee5aae6b48d2557bf",
+  "validated_run_id": 34779446776,
+  "updater_format": "onedir-v1",
+  "minimum_safe_updater": "8.0.8"
+}
