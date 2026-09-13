@@ -1,8 +1,10 @@
 """Windows EXE distribution policy for TURTO CRM 8.0+.
 
-The frozen build uses a separate, hash-verified update channel and launches a
-temporary copy of the one-file updater, because Windows cannot replace a running
-executable in the installation directory.
+The frozen build uses a separate, hash-verified update channel. 8.0.7 keeps a
+single updater staging location in LocalAppData, removes stale legacy temp
+copies, and does not close CRM until the launched updater survives a short
+health check. This avoids accumulating dozens of executable copies in %TEMP%
+and fails safely when endpoint security blocks the updater.
 """
 from __future__ import annotations
 
@@ -27,8 +29,121 @@ WINDOWS_RELEASE_ROOT = (
     "https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/releases/download"
 )
 UPDATER_EXE = "TURTO CRM Updater.exe"
+_UPDATER_STAGE_DIR = "UpdaterRuntime"
+_LEGACY_TEMP_PREFIX = "turto_crm_updater_"
+_LEGACY_STALE_SECONDS = 15 * 60
+_UPDATER_HEALTH_DELAY_MS = 800
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 _VERSION_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$")
+
+
+class UpdaterLaunchBlockedError(RuntimeError):
+    """The verified updater could not be staged or started safely."""
+
+    turto_show_user = True
+
+
+def _hash_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest().lower()
+
+
+def _updater_stage_root() -> Path:
+    local = str(os.environ.get("LOCALAPPDATA") or "").strip()
+    if local:
+        return Path(local) / "TURTO CRM" / _UPDATER_STAGE_DIR
+    return Path(tempfile.gettempdir()) / "turto_crm_updater_stage"
+
+
+def _cleanup_stage_copy() -> bool:
+    """Best-effort removal of the one stable staging directory.
+
+    It can still be locked for a few moments while the previous updater process
+    exits. A failure is harmless: the next startup/update retries the cleanup.
+    """
+    stage = _updater_stage_root()
+    if not stage.exists():
+        return True
+    try:
+        shutil.rmtree(stage)
+        return not stage.exists()
+    except Exception:
+        return False
+
+
+def _cleanup_stale_legacy_updaters(now: float | None = None) -> list[str]:
+    """Remove old random temp copies created by TURTO CRM 8.0.0-8.0.6.
+
+    Recent directories are deliberately left alone so another still-running CRM
+    instance/updater cannot be disrupted. The cleanup never follows symlinks.
+    """
+    removed: list[str] = []
+    base = Path(tempfile.gettempdir())
+    current = time.time() if now is None else float(now)
+    try:
+        candidates = list(base.glob(_LEGACY_TEMP_PREFIX + "*"))
+    except Exception:
+        return removed
+
+    for path in candidates:
+        try:
+            if not path.is_dir() or path.is_symlink():
+                continue
+            age = current - path.stat().st_mtime
+            if age < _LEGACY_STALE_SECONDS:
+                continue
+            shutil.rmtree(path)
+            if not path.exists():
+                removed.append(str(path))
+        except Exception:
+            continue
+    return removed
+
+
+def _prepare_updater_stage(installed_updater: Path) -> tuple[Path, Path]:
+    """Create exactly one verified local copy of the updater.
+
+    A fixed LocalAppData path avoids the previous random-temp accumulation. If
+    endpoint security removes or changes the copied executable, fail before CRM
+    is closed.
+    """
+    installed_updater = Path(installed_updater)
+    stage = _updater_stage_root()
+    if stage.exists():
+        try:
+            shutil.rmtree(stage)
+        except Exception as exc:
+            raise UpdaterLaunchBlockedError(
+                "Předchozí aktualizátor je stále aktivní nebo jeho pracovní složku blokuje "
+                "bezpečnostní software. CRM zůstává spuštěné."
+            ) from exc
+    try:
+        stage.mkdir(parents=True, exist_ok=False)
+        staged = stage / UPDATER_EXE
+        shutil.copy2(installed_updater, staged)
+        expected = _hash_file(installed_updater)
+        actual = _hash_file(staged)
+        if expected != actual:
+            raise UpdaterLaunchBlockedError(
+                "Dočasná kopie aktualizátoru neodpovídá originálu. CRM zůstává spuštěné."
+            )
+        if not staged.is_file() or staged.stat().st_size <= 0:
+            raise UpdaterLaunchBlockedError(
+                "Bezpečnostní software mohl odstranit dočasnou kopii aktualizátoru. "
+                "CRM zůstává spuštěné."
+            )
+        return stage, staged
+    except UpdaterLaunchBlockedError:
+        _cleanup_stage_copy()
+        raise
+    except Exception as exc:
+        _cleanup_stage_copy()
+        raise UpdaterLaunchBlockedError(
+            "Aktualizátor se nepodařilo bezpečně připravit. CRM zůstává spuštěné."
+        ) from exc
 
 
 def _validate_windows_manifest(data: dict) -> dict:
@@ -148,6 +263,22 @@ def _download_windows_package(M, updates, manifest: dict) -> Path:
     return target
 
 
+def _show_blocked_updater(M, app, remote: str, detail: str) -> None:
+    if getattr(app, "_turto_update_security_warning_shown", False):
+        return
+    app._turto_update_security_warning_shown = True
+    message = (
+        f"Aktualizaci {remote} se nepodařilo bezpečně spustit. CRM zůstalo otevřené.\n\n"
+        f"{detail}\n\n"
+        "Pokud bezpečnostní software označil 'TURTO CRM Updater.exe' jako podezřelý, "
+        "neobnovujte soubor naslepo. Lze použít oficiální instalační balíček stejné verze."
+    )
+    try:
+        M.messagebox.showerror("Aktualizace zablokována", message, parent=app)
+    except Exception:
+        pass
+
+
 def _launch_frozen_updater(M, updates, app, remote: str, package: Path) -> bool:
     installed_updater = Path(M.ROOT) / UPDATER_EXE
     if not installed_updater.is_file():
@@ -165,9 +296,10 @@ def _launch_frozen_updater(M, updates, app, remote: str, package: Path) -> bool:
     if expected_version != str(remote).strip() or not _SHA256_RE.fullmatch(expected_sha):
         raise ValueError("Chybí ověřené údaje Windows aktualizačního balíčku.")
 
-    temp_root = Path(tempfile.mkdtemp(prefix="turto_crm_updater_"))
-    temp_updater = temp_root / UPDATER_EXE
-    shutil.copy2(installed_updater, temp_updater)
+    removed = _cleanup_stale_legacy_updaters()
+    if removed:
+        updates._log(M, "updater-temp-cleanup", f"removed={len(removed)}")
+    stage_root, staged_updater = _prepare_updater_stage(installed_updater)
 
     try:
         M.set_setting("pending_update", remote)
@@ -177,7 +309,7 @@ def _launch_frozen_updater(M, updates, app, remote: str, package: Path) -> bool:
         pass
 
     command = [
-        str(temp_updater),
+        str(staged_updater),
         "--install",
         str(package),
         str(M.ROOT),
@@ -186,27 +318,70 @@ def _launch_frozen_updater(M, updates, app, remote: str, package: Path) -> bool:
         expected_version,
         expected_sha,
     ]
-    kwargs = {"cwd": str(temp_root)}
+    kwargs = {"cwd": str(stage_root)}
     if sys.platform.startswith("win"):
         kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    subprocess.Popen(command, **kwargs)
-    app._turto_update_launching = True
-    updates._log(M, "install-start-exe", f"{getattr(M, 'APP_VERSION', '')} -> {remote}")
 
     try:
-        app.title(f"TURTO CRM – instaluji aktualizaci {remote}…")
-        app.configure(cursor="watch")
-    except Exception:
-        pass
+        process = subprocess.Popen(command, **kwargs)
+    except Exception as exc:
+        _cleanup_stage_copy()
+        raise UpdaterLaunchBlockedError(
+            "Aktualizátor byl před spuštěním zablokován nebo odstraněn."
+        ) from exc
 
-    closer = getattr(app, "close_app", None)
-    if not callable(closer):
-        closer = getattr(app, "destroy", None)
-    if callable(closer):
+    app._turto_update_launching = True
+    updates._log(M, "install-probe-exe", f"{getattr(M, 'APP_VERSION', '')} -> {remote}")
+
+    def confirm_and_close():
+        blocked = False
+        detail = ""
         try:
-            app.after(180, closer)
+            code = process.poll()
+            if code is not None:
+                blocked = True
+                detail = f"Proces aktualizátoru skončil předčasně (kód {code})."
+            elif not staged_updater.is_file():
+                blocked = True
+                detail = "Dočasná kopie aktualizátoru byla po spuštění odstraněna."
+        except Exception as exc:
+            blocked = True
+            detail = f"Stav aktualizátoru se nepodařilo ověřit: {exc}"
+
+        if blocked:
+            app._turto_update_launching = False
+            updates._log(M, "install-blocked-exe", detail)
+            try:
+                app.title(f"TURTO CRM {getattr(M, 'APP_VERSION', '')}")
+                app.configure(cursor="")
+            except Exception:
+                pass
+            _cleanup_stage_copy()
+            _show_blocked_updater(M, app, remote, detail)
+            return
+
+        updates._log(M, "install-start-exe", f"{getattr(M, 'APP_VERSION', '')} -> {remote}")
+        try:
+            app.title(f"TURTO CRM – instaluji aktualizaci {remote}…")
+            app.configure(cursor="watch")
         except Exception:
-            closer()
+            pass
+
+        closer = getattr(app, "close_app", None)
+        if not callable(closer):
+            closer = getattr(app, "destroy", None)
+        if callable(closer):
+            try:
+                app.after(180, closer)
+            except Exception:
+                closer()
+
+    try:
+        app.after(_UPDATER_HEALTH_DELAY_MS, confirm_and_close)
+    except Exception:
+        # Headless/edge fallback keeps the same safety contract.
+        time.sleep(_UPDATER_HEALTH_DELAY_MS / 1000.0)
+        confirm_and_close()
     return True
 
 
@@ -216,6 +391,14 @@ def apply(M) -> None:
     M._turto_exe_distribution_800 = True
 
     from price_lists_domain.platform import automatic_updates as updates
+
+    # On the first start after an update the previous updater has normally
+    # already exited, so this removes the single stable staged copy. Failure is
+    # harmless and will be retried on the next start/update.
+    _cleanup_stage_copy()
+    removed = _cleanup_stale_legacy_updaters()
+    if removed:
+        updates._log(M, "updater-temp-cleanup", f"removed={len(removed)}")
 
     previous_manifest_reader = updates._read_official_manifest
     previous_launcher = updates._launch_updater
@@ -252,4 +435,5 @@ __all__ = [
     "WINDOWS_MANIFEST_FORMAT",
     "WINDOWS_RELEASE_ROOT",
     "UPDATER_EXE",
+    "UpdaterLaunchBlockedError",
 ]
