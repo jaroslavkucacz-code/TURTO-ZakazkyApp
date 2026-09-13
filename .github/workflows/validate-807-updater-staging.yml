@@ -1,0 +1,33 @@
+name: Validate TURTO CRM 8.0.7 updater staging
+
+on:
+  pull_request:
+    paths:
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/exe_distribution.py'
+      - 'scripts/validate-807-updater-staging.py'
+      - '.github/workflows/validate-807-updater-staging.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ZakazkyApp_base_6.1/price_lists_domain/platform/exe_distribution.py'
+      - 'scripts/validate-807-updater-staging.py'
+      - '.github/workflows/validate-807-updater-staging.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  updater-staging:
+    runs-on: windows-latest
+    timeout-minutes: 6
+    env:
+      PYTHONIOENCODING: utf-8
+      TURTO_DISABLE_AUTO_UPDATE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Validate single staging copy and AV fail-safe
+        shell: pwsh
+        run: python scripts/validate-807-updater-staging.py
