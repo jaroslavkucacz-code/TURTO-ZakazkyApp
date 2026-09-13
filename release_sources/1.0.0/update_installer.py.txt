@@ -1,0 +1,226 @@
+"""Detached TURTO updater for source-mode and native EXE installations."""
+from __future__ import annotations
+
+import base64
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import zipfile
+from datetime import datetime
+from pathlib import Path, PurePosixPath
+
+sys.dont_write_bytecode=True
+from src.release_safety import validate_folder
+
+MAIN_EXE='TURTO_Mesicni_Prehledy.exe'
+HELPER_EXE='TURTO_Update_Helper.exe'
+PAYLOAD_GLOB='native_payload_*.py'
+PAYLOAD_META='native_payload_meta.py'
+
+
+def normalize_package_root(folder):
+    folder=Path(folder)
+    children=list(folder.iterdir())
+    if len(children)==1 and children[0].is_dir() and ((children[0]/'app.pyw').exists() or (children[0]/MAIN_EXE).exists()):
+        return children[0]
+    return folder
+
+
+def _payload_chunk_text(path:Path)->str:
+    text=path.read_text(encoding='ascii')
+    m=re.search(r'DATA\s*=\s*"""(.*?)"""',text,re.S)
+    if not m:raise ValueError(f'Neplatný payload chunk: {path.name}')
+    return ''.join(m.group(1).split())
+
+
+def _extract_embedded_native_payload(source:Path):
+    meta=source/'src'/PAYLOAD_META
+    chunks=sorted(p for p in (source/'src').glob(PAYLOAD_GLOB) if p.name!=PAYLOAD_META)
+    if not meta.exists() or not chunks:
+        return None
+    ns={}
+    exec(compile(meta.read_bytes(),str(meta),'exec'),ns)
+    expected_sha=str(ns.get('NATIVE_SHA256','')).lower()
+    expected_size=int(ns.get('NATIVE_SIZE',0) or 0)
+    if not re.fullmatch(r'[0-9a-f]{64}',expected_sha) or expected_size<=0:
+        raise ValueError('Neplatná metadata nativního payloadu.')
+
+    td=Path(tempfile.mkdtemp(prefix='turto_native_payload_'))
+    archive=td/'native.zip'
+    digest=hashlib.sha256();written=0
+    try:
+        with archive.open('wb') as out:
+            for chunk in chunks:
+                raw=base64.b64decode(_payload_chunk_text(chunk),validate=True)
+                digest.update(raw);out.write(raw);written+=len(raw)
+        if written!=expected_size or digest.hexdigest().lower()!=expected_sha:
+            raise ValueError('Kontrolní součet nativního payloadu nesouhlasí.')
+        dest=td/'native';dest.mkdir()
+        with zipfile.ZipFile(archive) as z:
+            if z.testzip() is not None:raise ValueError('Nativní payload je poškozený.')
+            infos=z.infolist()
+            if sum(i.file_size for i in infos)>500*1024*1024:raise ValueError('Nativní payload je příliš velký.')
+            for item in infos:
+                if item.is_dir():continue
+                name=item.filename
+                if '\\' in name or ':' in name:raise ValueError('Nepovolená cesta v nativním payloadu.')
+                p=PurePosixPath(name)
+                if p.is_absolute() or '..' in p.parts or not p.parts:raise ValueError('Nepovolená cesta v nativním payloadu.')
+                if len(p.parts)==1:
+                    if p.name not in (MAIN_EXE,HELPER_EXE):raise ValueError('Neočekávaný soubor v nativním payloadu: '+name)
+                elif p.parts[0]!='_internal':
+                    raise ValueError('Neočekávaná složka v nativním payloadu: '+name)
+            z.extractall(dest)
+        if not (dest/MAIN_EXE).exists() or not (dest/HELPER_EXE).exists() or not (dest/'_internal').is_dir():
+            raise ValueError('Nativní payload je neúplný.')
+        return td,dest
+    except Exception:
+        shutil.rmtree(td,ignore_errors=True)
+        raise
+
+
+def _backup_path(src:Path,backup_root:Path,rel:str):
+    if not src.exists():return False
+    dst=backup_root/rel
+    dst.parent.mkdir(parents=True,exist_ok=True)
+    if src.is_dir():shutil.copytree(src,dst,dirs_exist_ok=True)
+    else:shutil.copy2(src,dst)
+    return True
+
+
+def _restore_path(dst:Path,backup_root:Path,rel:str,existed:bool):
+    if dst.is_dir():shutil.rmtree(dst,ignore_errors=True)
+    elif dst.exists():dst.unlink(missing_ok=True)
+    if existed:
+        src=backup_root/rel
+        if src.is_dir():shutil.copytree(src,dst,dirs_exist_ok=True)
+        elif src.exists():
+            dst.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(src,dst)
+
+
+def copy_update(source,target):
+    source=normalize_package_root(source);target=Path(target)
+    spec=validate_folder(source)
+    backup=target/'backup'/('app_'+datetime.now().strftime('%Y%m%d_%H%M%S_%f'));backup.mkdir(parents=True)
+    payload=_extract_embedded_native_payload(source)
+    payload_names={p.relative_to(source).as_posix() for p in (source/'src').glob(PAYLOAD_GLOB)}
+    if (source/'src'/PAYLOAD_META).exists():payload_names.add('src/'+PAYLOAD_META)
+
+    incoming_files=[rel for rel in spec['files'] if rel not in payload_names]
+    direct_native=any(rel.startswith('_internal/') for rel in incoming_files)
+
+    native_temp=None
+    changed=[];existed={}
+    special_native=[MAIN_EXE,HELPER_EXE,'_internal']
+    try:
+        for rel in special_native:
+            existed[rel]=_backup_path(target/rel,backup,rel)
+
+        if direct_native and (target/'_internal').exists():
+            shutil.rmtree(target/'_internal',ignore_errors=True)
+
+        ordered=sorted(incoming_files,key=lambda name:name=='app.pyw')
+        for rel in ordered:
+            if rel in special_native or rel.startswith('_internal/'):
+                continue
+            dst=target/rel
+            existed.setdefault(rel,_backup_path(dst,backup,rel))
+
+        for rel in ordered:
+            if rel in special_native or rel.startswith('_internal/'):
+                continue
+            dst=target/rel;dst.parent.mkdir(parents=True,exist_ok=True)
+            staged=dst.with_name(dst.name+'.turto-new')
+            try:
+                shutil.copy2(source/rel,staged);os.replace(staged,dst);changed.append(rel)
+            finally:staged.unlink(missing_ok=True)
+
+        if direct_native:
+            if (source/'_internal').is_dir():shutil.copytree(source/'_internal',target/'_internal',dirs_exist_ok=True)
+            for rel in (MAIN_EXE,HELPER_EXE):
+                if (source/rel).exists():
+                    staged=(target/rel).with_name(rel+'.turto-new');shutil.copy2(source/rel,staged);os.replace(staged,target/rel)
+            changed.extend(special_native)
+
+        if payload:
+            native_temp,native=payload
+            if (target/'_internal').exists():shutil.rmtree(target/'_internal',ignore_errors=True)
+            shutil.copytree(native/'_internal',target/'_internal')
+            for rel in (MAIN_EXE,HELPER_EXE):
+                staged=(target/rel).with_name(rel+'.turto-new');shutil.copy2(native/rel,staged);os.replace(staged,target/rel)
+            changed.extend(special_native)
+
+        if not (target/MAIN_EXE).exists():
+            raise RuntimeError('Po aktualizaci chybí nativní TURTO aplikace.')
+    except Exception:
+        for rel in reversed(changed):
+            if rel in special_native:continue
+            dst=target/rel
+            _restore_path(dst,backup,rel,bool(existed.get(rel,False)))
+        for rel in special_native:
+            _restore_path(target/rel,backup,rel,bool(existed.get(rel,False)))
+        raise
+    finally:
+        if native_temp is not None:shutil.rmtree(native_temp,ignore_errors=True)
+
+    for cache in list(target.rglob('__pycache__')):shutil.rmtree(cache,ignore_errors=True)
+    for pattern in ('patch_v*.py','patch_v*_data*.txt'):
+        for obsolete in target.glob(pattern):
+            try:obsolete.unlink(missing_ok=True)
+            except Exception:pass
+    for stale in target.rglob('*.pyc'):
+        try:stale.unlink(missing_ok=True)
+        except Exception:pass
+    for stale_dir in (target/'.github',):shutil.rmtree(stale_dir,ignore_errors=True)
+    for stale_name in ('version_manifest.example.json','OPRAVA_0.2.1.txt','windows_identity.log'):
+        try:(target/stale_name).unlink(missing_ok=True)
+        except Exception:pass
+    try:(target/'src'/'windows_identity_fix.py').unlink(missing_ok=True)
+    except Exception:pass
+    for note in target.glob('ZMENY_*.txt'):
+        if note.name!='ZMENY_1.0.0.txt':
+            try:note.unlink(missing_ok=True)
+            except Exception:pass
+    for chunk in (target/'src').glob(PAYLOAD_GLOB):
+        try:chunk.unlink(missing_ok=True)
+        except Exception:pass
+    try:(target/'src'/PAYLOAD_META).unlink(missing_ok=True)
+    except Exception:pass
+    return backup
+
+
+def _launch_updated_app(target:Path):
+    native=target/MAIN_EXE
+    if native.exists():
+        subprocess.Popen([str(native)],cwd=target,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0) if sys.platform=='win32' else 0)
+        return
+    exe=Path(sys.executable)
+    if exe.name.lower()=='python.exe' and exe.with_name('pythonw.exe').exists():exe=exe.with_name('pythonw.exe')
+    subprocess.Popen([str(exe),str(target/'app.pyw')],cwd=target)
+
+
+def main():
+    if len(sys.argv)<3:return 2
+    source=Path(sys.argv[1]).resolve();target=Path(sys.argv[2]).resolve()
+    time.sleep(2)
+    try:copy_update(source,target)
+    except Exception:
+        import traceback
+        try:(target/'turto_update_error.log').write_text(traceback.format_exc(),encoding='utf-8')
+        except Exception:pass
+        try:
+            import tkinter as tk
+            from tkinter import messagebox
+            root=tk.Tk();root.withdraw();messagebox.showerror('Aktualizace nebyla provedena','Původní program byl obnoven. Podrobnosti: turto_update_error.log');root.destroy()
+        except Exception:pass
+        return 1
+    _launch_updated_app(target)
+    return 0
+
+if __name__=='__main__':raise SystemExit(main())
