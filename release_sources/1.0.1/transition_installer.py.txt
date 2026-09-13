@@ -35,7 +35,10 @@ def _payload_text(path: Path) -> str:
 
 def _decode_setup(source: Path) -> tuple[Path, Path]:
     meta = source/'src'/PAYLOAD_META
-    chunks = sorted((source/'src').glob(PAYLOAD_GLOB))
+    chunks = sorted(
+        p for p in (source/'src').glob(PAYLOAD_GLOB)
+        if p.name != PAYLOAD_META
+    )
     if not meta.exists() or not chunks:
         raise FileNotFoundError('V aktualizaci chybí instalační balíček TURTO 1.0.1.')
     ns = {}
