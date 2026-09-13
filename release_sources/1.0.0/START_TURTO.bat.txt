@@ -1,0 +1,19 @@
+@echo off
+cd /d "%~dp0"
+if exist "TURTO_Mesicni_Prehledy.exe" (
+    start "" "TURTO_Mesicni_Prehledy.exe"
+    exit /b
+)
+rem Nouzovy fallback pro starsi/source instalaci.
+where pyw >nul 2>nul
+if %errorlevel%==0 (
+    start "" pyw app.pyw
+    exit /b
+)
+where pythonw >nul 2>nul
+if %errorlevel%==0 (
+    start "" pythonw app.pyw
+    exit /b
+)
+echo TURTO_Mesicni_Prehledy.exe nebyl nalezen.
+pause
