@@ -1,9 +1,9 @@
 {
   "app_id": "cz.turto.mesicni-prehledy",
-  "version": "0.2.8",
+  "version": "1.0.0",
   "minimum_version": "0.2.7",
-  "sha256": "a9249beee1a3f8cbef336df10c04517f00ca25fea90285ed9f05952d8ffed533",
-  "notes": "Hotfix stability pro Python 3.14: odstraněna rekurze v pathlib při callbacku Windows ikony, zrušeno eventové obnovování ikony přes Map/Visibility a ikonový refresh už nikdy nesmí shodit hlavní UI. Data a nastavení zůstávají zachované.",
+  "sha256": "4cbcbe0824cc8c3b4246601c74b41e0ce0137e63f5449b86bf56e2edc7165fe8",
+  "notes": "TURTO – Měsíční přehledy 1.0: první nativní Windows vydání. Program se po aktualizaci spouští jako TURTO_Mesicni_Prehledy.exe, nikoli jako pythonw.exe; vlastní TURTO ikona je vložena přímo do EXE. Python už není pro běžný provoz potřeba. Databáze, importy, exporty, zálohy a config.json zůstávají zachované.",
   "channel": "stable",
-  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/6e846d72b7b80ce40db314494378b089403579d0/releases/0.2.8/TURTO_update_0.2.8.zip"
+  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/1a5bdecd22b845429a6ebdeec38a66907abc7bf8/releases/1.0.0/TURTO_update_1.0.0.zip"
 }
