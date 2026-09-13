@@ -102,7 +102,7 @@ class HandshakeTests(unittest.TestCase):
             app.after.call_args.args[1]()
         app.close_app.assert_not_called()
         self.assertTrue((p._updater_stage_root() / ("cancel-" + token + ".json")).is_file())
-        receipt = json.loads((p._updater_stage_root() / "receipt.json").read_text())
+        receipt = json.loads((p._updater_stage_root() / "receipt.json").read_text(encoding="utf-8"))
         self.assertFalse(receipt["complete"])
         with self.assertRaises(p.UpdaterLaunchBlockedError):
             p._launch_frozen_updater(M, updates, app, "8.0.8", package)
