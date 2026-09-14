@@ -1,0 +1,123 @@
+"""Vector charts for the print report, using the same axis rules as the UI."""
+from __future__ import annotations
+from html import escape
+from .chart_geometry import axis, number, series_value, money, percent, count
+
+INK='#172B43';MUTED='#61738A';TEAL='#159F86';AMBER='#B67A16';BLUE='#3572BB';RED='#BE4C55'
+PALETTE=(TEAL,AMBER,BLUE,'#876AB3','#BE759B','#71947C','#8291A6')
+
+
+def text(x,y,s,anchor='start',color=MUTED,size=12,bold=False):
+    return f'<text x="{x:.2f}" y="{y:.2f}" text-anchor="{anchor}" fill="{color}" font-size="{size}" font-weight="{700 if bold else 400}">{escape(str(s))}</text>'
+
+
+def svg(content,w,h):
+    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" style="width:100%;height:auto;display:block" role="img">'+''.join(content)+'</svg>'
+
+
+def short(s,width,size=12):
+    s=str(s);limit=max(2,int(width/(size*.62)))
+    return s if len(s)<=limit else s[:limit-1]+'…'
+
+
+def trend(rows,w=1000,h=275):
+    if not rows:return svg([text(w/2,h/2,'Pro toto období nejsou data.','middle')],w,h)
+    ma=axis([series_value(x,k) for x in rows for k in ('revenue','profit')]);pa=axis([x.get('margin') for x in rows],True)
+    l,r,t,b=65,w-68,38,h-34
+    out=[text(l-10,15,ma.unit,'end'),text(r+8,15,'Marže %',color=BLUE)]
+    for v in ma.ticks():
+        y=ma.position(v,t,b);out+=[f'<path d="M {l} {y} H {r}" stroke="#DFE7EF" fill="none"/>',text(l-9,y+4,ma.label(v),'end')]
+    for v in pa.ticks():out.append(text(r+9,pa.position(v,t,b)+4,pa.label(v),color=BLUE))
+    slot=(r-l)/len(rows);bw=min(40,slot*.54);zero=ma.position(0,t,b)
+    for i,x in enumerate(rows):
+        cx=l+slot*(i+.5);v=series_value(x,'revenue')
+        if v is not None:
+            y=ma.position(v,t,b);out.append(f'<rect x="{cx-bw/2}" y="{min(y,zero)}" width="{bw}" height="{max(.7,abs(y-zero))}" rx="2" fill="{TEAL}" opacity=".85"/>')
+        out.append(text(cx,h-10,x.get('label',''),'middle',size=11))
+    for key,col,scale,dash in (('profit',AMBER,ma,''),('margin',BLUE,pa,'stroke-dasharray="6 4"')):
+        parts=[];coords=[]
+        for i,x in enumerate(rows):
+            v=series_value(x,key)
+            if v is None:
+                if coords:parts.append(coords);coords=[]
+            else:coords.append((l+slot*(i+.5),scale.position(v,t,b)))
+        if coords:parts.append(coords)
+        for pts in parts:
+            if len(pts)>1:out.append('<polyline points="'+' '.join(f'{x:.2f},{y:.2f}' for x,y in pts)+f'" stroke="{col}" stroke-width="2.5" fill="none" stroke-linejoin="round" {dash}/>')
+            for x,y in pts:out.append(f'<circle cx="{x}" cy="{y}" r="2.5" fill="{col}"/>')
+    return svg(out,w,h)
+
+
+def colors(rows,label_key):
+    result={str(x.get(label_key) or 'Bez názvu'):PALETTE[i%len(PALETTE)] for i,x in enumerate(rows)}
+    result.update({'Milan':TEAL,'Jirka':AMBER,'Honza':BLUE,'Nezařazené':'#8291A6'})
+    return result
+
+
+def bars(rows,key,label_key,*,w=490,h=205,limit=6,fmt='money'):
+    valid=[(number(x.get(key)),str(x.get(label_key) or 'Bez názvu')) for x in rows if number(x.get(key)) is not None]
+    valid.sort(key=lambda v:abs(v[0]),reverse=True);valid=valid[:limit]
+    if not valid:return svg([text(w/2,h/2,'Údaj není ve zdrojových datech.','middle')],w,h)
+    color_map=colors(rows,label_key)
+    output=[];formatter={'money':money,'pct':percent,'count':count}[fmt]
+    label_end=200 if w>=480 else w*.40;value_width=117;end=w-value_width;beg=label_end+12
+    lo=min([0]+[x[0] for x in valid]);hi=max([0]+[x[0] for x in valid]);span=hi-lo or 1
+    zero=beg+(0-lo)/span*(end-beg);rowh=min(34,(h-6)/len(valid))
+    for i,(val,label) in enumerate(valid):
+        y=7+rowh*(i+.5);pos=beg+(val-lo)/span*(end-beg);color=RED if val<0 else color_map.get(label,'#8291A6')
+        output.append(text(2,y+4,short(label,label_end-4),color=INK,size=12))
+        output.append(f'<path d="M {beg} {y} H {end}" stroke="#EDF2F6" stroke-width="7"/>')
+        output.append(f'<path d="M {zero} {y} H {pos}" stroke="{color}" stroke-width="7"/>')
+        if lo<0:output.append(f'<path d="M {zero} {y-8} V {y+8}" stroke="#AAB7C7"/>')
+        output.append(text(w-2,y+4,formatter(val),'end',color,size=11,bold=True))
+    return svg(output,w,h)
+
+
+def shares(rows,key,label_key,w=490,h=205):
+    from .chart_geometry import grouped
+    mapped=[dict(x,label=x.get(label_key) or 'Bez názvu') for x in rows]
+    items,missing,negative=grouped(mapped,key,5)
+    if negative:return bars(rows,key,label_key,w=w,h=h)
+    items=[x for x in items if x['value']>0];total=sum(x['value'] for x in items)
+    if not total:return svg([text(w/2,h/2,'Pro podílový graf nejsou kladné hodnoty.','middle')],w,h)
+    import math
+    color_map=colors(rows,label_key)
+    out=[];cx=82;cy=h/2;r=min(65,h/2-5);start=-math.pi/2
+    for i,x in enumerate(items):
+        a=2*math.pi*x['value']/total;finish=start+a;color=color_map.get(x['label'],'#8291A6')
+        if a>2*math.pi-.001:out.append(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{color}"/>')
+        else:
+            x0,y0=cx+r*math.cos(start),cy+r*math.sin(start);x1,y1=cx+r*math.cos(finish),cy+r*math.sin(finish)
+            out.append(f'<path d="M {cx} {cy} L {x0} {y0} A {r} {r} 0 {1 if a>math.pi else 0} 1 {x1} {y1} Z" fill="{color}" stroke="white"/>')
+        start=finish;y=14+i*min(31,(h-20)/max(1,len(items)-1))
+        out.append(f'<circle cx="178" cy="{y-4}" r="4" fill="{color}"/>')
+        out.append(text(190,y,short(x['label'],w-190-72),color=INK,size=12))
+        out.append(text(w-2,y,percent(x['value']/total*100),'end',color=INK,bold=True))
+    out.append(f'<circle cx="{cx}" cy="{cy}" r="42" fill="white"/>')
+    out+=[text(cx,cy-1,'PODÍL','middle',size=10),text(cx,cy+18,'100 %','middle',INK,18,True)]
+    return svg(out,w,h)
+
+
+def month_bars(rows,key,w=490,h=180,fmt='money'):
+    vals=[number(x.get(key)) for x in rows];ax=axis(vals);l,r,t,b=55,w-12,22,h-32
+    out=[]
+    if fmt=='count':ax=axis(vals,True)
+    for v in ax.ticks():
+        y=ax.position(v,t,b);out.append(f'<path d="M {l} {y} H {r}" stroke="#DFE7EF"/>');out.append(text(l-8,y+4,ax.label(v),'end',size=10))
+    out.append(text(l-8,10,'DL' if fmt=='count' else ax.unit,'end',size=10))
+    for i,(x,v) in enumerate(zip(rows,vals)):
+        slot=(r-l)/max(len(rows),1);cx=l+slot*(i+.5)
+        if v is not None:
+            z=ax.position(0,t,b);y=ax.position(v,t,b)
+            out.append(f'<rect x="{cx-slot*.25}" y="{min(y,z)}" width="{slot*.5}" height="{max(.5,abs(y-z))}" rx="2" fill="{BLUE if fmt=="count" else TEAL}"/>')
+        out.append(text(cx,h-10,x.get('label',''),'middle',size=10))
+    return svg(out,w,h)
+
+
+def coverage(known,total,label,w=490,h=94):
+    ratio=known/total if total else 0
+    out=[text(4,20,label,color=INK,bold=True),text(w-4,20,f'{known} / {total}','end',INK,12,True),
+      f'<rect x="4" y="34" width="{w-8}" height="14" rx="7" fill="#E9EFF5"/>',
+      f'<rect x="4" y="34" width="{(w-8)*min(1,max(0,ratio))}" height="14" rx="7" fill="{TEAL}"/>',
+      text(4,73,percent(ratio*100) if total else 'Bez dokladů ve vybraném období.')]
+    return svg(out,w,h)
