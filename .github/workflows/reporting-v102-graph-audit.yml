@@ -32,7 +32,9 @@ jobs:
           wanted = {
               'src/ui.py': 'ui_snapshot.py.txt',
               'src/charts.py': 'charts_snapshot.py.txt',
+              'src/chart_geometry.py': 'chart_geometry_snapshot.py.txt',
               'src/exports.py': 'exports_snapshot.py.txt',
+              'src/reporting.py': 'reporting_snapshot.py.txt',
               'src/constants.py': 'constants_snapshot.py.txt',
               'src/report_model.py': 'report_model_snapshot.py.txt',
           }
@@ -46,7 +48,7 @@ jobs:
                   (out/target).write_text(text, encoding='utf-8')
 
           report = []
-          for source in ('src/ui.py','src/charts.py','src/exports.py'):
+          for source in ('src/ui.py','src/charts.py','src/chart_geometry.py','src/exports.py','src/reporting.py'):
               text = texts[source]
               tree = ast.parse(text)
               lines = text.splitlines()
@@ -54,7 +56,7 @@ jobs:
                   if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                       src = '\n'.join(lines[node.lineno-1:getattr(node,'end_lineno',node.lineno)])
                       hay = (node.name+'\n'+src).lower()
-                      keys = ('canvas','chart','graph','donut','pie','bar','trend','share','podil','obchod','zakaz','produkt','margin','marze','pdf')
+                      keys = ('canvas','chart','graph','donut','pie','bar','trend','share','podil','obchod','zakaz','produkt','margin','marze','pdf','svg')
                       if any(k in hay for k in keys):
                           report.append(f'===== {source} :: {node.name} lines {node.lineno}-{getattr(node,"end_lineno",node.lineno)} =====\n{src}\n')
           (out/'graph_audit_source.txt').write_text('\n'.join(report), encoding='utf-8')
