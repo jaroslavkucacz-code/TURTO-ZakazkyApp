@@ -89,8 +89,12 @@ def patch_report_svg(path: str | Path) -> None:
     old = """def colors(rows,label_key):\n    result={str(x.get(label_key) or 'Bez názvu'):PALETTE[i%len(PALETTE)] for i,x in enumerate(rows)}\n    result.update({'Milan':TEAL,'Jirka':AMBER,'Honza':BLUE,'Nezařazené':'#8291A6'})\n    return result\n"""
     new = """SPECIAL_COLORS={'Milan':TEAL,'Honza':BLUE,'Jirka':AMBER,'Nezařazené':'#8291A6'}\n\ndef colors_for_labels(labels):\n    result={};used=set();palette_index=0\n    for raw in labels:\n        label=str(raw or 'Bez názvu')\n        if label in SPECIAL_COLORS:\n            color=SPECIAL_COLORS[label]\n        elif label.startswith('Nezařazené') or label.startswith('Ostatní'):\n            color='#8291A6'\n        else:\n            color=None\n            for _ in range(len(PALETTE)):\n                candidate=PALETTE[palette_index%len(PALETTE)];palette_index+=1\n                if candidate not in used:\n                    color=candidate;break\n            if color is None:color=PALETTE[palette_index%len(PALETTE)]\n        result[label]=color;used.add(color)\n    return result\n"""
     text = _replace_once(text, old, new, 'PDF display colors')
-    text = _replace_once(text, "    color_map=colors(rows,label_key)\n", "    color_map=colors_for_labels([label for _,label in valid])\n", 'PDF bar colors')
-    text = _replace_once(text, "    color_map=colors(rows,label_key)\n", "    color_map=colors_for_labels([x['label'] for x in items])\n", 'PDF share colors')
+    needle="    color_map=colors(rows,label_key)\n"
+    count=text.count(needle)
+    if count != 2:
+        raise RuntimeError(f'PDF color-map calls: očekávány 2 výskyty, nalezeno {count}')
+    text=text.replace(needle,"    color_map=colors_for_labels([label for _,label in valid])\n",1)
+    text=_replace_once(text,needle,"    color_map=colors_for_labels([x['label'] for x in items])\n",'PDF share colors')
     path.write_text(text, encoding='utf-8')
 
 
