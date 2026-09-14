@@ -5,6 +5,7 @@ on:
     branches: [mesicni-prehledy-stable]
     paths:
       - 'release_sources/1.0.2/ready.json'
+      - 'release_sources/1.0.2/audit_trigger.txt'
 
 permissions:
   contents: write
