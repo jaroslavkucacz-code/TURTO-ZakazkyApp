@@ -1,0 +1,59 @@
+name: Audit TURTO reporting graphs for 1.0.2
+
+on:
+  push:
+    branches: [mesicni-prehledy-stable]
+    paths:
+      - 'release_sources/1.0.2/ready.json'
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Extract current UI and audit graph code
+        shell: pwsh
+        run: |
+          @'
+          import ast, io, json, pathlib, urllib.request, zipfile
+          root = pathlib.Path('.')
+          manifest = json.loads((root/'update_manifest.json').read_text(encoding='utf-8'))
+          assert manifest['version'] == '1.0.1', manifest['version']
+          data = urllib.request.urlopen(manifest['url'], timeout=90).read()
+          with zipfile.ZipFile(io.BytesIO(data)) as z:
+              ui = z.read('src/ui.py').decode('utf-8')
+          out = root/'release_sources'/'1.0.2'
+          out.mkdir(parents=True, exist_ok=True)
+          (out/'ui_snapshot.py.txt').write_text(ui, encoding='utf-8')
+
+          tree = ast.parse(ui)
+          lines = ui.splitlines()
+          report = []
+          keywords = ('canvas','chart','graph','donut','pie','bar','trend','share','podil','obchod','zakaz','produkt','margin','marze')
+          for node in ast.walk(tree):
+              if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                  src = '\n'.join(lines[node.lineno-1:getattr(node,'end_lineno',node.lineno)])
+                  hay = (node.name+'\n'+src).lower()
+                  if any(k in hay for k in keywords) and ('create_' in hay or 'canvas' in hay):
+                      report.append(f'===== {node.name} lines {node.lineno}-{getattr(node,"end_lineno",node.lineno)} =====\n{src}\n')
+          (out/'graph_audit_source.txt').write_text('\n'.join(report), encoding='utf-8')
+          print(f'UI lines: {len(lines)}; graph-related drawing functions: {len(report)}')
+          '@ | Set-Content -Encoding utf8 audit_graphs.py
+          python audit_graphs.py
+      - name: Commit audit snapshot
+        shell: pwsh
+        run: |
+          git config user.name "TURTO Release Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add release_sources/1.0.2/ui_snapshot.py.txt release_sources/1.0.2/graph_audit_source.txt
+          if (git diff --cached --quiet) { exit 0 }
+          git commit -m "Snapshot TURTO reporting UI for 1.0.2 graph audit"
+          git push
