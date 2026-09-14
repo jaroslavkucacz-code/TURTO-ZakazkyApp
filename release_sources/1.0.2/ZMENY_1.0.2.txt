@@ -1,0 +1,9 @@
+TURTO – Měsíční přehledy 1.0.2
+
+- Opraveno barevné rozlišení podílových donut grafů. Extrémně malá položka (např. téměř nulové Nezařazené) už nemůže kvůli zaokrouhlení Tk překreslit celý kruh jednou barvou.
+- Milan / Honza / Jirka / Nezařazené mají ve všech podílových grafech stabilní barvy: tyrkysová / modrá / jantarová / šedomodrá.
+- TOP zákazníci a produkty dostávají unikátní barvy podle právě zobrazené sestavy; skryté řádky už nezpůsobují opakování barev mezi TOP položkami.
+- Zkrácena zbytečně široká mezera mezi názvy kategorií a sloupci. Šířka popisků se nyní řídí skutečnou délkou textu a velikostí okna.
+- Aktivní volba ukazatele používá významovou barvu: obrat tyrkysově, zisk jantarově, počet DL modře.
+- Stejná pravidla barev byla sjednocena i v grafech PDF reportu.
+- Zkontrolován hlavní graf Obrat / Zisk / Marže, historie zákazníka, podíly obchodníků, zákazníků a produktů, graf marže a SVG grafy PDF reportu. Zachováno chování: chybějící hodnota = mezera, nikoli nula; záporné podíly = sloupcové srovnání.
