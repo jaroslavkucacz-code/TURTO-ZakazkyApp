@@ -1,12 +1,13 @@
 {
   "app_id": "cz.turto.mesicni-prehledy",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "minimum_version": "1.0.1",
-  "sha256": "99a8fdd6f2e7a66fc8318bfcc6a2a8c2c406875ffa770f1d90e2e98556b6baef",
-  "notes": "Oprava a sjednocení všech grafů: barevné donut grafy obchodníků, stabilní barvy Milan/Honza/Jirka/Nezařazené, unikátní barvy TOP zákazníků a produktů, kompaktnější rozložení podílových grafů a stejné barevné zásady v PDF reportu. Současně byla znovu zkontrolována čitelnost hlavního grafu Obrat/Zisk/Marže, historie zákazníka a grafů PDF.",
+  "sha256": "cffe9fb51e014d61dcfdf495c281264ca0b96ecccf3ab6a9a43178ed93871b4a",
+  "notes": "Oprava aktualizací pro Windows Application Control: samostatný updater EXE se již nepoužívá. Aktualizace nově otevírá běžný Inno Setup instalátor stejně jako TURTO CRM; instalace zůstává pouze pro aktuálního uživatele bez administrátorských práv. Pokud politika Windows automatické spuštění nepovolí, program zachová stažený instalátor a otevře jeho složku místo pádu. Verze zároveň obsahuje všechny grafické opravy z 1.0.2.",
   "channel": "stable",
-  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/b706936daf7f60320fdab3ed5f9cd80bfe30928a/releases/1.0.2/TURTO_update_1.0.2.zip",
-  "installer_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/b706936daf7f60320fdab3ed5f9cd80bfe30928a/releases/1.0.2/TURTO_Mesicni_Prehledy_Setup_1.0.2.exe",
-  "installer_sha256": "cd3c5159b751b8f3abfed38b09e042df2a0331cc33b300f478d671c446f756f5",
-  "install_scope": "current_user"
+  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/658d5fffc2703e7fad14a4b4e30514d40dbdcc55/releases/1.0.3/TURTO_update_1.0.3.zip",
+  "installer_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/658d5fffc2703e7fad14a4b4e30514d40dbdcc55/releases/1.0.3/TURTO_Mesicni_Prehledy_Setup_1.0.3.exe",
+  "installer_sha256": "3befffc8bd085cfe1f37fa40e75778f5517c7263cd29f5aab88eb932585e6391",
+  "install_scope": "current_user",
+  "update_mode": "installer"
 }
