@@ -1,4 +1,5 @@
 {
   "version": "1.0.3",
-  "notes": "Oprava aktualizací pro Windows Application Control: samostatný updater EXE se již nepoužívá. Aktualizace nově otevírá běžný Inno Setup instalátor stejně jako TURTO CRM; instalace zůstává pouze pro aktuálního uživatele bez administrátorských práv. Pokud politika Windows automatické spuštění nepovolí, program zachová stažený instalátor a otevře jeho složku místo pádu. Verze zároveň obsahuje všechny grafické opravy z 1.0.2."
+  "notes": "Oprava aktualizací pro Windows Application Control: samostatný updater EXE se již nepoužívá. Aktualizace nově otevírá běžný Inno Setup instalátor stejně jako TURTO CRM; instalace zůstává pouze pro aktuálního uživatele bez administrátorských práv. Pokud politika Windows automatické spuštění nepovolí, program zachová stažený instalátor a otevře jeho složku místo pádu. Verze zároveň obsahuje všechny grafické opravy z 1.0.2.",
+  "build_request": 1
 }
