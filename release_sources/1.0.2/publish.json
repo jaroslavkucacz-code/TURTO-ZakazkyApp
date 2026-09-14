@@ -1,0 +1,4 @@
+{
+  "version": "1.0.2",
+  "notes": "Oprava a sjednocení všech grafů: barevné donut grafy obchodníků, stabilní barvy Milan/Honza/Jirka/Nezařazené, unikátní barvy TOP zákazníků a produktů, kompaktnější rozložení podílových grafů a stejné barevné zásady v PDF reportu. Současně byla znovu zkontrolována čitelnost hlavního grafu Obrat/Zisk/Marže, historie zákazníka a grafů PDF."
+}
