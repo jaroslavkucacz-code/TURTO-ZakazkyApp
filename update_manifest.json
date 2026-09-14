@@ -1,12 +1,12 @@
 {
   "app_id": "cz.turto.mesicni-prehledy",
-  "version": "1.0.1",
-  "minimum_version": "0.2.8",
-  "sha256": "3892d1fa9ebc8864e0fdf006849b89f852f7e3be423d4d79c0aa12e7f790b258",
-  "notes": "TURTO – Měsíční přehledy 1.0.1: nativní Windows instalace podle osvědčeného modelu TURTO CRM. Instalace probíhá pouze pro aktuálního uživatele do %LOCALAPPDATA%\\Programs bez požadavku na administrátorská práva. Při přechodu z 0.2.8 se databáze, config.json, importy, exporty a zálohy bezpečně převedou do oddělené uživatelské datové složky.",
+  "version": "1.0.2",
+  "minimum_version": "1.0.1",
+  "sha256": "99a8fdd6f2e7a66fc8318bfcc6a2a8c2c406875ffa770f1d90e2e98556b6baef",
+  "notes": "Oprava a sjednocení všech grafů: barevné donut grafy obchodníků, stabilní barvy Milan/Honza/Jirka/Nezařazené, unikátní barvy TOP zákazníků a produktů, kompaktnější rozložení podílových grafů a stejné barevné zásady v PDF reportu. Současně byla znovu zkontrolována čitelnost hlavního grafu Obrat/Zisk/Marže, historie zákazníka a grafů PDF.",
   "channel": "stable",
-  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/939c4ac189fd37b6aa98ea8528b553aaefee7093/releases/1.0.1/TURTO_update_1.0.1.zip",
-  "installer_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/939c4ac189fd37b6aa98ea8528b553aaefee7093/releases/1.0.1/TURTO_Mesicni_Prehledy_Setup_1.0.1.exe",
-  "installer_sha256": "e4aeef3a459b1c7a6d4d4bc4f98572a4bf43a7470326999fb178d9a894368994",
+  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/b706936daf7f60320fdab3ed5f9cd80bfe30928a/releases/1.0.2/TURTO_update_1.0.2.zip",
+  "installer_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/b706936daf7f60320fdab3ed5f9cd80bfe30928a/releases/1.0.2/TURTO_Mesicni_Prehledy_Setup_1.0.2.exe",
+  "installer_sha256": "cd3c5159b751b8f3abfed38b09e042df2a0331cc33b300f478d671c446f756f5",
   "install_scope": "current_user"
 }
