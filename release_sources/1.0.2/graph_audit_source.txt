@@ -1,4 +1,84 @@
-===== show_page lines 214-230 =====
+===== src/ui.py :: _apply_app_icon lines 97-122 =====
+    def _apply_app_icon(self):
+        # Supply multiple sizes to Tk and a genuine multi-resolution ICO to
+        # Windows. This keeps the title bar / Alt+Tab / taskbar crisp even at
+        # different DPI scaling factors.
+        assets=Path(__file__).resolve().parents[1] / 'assets'
+        ico=assets / 'app_icon.ico'
+        try:
+            if ico.exists():
+                self.iconbitmap(default=str(ico))
+        except Exception:
+            pass
+        self._app_icon_images=[]
+        try:
+            for size in (16,20,24,32,40,48,64):
+                p=assets / f'app_icon_{size}.png'
+                if p.exists():
+                    self._app_icon_images.append(tk.PhotoImage(file=str(p)))
+            if self._app_icon_images:
+                self.iconphoto(True,*self._app_icon_images)
+        except Exception:
+            pass
+        try:
+            from .windows_integration import install_native_icon_refresh
+            install_native_icon_refresh(self,Path(__file__).resolve().parents[1])
+        except Exception:
+            pass
+
+===== src/ui.py :: _build_layout lines 151-200 =====
+    def _build_layout(self):
+        self.sidebar=tk.Frame(self,bg='#0D1524',width=220); self.sidebar.pack(side='left',fill='y'); self.sidebar.pack_propagate(False)
+        brand=tk.Frame(self.sidebar,bg='#0D1524'); brand.pack(fill='x',padx=14,pady=(20,20))
+        icon_path=Path(__file__).resolve().parents[1] / 'assets' / 'app_icon_48.png'
+        try:
+            self._brand_icon=tk.PhotoImage(file=str(icon_path))
+            tk.Label(brand,image=self._brand_icon,bg='#0D1524',bd=0).pack(side='left',padx=(0,10))
+        except Exception:
+            self._brand_icon=None
+        brand_text=tk.Frame(brand,bg='#0D1524'); brand_text.pack(side='left',fill='x',expand=True)
+        tk.Label(brand_text,text='TURTO',bg='#0D1524',fg=COLORS['text'],font=('Calibri',21,'bold')).pack(anchor='w')
+        tk.Label(brand_text,text='MĚSÍČNÍ PŘEHLEDY',bg='#0D1524',fg=COLORS['muted'],font=('Calibri',8,'bold')).pack(anchor='w')
+        for name in ['Přehled','Obrat & marže','Obchodníci','Zákazníci','Produkty','Importy','Nastavení']:
+            b=tk.Button(self.sidebar,text=name,anchor='w',relief='flat',bd=0,bg='#0D1524',fg='#C7D2E0',activebackground=COLORS['panel_soft'],activeforeground=COLORS['text'],font=('Calibri',11),padx=20,pady=11,command=lambda n=name:self.show_page(n))
+            b.pack(fill='x',padx=8,pady=2); self.nav_buttons[name]=b
+        tk.Label(self.sidebar,text='Lepší data.\nSilnější rozhodnutí.',justify='left',bg='#0D1524',fg='#53657A',font=('Calibri',9)).pack(side='bottom',anchor='w',padx=20,pady=22)
+
+        right=tk.Frame(self,bg=COLORS['bg']); right.pack(side='left',fill='both',expand=True)
+        top=tk.Frame(right,bg=COLORS['bg'],height=92); top.pack(fill='x'); top.pack_propagate(False)
+        left=tk.Frame(top,bg=COLORS['bg']); left.pack(side='left',fill='y',padx=22,pady=(10,8))
+
+        period_box=tk.Frame(left,bg=COLORS['bg'])
+        period_box.pack(side='left',fill='y',padx=(0,12))
+        tk.Label(period_box,text='OBDOBÍ',bg=COLORS['bg'],fg='#B7C4D3',font=('Calibri',8,'bold')).pack(anchor='w',pady=(0,4))
+        self.period_var=tk.StringVar(value=self.cfg.get('default_period','2026-08'))
+        self.period_cb=ttk.Combobox(period_box,textvariable=self.period_var,width=12,state='readonly',style='Dark.TCombobox')
+        self.period_cb.pack(anchor='w')
+        self.period_cb.bind('<<ComboboxSelected>>',lambda e:self.refresh_current())
+
+        mode_box=tk.Frame(left,bg=COLORS['bg'])
+        mode_box.pack(side='left',fill='y',padx=(0,12))
+        tk.Label(mode_box,text='ROZSAH',bg=COLORS['bg'],fg='#B7C4D3',font=('Calibri',8,'bold')).pack(anchor='w',pady=(0,4))
+        self.mode_var=tk.StringVar(value='Měsíc')
+        mode=ttk.Combobox(mode_box,textvariable=self.mode_var,values=['Měsíc','YTD','Rok','Posledních 12 měsíců'],width=20,state='readonly',style='Dark.TCombobox')
+        mode.pack(anchor='w'); mode.bind('<<ComboboxSelected>>',lambda e:self.refresh_current())
+
+        compare=tk.Frame(left,bg=COLORS['panel'],highlightbackground=COLORS['border'],highlightthickness=1,bd=0,padx=12,pady=7)
+        compare.pack(side='left',anchor='s',pady=(18,0))
+        tk.Label(compare,text='POROVNÁNÍ',bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',7,'bold')).pack(anchor='w')
+        tk.Label(compare,text='Předchozí rok',bg=COLORS['panel'],fg=COLORS['text'],font=('Calibri',10,'bold')).pack(anchor='w',pady=(1,0))
+
+        actions=tk.Frame(top,bg=COLORS['bg']); actions.pack(side='right',padx=22,pady=24)
+        tk.Button(actions,text='Importovat data',command=self.do_import,bg=COLORS['teal'],fg='#06251D',activebackground=COLORS['teal2'],relief='flat',bd=0,font=('Calibri',10,'bold'),padx=16,pady=9).pack(side='left',padx=4)
+        exp=tk.Menubutton(actions,text='Export',bg=COLORS['panel_soft'],fg=COLORS['text'],activebackground=COLORS['border'],activeforeground=COLORS['text'],relief='flat',bd=0,font=('Calibri',10,'bold'),padx=16,pady=9)
+        menu=tk.Menu(exp,tearoff=0); menu.add_command(label='Excel – kompletní přehled',command=self.export_xlsx); menu.add_command(label='PDF – manažerský report',command=self.export_pdf); exp.config(menu=menu); exp.pack(side='left',padx=4)
+
+        self.viewport=PageViewport(right);self.viewport.pack(fill='both',expand=True,padx=22,pady=(0,10));self.container=self.viewport.body
+        statusbar=tk.Frame(right,bg=COLORS['bg']); statusbar.pack(fill='x',padx=22,pady=(0,7))
+        self.status=tk.Label(statusbar,text='',anchor='w',bg=COLORS['bg'],fg=COLORS['muted'],font=('Calibri',8)); self.status.pack(side='left',fill='x',expand=True)
+        tk.Label(statusbar,text='Vytvořil Ing. Jaroslav Kučera',anchor='e',bg=COLORS['bg'],fg='#607086',font=('Calibri',8)).pack(side='right')
+
+===== src/ui.py :: show_page lines 214-230 =====
     def show_page(self,name):
         for n,b in self.nav_buttons.items():
             b.config(bg=COLORS['panel_soft'] if n==name else '#0D1524',fg=COLORS['text'] if n==name else '#C7D2E0')
@@ -17,7 +97,49 @@
             tk.Label(err,text='Program zůstal spuštěný. Podrobnosti jsou v turto_error.log.',bg=COLORS['bg'],fg=COLORS['muted'],font=('Calibri',10)).pack(anchor='w',pady=(6,0))
         self.update_status()
 
-===== chart_margin lines 276-291 =====
+===== src/ui.py :: page_overview lines 236-253 =====
+    def page_overview(self):
+        root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True)
+        self.title_block(root,'Přehled výkonnosti','Klíčové ukazatele za vybrané období')
+        y,m=self.period(); mode=self.mode_key(); k=self.analytics.kpis(y,m,mode)
+        cards=tk.Frame(root,bg=COLORS['bg']); cards.pack(fill='x')
+        unassigned_note=(f"{k['unassigned_count']} nezařazených · {fmt_money(k['unassigned_revenue'])}" if k['unassigned_count'] else 'všechny doklady jsou přiřazené')
+        vals=[('Obrat',fmt_money(k['revenue']),(f"{k['yoy']:+.1f} % vs. předchozí rok" if k.get('yoy_available') else 'srovnání není dostupné')),('Hrubý zisk',(fmt_money(k['profit'])+(' *' if not k['profit_complete'] else '')) if k['profit_available'] else '—','zisk z dostupných reportů'),('Průměrná marže',fmt_pct(k['margin']),'vážená marže'),('Počet DL',str(k['count']),unassigned_note),('Ø hodnota DL',fmt_money(k['avg_order']),'průměr na doklad'),('Režijní listy',fmt_money(k['overhead']),'za vybrané období')]
+        for i,(a,b,c) in enumerate(vals):
+            card=Card(cards,a,b,c,accent=COLORS['teal'] if not c.startswith('-') else COLORS['red']); card.grid(row=0,column=i,sticky='nsew',padx=(0 if i==0 else 6,0),ipady=2); cards.grid_columnconfigure(i,weight=1)
+        responsive_grid(cards,cards.winfo_children(),6,3)
+        mid=tk.Frame(root,bg=COLORS['bg']); mid.pack(fill='both',expand=True,pady=(14,0)); mid.grid_columnconfigure(0,weight=3); mid.grid_columnconfigure(1,weight=2); mid.grid_rowconfigure(0,weight=1)
+        p=Panel(mid,'Obrat po měsících'); p.grid(row=0,column=0,sticky='nsew',padx=(0,7)); self.chart_trend(p.body,y)
+        p3=Panel(mid,'Výkon obchodníků'); p3.grid(row=0,column=1,sticky='nsew',padx=(7,0)); self.sales_ranking(p3.body,self.analytics.salespeople(y,m,mode))
+        bot=tk.Frame(root,bg=COLORS['bg']); bot.pack(fill='both',expand=True,pady=(14,0)); bot.grid_columnconfigure(0,weight=2); bot.grid_columnconfigure(1,weight=1); bot.grid_columnconfigure(2,weight=1)
+        cp=Panel(bot,'Top zákazníci'); cp.grid(row=0,column=0,sticky='nsew',padx=(0,7)); self.customer_table(cp.body,self.analytics.top_customers(y,m,mode,6),compact=True)
+        pp=Panel(bot,'Produkty – nejvyšší zisk'); pp.grid(row=0,column=1,sticky='nsew',padx=7); self.product_compact(pp.body,self.analytics.products(y,m,5,mode))
+        ip=Panel(bot,'Rychlý přehled'); ip.grid(row=0,column=2,sticky='nsew',padx=(7,0)); self.insights(ip.body,k,self.analytics.salespeople(y,m,mode))
+        responsive_grid(bot,[cp,pp,ip],3,1)
+
+===== src/ui.py :: chart_trend lines 255-268 =====
+    def chart_trend(self,parent,year):
+        y,m=self.period()
+        data=selected_trend(self.analytics,y,m,self.mode_key())
+        trim_trailing=True
+        chart=BusinessChart(
+            parent,data,
+            subtitle=('Vývoj od ledna do vybraného měsíce' if self.mode_key()=='month' else 'Vývoj vybraného období')+' · Kč vlevo / % vpravo',
+            show_mode_switch=True,
+            trim_trailing_empty=trim_trailing,
+            on_period_click=self._on_trend_month_click,
+            height=300,
+        )
+        chart.pack(fill='both',expand=True)
+        return chart
+
+===== src/ui.py :: _on_trend_month_click lines 270-273 =====
+    def _on_trend_month_click(self,row):
+        period=row.get('period')
+        if period:
+            self.period_var.set(period); self.mode_var.set('Měsíc'); self.show_page('Obrat & marže')
+
+===== src/ui.py :: chart_margin lines 276-291 =====
     def chart_margin(self,parent,margin):
         canvas=tk.Canvas(parent,bg=COLORS['panel'],highlightthickness=0,bd=0)
         canvas.pack(fill='both',expand=True)
@@ -35,7 +157,357 @@
         canvas.bind('<Configure>',draw)
         parent.after_idle(draw)
 
-===== draw lines 280-289 =====
+===== src/ui.py :: sales_ranking lines 293-305 =====
+    def sales_ranking(self,parent,rows):
+        ranked=sorted(rows,key=lambda x:x.get('profit',0),reverse=True)
+        max_profit=max([abs(float(x.get('profit') or 0)) for x in ranked]+[1.0])
+        for x in ranked:
+            is_other=x.get('code')=='OTHER'
+            profit=float(x.get('profit') or 0)
+            accent=COLORS['amber'] if is_other else (COLORS['red'] if profit<0 else COLORS['teal'])
+            head=tk.Frame(parent,bg=COLORS['panel']); head.pack(fill='x',pady=(7,2))
+            tk.Label(head,text=x['name'],bg=COLORS['panel'],fg=COLORS['amber'] if is_other else COLORS['text'],font=('Calibri',10,'bold')).pack(side='left')
+            tk.Label(head,text='Zisk '+((fmt_money(profit)+(' *' if not x.get('profit_complete',True) else '')) if x.get('profit_available',True) else '—'),bg=COLORS['panel'],fg=accent,font=('Calibri',10,'bold')).pack(side='right')
+            bar=tk.Frame(parent,bg=COLORS['panel_soft'],height=8); bar.pack(fill='x'); bar.pack_propagate(False)
+            fill=tk.Frame(bar,bg=accent); fill.place(relx=0,rely=0,relwidth=max(.015,min(1.0,abs(profit)/max_profit)),relheight=1)
+            tk.Label(parent,text=f"Obrat {fmt_money(x['revenue'])}  ·  marže {fmt_pct(x['margin'])}  ·  {x['count']} DL",bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',8)).pack(anchor='e',pady=(2,1))
+
+===== src/ui.py :: _tree lines 307-433 =====
+    def _tree(self,parent,cols,headings,widths=None,height=8,anchors=None):
+        # Jednotná tabulka s okamžitým vyhledáváním a řazením klikem na záhlaví.
+        # Po opuštění záložky se tabulka znovu vytvoří, takže se řazení automaticky
+        # vrátí do původního pořadí dat.
+        search_bar=tk.Frame(parent,bg=COLORS['panel'])
+        search_bar.pack(fill='x',pady=(0,7))
+        tk.Label(search_bar,text='Hledat',bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',9)).pack(side='left',padx=(0,7))
+        search_var=tk.StringVar()
+        search_entry=tk.Entry(search_bar,textvariable=search_var,bg=COLORS['panel_soft'],fg=COLORS['text'],insertbackground=COLORS['text'],relief='flat',font=('Calibri',10))
+        search_entry.pack(side='left',fill='x',expand=True,ipady=5)
+        result_lbl=tk.Label(search_bar,text='',bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',8))
+        result_lbl.pack(side='right',padx=(9,0))
+        clear_btn=tk.Button(search_bar,text='×',command=lambda: search_var.set(''),bg=COLORS['panel_soft'],fg=COLORS['muted'],activebackground=COLORS['border'],activeforeground=COLORS['text'],relief='flat',bd=0,font=('Calibri',13,'bold'),width=2)
+        clear_btn.pack(side='right',padx=(6,0))
+
+        holder=tk.Frame(parent,bg=COLORS['panel'])
+        holder.pack(fill='both',expand=True)
+        tree=ttk.Treeview(holder,columns=cols,show='headings',height=height,style='Dark.Treeview')
+        tree._heading_text={c:headings[i] for i,c in enumerate(cols)}
+        tree._sort_col=None
+        tree._sort_reverse=False
+        for i,c in enumerate(cols):
+            anchor=(anchors[i] if anchors else ('w' if i==0 else 'e'))
+            tree.heading(c,text=headings[i],anchor=anchor)
+            tree.column(c,width=(widths[i] if widths else 120),anchor=anchor,minwidth=45)
+        scroll=ttk.Scrollbar(holder,orient='vertical',command=tree.yview)
+        hscroll=ttk.Scrollbar(holder,orient='horizontal',command=tree.xview)
+        tree.configure(yscrollcommand=scroll.set,xscrollcommand=hscroll.set)
+        tree.grid(row=0,column=0,sticky='nsew'); scroll.grid(row=0,column=1,sticky='ns'); hscroll.grid(row=1,column=0,sticky='ew')
+        holder.grid_rowconfigure(0,weight=1); holder.grid_columnconfigure(0,weight=1)
+
+        original_insert=tree.insert
+        tree._search_iids=[]
+        def tracked_insert(parent_iid,index,**kw):
+            iid=original_insert(parent_iid,index,**kw)
+            if not parent_iid:
+                tree._search_iids.append(iid)
+                if search_var.get().strip() or tree._sort_col:
+                    tree.after_idle(apply_filter)
+                else:
+                    result_lbl.config(text=f'{len(tree._search_iids)} řádků')
+            return iid
+        tree.insert=tracked_insert
+
+        def normalize(value):
+            return str(value if value is not None else '').lower().replace('\u00a0',' ').strip()
+
+        def sort_value(value):
+            # Přirozené řazení pro datumy, částky, procenta a počty; ostatní jako text.
+            text=str(value if value is not None else '').strip()
+            if not text or text in ('—','-'):
+                return (3,'')
+            # ISO datum / datum s časem
+            import re
+            m=re.match(r'^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?',text)
+            if m:
+                y=int(m.group(1)); mo=int(m.group(2)); d=int(m.group(3) or 1)
+                return (0,y*10000+mo*100+d)
+            m=re.match(r'^(\d{1,2})[.](\d{1,2})[.](\d{2,4})',text)
+            if m:
+                d=int(m.group(1)); mo=int(m.group(2)); y=int(m.group(3)); y += 2000 if y<100 else 0
+                return (0,y*10000+mo*100+d)
+            # Čísla, Kč, %, p.b., hvězdička u částečného zisku apod.
+            cleaned=text.replace('Kč','').replace('%','').replace('*','').replace(' ','').replace('\u00a0','').replace(',','.').strip()
+            if re.fullmatch(r'[-+]?\d+(?:\.\d+)?',cleaned):
+                try: return (1,float(cleaned))
+                except ValueError: pass
+            return (2,normalize(text))
+
+        def visible_iids():
+            q=normalize(search_var.get())
+            out=[]
+            for iid in tree._search_iids:
+                if not tree.exists(iid):continue
+                vals=tree.item(iid,'values')
+                hay=' | '.join(normalize(v) for v in vals)
+                if not q or q in hay:
+                    out.append(iid)
+            return out
+
+        def refresh_headings():
+            for c in cols:
+                label=tree._heading_text[c]
+                if c==tree._sort_col:
+                    label += '  ▼' if tree._sort_reverse else '  ▲'
+                tree.heading(c,text=label)
+
+        def sort_by_column(col):
+            if tree._sort_col==col:
+                tree._sort_reverse=not tree._sort_reverse
+            else:
+                tree._sort_col=col
+                tree._sort_reverse=False
+            refresh_headings()
+            apply_filter()
+
+        for c in cols:
+            # default argument je nutný, aby každý handler držel svůj sloupec
+            tree.heading(c,command=lambda column=c: sort_by_column(column))
+
+        def apply_filter(*_):
+            q=normalize(search_var.get())
+            visible=visible_iids()
+            if tree._sort_col:
+                idx=cols.index(tree._sort_col)
+                # Stabilní sort: při shodě zůstává původní pořadí z importu.
+                order={iid:i for i,iid in enumerate(tree._search_iids)}
+                missing=[iid for iid in visible if sort_value(tree.item(iid,'values')[idx])[0]==3]
+                visible=[iid for iid in visible if iid not in set(missing)]
+                visible.sort(key=lambda iid:sort_value(tree.item(iid,'values')[idx]),reverse=tree._sort_reverse)
+                visible.extend(missing)
+            # detach/reattach zachová data i vazby na dvojklik zákazníka.
+            visible_set=set(visible)
+            for iid in tree._search_iids:
+                if tree.exists(iid) and iid not in visible_set:
+                    tree.detach(iid)
+            for iid in visible:
+                tree.move(iid,'','end')
+            total=len(tree._search_iids)
+            result_lbl.config(text=(f'{len(visible)} / {total} řádků' if q else f'{total} řádků'))
+
+        search_var.trace_add('write',apply_filter)
+        tree.search_var=search_var
+        tree.search_entry=search_entry
+        tree.apply_filter=apply_filter
+        tree.sort_by_column=sort_by_column
+        return tree
+
+===== src/ui.py :: customer_table lines 435-455 =====
+    def customer_table(self,parent,rows,compact=False):
+        if compact:
+            tree=self._tree(parent,('customer','revenue','profit'),('Zákazník','Obrat','Zisk'),(210,115,105),height=6,anchors=('w','e','e'))
+        else:
+            tree=self._tree(parent,('customer','revenue','profit','margin','count'),('Zákazník','Obrat','Zisk','Marže','DL'),(360,145,135,95,75),height=18,anchors=('w','e','e','e','e'))
+        item_customers={}
+        for x in rows:
+            rev=float(x.get('revenue') or 0); prof=float(x.get('profit') or 0); cnt=int(x.get('count') or 0); profit_docs=int(x.get('profit_docs',cnt) or 0)
+            available=bool(x.get('profit_available',profit_docs>0)); complete=bool(x.get('profit_complete',cnt==0 or profit_docs>=cnt))
+            margin=x.get('margin')
+            profit_text=(fmt_money(prof)+(' *' if available and not complete else '')) if available else '—'
+            margin_text=(fmt_pct(margin)+(' *' if available and not complete else '')) if margin is not None else '—'
+            values=(x['customer'],fmt_money(rev),profit_text) if compact else (x['customer'],fmt_money(rev),profit_text,margin_text,cnt)
+            iid=tree.insert('', 'end', values=values); item_customers[iid]=x['customer']
+        def open_selected(event=None):
+            iid=tree.focus()
+            if not iid and tree.selection(): iid=tree.selection()[0]
+            customer=item_customers.get(iid)
+            if customer: self.open_customer_detail(customer)
+        tree.bind('<Double-1>',open_selected); tree.bind('<Return>',open_selected)
+        return tree
+
+===== src/ui.py :: open_customer_detail lines 457-484 =====
+    def open_customer_detail(self,customer):
+        history=self.analytics.customer_history(customer)
+        if not history:
+            messagebox.showinfo('Zákazník','Pro zákazníka nejsou dostupná historická data.')
+            return
+        win=tk.Toplevel(self); win.title(f'{customer} – historie'); win.geometry('1120x760'); win.minsize(900,650); win.configure(bg=COLORS['bg'])
+        try: win.transient(self)
+        except Exception: pass
+        head=tk.Frame(win,bg=COLORS['bg']); head.pack(fill='x',padx=20,pady=(18,10))
+        tk.Label(head,text=customer,bg=COLORS['bg'],fg=COLORS['text'],font=('Calibri',20,'bold')).pack(anchor='w')
+        tk.Label(head,text='Historie podle dodacích listů z dostupných dat POHODA',bg=COLORS['bg'],fg=COLORS['muted'],font=('Calibri',9)).pack(anchor='w',pady=(2,0))
+        total_rev=sum(x['revenue'] for x in history); total_count=sum(x['count'] for x in history)
+        available=[x for x in history if x['profit_available']]; raw_profit=sum(x['profit'] for x in available)
+        last=max((x.get('last_date') or '' for x in history),default='')
+        cards=tk.Frame(win,bg=COLORS['bg']); cards.pack(fill='x',padx=20,pady=(0,12))
+        vals=[('Obrat celkem',fmt_money(total_rev),'v celé dostupné historii'),('Počet DL',str(total_count),f'{len(history)} měsíců s odběrem'),('Zisk z dostupných reportů',fmt_money(raw_profit),f'zisková data: {len(available)} z {len(history)} měsíců'),('Poslední odběr',last if last else '—','datum posledního DL')]
+        for i,(a,b,c) in enumerate(vals):
+            Card(cards,a,b,c,accent=COLORS['amber'] if i==2 and len(available)<len(history) else COLORS['teal']).grid(row=0,column=i,sticky='nsew',padx=(0 if i==0 else 7,0)); cards.grid_columnconfigure(i,weight=1)
+        chart=Panel(win,'Měsíční vývoj zákazníka'); chart.pack(fill='both',expand=True,padx=20,pady=(0,10)); self.chart_customer_history(chart.body,history)
+        tab=Panel(win,'Historie po měsících'); tab.pack(fill='both',expand=True,padx=20,pady=(0,16))
+        note=tk.Label(tab.body,text='Zisk a marže jsou zobrazeny pouze v měsících, pro které byl importován report Zisk (zásoby).',bg=COLORS['panel'],fg=COLORS['amber'],font=('Calibri',8),anchor='w')
+        note.pack(fill='x',pady=(0,6))
+        tree=self._tree(tab.body,('period','revenue','profit','margin','count'),('Období','Obrat','Zisk','Marže','DL'),(130,180,180,110,80),height=8,anchors=('w','e','e','e','e'))
+        for x in reversed(history):
+            suffix=' *' if x.get('profit_available') and not x.get('profit_complete',True) else ''
+            profit_txt=(fmt_money(x['profit'])+suffix) if x['profit_available'] else '—'
+            margin_txt=(fmt_pct(x['margin'])+suffix) if x['margin'] is not None else '—'
+            tree.insert('', 'end',values=(x['period'],fmt_money(x['revenue']),profit_txt,margin_txt,x['count']))
+
+===== src/ui.py :: chart_customer_history lines 486-494 =====
+    def chart_customer_history(self,parent,history):
+        data=[]
+        for x in history[-30:]:
+            period=str(x.get('period') or '')
+            label=(period[5:7]+'/'+period[2:4]) if len(period)>=7 else period
+            revenue=float(x.get('revenue') or 0); profit=float(x.get('profit') or 0); available=bool(x.get('profit_available')); margin=x.get('margin') if available else None
+            data.append({'label':label,'full_label':period,'revenue':revenue,'profit':profit,'margin':margin,'profit_available':available,'profit_complete':x.get('profit_complete',True),'has_data':True})
+        chart=BusinessChart(parent,data,subtitle='Historie zákazníka • Kč vlevo / marže % vpravo',show_mode_switch=True,trim_trailing_empty=False,height=275)
+        chart.pack(fill='both',expand=True); return chart
+
+===== src/ui.py :: insights lines 500-506 =====
+    def insights(self,parent,k,sales):
+        assigned=[x for x in sales if x.get('code')!='OTHER']
+        best=assigned[0]['name'] if assigned else '—'
+        texts=[f"Meziroční změna obratu: {k['yoy']:+.1f} %",f"Vážená marže: {fmt_pct(k['margin'])}",f"Nejvyšší obrat má {best}.",f"Nezařazené: {k['unassigned_count']} DL · {fmt_money(k['unassigned_revenue'])}",f"Režijní listy: {fmt_money(k['overhead'])}","Produktová % marže čeká na položkovou prodejní cenu."]
+        for i,t in enumerate(texts):
+            fg=COLORS['amber'] if i in (3,5) else COLORS['text']
+            tk.Label(parent,text='• '+t,wraplength=260,justify='left',anchor='w',bg=COLORS['panel'],fg=fg,font=('Calibri',9)).pack(fill='x',pady=4)
+
+===== src/ui.py :: page_revenue lines 508-512 =====
+    def page_revenue(self):
+        root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True); self.title_block(root,'Obrat & marže','Měsíční vývoj, zisk a režijní listy')
+        y,m=self.period(); p=Panel(root,'Vývoj vybraného období'); p.pack(fill='both',expand=True); self.chart_trend(p.body,y)
+        table=Panel(root,'Měsíční souhrn'); table.pack(fill='both',expand=True,pady=(12,0)); tree=self._tree(table.body,('m','r','p','mar'),('Měsíc','Obrat','Zisk','Marže'),(140,170,170,100),12,anchors=('w','e','e','e'))
+        for x in selected_trend(self.analytics,y,m,self.mode_key()): tree.insert('', 'end', values=(x.get('full_label',MONTH_NAMES[x['month']-1]),fmt_money(x['revenue']),fmt_money(x['profit']),fmt_pct(x['margin'])))
+
+===== src/ui.py :: page_sales lines 514-533 =====
+    def page_sales(self):
+        root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True); self.title_block(root,'Obchodníci','Výkon středisek M / J / H včetně nezařazených dokladů')
+        y,m=self.period(); mode=self.mode_key(); rows=self.analytics.salespeople(y,m,mode); ranked=sorted(rows,key=lambda x:x['profit'],reverse=True)
+        chartp=Panel(root,'Podíly obchodníků a srovnání výkonu'); chartp.pack(fill='x')
+        ShareChart(chartp.body,rows,metrics=(('profit','Zisk','money'),('revenue','Obrat','money'),('count','Počet DL','count')),initial_metric='profit',title_note='Zisk lze na úrovni obchodníků využít i ze starších měsíčních souhrnů.',max_items=6,height=245).pack(fill='both',expand=True)
+        sp=Panel(root,'Souhrn výkonu obchodníků'); sp.pack(fill='x',pady=(12,0))
+        tree=self._tree(sp.body,('name','revenue','profit','margin','count','avg','pshare'),('Obchodník','Obrat','Zisk','Marže','DL','Ø DL','Podíl na zisku'),(145,145,140,90,60,130,120),height=4,anchors=('w','e','e','e','e','e','e'))
+        for x in ranked: tree.insert('', 'end',values=(x['name'],fmt_money(x['revenue']),((fmt_money(x['profit'])+(' *' if not x.get('profit_complete',True) else '')) if x.get('profit_available',True) else '—'),fmt_pct(x['margin']),x['count'],fmt_money(x['avg_order']),fmt_pct(x.get('profit_share',0))))
+        p=Panel(root,'Největší doklady'); p.pack(fill='both',expand=True,pady=(12,0)); tree=self._tree(p.body,('center','doc','customer','project','amount','profit','margin'),('Středisko','DL','Zákazník','Projekt','Částka','Zisk','Marže'),(120,105,220,220,130,120,85),12,anchors=('w','w','w','w','e','e','e'))
+        doc_map={}
+        for x in self.analytics.top_documents(y,m,mode,limit=50):
+            iid=tree.insert('', 'end',values=(center_display(x['center']),x['doc_no'],x['customer'],x['project'],fmt_money(x['base_amount']),fmt_money(x['profit']),fmt_pct(x['margin']))); doc_map[iid]=x['doc_no']
+        def open_doc(event=None):
+            if event is not None and getattr(event,'keysym','') != 'Return' and tree.identify_region(event.x,event.y) != 'cell':return
+            iid=tree.identify_row(event.y) if event is not None and getattr(event,'keysym','') != 'Return' else tree.focus()
+            if not iid and tree.selection(): iid=tree.selection()[0]
+            doc_no=doc_map.get(iid)
+            if doc_no: self.open_document_detail(doc_no)
+        tree.bind('<Double-1>',open_doc); tree.bind('<Return>',open_doc)
+        tk.Label(p.body,text='Dvojklikem na řádek otevřete položky dodacího listu.',bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',8),anchor='w').pack(fill='x',pady=(6,0))
+
+===== src/ui.py :: open_document_detail lines 535-572 =====
+    def open_document_detail(self,doc_no):
+        data=self.analytics.document_detail(doc_no)
+        if not data:
+            messagebox.showinfo('Dodací list','Dodací list se nepodařilo najít v databázi.')
+            return
+        win=tk.Toplevel(self); win.title(f"{doc_no} – položky dodacího listu"); win.geometry('1380x780'); win.minsize(1050,650); win.configure(bg=COLORS['bg'])
+        try: win.transient(self)
+        except Exception: pass
+        head=tk.Frame(win,bg=COLORS['bg']); head.pack(fill='x',padx=20,pady=(18,8))
+        tk.Label(head,text=f"Dodací list {doc_no}",bg=COLORS['bg'],fg=COLORS['text'],font=('Calibri',20,'bold')).pack(anchor='w')
+        subtitle=f"{data.get('customer') or '—'} · {data.get('doc_date') or '—'} · {center_display(data.get('center'))}"
+        tk.Label(head,text=subtitle,bg=COLORS['bg'],fg=COLORS['muted'],font=('Calibri',10)).pack(anchor='w',pady=(2,0))
+        if data.get('description'):
+            tk.Label(head,text=data.get('description'),bg=COLORS['bg'],fg=COLORS['text'],font=('Calibri',10),anchor='w').pack(anchor='w',pady=(5,0))
+
+        cards=tk.Frame(win,bg=COLORS['bg']); cards.pack(fill='x',padx=20,pady=(0,12))
+        profit_available=bool(data.get('profit_available')); margin=data.get('margin_percent')
+        vals=[
+            ('Částka bez DPH',fmt_money(data.get('base_amount') or 0),'hodnota DL'),
+            ('Zisk',fmt_money(data.get('profit_total') or 0) if profit_available else '—','z reportu Zisk (zásoby)' if profit_available else 'ziskový report chybí'),
+            ('Marže',fmt_pct(margin) if margin is not None else '—','marže celého DL'),
+            ('Položek',str(len(data.get('items') or [])),'položkových řádků')
+        ]
+        for i,(a,b,c) in enumerate(vals):
+            Card(cards,a,b,c,accent=COLORS['amber'] if i in (1,2) else COLORS['teal']).grid(row=0,column=i,sticky='nsew',padx=(0 if i==0 else 7,0)); cards.grid_columnconfigure(i,weight=1)
+
+        panel=Panel(win,'Položky dodacího listu'); panel.pack(fill='both',expand=True,padx=20,pady=(0,16))
+        tk.Label(panel.body,text='Prodejní cena, náklad a položková marže jsou připravené pro budoucí export z POHODY. Pokud je zdroj zatím neobsahuje, zobrazí se —.',bg=COLORS['panel'],fg=COLORS['amber'],font=('Calibri',8),anchor='w').pack(fill='x',pady=(0,6))
+        tree=self._tree(panel.body,('code','name','item_text','qty','sales','cost','profit_unit','profit','margin'),('Kód','Název','Poznámka / balení','Množství','Prodej','Náklad','Zisk / j.','Zisk','Marže'),(160,330,190,90,115,115,105,115,85),height=16,anchors=('w','w','w','e','e','e','e','e','e'))
+        def maybe_money(v): return fmt_money(v) if v is not None else '—'
+        def maybe_pct(v): return fmt_pct(v) if v is not None else '—'
+        items=data.get('items') or []
+        for item in items:
+            tree.insert('', 'end',values=(
+                item.get('code') or '—',item.get('name') or '—',item.get('item_text') or '',fmt_num(item.get('quantity') or 0),
+                maybe_money(item.get('sales_total')),maybe_money(item.get('cost_total')),fmt_money(item.get('profit_unit') or 0,2),fmt_money(item.get('profit_total') or 0),maybe_pct(item.get('margin_percent'))))
+        if not items:
+            tk.Label(panel.body,text='Pro tento dodací list nejsou položková data z reportu Zisk (zásoby) dostupná.',bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',10)).pack(anchor='w',pady=10)
+
+===== src/ui.py :: page_customers lines 574-582 =====
+    def page_customers(self):
+        root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True); self.title_block(root,'Zákazníci','Podíly odběratelů • kliknutím na zákazníka v grafu otevřete jeho historii')
+        y,m=self.period(); mode=self.mode_key(); rows=self.analytics.top_customers(y,m,mode,-1)
+        chart_rows=[]
+        for x in rows:
+            q=dict(x); q['label']=q.get('customer','—'); q['profit']=q['profit'] if q.get('profit_available') else None; chart_rows.append(q)
+        cp=Panel(root,'Zastoupení zákazníků'); cp.pack(fill='x')
+        ShareChart(cp.body,chart_rows,metrics=(('profit','Zisk','money'),('revenue','Obrat','money'),('count','Počet DL','count')),initial_metric='revenue',title_note='TOP 6 + ostatní z celého období. Zisk pouze ze spárovaných DL; záporné hodnoty jsou v režimu podílů zobrazené sloupcově.',max_items=6,on_item_click=lambda r:self.open_customer_detail(r.get('customer')) if r.get('customer') else None,height=255).pack(fill='both',expand=True)
+        p=Panel(root,'Všichni zákazníci za vybrané období'); p.pack(fill='both',expand=True,pady=(12,0)); self.customer_table(p.body,rows,compact=False)
+
+===== src/ui.py :: page_products lines 584-596 =====
+    def page_products(self):
+        root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True); self.title_block(root,'Produkty','Položkový zisk a dostupný obrat ve stejném období jako zbytek přehledu')
+        y,m=self.period(); mode=self.mode_key(); rows=self.analytics.products(y,m,-1,mode); coverage=self.analytics.item_data_coverage(y,m,mode)
+        chart_rows=[]
+        for x in rows:
+            q=dict(x); q['label']=((q.get('code') or '')+' – '+(q.get('name') or '')).strip(' –'); q['revenue']=q.get('sales'); q['count']=q.get('documents'); chart_rows.append(q)
+        note=f"Položková data: {coverage['item_docs']} z {coverage['total_docs']} DL. Obrat produktu se zpřístupní, jakmile položkový export obsahuje prodejní hodnotu."
+        cp=Panel(root,'Zastoupení produktů'); cp.pack(fill='x')
+        ShareChart(cp.body,chart_rows,metrics=(('profit','Zisk','money'),('revenue','Obrat','money'),('count','Počet DL','count')),initial_metric='profit',title_note=note,max_items=6,exclude_negative_from_shares=True,height=255).pack(fill='both',expand=True)
+        p=Panel(root,'Produkty za vybrané období'); p.pack(fill='both',expand=True,pady=(12,0)); tree=self._tree(p.body,('code','name','qty','profit','sales','margin','docs'),('Kód','Produkt','Množství','Zisk','Dostupný obrat','Marže','DL'),(155,410,100,130,130,90,65),20,anchors=('w','w','e','e','e','e','e'))
+        for x in rows:
+            sales=fmt_money(x['sales']) if x.get('sales') is not None else '—'; margin=fmt_pct(x['margin']) if x.get('margin') is not None else '—'
+            tree.insert('', 'end',values=(x['code'],x['name'],fmt_num(x['quantity']),fmt_money(x['profit']),sales,margin,x['documents']))
+
+===== src/ui.py :: page_imports lines 598-603 =====
+    def page_imports(self):
+        root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True); self.title_block(root,'Importy','Historie načtených dat a kontrola zdrojů')
+        bar=tk.Frame(root,bg=COLORS['bg']); bar.pack(fill='x',pady=(0,10)); tk.Button(bar,text='Importovat Excel',command=self.do_import,bg=COLORS['teal'],fg='#06251D',relief='flat',padx=14,pady=8,font=('Calibri',10,'bold')).pack(side='left'); tk.Label(bar,text='Podporováno: DATA POHODA, režijní listy, Zisk (zásoby), historický list ZISKY',bg=COLORS['bg'],fg=COLORS['muted']).pack(side='left',padx=14)
+        p=Panel(root,'Historie importů'); p.pack(fill='both',expand=True); tree=self._tree(p.body,('date','type','file','period','rows','status'),('Datum','Typ','Soubor','Období','Řádky','Stav'),(145,160,350,100,80,80),22,anchors=('w','w','w','c','e','c'))
+        rows=self.db.query('SELECT * FROM imports ORDER BY id DESC LIMIT 300')
+        for x in rows: tree.insert('', 'end',values=(x['imported_at'].replace('T',' '),x['import_type'],x['file_name'],f"{x['period_year'] or ''}-{x['period_month']:02d}" if x['period_month'] else '',x['row_count'],x['status']))
+
+===== src/ui.py :: export_pdf lines 639-666 =====
+    def export_pdf(self):
+        if getattr(self,'_pdf_busy',False):
+            messagebox.showinfo('PDF report','Předchozí report se ještě připravuje.',parent=self)
+            return
+        y,m=self.period(); mode=self.mode_key()
+        path=filedialog.asksaveasfilename(defaultextension='.pdf',initialdir=str(resolve_path(self.cfg['export_dir'])),initialfile=f'TURTO_report_{y}_{m:02d}_{mode}.pdf',filetypes=[('PDF','*.pdf')])
+        if not path:return
+        from queue import Queue, Empty
+        from threading import Thread
+        result=Queue(); self._pdf_busy=True
+        progress=tk.Toplevel(self); progress.title('Export PDF'); progress.configure(bg=COLORS['panel']); progress.resizable(False,False)
+        progress.transient(self)
+        tk.Label(progress,text='Připravuji podrobný PDF report…',bg=COLORS['panel'],fg=COLORS['text'],font=('Calibri',12,'bold'),padx=24,pady=18).pack()
+        tk.Label(progress,text='Grafy, tabulky a kontrola dostupnosti dat.\nProgram můžete dál používat.',bg=COLORS['panel'],fg=COLORS['muted'],font=('Calibri',10),padx=24,pady=12).pack()
+        progress.protocol('WM_DELETE_WINDOW',progress.withdraw)
+        def worker():
+            try:
+                export_pdf(path,self.analytics,y,m,mode); result.put((True,path))
+            except Exception as exc:result.put((False,str(exc)))
+        def poll():
+            try:ok,text=result.get_nowait()
+            except Empty:
+                self.after(120,poll); return
+            self._pdf_busy=False
+            if progress.winfo_exists():progress.destroy()
+            if ok:messagebox.showinfo('Export','PDF report byl vytvořen:\n'+text,parent=self)
+            else:messagebox.showerror('Export se nezdařil',text,parent=self)
+        Thread(target=worker,daemon=True,name='TURTO-PDF').start();self.after(120,poll)
+
+===== src/ui.py :: draw lines 280-289 =====
         def draw(event=None):
             canvas.delete('all')
             w=max(canvas.winfo_width(),180); h=max(canvas.winfo_height(),180)
@@ -46,3 +518,387 @@
                 canvas.create_arc(x0,y0,x1,y1,start=90,extent=-(359.9*val/100.0),style='arc',outline=COLORS['teal'],width=ring)
             canvas.create_text(w/2,h/2-4,text=f'{margin:.1f} %'.replace('.',','),fill=COLORS['text'],font=('Calibri',17,'bold'))
             canvas.create_text(w/2,h/2+22,text='vážená marže',fill=COLORS['muted'],font=('Calibri',8))
+
+===== src/ui.py :: worker lines 654-657 =====
+        def worker():
+            try:
+                export_pdf(path,self.analytics,y,m,mode); result.put((True,path))
+            except Exception as exc:result.put((False,str(exc)))
+
+===== src/ui.py :: poll lines 658-665 =====
+        def poll():
+            try:ok,text=result.get_nowait()
+            except Empty:
+                self.after(120,poll); return
+            self._pdf_busy=False
+            if progress.winfo_exists():progress.destroy()
+            if ok:messagebox.showinfo('Export','PDF report byl vytvořen:\n'+text,parent=self)
+            else:messagebox.showerror('Export se nezdařil',text,parent=self)
+
+===== src/charts.py :: _canvas lines 35-39 =====
+    def _canvas(self,height):
+        self.canvas=tk.Canvas(self,bg=COLORS['panel'],highlightthickness=0,bd=0,height=height)
+        self.canvas.pack(fill='both',expand=True)
+        self.canvas.bind('<Configure>',self._schedule)
+        self._schedule()
+
+===== src/charts.py :: _text lines 54-57 =====
+    def _text(self,x,y,text,*,width=None,size=9,bold=False,color=None,anchor='w',tag='labels'):
+        font=self._font(size,bold)
+        text=_fit(font,text,width) if width is not None else str(text)
+        return self.canvas.create_text(x,y,text=text,font=font,fill=color or COLORS['text'],anchor=anchor,tags=(tag,))
+
+===== src/charts.py :: _tooltip lines 59-74 =====
+    def _tooltip(self,text,x,y):
+        c=self.canvas;c.delete('tooltip');w=c.winfo_width();h=c.winfo_height()
+        font=self._font(9)
+        width=max(30,min(w-28,max(font.measure(s) for s in text.split('\n'))))
+        item=c.create_text(14,10,text=text,anchor='nw',font=font,width=width,fill=COLORS['text'],tags=('tooltip',))
+        box=c.bbox(item)
+        # Extremely long names must not push a tooltip outside the chart.
+        remaining=text
+        while box and box[3]-box[1]+18>h-4 and len(remaining)>8:
+            remaining=remaining[:max(8,int(len(remaining)*.85))].rstrip()
+            c.itemconfigure(item,text=remaining+'…');box=c.bbox(item)
+        tw,th=box[2]-box[0]+24,box[3]-box[1]+18
+        x=max(2,min(x,w-tw-2));y=max(2,min(y,h-th-2))
+        c.move(item,x+12-box[0],y+9-box[1])
+        rect=c.create_rectangle(x,y,x+tw,y+th,fill='#0D1524',outline=COLORS['border'],tags=('tooltip',))
+        c.tag_lower(rect,item)
+
+===== src/charts.py :: __init__ lines 87-107 =====
+    def __init__(self,master,data,*,subtitle='Částky vlevo · marže na pravé ose',show_mode_switch=True,
+                 trim_trailing_empty=False,on_period_click=None,height=290,initial_enabled=('revenue','profit','margin')):
+        super().__init__(master)
+        self._all_data=[dict(x) for x in data];self._data=self._all_data[:]
+        if trim_trailing_empty:
+            while self._data and not (self._data[-1].get('has_data') or any((series_value(self._data[-1],k) or 0)!=0 for k in ('revenue','profit'))):self._data.pop()
+        self._enabled={k:k in initial_enabled for k,_,_ in self.SERIES}
+        if not any(self._enabled.values()):self._enabled['revenue']=True
+        self._hover_index=None;self._centers=[];self._plot_bounds=(0,0,0,0);self._on_period_click=on_period_click
+        caption=tk.Label(self,text=subtitle,bg=COLORS['panel'],fg=COLORS['muted'],justify='left',anchor='w',font=('Calibri',9))
+        caption.pack(fill='x',pady=(0,7))
+        caption.bind('<Configure>',lambda e:caption.configure(wraplength=max(40,e.width-4)))
+        self._buttons={}
+        if show_mode_switch:
+            bar=tk.Frame(self,bg=COLORS['panel']);bar.pack(fill='x',pady=(0,6))
+            for k,label,color in self.SERIES:
+                b=tk.Button(bar,text=label,command=lambda key=k:self.toggle(key),font=('Calibri',9,'bold'),padx=9,pady=5,relief='flat',bd=0)
+                b.pack(side='left',padx=(0,5));self._buttons[k]=b
+            self._refresh_buttons()
+        self._canvas(height)
+        self.canvas.bind('<Motion>',self._motion);self.canvas.bind('<Leave>',self._leave);self.canvas.bind('<Button-1>',self._click)
+
+===== src/charts.py :: _draw lines 121-181 =====
+    def _draw(self,event=None):
+        c=self.canvas;c.delete('all');w=c.winfo_width();h=c.winfo_height();self._centers=[]
+        if w<150 or h<125:return
+        if not self._data:
+            self._text(w/2,h/2,'Pro vybrané období nejsou data.',width=w-16,anchor='center',color=COLORS['muted']);return
+        mo=self._enabled['revenue'] or self._enabled['profit'];po=self._enabled['margin']
+        ma=axis([series_value(r,k) for r in self._data for k in ('revenue','profit') if self._enabled[k]])
+        pa=axis([series_value(r,'margin') for r in self._data],True)
+        f=self._font(9)
+        left=max(56,max(f.measure(ma.label(v)) for v in ma.ticks())+16) if mo else 12
+        right=max(68,max(f.measure(pa.label(v)) for v in pa.ticks())+16) if po else 12
+        fh=f.metrics('linespace');nh=self._font(8).metrics('linespace')
+        top=max(40,fh+18);bottom=h-(2*fh+nh+15);xr=w-right
+        if xr-left<75 or bottom-top<40:return
+        self._plot_bounds=(left,top,xr,bottom);self._axes=(ma,pa)
+        slot=(xr-left)/len(self._data);self._centers=[left+(i+.5)*slot for i in range(len(self._data))]
+        if self._hover_index is not None and self._hover_index<len(self._data):
+            cx=self._centers[self._hover_index]
+            c.create_rectangle(cx-slot*.48,top,cx+slot*.48,bottom,fill=COLORS['panel_alt'],outline='')
+        grid=ma if mo else pa
+        for v in grid.ticks():
+            y=grid.position(v,top,bottom)
+            c.create_line(left,y,xr,y,fill=COLORS['grid'] if v==0 else '#253348',width=1)
+        if mo:
+            self._text(left-8,12,ma.unit,anchor='e',size=8,bold=True,color=COLORS['muted'])
+            for v in ma.ticks():self._text(left-8,ma.position(v,top,bottom),ma.label(v),anchor='e',color=COLORS['muted'])
+        if po:
+            self._text(xr+8,12,'Marže %',size=8,bold=True,color=COLORS['blue'])
+            for v in pa.ticks():self._text(xr+8,pa.position(v,top,bottom),pa.label(v),color=COLORS['blue'])
+        if self._enabled['revenue']:
+            bw=max(2,min(42,slot*.54));zero=ma.position(0,top,bottom)
+            for cx,row in zip(self._centers,self._data):
+                v=series_value(row,'revenue')
+                if v is None:continue
+                y=ma.position(v,top,bottom)
+                if abs(y-zero)<1:c.create_line(cx-bw/2,zero,cx+bw/2,zero,fill=COLORS['teal'],width=2)
+                else:c.create_rectangle(cx-bw/2,min(y,zero),cx+bw/2,max(y,zero),fill=COLORS['teal'],outline='')
+        for key,color,dash,scale in (('profit',COLORS['amber'],None,ma),('margin',COLORS['blue'],(5,3),pa)):
+            if not self._enabled[key]:continue
+            segments=[];points=[]
+            for cx,row in zip(self._centers,self._data):
+                v=series_value(row,key)
+                if v is None:
+                    if points:segments.append(points);points=[]
+                else:points.extend((cx,scale.position(v,top,bottom)))
+            if points:segments.append(points)
+            for pts in segments:
+                if len(pts)>=4:
+                    # Straight segments hit every real value; no spline overshoot.
+                    c.create_line(*pts,fill=color,width=2.5,dash=dash or (),joinstyle='round',capstyle='round')
+                for i in range(0,len(pts),2):c.create_oval(pts[i]-2,pts[i+1]-2,pts[i]+2,pts[i+1]+2,fill=color,outline=COLORS['panel'])
+        # Pixel-based thinning keeps 30-month histories readable at small widths.
+        last_end=-100
+        for i,(cx,row) in enumerate(zip(self._centers,self._data)):
+            label=str(row.get('label',''));width=f.measure(label)
+            if cx-width/2>=last_end+9 and cx+width/2<=w-3:
+                self._text(cx,bottom+fh+5,label,anchor='center',color=COLORS['muted']);last_end=cx+width/2
+        note='Chybějící data = mezera, nikoli nula.'
+        if any(r.get('profit_complete') is False and r.get('profit_available') for r in self._data):note='* Zisk je částečný; marže jen tam, kde je podklad.'
+        self._text(left,h-nh/2-3,note,width=w-left-3,size=8,color=COLORS['muted'])
+        if self._hover_index is not None and self._hover_index<len(self._data):self._draw_tooltip(self._hover_index)
+
+===== src/charts.py :: _draw_tooltip lines 183-190 =====
+    def _draw_tooltip(self,index):
+        r=self._data[index];lines=[str(r.get('full_label') or r.get('period') or r.get('label') or '')]
+        for k,label,_ in self.SERIES:
+            if self._enabled[k]:
+                v=series_value(r,k);value=fmt_pct(v) if k=='margin' else fmt_money(v)
+                lines.append(label+': '+value+(' *' if k=='profit' and r.get('profit_complete') is False and v is not None else ''))
+        if r.get('source')=='legacy':lines.append('Zisk: historický měsíční souhrn')
+        self._tooltip('\n'.join(lines),self._centers[index]+12,self._plot_bounds[1]+10)
+
+===== src/charts.py :: _motion lines 197-200 =====
+    def _motion(self,event):
+        index=self._index_at(event)
+        if index!=self._hover_index:self._hover_index=index;self._draw()
+        self.canvas.configure(cursor='hand2' if index is not None and self._on_period_click else 'arrow')
+
+===== src/charts.py :: __init__ lines 212-230 =====
+    def __init__(self,master,rows,*,metrics,initial_metric,title_note='',max_items=6,
+                 exclude_negative_from_shares=False,on_item_click=None,height=245):
+        super().__init__(master)
+        self.rows=[dict(x) for x in rows];self.metrics=metrics;self.max_items=max_items
+        self._colors={str(r.get('label') or r.get('name') or r.get('customer') or r.get('code') or 'Bez názvu'):PALETTE[i%len(PALETTE)] for i,r in enumerate(self.rows)}
+        self._colors.update({'Milan':COLORS['teal'],'Jirka':COLORS['amber'],'Honza':COLORS['blue'],'Nezařazené':'#8193A9'})
+        self.metric=initial_metric if any(x[0]==initial_metric for x in metrics) else metrics[0][0]
+        self.view='shares';self.on_item_click=on_item_click;self._note=title_note;self._hit_regions=[];self._wedges=[]
+        top=tk.Frame(self,bg=COLORS['panel']);top.pack(fill='x',pady=(0,5))
+        self.metric_buttons={};self.view_buttons={}
+        for key,label,_ in metrics:
+            b=tk.Button(top,text=label,command=lambda k=key:self.set_metric(k),relief='flat',bd=0,padx=8,pady=5,font=('Calibri',9),state='normal' if self._metric_available(key) else 'disabled')
+            b.pack(side='left',padx=(0,5));self.metric_buttons[key]=b
+        views=tk.Frame(self,bg=COLORS['panel']);views.pack(fill='x',pady=(0,4))
+        for key,label in (('shares','Podíly %'),('compare','Srovnání')):
+            b=tk.Button(views,text=label,command=lambda k=key:self.set_view(k),relief='flat',bd=0,padx=8,pady=4,font=('Calibri',9))
+            b.pack(side='left',padx=(0,5));self.view_buttons[key]=b
+        self._refresh_buttons();self._canvas(height)
+        self.canvas.bind('<Button-1>',self._click);self.canvas.bind('<Motion>',self._motion);self.canvas.bind('<Leave>',lambda e:self.canvas.delete('tooltip'))
+
+===== src/charts.py :: set_view lines 235-236 =====
+    def set_view(self,key):
+        if key in ('shares','compare'):self.view=key;self._refresh_buttons();self._draw()
+
+===== src/charts.py :: _draw lines 243-301 =====
+    def _draw(self,event=None):
+        c=self.canvas;c.delete('all');self._hit_regions=[];self._wedges=[]
+        w=c.winfo_width();h=c.winfo_height()
+        if w<180 or h<100:return
+        items,missing,negative=grouped(self.rows,self.metric,self.max_items)
+        if not items:
+            self._text(w/2,h/2,'Pro zvolený ukazatel nejsou data.',width=w-15,anchor='center',color=COLORS['muted']);return
+        note=self._note
+        if negative:note='Záporné hodnoty: používá se srovnání, nikoli koláč. '+note
+        if missing:note+=f' Bez hodnoty: {missing}.'
+        nf=self._font(8);nw=w-8
+        # Measure the wrapped footnote, then reserve exactly that space.
+        test=c.create_text(4,h-3,text=note,anchor='sw',width=nw,font=nf,tags=('labels',),fill=COLORS['muted'])
+        nb=c.bbox(test);nh=(nb[3]-nb[1]+14) if note else 8
+        required=(self._font(9).metrics('linespace')+7)*len(items)+nh+8
+        if h<required and int(float(c.cget('height')))<required:c.configure(height=required)
+        chart_h=h-nh
+        if chart_h<70:c.delete(test);return
+        fmt=self._formatter();total=sum(x['value'] for x in items)
+        positive=not negative and total>0
+        donut=self.view=='shares' and positive and w>=720
+        start_x=12
+        if donut:
+            size=min(185,chart_h-12,w*.23);x0=12;y0=(chart_h-size)/2
+            cx=x0+size/2;cy=y0+size/2;start=90
+            for i,x in enumerate(items):
+                if x['value']<=0:continue
+                extent=-359.99*x['value']/total
+                c.create_arc(x0,y0,x0+size,y0+size,start=start,extent=extent,fill=self._colors.get(x['label'],'#8193A9'),outline=COLORS['panel'])
+                self._wedges.append((cx,cy,size/2,size*.30,start,extent,x,total));start+=extent
+            hole=size*.62;c.create_oval(cx-hole/2,cy-hole/2,cx+hole/2,cy+hole/2,fill=COLORS['panel'],outline='')
+            self._text(cx,cy-12,'CELKEM',anchor='center',size=8,color=COLORS['muted'])
+            self._text(cx,cy+10,fmt(total),width=hole-6,anchor='center',size=10,bold=True)
+            start_x=x0+size+28
+        percent_on=self.view=='shares' and positive
+        pw=65 if percent_on else 0
+        value_width=max(110,max(self._font(9,True).measure(fmt(x['value'])) for x in items)+14)
+        avail=w-start_x-value_width-pw-28
+        label_width=max(35,avail*.50);bar_left=start_x+label_width+14;bar_right=w-value_width-pw-16
+        if bar_right-bar_left<35:
+            label_width=max(30,w-start_x-value_width-pw-26);bar_left=bar_right
+        rowh=min(35,chart_h/max(1,len(items)))
+        font_size=9 if rowh>=22 else 8
+        self._compact=rowh<22
+        # Both positive and negative amounts share a real signed horizontal axis.
+        lo=min([0]+[x['value'] for x in items]);hi=max([0]+[x['value'] for x in items]);span=hi-lo or 1
+        zero=bar_left+(0-lo)/span*max(0,bar_right-bar_left)
+        for i,x in enumerate(items):
+            y=rowh*(i+.5);col=COLORS['red'] if x['value']<0 else self._colors.get(x['label'],'#8193A9')
+            c.create_oval(start_x,y-3,start_x+6,y+3,fill=col,outline='')
+            self._text(start_x+13,y,x['label'],width=label_width-14,size=font_size)
+            if bar_right>bar_left:
+                c.create_line(bar_left,y,bar_right,y,fill=COLORS['panel_soft'],width=6)
+                end=bar_left+(x['value']-lo)/span*(bar_right-bar_left)
+                c.create_line(zero,y,end,y,fill=col,width=6)
+                if negative:c.create_line(zero,y-6,zero,y+6,fill=COLORS['muted'])
+            self._text(w-pw-12,y,fmt(x['value']),anchor='e',size=font_size,bold=True,color=col,width=value_width-6)
+            if percent_on:self._text(w-5,y,fmt_pct(x['value']/total*100),anchor='e',size=font_size,color=COLORS['muted'])
+            self._hit_regions.append((start_x,y-rowh/2,w,y+rowh/2,x,total if positive else None))
+
+===== src/charts.py :: _motion lines 311-317 =====
+    def _motion(self,event):
+        hit=self._item_at(event);self.canvas.delete('tooltip')
+        if hit:
+            item,total=hit;text=item['label']+'\n'+self._formatter()(item['value'])
+            if total:text+=' · '+fmt_pct(item['value']/total*100)
+            self._tooltip(text,event.x+12,event.y+15)
+        self.canvas.configure(cursor='hand2' if hit and hit[0]['source'] is not None and self.on_item_click else 'arrow')
+
+===== src/exports.py :: export_excel lines 22-99 =====
+def export_excel(path: str | Path, analytics, year, month, mode='month'):
+    """Create an XLSX workbook.
+
+    XlsxWriter is imported lazily on purpose.  The application can therefore
+    start and be used even when the optional Excel-export package has not yet
+    been installed.
+    """
+    try:
+        import xlsxwriter
+    except Exception as exc:
+        raise RuntimeError(
+            'Pro export do Excelu chybí balíček XlsxWriter. Spusťte INSTALL.bat '\
+            'nebo příkaz: py -m pip install XlsxWriter'
+        ) from exc
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    wb = xlsxwriter.Workbook(path)
+    wb.set_properties({'title': APP_NAME, 'comments': f'Verze {APP_VERSION}'})
+    dark = '#172033'; teal = '#1CC8A0'; white = '#FFFFFF'
+    title = wb.add_format({'bold': True, 'font_size': 18, 'font_color': white, 'bg_color': dark, 'align': 'left', 'valign': 'vcenter'})
+    hdr = wb.add_format({'bold': True, 'font_color': white, 'bg_color': dark, 'border': 0, 'align': 'left', 'valign': 'vcenter'})
+    hdr_num = wb.add_format({'bold': True, 'font_color': white, 'bg_color': dark, 'border': 0, 'align': 'right', 'valign': 'vcenter'})
+    money_fmt = wb.add_format({'num_format': '# ##0 "Kč"', 'font_color': '#253246'})
+    pct_fmt = wb.add_format({'num_format': '0.0%', 'font_color': '#253246'})
+    normal = wb.add_format({'font_color': '#253246'})
+    kpi_label = wb.add_format({'bold': True, 'font_color': '#64748B'})
+    kpi_value = wb.add_format({'bold': True, 'font_size': 16, 'font_color': dark})
+
+    k = analytics.kpis(year, month, mode)
+    ws = wb.add_worksheet('Souhrn')
+    ws.hide_gridlines(2); ws.set_column('A:A', 3); ws.set_column('B:G', 20)
+    ws.merge_range('B2:G3', 'TURTO – Měsíční přehledy', title)
+    labels = [('Obrat', k['revenue']), ('Hrubý zisk', k['profit'] if k.get('profit_available',True) else None), ('Marže', (k['margin']/100 if k['margin'] is not None else None)), ('Počet DL', k['count']), ('Ø hodnota DL', k['avg_order']), ('Režijní listy', k['overhead'])]
+    for i,(lab,val) in enumerate(labels):
+        c = 1+i
+        ws.write(5,c,lab,kpi_label)
+        fmt = pct_fmt if lab=='Marže' else (normal if lab=='Počet DL' else money_fmt)
+        ws.write(6,c,val,fmt if lab!='Počet DL' else kpi_value)
+    trend = analytics.monthly_trend(year)
+    ws.write('B10','Měsíc',hdr); ws.write('C10','Obrat',hdr_num); ws.write('D10','Zisk',hdr_num)
+    for r,item in enumerate(trend, 10):
+        ws.write(r,1,MONTH_NAMES[item['month']-1],normal); ws.write(r,2,item['revenue'],money_fmt); ws.write(r,3,item['profit'],money_fmt)
+    chart = wb.add_chart({'type':'column'})
+    chart.add_series({'name':'Obrat','categories':f'=Souhrn!$B$11:$B$22','values':f'=Souhrn!$C$11:$C$22','fill':{'color':teal},'border':{'none':True}})
+    chart.set_title({'name':f'Obrat po měsících {year}'}); chart.set_legend({'none':True}); chart.set_style(10)
+    ws.insert_chart('E10', chart, {'x_scale':1.4,'y_scale':1.2})
+
+    sales = analytics.salespeople(year, month, mode)
+    s = wb.add_worksheet('Obchodníci'); s.hide_gridlines(2); s.set_column('A:A', 16); s.set_column('B:F', 18)
+    s.write('A1','Obchodník',hdr); [s.write(0,c,h,hdr_num) for c,h in enumerate(['Obrat','Zisk','Marže','Počet DL','Ø DL'],1)]
+    for r,x in enumerate(sales,1):
+        s.write(r,0,x['name']); s.write(r,1,x['revenue'],money_fmt); s.write(r,2,x['profit'] if x.get('profit_available',True) else None,money_fmt); s.write(r,3,(x['margin']/100 if x.get('margin') is not None else None),pct_fmt); s.write(r,4,x['count']); s.write(r,5,x['avg_order'],money_fmt)
+
+    c = wb.add_worksheet('Zákazníci'); c.hide_gridlines(2); c.set_column('A:A', 38); c.set_column('B:E', 18)
+    c.write('A1','Zákazník',hdr); [c.write(0,col,h,hdr_num) for col,h in enumerate(['Obrat','Dostupný zisk','Marže','Počet DL'],1)]
+    for r,x in enumerate(analytics.top_customers(year,month,mode,200),1):
+        cnt=int(x.get('count') or 0); pd=int(x.get('profit_docs') or 0); complete=(cnt==0 or pd>=cnt)
+        c.write(r,0,x['customer']); c.write(r,1,x['revenue'],money_fmt)
+        if pd>0: c.write(r,2,x['profit'],money_fmt)
+        else: c.write(r,2,'—')
+        if x.get('margin') is not None: c.write(r,3,float(x['margin'])/100,pct_fmt)
+        else: c.write(r,3,'—')
+        c.write(r,4,cnt)
+    c.write(len(analytics.top_customers(year,month,mode,200))+2,0,'Pozn.: Zisk zákazníků je dostupný pouze pro měsíce s importovaným reportem Zisk (zásoby).',normal)
+
+    p = wb.add_worksheet('Produkty'); p.hide_gridlines(2); p.set_column('A:A',18); p.set_column('B:B',55); p.set_column('C:E',18)
+    p.write('A1','Kód',hdr); p.write('B1','Produkt',hdr); [p.write(0,col,h,hdr_num) for col,h in enumerate(['Množství','Zisk','Počet DL'],2)]
+    for r,x in enumerate(analytics.products(year,month,500,mode),1):
+        p.write(r,0,x['code']); p.write(r,1,x['name']); p.write(r,2,x['quantity']); p.write(r,3,x['profit'],money_fmt); p.write(r,4,x['documents'])
+
+    d = wb.add_worksheet('Největší DL'); d.hide_gridlines(2); d.set_column('A:A',14); d.set_column('B:B',10); d.set_column('C:D',35); d.set_column('E:G',18)
+    [d.write(0,col,h,hdr) for col,h in enumerate(['DL','Středisko','Zákazník','Projekt'])]; [d.write(0,col,h,hdr_num) for col,h in enumerate(['Částka','Zisk','Marže'],4)]
+    for r,x in enumerate(analytics.top_documents(year,month,mode,limit=200),1):
+        d.write(r,0,x['doc_no']); d.write(r,1,center_display(x['center'])); d.write(r,2,x['customer']); d.write(r,3,x['project']); d.write(r,4,x['base_amount'],money_fmt); d.write(r,5,x['profit'],money_fmt); d.write(r,6,(x['margin']/100 if x.get('margin') is not None else None),pct_fmt)
+
+    wb.close()
+    return path
+
+===== src/exports.py :: _build_pdf_html lines 102-104 =====
+def _build_pdf_html(analytics, year, month, mode='month'):
+    from .reporting import build_html
+    return build_html(analytics,year,month,mode)
+
+===== src/exports.py :: _find_pdf_browser lines 107-122 =====
+def _find_pdf_browser():
+    candidates=[]
+    if os.name=='nt':
+        for env in ('PROGRAMFILES(X86)','PROGRAMFILES','LOCALAPPDATA'):
+            base=os.environ.get(env)
+            if base:
+                candidates += [
+                    Path(base)/'Microsoft/Edge/Application/msedge.exe',
+                    Path(base)/'Google/Chrome/Application/chrome.exe',
+                ]
+    for name in ('msedge','microsoft-edge','google-chrome','chromium','chromium-browser'):
+        p=shutil.which(name)
+        if p: candidates.append(Path(p))
+    for p in candidates:
+        if p.exists(): return p
+    return None
+
+===== src/exports.py :: export_pdf lines 125-159 =====
+def export_pdf(path: str | Path, analytics, year, month, mode='month'):
+    """Generate a real PDF using the trusted system browser print engine.
+
+    This avoids Python native graphics/PDF DLLs, which can be blocked by
+    corporate Windows application-control policies.  Edge is standard on
+    supported Windows installations and handles Czech text, CSS and SVG.
+    """
+    path=Path(path).resolve(); path.parent.mkdir(parents=True,exist_ok=True)
+    browser=_find_pdf_browser()
+    if not browser:
+        raise RuntimeError('Pro PDF export nebyl nalezen Microsoft Edge ani Chrome.')
+    with tempfile.TemporaryDirectory(prefix='turto_pdf_') as td:
+        td=Path(td)
+        html_path=td/'report.html'; html_path.write_text(_build_pdf_html(analytics,year,month,mode),encoding='utf-8')
+        profile=td/'browser_profile'
+        rendered=td/'rendered.pdf'
+        args=[str(browser),'--headless','--disable-gpu','--no-first-run','--virtual-time-budget=2000',f'--user-data-dir={profile}',f'--print-to-pdf={rendered}','--no-pdf-header-footer','--print-to-pdf-no-header']
+        if os.name!='nt' and hasattr(os,'geteuid') and os.geteuid()==0:
+            args.append('--no-sandbox')
+        args.append(html_path.as_uri())
+        flags=getattr(subprocess,'CREATE_NO_WINDOW',0) if os.name=='nt' else 0
+        cp=subprocess.run(args,capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=90,creationflags=flags)
+        if cp.returncode!=0 or not rendered.exists() or rendered.stat().st_size<1000 or not rendered.read_bytes().startswith(b'%PDF-'):
+            detail=(cp.stderr or cp.stdout or '').strip()[-1500:]
+            raise RuntimeError('PDF export se nepodařil přes systémový prohlížeč.'+(f'\n{detail}' if detail else ''))
+        staged=None
+        try:
+            with tempfile.NamedTemporaryFile(prefix='.turto_pdf_',suffix='.tmp',dir=path.parent,delete=False) as f:
+                staged=Path(f.name); f.write(rendered.read_bytes())
+            os.replace(staged,path)
+        except PermissionError as exc:
+            raise RuntimeError('PDF nelze uložit. Zavřete původní PDF v prohlížeči nebo zvolte jiný název souboru.') from exc
+        finally:
+            if staged is not None:staged.unlink(missing_ok=True)
+    return path
