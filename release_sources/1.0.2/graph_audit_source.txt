@@ -1,0 +1,48 @@
+===== show_page lines 214-230 =====
+    def show_page(self,name):
+        for n,b in self.nav_buttons.items():
+            b.config(bg=COLORS['panel_soft'] if n==name else '#0D1524',fg=COLORS['text'] if n==name else '#C7D2E0')
+        for child in self.container.winfo_children(): child.destroy()
+        self.viewport.canvas.yview_moveto(0)
+        self.current_page=name
+        maker={'Přehled':self.page_overview,'Obrat & marže':self.page_revenue,'Obchodníci':self.page_sales,'Zákazníci':self.page_customers,'Produkty':self.page_products,'Importy':self.page_imports,'Nastavení':self.page_settings}[name]
+        try:
+            maker()
+        except Exception:
+            log=Path(__file__).resolve().parents[1]/'turto_error.log'
+            try: log.write_text(traceback.format_exc(),encoding='utf-8')
+            except Exception: pass
+            err=tk.Frame(self.container,bg=COLORS['bg']); err.pack(fill='both',expand=True,padx=24,pady=24)
+            tk.Label(err,text='Tuto část se nepodařilo zobrazit.',bg=COLORS['bg'],fg=COLORS['red'],font=('Calibri',18,'bold')).pack(anchor='w')
+            tk.Label(err,text='Program zůstal spuštěný. Podrobnosti jsou v turto_error.log.',bg=COLORS['bg'],fg=COLORS['muted'],font=('Calibri',10)).pack(anchor='w',pady=(6,0))
+        self.update_status()
+
+===== chart_margin lines 276-291 =====
+    def chart_margin(self,parent,margin):
+        canvas=tk.Canvas(parent,bg=COLORS['panel'],highlightthickness=0,bd=0)
+        canvas.pack(fill='both',expand=True)
+        val=max(0.0,min(float(margin or 0),100.0))
+        def draw(event=None):
+            canvas.delete('all')
+            w=max(canvas.winfo_width(),180); h=max(canvas.winfo_height(),180)
+            size=max(80,min(w,h)-40); x0=(w-size)/2; y0=(h-size)/2; x1=x0+size; y1=y0+size
+            ring=max(12,int(size*.11))
+            canvas.create_arc(x0,y0,x1,y1,start=0,extent=359.9,style='arc',outline=COLORS['panel_soft'],width=ring)
+            if val>0:
+                canvas.create_arc(x0,y0,x1,y1,start=90,extent=-(359.9*val/100.0),style='arc',outline=COLORS['teal'],width=ring)
+            canvas.create_text(w/2,h/2-4,text=f'{margin:.1f} %'.replace('.',','),fill=COLORS['text'],font=('Calibri',17,'bold'))
+            canvas.create_text(w/2,h/2+22,text='vážená marže',fill=COLORS['muted'],font=('Calibri',8))
+        canvas.bind('<Configure>',draw)
+        parent.after_idle(draw)
+
+===== draw lines 280-289 =====
+        def draw(event=None):
+            canvas.delete('all')
+            w=max(canvas.winfo_width(),180); h=max(canvas.winfo_height(),180)
+            size=max(80,min(w,h)-40); x0=(w-size)/2; y0=(h-size)/2; x1=x0+size; y1=y0+size
+            ring=max(12,int(size*.11))
+            canvas.create_arc(x0,y0,x1,y1,start=0,extent=359.9,style='arc',outline=COLORS['panel_soft'],width=ring)
+            if val>0:
+                canvas.create_arc(x0,y0,x1,y1,start=90,extent=-(359.9*val/100.0),style='arc',outline=COLORS['teal'],width=ring)
+            canvas.create_text(w/2,h/2-4,text=f'{margin:.1f} %'.replace('.',','),fill=COLORS['text'],font=('Calibri',17,'bold'))
+            canvas.create_text(w/2,h/2+22,text='vážená marže',fill=COLORS['muted'],font=('Calibri',8))
