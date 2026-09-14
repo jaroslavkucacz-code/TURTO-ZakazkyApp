@@ -1,0 +1,9 @@
+TURTO – Měsíční přehledy 1.0.3
+
+- Opraven mechanismus online aktualizací na počítačích s Windows Application Control / WDAC.
+- Samostatný TURTO_Mesicni_Prehledy_Updater.exe se již nepoužívá.
+- Nová aktualizace používá běžný Inno Setup instalátor stejně jako TURTO CRM.
+- Instalátor běží pouze pro aktuálního uživatele a nevyžaduje administrátorská oprávnění.
+- Pokud podniková politika nepovolí automatické otevření instalátoru, program zachová stažený soubor, otevře jeho složku a zobrazí srozumitelný postup místo pádu.
+- Zachovány opravy grafů z 1.0.2: barevné rozlišení obchodníků, zákazníků a produktů, ochrana velmi malých donut výsečí a sjednocené barvy v PDF.
+- Databáze, config.json, importy, exporty a zálohy zůstávají mimo programovou složku a instalace je nemění.
