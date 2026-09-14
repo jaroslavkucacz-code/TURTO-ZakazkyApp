@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Extract current UI and audit graph code
+      - name: Extract current graph and PDF sources
         shell: pwsh
         run: |
           @'
@@ -28,24 +28,37 @@ jobs:
           manifest = json.loads((root/'update_manifest.json').read_text(encoding='utf-8'))
           assert manifest['version'] == '1.0.1', manifest['version']
           data = urllib.request.urlopen(manifest['url'], timeout=90).read()
-          with zipfile.ZipFile(io.BytesIO(data)) as z:
-              ui = z.read('src/ui.py').decode('utf-8')
+          wanted = {
+              'src/ui.py': 'ui_snapshot.py.txt',
+              'src/charts.py': 'charts_snapshot.py.txt',
+              'src/exports.py': 'exports_snapshot.py.txt',
+              'src/constants.py': 'constants_snapshot.py.txt',
+              'src/report_model.py': 'report_model_snapshot.py.txt',
+          }
           out = root/'release_sources'/'1.0.2'
           out.mkdir(parents=True, exist_ok=True)
-          (out/'ui_snapshot.py.txt').write_text(ui, encoding='utf-8')
+          texts = {}
+          with zipfile.ZipFile(io.BytesIO(data)) as z:
+              for source, target in wanted.items():
+                  text = z.read(source).decode('utf-8')
+                  texts[source] = text
+                  (out/target).write_text(text, encoding='utf-8')
 
-          tree = ast.parse(ui)
-          lines = ui.splitlines()
           report = []
-          keywords = ('canvas','chart','graph','donut','pie','bar','trend','share','podil','obchod','zakaz','produkt','margin','marze')
-          for node in ast.walk(tree):
-              if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                  src = '\n'.join(lines[node.lineno-1:getattr(node,'end_lineno',node.lineno)])
-                  hay = (node.name+'\n'+src).lower()
-                  if any(k in hay for k in keywords) and ('create_' in hay or 'canvas' in hay):
-                      report.append(f'===== {node.name} lines {node.lineno}-{getattr(node,"end_lineno",node.lineno)} =====\n{src}\n')
+          for source in ('src/ui.py','src/charts.py','src/exports.py'):
+              text = texts[source]
+              tree = ast.parse(text)
+              lines = text.splitlines()
+              for node in ast.walk(tree):
+                  if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                      src = '\n'.join(lines[node.lineno-1:getattr(node,'end_lineno',node.lineno)])
+                      hay = (node.name+'\n'+src).lower()
+                      keys = ('canvas','chart','graph','donut','pie','bar','trend','share','podil','obchod','zakaz','produkt','margin','marze','pdf')
+                      if any(k in hay for k in keys):
+                          report.append(f'===== {source} :: {node.name} lines {node.lineno}-{getattr(node,"end_lineno",node.lineno)} =====\n{src}\n')
           (out/'graph_audit_source.txt').write_text('\n'.join(report), encoding='utf-8')
-          print(f'UI lines: {len(lines)}; graph-related drawing functions: {len(report)}')
+          print('Extracted:', ', '.join(wanted))
+          print('Relevant functions:', len(report))
           '@ | Set-Content -Encoding utf8 audit_graphs.py
           python audit_graphs.py
       - name: Commit audit snapshot
@@ -53,7 +66,7 @@ jobs:
         run: |
           git config user.name "TURTO Release Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add release_sources/1.0.2/ui_snapshot.py.txt release_sources/1.0.2/graph_audit_source.txt
+          git add release_sources/1.0.2/*_snapshot.py.txt release_sources/1.0.2/graph_audit_source.txt
           if (git diff --cached --quiet) { exit 0 }
-          git commit -m "Snapshot TURTO reporting UI for 1.0.2 graph audit"
+          git commit -m "Expand TURTO reporting 1.0.2 graph audit snapshot"
           git push
