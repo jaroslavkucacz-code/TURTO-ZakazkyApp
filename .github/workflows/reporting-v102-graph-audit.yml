@@ -35,6 +35,7 @@ jobs:
               'src/chart_geometry.py': 'chart_geometry_snapshot.py.txt',
               'src/exports.py': 'exports_snapshot.py.txt',
               'src/reporting.py': 'reporting_snapshot.py.txt',
+              'src/report_svg.py': 'report_svg_snapshot.py.txt',
               'src/constants.py': 'constants_snapshot.py.txt',
               'src/report_model.py': 'report_model_snapshot.py.txt',
           }
@@ -48,7 +49,7 @@ jobs:
                   (out/target).write_text(text, encoding='utf-8')
 
           report = []
-          for source in ('src/ui.py','src/charts.py','src/chart_geometry.py','src/exports.py','src/reporting.py'):
+          for source in ('src/ui.py','src/charts.py','src/chart_geometry.py','src/exports.py','src/reporting.py','src/report_svg.py'):
               text = texts[source]
               tree = ast.parse(text)
               lines = text.splitlines()
