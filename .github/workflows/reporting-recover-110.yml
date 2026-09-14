@@ -1,0 +1,51 @@
+name: Recover reporting 1.1.0 working sources
+on:
+  push:
+    branches: [reporting-1.1.0-management]
+    paths: ['.github/workflows/reporting-recover-110.yml']
+permissions:
+  contents: read
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Recover sources
+        run: |
+          python - <<'PY'
+          import pathlib, json, lzma, base64, urllib.request, hashlib, zipfile, io, importlib.util, re
+          root=pathlib.Path('.'); out=root/'recovered110';stage=out/'stage'; stage.mkdir(parents=True)
+          meta=json.loads((root/'release_sources/1.0.1/ready.json').read_text())
+          url='https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/939c4ac189fd37b6aa98ea8528b553aaefee7093/releases/1.0.1/TURTO_update_1.0.1.zip'
+          raw=urllib.request.urlopen(url,timeout=90).read()
+          assert hashlib.sha256(raw).hexdigest()=='3892d1fa9ebc8864e0fdf006849b89f852f7e3be423d4d79c0aa12e7f790b258'
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:z.extractall(stage)
+          for p in (stage/'src').glob('setup_payload*.py'):p.unlink()
+          (stage/'package_files.json').unlink(missing_ok=True)
+          (stage/'update_installer.py').unlink(missing_ok=True)
+          spec=importlib.util.spec_from_file_location('patch102',root/'release_sources/1.0.2/patch_graphs.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);m.apply(stage)
+          (stage/'src/updater.py').write_bytes((root/'release_sources/1.0.3/updater.py.txt').read_bytes())
+          b64=''.join(p.read_text().strip() for p in sorted((root/'release_sources/1.1.0').glob('part_*.txt')))
+          data=lzma.LZMADecompressor().decompress(base64.b64decode(b64)).decode('utf-8',errors='ignore');(out/'partial.json').write_text(data,encoding='utf-8')
+          decoder=json.JSONDecoder();pos=1; recovered=[]
+          while pos<len(data):
+              try:
+                  key,pos=decoder.raw_decode(data,pos);assert data[pos]==':';value,pos=decoder.raw_decode(data,pos+1)
+              except Exception:break
+              path=out/'new_sources'/key;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(value,encoding='utf-8'); recovered.append(key)
+              if data[pos:pos+1]==',':pos+=1
+              else:break
+          (out/'recovery_status.json').write_text(json.dumps({'recovered':recovered,'partial_tail':data[pos:pos+150],'total_decoded':len(data)},ensure_ascii=False,indent=2),encoding='utf-8')
+          print((out/'recovery_status.json').read_text())
+          # Build scripts are helpful to finish the interrupted release.
+          import shutil
+          shutil.copytree(root/'release_sources',out/'release_sources')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reporting110-recovered
+          path: recovered110/
+          retention-days: 3
