@@ -3,7 +3,7 @@ name: Validate TURTO CRM 8.0 Windows installer
 on:
   workflow_dispatch:
   push:
-    branches: [hotfix-808-updater-safety]
+    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo]
   pull_request:
     paths:
       - ZakazkyApp_base_6.1/updater_safety.py
@@ -11,6 +11,10 @@ on:
       - ZakazkyApp_base_6.1/data_onboarding.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/exe_distribution.py
       - build/windows/**
+      - ZakazkyApp_base_6.1/branding.py
+      - ZakazkyApp_base_6.1/turto_logo.*
+      - ZakazkyApp_base_6.1/turto_icon.png
+      - scripts/validate-809-branding*.py
       - scripts/*808*
       - scripts/validate-800-installation.py
       - scripts/validate-800-updater-transaction.py
@@ -64,6 +68,24 @@ jobs:
       - name: Install Inno Setup compiler
         shell: pwsh
         run: choco install innosetup --yes --no-progress
+      - name: Validate company artwork and real UI in both themes
+        shell: pwsh
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          python scripts/validate-803-icon-assets.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/validate-809-branding.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/validate-809-branding-ui.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Archive branding previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TURTO-CRM-branding-preview
+          path: dist/branding-preview/*.png
+          if-no-files-found: warn
       - name: Build onedir application, onedir updater and final installer
         shell: pwsh
         run: ./scripts/build-windows-808.ps1

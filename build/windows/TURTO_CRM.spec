@@ -28,7 +28,7 @@ hiddenimports += collect_submodules("offers_engine")
 hiddenimports = sorted(set(hiddenimports))
 
 datas = []
-for name in ("turto_logo.png", "turto_logo.ico", "turto_crm.png", "turto_crm.ico", "README.txt"):
+for name in ("turto_logo.png", "turto_logo.ico", "turto_icon.png", "README.txt"):
     path = BASE / name
     if path.is_file():
         datas.append((str(path), "."))
