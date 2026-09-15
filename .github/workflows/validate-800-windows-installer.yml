@@ -3,7 +3,7 @@ name: Validate TURTO CRM 8.0 Windows installer
 on:
   workflow_dispatch:
   push:
-    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress]
+    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress, feature/8.0.13-remove-quick-actions]
   pull_request:
     paths:
       - ZakazkyApp_base_6.1/updater_safety.py
