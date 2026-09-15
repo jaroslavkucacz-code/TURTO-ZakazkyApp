@@ -61,7 +61,7 @@ def repair_shortcuts(root, icon, *, folders=None):
                 link = pythoncom.CoCreateInstance(shell.CLSID_ShellLink, None,
                     pythoncom.CLSCTX_INPROC_SERVER, shell.IID_IShellLink)
                 persist = link.QueryInterface(pythoncom.IID_IPersistFile)
-                persist.Load(str(path), pythoncom.STGM_READWRITE)
+                persist.Load(str(path))
                 target = link.GetPath(shell.SLGP_RAWPATH)[0]
                 if not target or _canonical(target) not in owned:
                     continue
