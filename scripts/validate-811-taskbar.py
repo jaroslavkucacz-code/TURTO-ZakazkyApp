@@ -116,7 +116,11 @@ def check_shortcut_upgrade():
             assert Path(linked_icon).samefile(icon) and icon_index == 0
             props = link.QueryInterface(propsys.IID_IPropertyStore)
             assert props.GetValue(pscon.PKEY_AppUserModel_ID).GetValue() == APP_USER_MODEL_ID
-        expected = shell_image(icon)
+        # Windows adds the shortcut-arrow overlay when extracting a .lnk icon.
+        # Compare against a fresh link to the correct icon, with the same overlay.
+        reference = temp / "expected.lnk"
+        make_link(reference, target, icon, app_id=APP_USER_MODEL_ID)
+        expected = shell_image(reference)
         deadline = time.monotonic() + 5
         while True:
             after = shell_image(owned)
