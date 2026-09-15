@@ -130,8 +130,18 @@ def write_link(path,target,arguments='',working_dir='',app_id=APP_ID):
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
     temp=path.with_name('.turto-link-'+uuid.uuid4().hex+'.lnk')
     try:
-        with ShellLink(path if path.exists() else None) as link:
-            link.configure(target,arguments,working_dir,app_id);link.save(temp)
+        hotkey=ctypes.c_ushort(0);show=ctypes.c_int(1)
+        if path.exists():
+            with ShellLink(path) as old:
+                checked(method(old.ptr,12,ctypes.c_long,ctypes.POINTER(ctypes.c_ushort))(old.ptr,ctypes.byref(hotkey)))
+                checked(method(old.ptr,14,ctypes.c_long,ctypes.POINTER(ctypes.c_int))(old.ptr,ctypes.byref(show)))
+        # A loaded read-only property store cannot be edited. Construct a fresh
+        # link, keeping the user's hotkey/window state but no old relaunch data.
+        with ShellLink() as link:
+            link.configure(target,arguments,working_dir,app_id)
+            checked(method(link.ptr,13,ctypes.c_long,ctypes.c_ushort)(link.ptr,hotkey.value))
+            checked(method(link.ptr,15,ctypes.c_long,ctypes.c_int)(link.ptr,show.value))
+            link.save(temp)
         check=read_link(temp)
         if os.path.normcase(os.path.realpath(check['target']))!=os.path.normcase(os.path.realpath(str(target))) or check['arguments']!=arguments or check['app_id']!=app_id:
             raise OSError(f'Kontrola uloženého zástupce selhala: {check!r}; očekávaný cíl: {str(target)!r}')
