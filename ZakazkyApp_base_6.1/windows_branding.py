@@ -49,6 +49,7 @@ def repair_shortcuts(root, icon, *, folders=None):
     Python shortcuts and all launch arguments remain untouched.
     """
     import pythoncom
+    from win32com import storagecon
     from win32com.shell import shell
     from win32com.propsys import propsys, pscon
     root, icon = Path(root).resolve(), Path(icon).resolve()
@@ -61,7 +62,7 @@ def repair_shortcuts(root, icon, *, folders=None):
                 link = pythoncom.CoCreateInstance(shell.CLSID_ShellLink, None,
                     pythoncom.CLSCTX_INPROC_SERVER, shell.IID_IShellLink)
                 persist = link.QueryInterface(pythoncom.IID_IPersistFile)
-                persist.Load(str(path))
+                persist.Load(str(path), storagecon.STGM_READWRITE)
                 target = link.GetPath(shell.SLGP_RAWPATH)[0]
                 if not target or _canonical(target) not in owned:
                     continue
