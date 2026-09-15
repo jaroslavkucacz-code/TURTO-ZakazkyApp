@@ -1,8 +1,8 @@
 {
-  "version": "8.0.14",
+  "version": "8.0.15",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "95e14fcd285e2e562cfa46a7ef3f4fb2fffd1d51",
-  "validated_run_id": 35000040369,
-  "notes": "Opraveno chybné zarovnání dělicích čar a sloupců při prvním otevření tabulek. Rozložení se nyní srovná automaticky po načtení uložených šířek; není potřeba ručně posouvat sloupec.\n\nOprava zahrnuje obnovu šířek, změnu pořadí a viditelnosti sloupců, vodorovné posouvání i přepnutí světlého a tmavého motivu. Uložené šířky a pořadí sloupců zůstávají zachovány.\n\nAktualizaci spustíte v CRM tlačítkem „Nainstalovat aktualizaci“. Alternativně zavřete CRM a spusťte TURTO_CRM_Setup_8.0.14.exe přes stávající instalaci.\n\nOvěřeno skutečné rozhraní ve Windows a instalace, aktualizace i návrat verze se zachováním databáze."
+  "source_commit": "726845077cf281408334324e6c270da210b0a77e",
+  "validated_run_id": 35008792796,
+  "notes": "Program si nyní pamatuje šířky, skrytí a pořadí sloupců ve všech tabulkách, včetně dialogových oken. Nastavení se ukládá pro každého uživatele do datové databáze, takže zůstává zachované po ukončení programu, aktualizaci i přeinstalaci se zachováním dat.\n\nDříve uložená rozložení se přebírají automaticky. Opraveno přepisování nastavení výchozím Přehledem a obnova sloupců přidávaných během spouštění. Pamatují se také zvolené přednastavené pohledy ceníků a přijatých nabídek.\n\nŠířku měníte tažením hranice sloupce. Skrytí a pořadí nastavíte přes pravé tlačítko na záhlaví → Nastavit zobrazené sloupce… → Použít. Nastavení sloupců lze otevřít také Ctrl+Shift+C v tabulce.\n\nOvěřeny dva samostatné procesy CRM ve Windows, 15 hlavních tabulek, dialogová okna, skutečné změny myší a tlačítky, oddělení uživatelů i převzetí starších nastavení. Instalační test kontroluje zachování nastavení tabulek v databázi po aktualizaci a přeinstalaci.\n\nAktualizaci spustíte tlačítkem „Nainstalovat aktualizaci“ v CRM, případně zavřete CRM a spusťte TURTO_CRM_Setup_8.0.15.exe přes stávající instalaci."
 }
