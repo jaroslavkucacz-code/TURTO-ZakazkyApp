@@ -191,6 +191,29 @@ def run(td):
         categories.manage_categories(app, window)
         assert category_result == [True], category_result
 
+        # The admin settings Save keeps the window open. A completed save
+        # becomes clean, while save-and-close persists the setting once.
+        for save_first in (True, False):
+            window.open_admin(auth=True)
+            settle(window)
+            admin = next(w for w in window.winfo_children() if isinstance(w, app.tk.Toplevel)
+                         and w.title() == 'ADMIN – TURTO CRM')
+            controls = list(children(admin))
+            toggle = next(w for w in controls if w.winfo_class() == 'TCheckbutton'
+                          and str(w.cget('text')).startswith('Automaticky kontrolovat'))
+            current = bool(admin.getboolean(admin.getvar(toggle.cget('variable'))))
+            toggle.setvar(toggle.cget('variable'), not current)
+            assert admin._turto_form_guard.changed()
+            if save_first:
+                next(w for w in controls if w.winfo_class() == 'TButton'
+                     and str(w.cget('text')) == 'Uložit').invoke()
+                assert not admin._turto_form_guard.changed()
+            else:
+                replies.append(True)
+            cross(admin)
+            assert not admin.winfo_exists()
+            assert app.get_setting('company_auto_updates') == ('0' if current else '1')
+
         # Functional forms constructed without bind_dialog_keys are enrolled
         # too. A failed save and an exception both retain the original draft.
         generic = app.tk.Toplevel(window)
@@ -227,7 +250,7 @@ def run(td):
         dialog.destroy()
         assert not replies, replies
         assert not errors, errors
-        print('8.0.17: input-only Tab, six business forms, real save, cancel/discard, notes, offers, templates, categories and generic forms OK', flush=True)
+        print('8.0.17: input-only Tab, six business forms, real save, cancel/discard, notes, offers, templates, categories, admin settings and generic forms OK', flush=True)
     finally:
         window._turto_closing = True
         window.destroy()

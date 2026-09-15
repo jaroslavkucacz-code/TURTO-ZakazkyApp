@@ -111,7 +111,15 @@ def apply(M):
                     R._audit(r['entity_type'],r['entity_id'],'ADMIN – vrácena změna',r['field_name'],r['new_value'],r['old_value']);app.refresh_all();load()
                 except Exception as e:messagebox.showerror('Vrátit změnu',str(e),parent=d)
             foot=ttk.Frame(hist);foot.pack(fill='x',pady=(8,0));undo_btn=ttk.Button(foot,text='↶ Vrátit změnu',style='Accent.TButton',command=undo);undo_btn.pack(side='right');ttk.Button(foot,text='Obnovit',command=load).pack(side='right',padx=6);archive.trace_add('write',lambda *_:load());load()
-            auto=tk.BooleanVar(value=str(M.get_setting('company_auto_updates','1'))!='0');ttk.Label(upd,text='Firemní aktualizace',style='Section.TLabel').pack(anchor='w');ttk.Checkbutton(upd,text='Automaticky kontrolovat aktualizace při startu i během běhu aplikace',variable=auto).pack(anchor='w',pady=10);ttk.Button(upd,text='Uložit',command=lambda:M.set_setting('company_auto_updates','1' if auto.get() else '0')).pack(anchor='w')
+            auto=tk.BooleanVar(value=str(M.get_setting('company_auto_updates','1'))!='0');ttk.Label(upd,text='Firemní aktualizace',style='Section.TLabel').pack(anchor='w');ttk.Checkbutton(upd,text='Automaticky kontrolovat aktualizace při startu i během běhu aplikace',variable=auto).pack(anchor='w',pady=10);
+            from price_lists_domain.platform.form_behavior_817 import register, mark_saved
+            def save_updates():
+                M.set_setting('company_auto_updates','1' if auto.get() else '0')
+                mark_saved(d)
+            ttk.Button(upd,text='Uložit',command=save_updates).pack(anchor='w')
+            # History filters and the path for explicit DB operations are not
+            # settings committed by this Save button.
+            register(M,d,save_updates,lambda:bool(auto.get()))
         R.open_admin=open_admin;M.App.open_admin=open_admin
     except:pass
 
