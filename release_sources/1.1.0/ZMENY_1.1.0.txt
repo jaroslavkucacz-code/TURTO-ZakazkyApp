@@ -1,0 +1,16 @@
+TURTO – Měsíční přehledy 1.1.0
+
+- Vývoj firmy: měsíční obrat, srovnání se stejným měsícem předchozího roku, rozdíl a procentní změna, dostupný zisk, marže a průměr DL.
+- Změny zákazníků: růst/pokles, první evidovaný nebo obnovený odběr, bez odběru ve vybraném období; dvojklik otevírá historii.
+- Zakázky: souhrn obratu, dostupného zisku a pokrytí dokladů podle zakázky v POHODĚ.
+- Kontrola dat: přehled chybějících DL, zisku, středisek, zákazníků a položkových prodejních cen.
+- Nové přehledy jsou také součástí Excelu a PDF.
+- Import XLSX/XLSM/CSV má náhled období, nových/změněných/shodných dokladů a opakovaných souborů.
+- Změněné existující doklady se aktualizují jen při zvolení příslušné volby v náhledu.
+- Všechny vybrané soubory se ukládají v jediné transakci, po záloze databáze a archivaci originálů.
+- Změna zdroje nebo databáze po náhledu zablokuje uložení a vyžádá novou kontrolu.
+- Šablony CSV pro DL, položkový zisk a režijní listy; sloupce podle názvů, česká čísla a textová data, Excel 1904.
+- Sestava Zisk (zásoby) zachovává položky bez skladového kódu a opakované tiskové hlavičky.
+- Chybějící podklady se nezaměňují za nulový výsledek. Noví zákazníci jsou označeni jako první evidovaní pouze v rozsahu dostupné historie.
+- Žádná změna schématu databáze, výpočtu historického hrubého zisku ani uživatelských dat při instalaci.
+- Zachován instalátor pouze pro aktuálního uživatele a mechanismus aktualizací z 1.0.3.
