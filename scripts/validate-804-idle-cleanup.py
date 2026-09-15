@@ -43,6 +43,13 @@ class FakeApp(FakeWidget):
     def __init__(self, children=None):
         super().__init__(children)
         self.grabbed = None
+        self.focused = self
+
+    def winfo_toplevel(self):
+        return self
+
+    def focus_get(self):
+        return self.focused
 
     def grab_current(self):
         return self.grabbed
@@ -78,7 +85,13 @@ class FakeToplevel(FakeWidget):
     def lift(self):
         self.lifts += 1
 
-    def focus_force(self):
+    def overrideredirect(self):
+        return getattr(self, "popup", False)
+
+    def focus_lastfor(self):
+        return self
+
+    def focus_set(self):
         self.focuses += 1
 
 
@@ -184,6 +197,28 @@ def main() -> None:
     future._state = "withdrawn"
     cleanup._raise_registered_dialog(app)
     assert existing.lifts == 1 and existing.focuses == 1
+
+    # An override-redirect suggestion is never an activation target.
+    popup = FakeToplevel(root=app)
+    popup.popup = True
+    cleanup._raise_registered_dialog(app)
+    assert popup.lifts == popup.focuses == 0
+    # Preserve an input and popup listbox in a modal dialog, including when
+    # the coalescer takes its immediate grabbed-window path.
+    app.grabbed = existing
+    entry = SimpleNamespace(master=existing)
+    app.focused = entry
+    before = existing.focuses
+    cleanup._raise_registered_dialog(app)
+    popup.master = entry
+    app.focused = SimpleNamespace(master=popup)
+    cleanup._raise_registered_dialog(app)
+    assert existing.focuses == before
+    app.focused = None  # user switched to another application
+    cleanup._raise_registered_dialog(app)
+    assert existing.focuses == before
+    app.focused = app
+    app.grabbed = None
 
     # apply() replaces crm_runtime globals that its historical App.__init__
     # resolves later, without touching the DB. It keeps 8.0.3's coalescing but

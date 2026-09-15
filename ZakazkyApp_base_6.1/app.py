@@ -2117,7 +2117,7 @@ class AutocompleteEntry(ttk.Entry):
         self.bind("<Down>",lambda e:self._navigate(1))
         self.bind("<Up>",lambda e:self._navigate(-1))
         self.bind("<Return>",self._accept_first)
-        self.bind("<Escape>",lambda e:self.hide())
+        self.bind("<Escape>",lambda e:(self.hide(), "break")[1])
         self.bind("<Button-1>",lambda e:self.after_idle(self._show),add="+")
         self.bind("<FocusIn>",lambda e:self.after_idle(self._show),add="+")
         self.bind("<FocusOut>",lambda e:self.after(120,self._hide_if_needed))
@@ -2151,7 +2151,13 @@ class AutocompleteEntry(ttk.Entry):
         matches=self._matches()
         if not matches:self.hide();return
         if not self.popup or not self.popup.winfo_exists():
-            self.popup=tk.Toplevel(self);self.popup.overrideredirect(True);self.popup.attributes("-topmost",True)
+            self.popup=tk.Toplevel(self)
+            # Finish the popup before its first Map. Changing transient/topmost
+            # after showing it recreates the native Windows wrapper and flickers.
+            self.popup.withdraw()
+            self.popup.overrideredirect(True)
+            self.popup.attributes("-topmost",False)
+            self.popup.transient(self.winfo_toplevel())
             fr=ttk.Frame(self.popup,relief="solid",borderwidth=1);fr.pack(fill="both",expand=True)
             self.listbox=tk.Listbox(fr,height=7,exportselection=False,activestyle="dotbox")
             sb=ttk.Scrollbar(fr,orient="vertical",command=self.listbox.yview);self.listbox.configure(yscrollcommand=sb.set)
@@ -2161,7 +2167,7 @@ class AutocompleteEntry(ttk.Entry):
             self.listbox.bind("<Return>",self._choose)
             self.listbox.bind("<Up>",lambda e:self._move_list(-1))
             self.listbox.bind("<Down>",lambda e:self._move_list(1))
-            self.listbox.bind("<Escape>",lambda e:self.hide())
+            self.listbox.bind("<Escape>",lambda e:(self.hide(), "break")[1])
         self.listbox.delete(0,"end")
         for v in matches:self.listbox.insert("end",v)
         self.listbox.selection_clear(0,"end");self.listbox.selection_set(0);self.listbox.activate(0)

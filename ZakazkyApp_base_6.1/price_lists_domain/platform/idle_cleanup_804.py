@@ -225,21 +225,44 @@ def _install_event_driven_child_identity(M: Any, app: Any) -> None:
 
 def _raise_registered_dialog(app: Any, event: Any = None) -> None:
     """Match the legacy z-order safeguard without recursively walking the UI."""
+    if event is not None and getattr(event, "widget", app) is not app:
+        return
+    try:
+        focused = app.focus_get()
+        # No application focus means another application is active. Never
+        # reactivate the CRM from a deferred Map/FocusIn callback.
+        if focused is None:
+            return
+    except Exception:
+        return
+
+    def restore_focus(win):
+        # Popup widgets have their own Toplevel, but their master chain still
+        # belongs to the dialog. Preserve both typing and mouse selection.
+        current = focused
+        while current is not None:
+            if current is win:
+                return
+            current = getattr(current, "master", None)
+        win.lift()
+        target = win.focus_lastfor() or win
+        target.focus_set()
+
     try:
         grabbed = app.grab_current()
         if grabbed is not None and grabbed.winfo_exists():
-            grabbed.lift()
-            grabbed.focus_force()
+            restore_focus(grabbed)
             return
     except Exception:
         pass
 
+    if focused.winfo_toplevel() is not app:
+        return
     for win in reversed(_live_toplevels(app)):
         try:
-            if str(win.state() or "") == "withdrawn":
+            if str(win.state() or "") in ("withdrawn", "iconic") or win.overrideredirect():
                 continue
-            win.lift()
-            win.focus_force()
+            restore_focus(win)
             return
         except Exception:
             continue

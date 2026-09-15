@@ -129,5 +129,5 @@ def run(td):
 
 
 if __name__ == '__main__':
-    with tempfile.TemporaryDirectory(prefix='turto-autocomplete-') as td:
+    with tempfile.TemporaryDirectory(prefix='turto-autocomplete-', ignore_cleanup_errors=True) as td:
         run(td)

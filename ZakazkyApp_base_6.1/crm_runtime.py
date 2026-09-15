@@ -205,7 +205,10 @@ def _set_taskbar_identity(app):
     try:
         from branding import configure_window_icon
         configure_window_icon(app, M.ROOT)
-        app.bind("<Map>",lambda e:_raise_dialog_chain(app),add="+");app.bind("<FocusIn>",lambda e:_raise_dialog_chain(app),add="+")
+        def activated(event):
+            if event.widget is app:
+                _raise_dialog_chain(app, event)
+        app.bind("<Map>",activated,add="+");app.bind("<FocusIn>",activated,add="+")
     except:pass
 
 def create_windows_shortcuts(app):

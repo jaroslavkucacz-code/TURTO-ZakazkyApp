@@ -266,13 +266,13 @@ def main() -> None:
     dialog_app.run_idle()
     assert len(sweeps) == 2
 
-    # Modal grabs keep immediate focus protection and bypass the recursive sweep.
+    # Modal grabs delegate immediately to the focus owner, preserving its policy.
     grabbed = FakeGrab()
     modal_app = FakeDialogApp(grabbed=grabbed)
     assert coalesced(modal_app) is None
-    assert grabbed.lifts == 1 and grabbed.focuses == 1
+    assert grabbed.lifts == 0 and grabbed.focuses == 0
     assert modal_app.pending == []
-    assert len(sweeps) == 2
+    assert len(sweeps) == 3 and sweeps[-1] == (modal_app, None)
 
     # Destroyed autocomplete widgets leave the legacy process-wide registry.
     registry = []

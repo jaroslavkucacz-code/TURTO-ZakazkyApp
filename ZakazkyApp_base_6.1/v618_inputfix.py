@@ -72,11 +72,10 @@ def apply(M):
         old_show = A._show
 
         def show(self):
+            if self._suppress_show or self.focus_get() is not self:
+                return
             result = old_show(self)
             try:
-                if self.popup and self.popup.winfo_exists():
-                    self.popup.attributes('-topmost', False)
-                    self.popup.transient(self.winfo_toplevel())
                 if self.listbox and self.listbox.size():
                     selection = self.listbox.curselection()
                     if not selection:
