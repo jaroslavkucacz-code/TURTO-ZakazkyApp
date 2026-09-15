@@ -727,6 +727,8 @@ def manage_categories(M, app) -> None:
             detail_path.set("")
             name_var.set("")
             detail_info.set("")
+            from .form_behavior_817 import mark_saved
+            mark_saved(dialog)
             return
         values, mapping = group_values()
         widgets["Nadřazená skupina"].configure(values=values)
@@ -752,6 +754,8 @@ def manage_categories(M, app) -> None:
             f"Produktů: {row['product_count']} · Ceníků: {row['list_count']} · Nabídek: {row['offer_count']}\n"
             "Přejmenování ani změna pořadí nepřepisuje historické ceny; pracuje se stabilním ID."
         )
+        from .form_behavior_817 import mark_saved
+        mark_saved(dialog)
 
     def begin_new(kind):
         values, mapping = group_values()
@@ -779,6 +783,8 @@ def manage_categories(M, app) -> None:
             set_widget_state(show_widget, False)
         detail_info.set("Po uložení můžete záznam okamžitě přetáhnout na požadované místo.")
         widgets["Název"].focus_set()
+        from .form_behavior_817 import mark_saved
+        mark_saved(dialog)
 
     def save():
         kind = state.get("kind")
@@ -1072,6 +1078,10 @@ def manage_categories(M, app) -> None:
 
     dialog.bind("<Destroy>", release_traces, add="+")
     refresh()
+    from .form_behavior_817 import register
+    register(M, dialog, save,
+             lambda: tuple(str(v.get()) for v in (name_var, parent_var, margin_var,
+                           discount_var, active_var, show_recommended)))
     dialog.wait_window()
 
 

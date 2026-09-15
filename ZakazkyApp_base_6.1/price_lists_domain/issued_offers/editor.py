@@ -445,6 +445,8 @@ class IssuedOfferEditor:
         self.refresh_items()
         self.refresh_status()
         self.set_readonly(self.locked)
+        from ..platform.form_behavior_817 import wire_close
+        wire_close(self.win, self.close)
 
     def set_readonly(self, value):
         if not value:

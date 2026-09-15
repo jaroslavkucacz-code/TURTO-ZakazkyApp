@@ -140,6 +140,8 @@ class TemplateEditor:
         self.win.bind("<F1>",lambda e:self.help())
         self.refresh_list();self.load(self.templates[0] if self.templates else template_layout.builtin_template())
         self.loading=False;self.schedule()
+        from ..platform.form_behavior_817 import wire_close
+        wire_close(self.win,self.close)
 
     def error(self,exc):self.M.messagebox.showwarning("PDF šablony",str(exc),parent=self.win)
 
@@ -334,7 +336,13 @@ class TemplateEditor:
         from .professional_workflow import _open_help_topic
         _open_help_topic(self.M,self.win,"help_templates")
     def close(self):
-        if not self.discard_ok():return
+        if self.signature()!=self.baseline:
+            answer=self.M.messagebox.askyesnocancel("Neuložené změny",
+                "Chcete uložit změny šablony před zavřením?\n\nAno = uložit a zavřít\nNe = zahodit změny\nZrušit = pokračovat v úpravách",parent=self.win)
+            if answer is None:return
+            if answer:
+                self.save()
+                if self.signature()!=self.baseline:return
         if self.pending is not None:
             try:self.win.after_cancel(self.pending)
             except Exception:pass
