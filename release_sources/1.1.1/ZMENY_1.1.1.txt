@@ -1,0 +1,11 @@
+TURTO – Měsíční přehledy 1.1.1
+
+- Měsíční grafy a historie zákazníka: volba kombinovaného grafu, čar nebo sloupců; obrat, zisk a marži lze zapínat samostatně i společně.
+- Vypnutí posledního ukazatele zobrazí pokyn k výběru místo nereagujícího tlačítka.
+- Obchodníci, zákazníci a produkty: tři skutečně odlišné pohledy – pruhy, prstenec a podíly 100 %.
+- Prstenec zůstává prstencem i v užším okně; legenda se přesune pod něj.
+- Bez podkladů jsou příslušné ukazatele označené a zakázané. Nulová hodnota je dostupný údaj; nulový součet nebo záporné hodnoty nelze zobrazit procentním podílem.
+- Záporné hodnoty automaticky přepnou na pruhy a vysvětlí důvod přímo u grafu.
+- Volba typu a ukazatelů se ukládá pro příslušný přehled; obnoví se i po restartu aplikace.
+- Graf obchodníků na úvodním přehledu má stejné ovládání jako samostatná stránka. Rozložení se přizpůsobuje šířce okna.
+- Zachované importy, databáze a exporty z 1.1.0. Instalace pouze pro aktuálního uživatele.
