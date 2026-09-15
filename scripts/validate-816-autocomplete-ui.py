@@ -105,7 +105,7 @@ def run(td):
         window.geometry('1250x820+0+0')
         settle(window, 4.2)
         tested = set()
-        for page in ('projects', 'requests', 'companies', 'people', 'tasks', 'prices'):
+        for page in ('actions', 'projects', 'requests', 'mivo', 'companies', 'people', 'tasks', 'pricelists', 'offers'):
             if page not in window.tabs:
                 continue
             window.show_page(page)
@@ -124,6 +124,17 @@ def run(td):
             for entry in entries[:2]:
                 exercise(entry, cls.__name__ + ':' + str(entry))
                 assert window.grab_current() is dialog, 'Suggestion changed modal grab'
+            # A pending text-change callback must not take focus back after Tab
+            # or another field receives it, even if a popup already exists.
+            entry = entries[0]
+            entry.focus_set()
+            settle(window)
+            entry.var.set('al')
+            other = entries[1] if len(entries) > 1 else dialog
+            other.focus_set()
+            settle(window)
+            assert window.focus_get() is other, (cls.__name__, 'debounce stole focus')
+            assert not entry.popup.winfo_viewable(), (cls.__name__, 'old popup stayed open')
             entry.var.set('al')  # destruction with a pending debounce
             dialog.destroy()
             settle(window)
