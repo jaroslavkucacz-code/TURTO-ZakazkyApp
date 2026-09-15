@@ -159,13 +159,15 @@ def run_ui(td):
         empty.configure(xscrollcommand=(str(scrollbar), 'set'))
         for c in ('A', 'B', 'C'):
             empty.column(c, width=90, stretch=False)
+        app.install_persistent_tree_layout(empty)
         app.install_v760_tree_polish(empty)
         settle(window)
         hook = str(empty.cget('xscrollcommand'))
         for _ in range(3):
             app.install_v760_tree_polish(empty)
         assert str(empty.cget('xscrollcommand')) == hook
-        empty.column('A', width=125)
+        empty._turto_design_widths['A'] = 125
+        app.install_persistent_tree_layout(empty)
         settle(window)
         assert tuple(map(float, scrollbar.get())) == tuple(map(float, empty.xview()))
         assert getattr(empty, '_v760_separator_after', None) is None
