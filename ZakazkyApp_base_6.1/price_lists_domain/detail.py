@@ -51,7 +51,7 @@ def open_price_list_detail(app, price_list_id=None):
     cols = ("Ř.", "Kód", "Produkt", "Zdrojová cena", "Cena/MJ", "Cena za", "MJ", "Přirážka", "Sleva",
             "Min. odběr", "Balení", "Paleta", "Hmotnost/MJ", "Hmotnost balení", "Hmotnost palety", "Podmínka")
     widths = (55, 120, 330, 110, 110, 70, 60, 80, 70, 90, 100, 80, 100, 115, 110, 240)
-    tree = ctx.M.ttk.Treeview(item_frame, columns=cols, show="headings")
+    tree = ctx.M.ttk.Treeview(item_frame, columns=cols, show="headings", name='layout__price_lists_domain_detail__open_price_list_detail__tree')
     for col, width in zip(cols, widths):tree.heading(col, text=col); tree.column(col, width=width, anchor="w")
     ys = ctx.M.ttk.Scrollbar(item_frame, orient="vertical", command=tree.yview)
     xs = ctx.M.ttk.Scrollbar(item_frame, orient="horizontal", command=tree.xview)

@@ -316,7 +316,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
     structure_cols = ("Produktů", "Ceníků")
     structure = M.ttk.Treeview(
         left, columns=structure_cols, show="tree headings", selectmode="browse", height=24
-    )
+    , name='layout__price_lists_domain_platform_product_workspace__build_product_workspace__structure')
     structure.heading("#0", text="Skupina / podskupina")
     structure.column("#0", width=340, minwidth=220, anchor="w", stretch=True)
     for col, width in (("Produktů", 72), ("Ceníků", 62)):
@@ -389,7 +389,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         "Marže", "Sleva", "Výsledná cena", "Ceníků",
     )
     widths = (120, 230, 165, 175, 135, 290, 230, 250, 125, 68, 68, 125, 65)
-    products = M.ttk.Treeview(table_wrap, columns=cols, show="headings", selectmode="extended")
+    products = M.ttk.Treeview(table_wrap, columns=cols, show="headings", selectmode="extended", name='layout__price_lists_domain_platform_product_workspace__build_product_workspace__products')
     for col, width in zip(cols, widths):
         products.heading(col, text=col)
         products.column(col, width=width, minwidth=55, anchor="w")

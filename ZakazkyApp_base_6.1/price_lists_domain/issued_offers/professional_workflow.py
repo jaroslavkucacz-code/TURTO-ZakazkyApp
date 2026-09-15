@@ -1341,7 +1341,7 @@ class HelpCentre:
 
         self.tree = M.ttk.Treeview(
             navigation, show="tree", selectmode="browse", height=25
-        )
+        , name='layout__price_lists_domain_issued_offers_professional_workflow__helpcentre___build__self_tree')
         self.tree.grid(row=0, column=0, sticky="nsew")
         nav_scroll = M.ttk.Scrollbar(
             navigation, orient="vertical", command=self.tree.yview
@@ -1808,7 +1808,7 @@ class OfferReleaseDialog:
         columns = ("Stav", "Oblast", "Kontrola", "Výsledek")
         self.tree = M.ttk.Treeview(
             checks_frame, columns=columns, show="headings", selectmode="browse"
-        )
+        , name='layout__price_lists_domain_issued_offers_professional_workflow__offerreleasedialog___build__self_tree')
         for column, width in zip(columns, (75, 115, 190, 430)):
             self.tree.heading(column, text=column)
             self.tree.column(

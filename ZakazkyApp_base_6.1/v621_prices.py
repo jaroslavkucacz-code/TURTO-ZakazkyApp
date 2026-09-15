@@ -58,7 +58,7 @@ def apply(M):
                 'Dodavatel', 'Kód', 'Produkt', 'Poslední cena', 'Sleva',
                 'Datum', 'Předchozí cena', 'Změna %', 'Akce', 'Poptávka',
             )
-            self.t = M.ttk.Treeview(frame, columns=columns, show='headings')
+            self.t = M.ttk.Treeview(frame, columns=columns, show='headings', name='layout__v621_prices__apply__productpricebrowser____init____self_t')
             for column, width in zip(
                 columns, (150, 110, 330, 110, 75, 95, 115, 80, 210, 210)
             ):
@@ -206,7 +206,7 @@ def apply(M):
             frame,
             columns=('ID', 'Poptáváno', 'Datum', 'Akce'),
             show='headings',
-        )
+         name='layout__v621_prices__apply__assign_offer_to_request__tree')
         for column in ('ID', 'Poptáváno', 'Datum', 'Akce'):
             tree.heading(column, text=column)
         tree.pack(fill='both', expand=True, pady=8)

@@ -57,13 +57,15 @@ def apply(M):
 
             # Keep the underlying data columns for compatibility, but only show
             # the four fields useful in the compact dashboard overview.
-            tree.configure(displaycolumns=('Stav','Deadline','Příležitost','Společnost'))
+            if not getattr(tree, '_v815_has_saved_layout', False):
+                tree.configure(displaycolumns=('Stav','Deadline','Příležitost','Společnost'))
             for col, width in (
                 ('Stav', 135), ('Deadline', 95),
                 ('Příležitost', 300), ('Společnost', 245),
             ):
                 try:
-                    tree.column(col, width=width)
+                    if not getattr(tree, '_v815_has_saved_layout', False):
+                        tree.column(col, width=width)
                 except Exception:
                     pass
 

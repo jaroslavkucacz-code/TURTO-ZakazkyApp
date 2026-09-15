@@ -224,7 +224,7 @@ def _open_columns_dialog(M: Any, tree: Any) -> None:
         columns=("Zobrazeno", "Sloupec", "Šířka"),
         show="headings",
         selectmode="browse",
-    )
+     name='layout__price_lists_domain_platform_project_table_stability___open_columns_dialog__listing')
     for column, width in (("Zobrazeno", 95), ("Sloupec", 390), ("Šířka", 90)):
         listing.heading(column, text=column)
         listing.column(column, width=width, anchor="w")

@@ -732,7 +732,7 @@ def rules_dialog(M, app, parent, product_id, on_changed=None):
     outer = M.ttk.Frame(dialog, padding=16); outer.pack(fill="both", expand=True); outer.columnconfigure(0, weight=1); outer.rowconfigure(2, weight=1)
     M.ttk.Label(outer, text=product.get("internal_name") or product.get("internal_code"), font=("Calibri", 16, "bold")).grid(row=0, column=0, sticky="w")
     M.ttk.Label(outer, text=f"Pořadí: ruční řádek → Akce → společnost → {product['standard_discount_source']} ({product['standard_discount_pct']:g} %).", style="PageSubtitle.TLabel").grid(row=1, column=0, sticky="w", pady=(2, 10))
-    columns = ("Společnost", "Akce / rozsah", "Sleva", "Poznámka"); tree = M.ttk.Treeview(outer, columns=columns, show="headings", selectmode="browse")
+    columns = ("Společnost", "Akce / rozsah", "Sleva", "Poznámka"); tree = M.ttk.Treeview(outer, columns=columns, show="headings", selectmode="browse", name='layout__price_lists_domain_platform_customer_pricing__rules_dialog__tree')
     for column, width in zip(columns, (300, 320, 90, 360)):
         tree.heading(column, text=column); tree.column(column, width=width, anchor="w")
     tree.grid(row=2, column=0, sticky="nsew"); scroll = M.ttk.Scrollbar(outer, orient="vertical", command=tree.yview); scroll.grid(row=2, column=1, sticky="ns"); tree.configure(yscrollcommand=scroll.set)
@@ -805,7 +805,7 @@ def manager(M, app, parent):
     M.ttk.Label(outer, text="Ruční cena je záloha. Zákaznická sleva může být výchozí pro společnost nebo výjimečná pro konkrétní Akci.", style="PageSubtitle.TLabel").grid(row=1, column=0, sticky="w", pady=(2, 10))
     query = M.tk.StringVar(value=""); M.ttk.Entry(outer, textvariable=query, width=45).grid(row=2, column=0, sticky="w", pady=(0, 8))
     columns = ("Typ", "Kód", "Výrobek", "Výrobce", "Zařazení", "Ruční cena", "MJ", "Marže", "Standardní sleva")
-    tree = M.ttk.Treeview(outer, columns=columns, show="headings", selectmode="browse")
+    tree = M.ttk.Treeview(outer, columns=columns, show="headings", selectmode="browse", name='layout__price_lists_domain_platform_customer_pricing__manager__tree')
     for column, width in zip(columns, (70, 105, 290, 170, 280, 130, 55, 80, 110)):
         tree.heading(column, text=column); tree.column(column, width=width, anchor="w")
     tree.grid(row=3, column=0, sticky="nsew"); scroll = M.ttk.Scrollbar(outer, orient="vertical", command=tree.yview); scroll.grid(row=3, column=1, sticky="ns"); tree.configure(yscrollcommand=scroll.set)

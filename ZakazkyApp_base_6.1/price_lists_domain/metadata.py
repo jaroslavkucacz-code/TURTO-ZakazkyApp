@@ -73,7 +73,7 @@ def _metadata_dialog(parent, parsed: dict, path: Path, source_offer_id=None):
     preview_frame.grid(row=row + 5, column=0, columnspan=3, sticky="nsew", pady=(10, 5))
     preview_frame.columnconfigure(0, weight=1)
     preview_frame.rowconfigure(0, weight=1)
-    tree = ctx.M.ttk.Treeview(preview_frame, columns=("Ř.", "Kód", "Produkt", "Cena/MJ", "MJ", "Hmotnost", "Podmínka"), show="headings", height=12)
+    tree = ctx.M.ttk.Treeview(preview_frame, columns=("Ř.", "Kód", "Produkt", "Cena/MJ", "MJ", "Hmotnost", "Podmínka"), show="headings", height=12, name='layout__price_lists_domain_metadata___metadata_dialog__tree')
     for col, width in (("Ř.", 55), ("Kód", 125), ("Produkt", 370), ("Cena/MJ", 115), ("MJ", 65), ("Hmotnost", 100), ("Podmínka", 220)):
         tree.heading(col, text=col); tree.column(col, width=width, anchor="w")
     tree.grid(row=0, column=0, sticky="nsew")

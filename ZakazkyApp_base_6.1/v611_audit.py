@@ -96,7 +96,7 @@ def apply(M):
         from tkinter import ttk,messagebox
         d=tk.Toplevel(app);d.title('ADMIN – Vrátit změnu');M.enable_dialog_maximize(d,1180,760);d.transient(app);d.grab_set()
         ttk.Label(d,text='Vrátit auditovanou změnu',style='PageTitle.TLabel').pack(anchor='w',padx=14,pady=(14,4));ttk.Label(d,text='Lze vrátit pouze změny, pro které CRM bezpečně zná původní stav.',style='PageSubtitle.TLabel').pack(anchor='w',padx=14,pady=(0,8))
-        cols=('Čas','Uživatel','Objekt','Pole','Původní','Nová','Stav');t=ttk.Treeview(d,columns=cols,show='headings');[t.heading(x,text=x) for x in cols];t.pack(fill='both',expand=True,padx=14,pady=8)
+        cols=('Čas','Uživatel','Objekt','Pole','Původní','Nová','Stav');t=ttk.Treeview(d,columns=cols,show='headings', name='layout__v611_audit__apply__open_undo__t');[t.heading(x,text=x) for x in cols];t.pack(fill='both',expand=True,padx=14,pady=8)
         def load():
             for i in t.get_children():t.delete(i)
             with M.db() as c:rows=c.execute("SELECT * FROM audit_history WHERE trim(coalesce(undo_sql,''))<>'' ORDER BY id DESC LIMIT 1000").fetchall()

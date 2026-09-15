@@ -93,6 +93,11 @@ def main():
         with sqlite3.connect(database) as db:
             db.execute("CREATE TABLE IF NOT EXISTS updater_808_sentinel(value TEXT)")
             db.execute("INSERT INTO updater_808_sentinel VALUES (?)", ("Příležitosti, poptávky a česká data – zachovat",))
+            layout_sentinel = json.dumps({"visible": ["Deadline", "Stav"],
+                "widths": {"Stav": 177, "Deadline": 111, "Příležitost": 311},
+                "columns": ["Stav", "Deadline", "Příležitost"]}, ensure_ascii=False)
+            db.execute("INSERT INTO user_settings(user_name,key,value) VALUES(?,?,?)",
+                       ("Kontrola rozložení", "tree_layout_v815_install_check", layout_sentinel))
             db.commit()
         before = safety.digest(database)
         checks.append("frozen runtime, schema, TkDnD and offer parser smoke")
@@ -185,6 +190,10 @@ def main():
         run([setup, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=" + str(installed)], env)
         assert safety.digest(database) == before_repair
         assert all(not path.exists() for path in retired_assets)
+        with sqlite3.connect(database) as db:
+            assert db.execute("SELECT value FROM user_settings WHERE user_name=? AND key=?",
+                ("Kontrola rozložení", "tree_layout_v815_install_check")).fetchone()[0] == layout_sentinel
+        checks.append("table widths, hidden columns and order survive update and repair installation")
         checks.append("repair install removes retired generated logo files")
         checks.append("repair install over existing installation preserves data")
         uninstaller = next(installed.glob("unins*.exe"))

@@ -42,7 +42,7 @@ def apply(M):
             M.ttk.Label(f,text=title,style='PageTitle.TLabel').pack(anchor='w')
             self.summary=M.ttk.Label(f,text='',style='PageSubtitle.TLabel');self.summary.pack(anchor='w',pady=(2,10))
             cols=('Dodavatel','Číslo nabídky','Datum','Poptávka','Akce','Celkem','Měna')
-            self.tree=M.ttk.Treeview(f,columns=cols,show='headings',height=16)
+            self.tree=M.ttk.Treeview(f,columns=cols,show='headings',height=16, name='layout__v632_offerlinks__apply__relatedoffersdialog____init____self_tree')
             widths=(190,145,95,260,260,120,70)
             for c,w in zip(cols,widths):
                 self.tree.heading(c,text=c);self.tree.column(c,width=w,anchor='w')

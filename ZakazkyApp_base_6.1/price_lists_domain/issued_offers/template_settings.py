@@ -145,7 +145,7 @@ class TemplateEditor:
 
     def build_columns(self):
         M=self.M;tab=self.tabs["columns"];tab.rowconfigure(0,weight=1)
-        self.column_tree=M.ttk.Treeview(tab,columns=("label","width"),show="headings",height=9,selectmode="browse")
+        self.column_tree=M.ttk.Treeview(tab,columns=("label","width"),show="headings",height=9,selectmode="browse", name='layout__price_lists_domain_issued_offers_template_settings__templateeditor__build_columns__self_column_tree')
         self.column_tree.heading("label",text="Sloupec");self.column_tree.heading("width",text="Poměr")
         self.column_tree.column("label",width=200,anchor="w");self.column_tree.column("width",width=60,anchor="e")
         self.column_tree.grid(row=0,column=0,columnspan=3,sticky="nsew")
