@@ -487,7 +487,7 @@ def manage_categories(M, app) -> None:
         row=0, column=0, columnspan=2, sticky="w", pady=(0, 6)
     )
     cols = ("Typ", "Stav", "Produktů", "Ceníků", "Nabídek", "Marže", "Sleva", "Zobrazení ceny")
-    tree = M.ttk.Treeview(left, columns=cols, show="tree headings", selectmode="browse")
+    tree = M.ttk.Treeview(left, columns=cols, show="tree headings", selectmode="browse", name='layout__price_lists_domain_platform_categories__manage_categories__tree')
     tree.heading("#0", text="Skupina / podskupina")
     tree.column("#0", width=430, minwidth=260, anchor="w", stretch=True)
     for col, width, anchor in (

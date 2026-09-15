@@ -47,7 +47,7 @@ class OfferPriceHistoryDialog(tk.Toplevel):
             c=ttk.Frame(cards,style="Card.TFrame",padding=10);c.grid(row=0,column=i,sticky="ew",padx=(0 if i==0 else 4,4))
             ttk.Label(c,text=lab,style="PageSubtitle.TLabel").pack(anchor="w");ttk.Label(c,text=val,style="Section.TLabel").pack(anchor="w");cards.columnconfigure(i,weight=1)
         cols=("Datum","Číslo nabídky","Akce","Původní název","Kód","Množství","MJ","Pův. cena","Sleva","Cena/ks","Celkem")
-        tree=ttk.Treeview(f,columns=cols,show="headings",height=16)
+        tree=ttk.Treeview(f,columns=cols,show="headings",height=16, name='layout__crm_features__offerpricehistorydialog____init____tree')
         for c,w in zip(cols,(95,130,190,300,100,85,55,105,75,105,115)):tree.heading(c,text=c);tree.column(c,width=w,anchor="w")
         tree.pack(fill="both",expand=True)
         for r in rows:
@@ -112,7 +112,7 @@ class OfferDetailDialog(tk.Toplevel):
         ttk.Button(tools,text="Historie ceny",command=self.open_history).pack(side="left",padx=(0,5));ttk.Button(tools,text="Obrázek položky",command=self.open_image).pack(side="left",padx=5);ttk.Button(tools,text="Přiřadit k Akci…",command=self.link_action).pack(side="left",padx=5)
         ttk.Label(tools,text="Tip: dvojklik na položku otevře historii ceny.",style="PageSubtitle.TLabel").pack(side="right")
         cols=("Poz.","Kód","Původní název","item_key","Množství","MJ","Pův. cena","Sleva","Cena/ks","Cena celkem")
-        self.tree=ttk.Treeview(self.f,columns=cols,show="headings",height=17)
+        self.tree=ttk.Treeview(self.f,columns=cols,show="headings",height=17, name='layout__crm_features__offerdetaildialog___build__self_tree')
         for c,w in (("Poz.",55),("Kód",110),("Původní název",330),("item_key",240),("Množství",80),("MJ",55),("Pův. cena",100),("Sleva",75),("Cena/ks",100),("Cena celkem",115)):self.tree.heading(c,text=c);self.tree.column(c,width=w,anchor="w")
         self.tree.pack(fill="both",expand=True);self.item_by_iid={}
         try:self.tree.tag_configure("discount",font=("Calibri",10,"bold"))

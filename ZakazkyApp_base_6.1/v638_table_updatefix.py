@@ -145,7 +145,7 @@ def apply(M):
         if rt is not None:
             _heading_contract(app,rt,REQUEST_COLS)
             try:
-                rt.column('Nabídky',width=82,minwidth=70,anchor='center',stretch=False)
+                rt.column('Nabídky',width=getattr(rt, '_turto_design_widths', {}).get('Nabídky', 82),minwidth=30,anchor='center',stretch=False)
                 counts=_request_offer_counts(count_cache)
                 for iid in rt.get_children():
                     rid=_iid_num(iid,'r')
@@ -161,7 +161,7 @@ def apply(M):
                 cols=(*PROJECT_COLS,'Poslední pohyb')
             _heading_contract(app,pt,cols)
             try:
-                pt.column('Nabídky',width=82,minwidth=70,anchor='center',stretch=False)
+                pt.column('Nabídky',width=getattr(pt, '_turto_design_widths', {}).get('Nabídky', 82),minwidth=30,anchor='center',stretch=False)
                 counts=_project_offer_counts(count_cache)
                 for iid in pt.get_children():
                     pid=_iid_num(iid,'p')

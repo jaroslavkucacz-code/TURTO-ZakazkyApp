@@ -530,7 +530,7 @@ def _open_sources(M, parent, product_id: int) -> None:
     wrap.pack(fill="both", expand=True)
     wrap.columnconfigure(0, weight=1)
     wrap.rowconfigure(0, weight=1)
-    tree = M.ttk.Treeview(wrap, columns=cols, show="headings")
+    tree = M.ttk.Treeview(wrap, columns=cols, show="headings", name='layout__price_lists_domain_platform_product_catalog___open_sources__tree')
     for col, width in zip(cols, widths):
         tree.heading(col, text=col)
         tree.column(col, width=width, anchor="w")
@@ -608,7 +608,7 @@ def open_product_catalog(M, app, category_id=None, subgroup_id=None) -> None:
         "Produktová skupina", "Podskupina", "Marže", "Sleva", "Zobrazení ceny", "Ceníků", "Nabídek", "Aktuální nákupní cena",
     )
     widths = (180, 190, 145, 300, 130, 260, 250, 280, 75, 75, 150, 70, 70, 145)
-    tree = M.ttk.Treeview(table_wrap, columns=cols, show="headings", selectmode="extended")
+    tree = M.ttk.Treeview(table_wrap, columns=cols, show="headings", selectmode="extended", name='layout__price_lists_domain_platform_product_catalog__open_product_catalog__tree')
     for col, width in zip(cols, widths):
         tree.heading(col, text=col)
         tree.column(col, width=width, minwidth=60, anchor="w")

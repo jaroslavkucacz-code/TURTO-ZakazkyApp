@@ -60,10 +60,10 @@ def apply(M):
         q=M.tk.StringVar();sr=M.ttk.Frame(f);sr.pack(fill='x',pady=(0,8));M.ttk.Label(sr,text='Hledat:').pack(side='left',padx=(0,6));entry=M.ttk.Entry(sr,textvariable=q);entry.pack(side='left',fill='x',expand=True)
         nb=M.ttk.Notebook(f);nb.pack(fill='both',expand=True)
         rf=M.ttk.Frame(nb,padding=8);pf=M.ttk.Frame(nb,padding=8);nb.add(rf,text='Poptávka');nb.add(pf,text='Akce')
-        rt=M.ttk.Treeview(rf,columns=('Poptáváno','Společnost','Datum','Akce'),show='headings')
+        rt=M.ttk.Treeview(rf,columns=('Poptáváno','Společnost','Datum','Akce'),show='headings', name='layout__v637_project_offer_model__apply__edit_offer_links__rt')
         for col,w in (('Poptáváno',300),('Společnost',230),('Datum',100),('Akce',300)):rt.heading(col,text=col);rt.column(col,width=w,anchor='w')
         rt.pack(fill='both',expand=True)
-        pt=M.ttk.Treeview(pf,columns=('Akce','Adresa','Investor'),show='headings')
+        pt=M.ttk.Treeview(pf,columns=('Akce','Adresa','Investor'),show='headings', name='layout__v637_project_offer_model__apply__edit_offer_links__pt')
         for col,w in (('Akce',420),('Adresa',280),('Investor',280)):pt.heading(col,text=col);pt.column(col,width=w,anchor='w')
         pt.pack(fill='both',expand=True)
         for t in (rt,pt):
@@ -262,7 +262,7 @@ def apply(M):
                 for bf in button_frames:bf.grid_configure(row=row+1)
                 box=M.ttk.LabelFrame(target,text='Související nabídky',padding=8);box.grid(row=row,column=0,columnspan=2,sticky='nsew',pady=(8,8))
                 cols=('Dodavatel','Číslo nabídky','Datum','Název z nabídky','Poptávka','Celkem','Měna')
-                t=M.ttk.Treeview(box,columns=cols,show='headings',height=6)
+                t=M.ttk.Treeview(box,columns=cols,show='headings',height=6, name='layout__v637_project_offer_model__apply__pinit__t')
                 for col,w in zip(cols,(190,130,95,280,240,110,65)):t.heading(col,text=col);t.column(col,width=w,anchor='w')
                 t.pack(fill='both',expand=True);ids={}
                 with M.db() as c:

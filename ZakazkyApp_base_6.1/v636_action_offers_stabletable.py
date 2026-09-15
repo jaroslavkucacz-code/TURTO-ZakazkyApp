@@ -77,7 +77,7 @@ def apply(M):
                 box=M.ttk.LabelFrame(f,text='Související nabídky',padding=8)
                 box.grid(row=row,column=0,columnspan=2,sticky='nsew',pady=(8,8))
                 cols=('Dodavatel','Číslo nabídky','Datum','Název z nabídky','Poptávka','Celkem','Měna')
-                t=M.ttk.Treeview(box,columns=cols,show='headings',height=6)
+                t=M.ttk.Treeview(box,columns=cols,show='headings',height=6, name='layout__v636_action_offers_stabletable__apply__init__t')
                 for c,w in zip(cols,(190,130,95,260,240,110,65)):
                     t.heading(c,text=c);t.column(c,width=w,anchor='w')
                 t.pack(fill='both',expand=True)

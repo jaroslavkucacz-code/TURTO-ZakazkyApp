@@ -129,7 +129,7 @@ def build_issued_offers(M, app):
     wrap.grid(row=0, column=0, sticky="nsew")
     wrap.columnconfigure(0, weight=1)
     wrap.rowconfigure(0, weight=1)
-    app.issued_offer_tree = M.ttk.Treeview(wrap, columns=columns, show="headings", selectmode="extended")
+    app.issued_offer_tree = M.ttk.Treeview(wrap, columns=columns, show="headings", selectmode="extended", name='layout__price_lists_domain_issued_offers_page__build_issued_offers__app_issued_offer_tree')
     for column, width in zip(columns, widths):
         sorter = getattr(app, "sort_tree", None)
         if callable(sorter):

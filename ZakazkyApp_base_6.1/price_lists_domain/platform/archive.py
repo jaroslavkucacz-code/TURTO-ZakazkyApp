@@ -145,7 +145,7 @@ def open_bulk_archive_manager(M, app) -> None:
         M.ttk.Checkbutton(row, text=label, variable=choices[kind]).pack(side="left")
         M.ttk.Label(row, text=description, style="Panel.TLabel").pack(side="left", padx=(10, 0))
 
-    tree = M.ttk.Treeview(outer, columns=("Typ", "Počet", "Podmínka"), show="headings")
+    tree = M.ttk.Treeview(outer, columns=("Typ", "Počet", "Podmínka"), show="headings", name='layout__price_lists_domain_platform_archive__open_bulk_archive_manager__tree')
     for col, width in (("Typ", 280), ("Počet", 90), ("Podmínka", 520)):
         tree.heading(col, text=col)
         tree.column(col, width=width, anchor="w")

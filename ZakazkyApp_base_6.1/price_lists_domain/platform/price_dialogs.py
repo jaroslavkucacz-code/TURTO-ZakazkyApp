@@ -109,7 +109,7 @@ def metadata_dialog(M, parent, parsed: dict, path: Path, source_offer_id=None):
     preview.rowconfigure(0, weight=1)
     cols = ("Ř.", "Produktová skupina", "Podskupina", "Kód", "Produkt", "Cena/MJ", "MJ", "Hmotnost", "Podmínka")
     widths = (55, 250, 260, 125, 350, 115, 65, 100, 220)
-    tree = M.ttk.Treeview(preview, columns=cols, show="headings", height=12)
+    tree = M.ttk.Treeview(preview, columns=cols, show="headings", height=12, name='layout__price_lists_domain_platform_price_dialogs__metadata_dialog__tree')
     for col, width in zip(cols, widths):
         tree.heading(col, text=col)
         tree.column(col, width=width, anchor="w")
@@ -381,7 +381,7 @@ class PriceListDetailDialog:
             "Přirážka", "Sleva", "Min. odběr", "Balení", "Paleta", "Hmotnost/MJ", "Podmínka",
         )
         widths = (55, 250, 280, 120, 330, 110, 110, 70, 60, 80, 70, 90, 100, 80, 105, 240)
-        self.tree = M.ttk.Treeview(table_wrap, columns=cols, show="headings", selectmode="extended")
+        self.tree = M.ttk.Treeview(table_wrap, columns=cols, show="headings", selectmode="extended", name='layout__price_lists_domain_platform_price_dialogs__pricelistdetaildialog____init____self_tree')
         for col, width in zip(cols, widths):
             self.tree.heading(col, text=col)
             self.tree.column(col, width=width, anchor="w")

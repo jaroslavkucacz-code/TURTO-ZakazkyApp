@@ -26,14 +26,14 @@ def apply(M):
         nb=M.ttk.Notebook(f);nb.pack(fill='both',expand=True)
         rf=M.ttk.Frame(nb,padding=10);af=M.ttk.Frame(nb,padding=10);nb.add(rf,text='Poptávka');nb.add(af,text='Akce / Příležitost')
         rcols=('Poptáváno','Společnost','Datum','Akce')
-        rt=M.ttk.Treeview(rf,columns=rcols,show='headings')
+        rt=M.ttk.Treeview(rf,columns=rcols,show='headings', name='layout__v633_offerassign_deadlines__apply__edit_offer_links__rt')
         for col,w in zip(rcols,(300,230,100,300)):rt.heading(col,text=col);rt.column(col,width=w,anchor='w')
         rt.pack(fill='both',expand=True)
         for r in reqs:rt.insert('','end',iid=str(r['id']),values=(r['item'] or '',r['company'] or '',M.fmt_date(r['asked_date']),r['action_name'] or ''))
         if offer['request_id'] and rt.exists(str(offer['request_id'])):
             rt.selection_set(str(offer['request_id']));rt.focus(str(offer['request_id']));rt.see(str(offer['request_id']))
         acols=('Akce / Příležitost',)
-        at=M.ttk.Treeview(af,columns=acols,show='headings');at.heading(acols[0],text=acols[0]);at.column(acols[0],width=760,anchor='w');at.pack(fill='both',expand=True)
+        at=M.ttk.Treeview(af,columns=acols,show='headings', name='layout__v633_offerassign_deadlines__apply__edit_offer_links__at');at.heading(acols[0],text=acols[0]);at.column(acols[0],width=760,anchor='w');at.pack(fill='both',expand=True)
         for a in actions:at.insert('','end',iid=str(a['id']),values=(a['name'],))
         if offer['action_id'] and at.exists(str(offer['action_id'])):
             at.selection_set(str(offer['action_id']));at.focus(str(offer['action_id']));at.see(str(offer['action_id']))

@@ -82,7 +82,7 @@ def apply(M):
 
             top=ttk.Frame(hist);top.pack(fill='x');ttk.Label(top,text='Auditní HISTORIE',style='Section.TLabel').pack(side='left');archive=tk.BooleanVar(value=False);ttk.Checkbutton(top,text='Zobrazit archiv (> 14 dní)',variable=archive).pack(side='right')
             info=ttk.Label(hist,text='Posledních 14 dní je aktivních. Starší audit je archivovaný a pouze pro čtení.',style='PageSubtitle.TLabel');info.pack(anchor='w',pady=(2,8))
-            cols=('Čas','Uživatel','PC','Objekt','Akce','Pole','Původní','Nová','Stav');t=ttk.Treeview(hist,columns=cols,show='headings')
+            cols=('Čas','Uživatel','PC','Objekt','Akce','Pole','Původní','Nová','Stav');t=ttk.Treeview(hist,columns=cols,show='headings', name='layout__v614_next__apply__open_admin__t')
             for x in cols:t.heading(x,text=x)
             t.pack(fill='both',expand=True);rows_by_id={}
             def load():

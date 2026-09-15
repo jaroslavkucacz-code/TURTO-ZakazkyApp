@@ -497,6 +497,8 @@ def apply(M: Any) -> None:
                 if not _exists(tree) or not tree.winfo_ismapped():
                     return
                 visible = _displayed_columns(tree)
+                if "tree" in tuple(map(str, tree.tk.splitlist(tree.cget("show")))):
+                    visible = ["#0", *visible]
                 width = max(1, int(tree.winfo_width()))
                 height = max(1, int(tree.winfo_height()))
                 top = max(0, min(body_top(tree), height))
@@ -1003,7 +1005,7 @@ def apply(M: Any) -> None:
                 tree._turto_design_widths = design
             except Exception:
                 pass
-            if LAST_ACTIVITY_COLUMN not in visible_before:
+            if LAST_ACTIVITY_COLUMN not in visible_before and LAST_ACTIVITY_COLUMN not in getattr(tree, "_v815_hidden_columns", ()):
                 _set_displayed_columns(
                     tree, visible_before + [LAST_ACTIVITY_COLUMN]
                 )
@@ -1016,7 +1018,7 @@ def apply(M: Any) -> None:
         # Existing 7.5 layouts may explicitly list only the original columns.
         # Never send an unguarded symbolic identifier back to Tk here.
         visible_now = _displayed_columns(tree)
-        if LAST_ACTIVITY_COLUMN not in visible_now:
+        if LAST_ACTIVITY_COLUMN not in visible_now and LAST_ACTIVITY_COLUMN not in getattr(tree, "_v815_hidden_columns", ()):
             _set_displayed_columns(tree, visible_now + [LAST_ACTIVITY_COLUMN])
         install_tree_polish(tree)
 

@@ -183,7 +183,7 @@ class ProductPicker:
         wrap.grid(row=2, column=0, sticky="nsew")
         wrap.columnconfigure(0, weight=1)
         wrap.rowconfigure(0, weight=1)
-        self.tree = M.ttk.Treeview(wrap, columns=cols, show="headings", selectmode="extended")
+        self.tree = M.ttk.Treeview(wrap, columns=cols, show="headings", selectmode="extended", name='layout__price_lists_domain_issued_offers_editor__productpicker____init____self_tree')
         for column, width in zip(cols, widths):
             self.tree.heading(column, text=column)
             self.tree.column(column, width=width, anchor="w", stretch=False)
@@ -385,7 +385,7 @@ class IssuedOfferEditor:
         wrap.grid(row=1, column=0, sticky="nsew")
         wrap.columnconfigure(0, weight=1)
         wrap.rowconfigure(0, weight=1)
-        self.tree = M.ttk.Treeview(wrap, columns=columns, show="headings", selectmode="extended")
+        self.tree = M.ttk.Treeview(wrap, columns=columns, show="headings", selectmode="extended", name='layout__price_lists_domain_issued_offers_editor__issuedoffereditor____init____self_tree')
         for column, width in zip(columns, widths):
             self.tree.heading(column, text=column)
             self.tree.column(column, width=width, anchor="w", stretch=False)

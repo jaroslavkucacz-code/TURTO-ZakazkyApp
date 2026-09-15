@@ -84,7 +84,7 @@ class PricingPanel:
         wrap.grid(row=2, column=0, sticky="nsew")
         wrap.columnconfigure(0, weight=1)
         wrap.rowconfigure(0, weight=1)
-        self.tree = M.ttk.Treeview(wrap, columns=columns, show="headings", selectmode="browse")
+        self.tree = M.ttk.Treeview(wrap, columns=columns, show="headings", selectmode="browse", name='layout__price_lists_domain_issued_offers_inline_pricing_workspace__pricingpanel____init____self_tree')
         for column, width in zip(columns, widths):
             self.tree.heading(column, text=column)
             self.tree.column(

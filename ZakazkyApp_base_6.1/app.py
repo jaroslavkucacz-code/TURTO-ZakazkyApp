@@ -2311,7 +2311,7 @@ class CompanyDialog(tk.Toplevel):
         self.note=tk.Text(f,wrap="word",height=3,width=62);self.note.grid(row=row,column=1,columnspan=2,sticky="ew");self.note.insert("1.0",vals.get("note","") or "");row+=1
         ttk.Label(f,text="Osoby ve společnosti").grid(row=row,column=0,sticky="nw",padx=(0,10),pady=(10,4))
         box=ttk.Frame(f);box.grid(row=row,column=1,columnspan=2,sticky="nsew",pady=(10,4));box.columnconfigure(0,weight=1);box.rowconfigure(0,weight=1)
-        self.people_tree=ttk.Treeview(box,columns=("Jméno","E-mail","Telefon","Funkce"),show="headings",height=6)
+        self.people_tree=ttk.Treeview(box,columns=("Jméno","E-mail","Telefon","Funkce"),show="headings",height=6, name='layout__app__companydialog____init____self_people_tree')
         for c,w in (("Jméno",180),("E-mail",230),("Telefon",120),("Funkce",180)):
             self.people_tree.heading(c,text=c);self.people_tree.column(c,width=w,anchor="w")
         self.people_tree.grid(row=0,column=0,sticky="nsew");sb=ttk.Scrollbar(box,orient="vertical",command=self.people_tree.yview);sb.grid(row=0,column=1,sticky="ns");self.people_tree.configure(yscrollcommand=sb.set);row+=1
@@ -2590,7 +2590,7 @@ class ProjectDialog(tk.Toplevel):
             ttk.Label(f,text="Příležitosti navázané na tuto Akci",
                       font=("Calibri",11,"bold")).grid(row=row,column=0,columnspan=3,sticky="w");row+=1
             self.opp=ttk.Treeview(f,columns=("Společnost","Příležitost","Stav","Deadline"),
-                                  show="headings",height=7)
+                                  show="headings",height=7, name='layout__app__projectdialog____init____self_opp')
             for c,w in (("Společnost",180),("Příležitost",300),("Stav",120),("Deadline",100)):
                 self.opp.heading(c,text=c);self.opp.column(c,width=w)
             self.opp.grid(row=row,column=0,columnspan=3,sticky="nsew",pady=(5,0))
@@ -2799,7 +2799,7 @@ class UserNotesDialog(tk.Toplevel):
             columns=('Vytvořeno','Poznámka'),
             show='headings',
             selectmode='browse',
-        )
+         name='layout__app__usernotesdialog____init____self_tree')
         self.tree.heading('Vytvořeno',text='Vytvořeno')
         self.tree.heading('Poznámka',text='Poznámka')
         self.tree.column('Vytvořeno',width=145,minwidth=125,stretch=False,anchor='w')
@@ -2965,7 +2965,7 @@ class NotificationCenter(tk.Toplevel):
         f=scrollable_dialog_frame(self,14)
         ttk.Label(f,text="Co je potřeba udělat",font=("Calibri",16,"bold")).pack(anchor="w")
         ttk.Label(f,text="Po termínu + dnes + následující 3 dny",foreground="#667085").pack(anchor="w",pady=(2,10))
-        self.tree=ttk.Treeview(f,columns=("Kdy","Typ","Akce","Co / detail"),show="headings")
+        self.tree=ttk.Treeview(f,columns=("Kdy","Typ","Akce","Co / detail"),show="headings", name='layout__app__notificationcenter____init____self_tree')
         for c,w in (("Kdy",120),("Typ",130),("Akce",280),("Co / detail",470)):
             self.tree.heading(c,text=c);self.tree.column(c,width=w,anchor="w")
         self.tree.pack(fill="both",expand=True)
@@ -3152,7 +3152,7 @@ class ActionDialog(tk.Toplevel):
                 box=ttk.LabelFrame(f,text="Stejná Akce u dalších společností",padding=8)
                 box.grid(row=row,column=0,columnspan=2,sticky="ew",pady=(8,6))
                 self.related_tree=ttk.Treeview(box,columns=("Společnost","Přijato","Stav"),
-                                               show="headings",height=min(5,len(related)))
+                                               show="headings",height=min(5,len(related)), name='layout__app__actiondialog____init____self_related_tree')
                 for c,w in (("Společnost",360),("Přijato",120),("Stav",160)):
                     self.related_tree.heading(c,text=c);self.related_tree.column(c,width=w,anchor="w")
                 self.related_tree.pack(fill="x",expand=True)
@@ -3169,7 +3169,7 @@ class ActionDialog(tk.Toplevel):
             ttk.Label(f,text="Historie příležitosti",font=("Calibri",11,"bold")).grid(row=row,column=0,columnspan=2,sticky="w",pady=(0,6));row+=1
             hf=ttk.Frame(f);hf.grid(row=row,column=0,columnspan=2,sticky="nsew")
             hf.rowconfigure(0,weight=1);hf.columnconfigure(0,weight=1)
-            self.history_tree=ttk.Treeview(hf,columns=("Kdy","Uživatel","Událost","Detail"),show="headings",height=8)
+            self.history_tree=ttk.Treeview(hf,columns=("Kdy","Uživatel","Událost","Detail"),show="headings",height=8, name='layout__app__actiondialog____init____self_history_tree')
             for c,w in (("Kdy",130),("Uživatel",150),("Událost",220),("Detail",470)):
                 self.history_tree.heading(c,text=c);self.history_tree.column(c,width=w,anchor="w")
             self.history_tree.grid(row=0,column=0,sticky="nsew")
@@ -3478,7 +3478,7 @@ class RequestDialog(tk.Toplevel):
             hist_frame=ttk.Frame(f)
             hist_frame.grid(row=12,column=1,columnspan=2,sticky="nsew",pady=(10,5))
             hist_frame.columnconfigure(0,weight=1)
-            self.history_tree=ttk.Treeview(hist_frame,columns=("Datum","Odběratel","Dodavatel","Akce","Materiál","Stav"),show="headings",height=5)
+            self.history_tree=ttk.Treeview(hist_frame,columns=("Datum","Odběratel","Dodavatel","Akce","Materiál","Stav"),show="headings",height=5, name='layout__app__requestdialog____init____self_history_tree')
             for c,w in (("Datum",90),("Odběratel",160),("Dodavatel",160),("Akce",230),("Materiál",220),("Stav",90)):
                 self.history_tree.heading(c,text=c);self.history_tree.column(c,width=w,anchor="w")
             self.history_tree.grid(row=0,column=0,sticky="nsew")
@@ -4047,7 +4047,7 @@ class OfferDetailDialog(tk.Toplevel):
         hdr=ttk.Frame(f,style="Card.TFrame",padding=12);hdr.pack(fill="x",pady=(0,10))
         ttk.Label(hdr,text=f"{r['supplier'] or 'Neurčený dodavatel'}  •  {fmt_date(r['offer_date'])}",style="Section.TLabel").pack(anchor="w")
         ttk.Label(hdr,text=f"Akce: {r['action_name'] or '—'}   |   Číslo: {r['offer_number'] or '—'}   |   Celkem: {r['total_value']:,.2f} {r['currency']}",style="PageSubtitle.TLabel").pack(anchor="w",pady=(3,0))
-        tree=ttk.Treeview(f,columns=("Poz.","Kód","Původní název","item_key","Množství","MJ","Pův. cena","Sleva","Cena/ks","Cena celkem"),show="headings",height=16)
+        tree=ttk.Treeview(f,columns=("Poz.","Kód","Původní název","item_key","Množství","MJ","Pův. cena","Sleva","Cena/ks","Cena celkem"),show="headings",height=16, name='layout__app__offerdetaildialog____init____tree')
         for c,w in (("Poz.",55),("Kód",110),("Původní název",330),("item_key",240),("Množství",80),("MJ",55),("Pův. cena",100),("Sleva",75),("Cena/ks",100),("Cena celkem",115)):
             tree.heading(c,text=c);tree.column(c,width=w,anchor="w")
         tree.pack(fill="both",expand=True)
@@ -4287,7 +4287,7 @@ class App(tk.Tk):
                 except Exception:pass
     def tree(self,parent,cols,widths):
         wrap=ttk.Frame(parent,style="Panel.TFrame");wrap.pack(fill="both",expand=True)
-        t=ttk.Treeview(wrap,columns=cols,show="headings")
+        t=ttk.Treeview(wrap,columns=cols,show="headings", name='layout__app__app__tree__t')
         t._sort_state={}
         for c,w in zip(cols,widths):
             # The heading follows the alignment of its data cells immediately.
@@ -4509,14 +4509,14 @@ class App(tk.Tk):
         right=ttk.Frame(body,style="App.TFrame");right.grid(row=0,column=1,sticky="nsew")
         tasks=ttk.Frame(right,style="Card.TFrame",padding=12);tasks.pack(fill="both",expand=True,pady=(0,10))
         ttk.Label(tasks,text="Moje nejbližší úkoly",style="Section.TLabel").pack(anchor="w",pady=(0,6))
-        self.dash_tasks_tree=ttk.Treeview(tasks,columns=("Termín","Úkol"),show="headings",height=5)
+        self.dash_tasks_tree=ttk.Treeview(tasks,columns=("Termín","Úkol"),show="headings",height=5, name='layout__app__app__build_dash__self_dash_tasks_tree')
         self.dash_tasks_tree.heading("Termín",text="Termín");self.dash_tasks_tree.heading("Úkol",text="Úkol")
         self.dash_tasks_tree.column("Termín",width=85);self.dash_tasks_tree.column("Úkol",width=260)
         self.dash_tasks_tree.pack(fill="both",expand=True)
 
         req=ttk.Frame(right,style="Card.TFrame",padding=12);req.pack(fill="both",expand=True)
         ttk.Label(req,text="Čekající poptávky",style="Section.TLabel").pack(anchor="w",pady=(0,6))
-        self.dash_requests_tree=ttk.Treeview(req,columns=("Stáří","Poptáváno","U společnosti","Řeší"),show="headings",height=6)
+        self.dash_requests_tree=ttk.Treeview(req,columns=("Stáří","Poptáváno","U společnosti","Řeší"),show="headings",height=6, name='layout__app__app__build_dash__self_dash_requests_tree')
         for _c,_w in (("Stáří",65),("Poptáváno",145),("U společnosti",210),("Řeší",110)):
             self.dash_requests_tree.heading(_c,text=_c);self.dash_requests_tree.column(_c,width=_w,anchor="w")
         self.dash_requests_tree.pack(fill="both",expand=True)
@@ -5130,7 +5130,7 @@ $s.Save()
         cb.pack(side="left",padx=(7,0))
 
         wrap=ttk.Frame(outer);wrap.pack(fill="both",expand=True)
-        tree=ttk.Treeview(wrap,columns=("Položka","Stav","Použití"),show="headings",selectmode="browse")
+        tree=ttk.Treeview(wrap,columns=("Položka","Stav","Použití"),show="headings",selectmode="browse", name='layout__app__app__manage_code_lists__tree')
         for c,w in (("Položka",430),("Stav",120),("Použití",120)):
             tree.heading(c,text=c);tree.column(c,width=w,anchor="w")
         ys=ttk.Scrollbar(wrap,orient="vertical",command=tree.yview)
@@ -6557,7 +6557,7 @@ $s.Save()
         ttk.Label(f,text="Správa uživatelů",font=("Calibri",15,"bold")).grid(row=0,column=0,sticky="w")
         ttk.Label(f,text="Smazání uživatele neovlivní historii. Historické záznamy uchovávají původní jméno jako text.",
                   wraplength=570).grid(row=1,column=0,sticky="ew",pady=(2,10))
-        tree=ttk.Treeview(f,columns=("Jméno","Stav"),show="headings",selectmode="browse",height=12)
+        tree=ttk.Treeview(f,columns=("Jméno","Stav"),show="headings",selectmode="browse",height=12, name='layout__app__app__manage_users__tree')
         tree.heading("Jméno",text="Jméno");tree.heading("Stav",text="Stav")
         tree.column("Jméno",width=360);tree.column("Stav",width=140);tree.grid(row=2,column=0,sticky="nsew")
 

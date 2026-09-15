@@ -811,7 +811,7 @@ def apply(M) -> None:
                 columns=("Marže", "Sleva"),
                 show="tree headings",
                 selectmode="browse",
-            )
+             name='layout__v740_offer_defaults__apply__productpicker____init____self_structure')
             self.structure.heading("#0", text="Zařazení")
             self.structure.heading("Marže", text="Zákl. marže")
             self.structure.heading("Sleva", text="Zákl. sleva")
@@ -881,7 +881,7 @@ def apply(M) -> None:
                 columns=columns,
                 show="headings",
                 selectmode="extended",
-            )
+             name='layout__v740_offer_defaults__apply__productpicker____init____self_tree')
             for column, width in zip(columns, widths):
                 self.tree.heading(column, text=column)
                 self.tree.column(

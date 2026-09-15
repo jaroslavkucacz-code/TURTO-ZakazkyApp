@@ -131,7 +131,7 @@ def _make_tree(M, app, parent, columns, widths, anchors=None, selectmode="extend
     wrap.pack(fill="both", expand=True)
     wrap.columnconfigure(0, weight=1)
     wrap.rowconfigure(0, weight=1)
-    tree = M.ttk.Treeview(wrap, columns=columns, show="headings", selectmode=selectmode)
+    tree = M.ttk.Treeview(wrap, columns=columns, show="headings", selectmode=selectmode, name='layout__price_lists_domain_platform_commercial_workspace___make_tree__tree')
     anchors = anchors or {}
     sorter = getattr(app, "sort_tree", None)
     for column, width in zip(columns, widths):
@@ -1016,7 +1016,7 @@ def build_price_lists(M, app) -> None:
     ).grid(row=1, column=0, sticky="w", pady=(1, 6))
     app.price_taxonomy_tree = M.ttk.Treeview(
         taxonomy_side, columns=("Cen",), show="tree headings", selectmode="browse", height=24,
-    )
+     name='layout__price_lists_domain_platform_commercial_workspace__build_price_lists__app_price_taxonomy_tree')
     app.price_taxonomy_tree.heading("#0", text="Skupina / podskupina")
     app.price_taxonomy_tree.heading("Cen", text="Cen", anchor="e")
     app.price_taxonomy_tree.column("#0", width=285, minwidth=190, anchor="w", stretch=True)

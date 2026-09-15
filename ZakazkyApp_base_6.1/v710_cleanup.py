@@ -486,7 +486,7 @@ def apply(M):
             wrap.rowconfigure(0, weight=1)
             self.tree = M.ttk.Treeview(
                 wrap, columns=columns, show="headings", selectmode="extended"
-            )
+            , name='layout__v710_cleanup__apply__transfertaxonomydialog____init____self_tree')
             for column, width in zip(columns, widths):
                 self.tree.heading(column, text=column)
                 self.tree.column(column, width=width, minwidth=45, anchor="w", stretch=False)
@@ -1026,13 +1026,16 @@ def apply(M):
     # ------------------------------------------------------------------
     # Persistent Treeview geometry and configurable commercial columns.
     # ------------------------------------------------------------------
-    layout_cache: dict[tuple[str, str], dict[str, Any] | None] = {}
+    layout_cache: dict[tuple[str, str, str], dict[str, Any] | None] = {}
 
     def tree_columns(tree):
         try:
             return [str(column) for column in tree.cget("columns")]
         except Exception:
             return []
+
+    def shows_tree_column(tree):
+        return "tree" in tuple(map(str, tree.tk.splitlist(tree.cget("show"))))
 
     def ensure_heading_labels(tree):
         labels = dict(getattr(tree, "_turto_heading_labels", {}) or {})
@@ -1073,22 +1076,29 @@ def apply(M):
                 result.append(text)
         return result or columns
 
-    def tree_layout_key(tree):
-        title = ""
-        try:
-            title = _text(tree.winfo_toplevel().title(), "TURTO")
-        except Exception:
-            title = "TURTO"
+    def legacy_tree_layout_key(tree, title=None):
+        if title is None:
+            try:
+                title = _text(tree.winfo_toplevel().title(), "TURTO")
+            except Exception:
+                title = "TURTO"
         title = re.sub(r"\d+(?:\.\d+)+", "", title).strip() or "TURTO"
         columns = tree_columns(tree)
         raw = title + "|" + "|".join(columns)
         digest = hashlib.sha1(raw.encode("utf-8", "replace")).hexdigest()[:20]
         return f"tree_layout_v700_{digest}"
 
+    def tree_layout_key(tree):
+        from price_lists_domain.platform.table_preferences_815 import key_for
+        return key_for(tree)
+
+    def cache_key_for(user, key):
+        return (str(getattr(M, "DB", "")), user, key)
+
     def load_layout(tree):
         user = active_user(tree)
         key = tree_layout_key(tree)
-        cache_key = (user, key)
+        cache_key = cache_key_for(user, key)
         if cache_key in layout_cache:
             return layout_cache[cache_key]
         value = ""
@@ -1098,9 +1108,27 @@ def apply(M):
                     "SELECT value FROM user_settings WHERE user_name=? AND key=?",
                     (user, key),
                 ).fetchone()
+                if row is None:
+                    legacy_keys = [legacy_tree_layout_key(tree)]
+                    if tree.winfo_toplevel() is root_app(tree):
+                        # Previous builds read settings while the title was
+                        # 'Zakázky', but saved them after branding it 'TURTO CRM'.
+                        legacy_keys = [legacy_tree_layout_key(tree, title)
+                                       for title in ("TURTO CRM", "Zakázky")] + legacy_keys
+                    for old_key in dict.fromkeys(legacy_keys):
+                        row = con.execute(
+                            "SELECT value FROM user_settings WHERE user_name=? AND key=?",
+                            (user, old_key),
+                        ).fetchone()
+                        if row:
+                            con.execute(
+                                "INSERT INTO user_settings(user_name,key,value) VALUES(?,?,?)",
+                                (user, key, row[0]),
+                            )
+                            break
                 value = _text(row[0]) if row else ""
         except Exception:
-            pass
+            return None
         try:
             state = json.loads(value) if value else None
             if not isinstance(state, dict):
@@ -1124,8 +1152,10 @@ def apply(M):
                 )
             except Exception:
                 pass
-        state = {"visible": visible, "widths": widths}
-        layout_cache[(user, key)] = state
+        if shows_tree_column(tree):
+            widths["#0"] = int(design.get("#0", tree.column("#0", "width")))
+        state = {"visible": visible, "widths": widths, "columns": columns}
+        tree._v815_hidden_columns = set(columns) - set(visible)
         try:
             with M.db() as con:
                 con.execute(
@@ -1136,18 +1166,22 @@ def apply(M):
                     "INSERT INTO user_settings(user_name,key,value) VALUES(?,?,?)",
                     (user, key, json.dumps(state, ensure_ascii=False)),
                 )
+            layout_cache[cache_key_for(user, key)] = state
         except Exception:
             pass
 
     def delete_layout(tree):
         user = active_user(tree)
         key = tree_layout_key(tree)
-        layout_cache.pop((user, key), None)
+        layout_cache.pop(cache_key_for(user, key), None)
         try:
             with M.db() as con:
                 con.execute(
                     "DELETE FROM user_settings WHERE user_name=? AND key=?", (user, key)
                 )
+                # A reset marker prevents resurrecting a migrated legacy layout.
+                con.execute("INSERT INTO user_settings(user_name,key,value) VALUES(?,?,?)",
+                            (user, key, '{"reset":true}'))
         except Exception:
             pass
 
@@ -1167,6 +1201,8 @@ def apply(M):
                     design[column] = max(30, int(tree.column(column, "width")))
             tree._turto_design_widths = design
             target = max(1, width - 4)
+            if shows_tree_column(tree):
+                target = max(1, target - int(tree.column("#0", "width")))
             preferred = sum(max(30, int(design.get(column, 80))) for column in visible)
             filler = max(0, target - preferred)
             last = visible[-1]
@@ -1278,7 +1314,7 @@ def apply(M):
             columns=("Zobrazeno", "Sloupec", "Šířka"),
             show="headings",
             selectmode="browse",
-        )
+         name='layout__v710_cleanup__apply__open_columns_dialog__listing')
         for column, width in (("Zobrazeno", 95), ("Sloupec", 390), ("Šířka", 90)):
             listing.heading(column, text=column)
             listing.column(column, width=width, anchor="w")
@@ -1442,6 +1478,7 @@ def apply(M):
 
     def reset_tree_layout(tree):
         delete_layout(tree)
+        tree._v815_hidden_columns = set()
         defaults = getattr(tree, "_v700_default_widths", {})
         design = getattr(tree, "_turto_design_widths", {})
         for column in tree_columns(tree):
@@ -1461,7 +1498,10 @@ def apply(M):
             ensure_heading_labels(tree)
             user = active_user(tree)
             first = not getattr(tree, "_v700_layout_installed", False)
-            user_changed = getattr(tree, "_v700_layout_user", None) != user
+            database_scope = str(getattr(M, "DB", ""))
+            user_changed = (getattr(tree, "_v700_layout_user", None) != user
+                            or getattr(tree, "_v815_layout_database", None) != database_scope)
+            schema_changed = tuple(columns) != getattr(tree, "_v815_layout_columns", ())
             if first:
                 tree._v700_layout_installed = True
                 tree._v700_default_widths = {
@@ -1469,6 +1509,10 @@ def apply(M):
                     for column in columns
                 }
                 tree._turto_design_widths = dict(tree._v700_default_widths)
+                tree._v815_default_visible = displayed_columns(tree)
+                if shows_tree_column(tree):
+                    tree._v700_default_widths["#0"] = int(tree.column("#0", "width"))
+                    tree._turto_design_widths["#0"] = tree._v700_default_widths["#0"]
             elif any(column not in getattr(tree, "_v700_default_widths", {}) for column in columns):
                 for column in columns:
                     tree._v700_default_widths.setdefault(
@@ -1477,23 +1521,34 @@ def apply(M):
                     tree._turto_design_widths.setdefault(
                         column, tree._v700_default_widths[column]
                     )
-            if first or user_changed or force:
+            if user_changed and not first:
+                tree._turto_design_widths = dict(tree._v700_default_widths)
+                tree._v815_hidden_columns = set()
+                tree.configure(displaycolumns=tuple(c for c in tree._v815_default_visible if c in columns))
+            if first or user_changed or force or schema_changed:
                 state = load_layout(tree)
-                if state:
+                if state and not state.get("reset"):
                     saved_visible = [
                         column for column in state.get("visible", []) if column in columns
                     ]
+                    known_columns = state.get("columns", list(state.get("widths", {})))
+                    saved_visible.extend(c for c in columns if c not in known_columns and c not in saved_visible)
                     if saved_visible:
                         tree.configure(displaycolumns=tuple(saved_visible))
+                        tree._v815_hidden_columns = set(columns) - set(saved_visible)
                     widths = state.get("widths", {})
                     if isinstance(widths, dict):
                         for column, value in widths.items():
-                            if column in columns:
+                            if column in columns or (column == "#0" and shows_tree_column(tree)):
                                 try:
                                     tree._turto_design_widths[column] = max(30, int(value))
                                 except Exception:
                                     pass
                 tree._v700_layout_user = user
+                tree._v815_layout_database = database_scope
+                tree._v815_layout_columns = tuple(columns)
+                if shows_tree_column(tree):
+                    tree.column("#0", width=tree._turto_design_widths["#0"], stretch=False)
             if first:
                 tree._v700_resize_column = None
 
@@ -1507,6 +1562,7 @@ def apply(M):
                         index = int(token.lstrip("#")) - 1
                         visible = displayed_columns(current)
                         current._v700_resize_column = (
+                            "#0" if token == "#0" else
                             visible[index] if 0 <= index < len(visible) else None
                         )
                         current._v720_resize_active = bool(
@@ -1535,10 +1591,21 @@ def apply(M):
                             current._v720_resize_active = False
                         schedule_tree_fit(current, 20)
 
-                    current.after_idle(finish_resize)
+                    # Motion has already applied the native width. Commit on
+                    # release, so closing the dialog immediately cannot discard
+                    # a pending after_idle save.
+                    finish_resize()
+
+                def cleanup(event, current=tree):
+                    if event.widget is current:
+                        pending = getattr(current, "_v700_fit_after", None)
+                        if pending is not None:
+                            current.after_cancel(pending)
+                            current._v700_fit_after = None
 
                 tree.bind("<ButtonPress-1>", press, add="+")
                 tree.bind("<ButtonRelease-1>", release, add="+")
+                tree.bind("<Destroy>", cleanup, add="+")
                 tree.bind(
                     "<Configure>",
                     lambda event, current=tree: schedule_tree_fit(current, 120),
@@ -1634,6 +1701,7 @@ def apply(M):
 
     M.install_persistent_tree_layout = install_tree
     M.save_persistent_tree_layout = save_layout
+    M.schedule_persistent_tree_fit = schedule_tree_fit
     M.open_tree_columns_dialog = open_columns_dialog
     M.group_issued_offer_items = group_offer_items
 

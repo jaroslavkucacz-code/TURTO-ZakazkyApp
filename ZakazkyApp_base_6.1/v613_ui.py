@@ -74,7 +74,7 @@ def apply(M):
             ttk.Label(hist,text='Auditní HISTORIE',style='Section.TLabel').pack(anchor='w')
             ttk.Label(hist,text='Vyberte auditovanou změnu a použijte ↶ Vrátit změnu. Operace se sama zapíše do historie.',style='PageSubtitle.TLabel').pack(anchor='w',pady=(2,8))
             cols=('Čas','Uživatel','PC','Objekt','Akce','Pole','Původní','Nová','Stav')
-            t=ttk.Treeview(hist,columns=cols,show='headings')
+            t=ttk.Treeview(hist,columns=cols,show='headings', name='layout__v613_ui__apply__open_admin__t')
             for x in cols:t.heading(x,text=x)
             t.pack(fill='both',expand=True)
             def refresh_hist():
