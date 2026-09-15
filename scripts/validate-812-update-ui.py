@@ -88,6 +88,14 @@ def run_ui(td):
             capture(window, 'update-available.png')
             button(window._turto_update_banner, 'Zobrazit aktualizaci').invoke()
             window.update()
+            offer = window._turto_update_offer
+            for label in ('Později', 'Nainstalovat aktualizaci'):
+                control = button(offer, label)
+                assert control.winfo_viewable(), label
+                assert control.winfo_rootx() >= offer.winfo_rootx(), label
+                assert control.winfo_rooty() >= offer.winfo_rooty(), label
+                assert control.winfo_rootx() + control.winfo_width() <= offer.winfo_rootx() + offer.winfo_width(), label
+                assert control.winfo_rooty() + control.winfo_height() <= offer.winfo_rooty() + offer.winfo_height(), label
             capture(window._turto_update_offer, 'update-offer.png')
             button(window._turto_update_offer, 'Později').invoke()
             launch.assert_not_called()

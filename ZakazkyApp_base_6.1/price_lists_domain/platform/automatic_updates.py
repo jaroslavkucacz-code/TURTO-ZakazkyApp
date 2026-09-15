@@ -204,6 +204,13 @@ def _show_update_offer(M, app):
     except Exception:
         pass
 
+    # Runtime compatibility layers assign a default 360x220 to Toplevels.
+    # Explicitly fit this offer so the installation buttons cannot be clipped.
+    win.update_idletasks()
+    width, height = max(560, win.winfo_reqwidth()), win.winfo_reqheight()
+    win.geometry(f"{width}x{height}+{max(0, (win.winfo_screenwidth()-width)//2)}+{max(0, (win.winfo_screenheight()-height)//2)}")
+    win.lift()
+
 
 def _new_progress_window(app, remote):
     from update_progress import ProgressWindow
