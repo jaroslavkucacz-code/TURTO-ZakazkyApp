@@ -173,10 +173,12 @@ def run(td):
                                and w.title() == 'Produktové skupiny a podskupiny')
                 entries = [w for w in children(manager) if isinstance(w, app.ttk.Entry)]
                 entries[0].insert(0, 'search only')
+                settle(window)
                 assert not manager._turto_form_guard.changed()
                 entries[1].insert(0, '817 unsaved group')
                 replies.append(None); cross(manager)
                 assert manager.winfo_exists()
+                assert entries[1].get() == '817 unsaved group'
                 replies.append(False); cross(manager)
                 assert not manager.winfo_exists()
                 category_result.append(True)
