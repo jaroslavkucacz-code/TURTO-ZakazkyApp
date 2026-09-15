@@ -143,6 +143,10 @@ def run_ui(td):
         dialog = app.tk.Toplevel(window)
         empty = app.ttk.Treeview(dialog, columns=('A', 'B', 'C'), show='headings')
         empty.pack(fill='both', expand=True)
+        scrollbar = app.ttk.Scrollbar(dialog, orient='horizontal', command=empty.xview)
+        scrollbar.pack(fill='x')
+        # Pass a native Tcl command prefix, as existing table builders do.
+        empty.configure(xscrollcommand=(str(scrollbar), 'set'))
         for c in ('A', 'B', 'C'):
             empty.column(c, width=90, stretch=False)
         app.install_v760_tree_polish(empty)
@@ -153,6 +157,8 @@ def run_ui(td):
         assert str(empty.cget('xscrollcommand')) == hook
         empty.column('A', width=125)
         settle(window)
+        assert tuple(map(float, scrollbar.get())) == tuple(map(float, empty.xview()))
+        assert getattr(empty, '_v760_separator_after', None) is None
         before = [dict(line.place_info()) for line in empty._v760_separator_widgets]
         empty.insert('', 'end', values=('A', 'B', 'C'))
         window.update_idletasks()
