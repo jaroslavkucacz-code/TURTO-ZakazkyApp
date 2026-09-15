@@ -474,8 +474,13 @@ def apply(M: Any) -> None:
             result = 30
             try:
                 limit = min(max(32, int(tree.winfo_height())), 90)
+                in_heading = False
                 for y in range(0, limit):
-                    if tree.identify_region(4, y) in {"cell", "tree"}:
+                    region = tree.identify_region(4, y)
+                    if region in {"heading", "separator"}:
+                        in_heading = True
+                    elif in_heading or region in {"cell", "tree"}:
+                        # Empty tables also have a header/body boundary.
                         result = y
                         break
             except Exception:
@@ -502,13 +507,26 @@ def apply(M: Any) -> None:
                 except Exception:
                     offset = 0
 
+                # Column widths exclude the themed content inset. Prefer the
+                # actual first visible row; for an empty table, locate the same
+                # inset in the header without adding a synthetic data row.
+                origin = -offset
+                row = tree.identify_row(min(top + 1, height - 1))
+                box = tree.bbox(row, visible[0]) if row and visible else ()
+                if box:
+                    origin = int(box[0])
+                else:
+                    for x in range(min(32, width)):
+                        if tree.identify_region(x, max(1, top // 2)) in {"heading", "separator"}:
+                            origin += x
+                            break
+
                 boundaries: list[int] = []
-                cursor = 0
+                cursor = origin
                 for column_width in widths[:-1]:
                     cursor += column_width
-                    x = cursor - offset
-                    if 0 < x < width:
-                        boundaries.append(x)
+                    if 1 < cursor < width - 1:
+                        boundaries.append(cursor)
 
                 lines = list(getattr(tree, "_v760_separator_widgets", ()) or ())
                 while len(lines) < len(boundaries):
@@ -548,8 +566,10 @@ def apply(M: Any) -> None:
                 except Exception:
                     pass
             try:
-                tree._v760_separator_after = tree.after(
-                    max(0, int(delay)), lambda current=tree: draw_separators(current)
+                redraw = lambda current=tree: draw_separators(current)
+                tree._v760_separator_after = (
+                    tree.after_idle(redraw) if delay <= 0
+                    else tree.after(int(delay), redraw)
                 )
             except Exception:
                 pass
@@ -604,6 +624,7 @@ def apply(M: Any) -> None:
             first_install = not getattr(tree, "_v760_table_polish", False)
             if first_install:
                 tree._v760_table_polish = True
+                tree._v760_schedule_separators = lambda: schedule_separators(tree, 0)
                 for sequence in (
                     "<Configure>",
                     "<Map>",
@@ -615,6 +636,35 @@ def apply(M: Any) -> None:
                         lambda _event, current=tree: schedule_separators(current),
                         add="+",
                     )
+                # Track scrolling and changes to the total content width even
+                # when the outer widget has not resized. The saved-width owner
+                # also schedules a redraw when that total stays the same.
+                # Keep native Treeview methods and the scrollbar/filter intact.
+                original_scroll = tree.cget("xscrollcommand")
+
+                def xscroll(first: Any, last: Any) -> None:
+                    try:
+                        if original_scroll:
+                            tree.tk.call(*tree.tk.splitlist(original_scroll), first, last)
+                    finally:
+                        schedule_separators(tree, 0)
+
+                tree.configure(xscrollcommand=xscroll)
+
+                def theme_changed(_event: Any = None) -> None:
+                    tree._v760_body_top = None
+                    schedule_separators(tree, 0)
+
+                def destroyed(event: Any) -> None:
+                    if event.widget is not tree:
+                        return
+                    pending = getattr(tree, "_v760_separator_after", None)
+                    if pending is not None:
+                        tree.after_cancel(pending)
+                        tree._v760_separator_after = None
+
+                tree.bind("<<ThemeChanged>>", theme_changed, add="+")
+                tree.bind("<Destroy>", destroyed, add="+")
             sync_heading_anchors(tree)
             schedule_separators(tree, 0)
             if first_install:
