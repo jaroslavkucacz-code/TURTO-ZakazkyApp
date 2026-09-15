@@ -10,6 +10,8 @@ import stat
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import zipfile
 
 import data_location
@@ -25,6 +27,12 @@ MAX_UNCOMPRESSED_PAYLOAD = 2 * 1024 * 1024 * 1024
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 _READY_PATH = None
 _READY_SENT = False
+_PROGRESS = None
+
+
+def _report(stage, fraction=None, detail=None):
+    if _PROGRESS is not None:
+        _PROGRESS(stage, fraction, detail)
 
 
 def _stage_root() -> Path:
@@ -200,15 +208,64 @@ def _replace_program_with_rollback(source: Path, target: Path, *, current_versio
     _validate_release(source, expected_version)
     _validate_release(target, current_version, installed=True)
     safety.preflight_files(target)
+    _report("Zálohuji původní verzi programu…", detail="Připravuji možnost návratu k původní verzi. Počkejte prosím.")
     snapshot = _snapshot_program(target, current_version)
     if snapshot is None:
         raise RuntimeError("Nepodařilo se vytvořit zálohu programu před aktualizací.")
+    _report("Instaluji novou verzi…", detail="Kopíruji a ověřuji soubory programu. Počítač nyní nevypínejte.")
     safety.replace_directory(source, target, copy_release=_copy_release, validate=_validate_release, owned=PROGRAM_DIRS | PROGRAM_FILES, expected_version=expected_version)
     return snapshot
 
 
-def _restart(target: Path) -> None:
-    subprocess.Popen([str(target / MAIN_EXE)], cwd=str(target))
+def _restart(target: Path):
+    return subprocess.Popen([str(target / MAIN_EXE)], cwd=str(target))
+
+
+def _has_visible_window(pid):
+    """Recognize the restarted process's mapped window, including older builds."""
+    if os.name != "nt":
+        return True
+    import ctypes
+    from ctypes import wintypes as wt
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    callback_type = ctypes.WINFUNCTYPE(wt.BOOL, wt.HWND, wt.LPARAM)
+    user32.EnumWindows.argtypes = [callback_type, wt.LPARAM]
+    user32.EnumWindows.restype = wt.BOOL
+    user32.IsWindowVisible.argtypes = [wt.HWND]
+    user32.IsWindowVisible.restype = wt.BOOL
+    user32.GetWindowThreadProcessId.argtypes = [wt.HWND, ctypes.POINTER(wt.DWORD)]
+    user32.GetWindowThreadProcessId.restype = wt.DWORD
+    found = False
+
+    @callback_type
+    def visit(hwnd, _):
+        nonlocal found
+        owner = wt.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+        if owner.value == pid and user32.IsWindowVisible(hwnd):
+            found = True
+        return True
+
+    user32.EnumWindows(visit, 0)
+    return found
+
+
+def _wait_for_restart(process, timeout=90):
+    # The existing isolated CI probe deliberately exits without opening CRM or
+    # migrating the DB. Normal installs wait for the real native CRM window.
+    if os.environ.get("TURTO_CRM_SMOKE_RESULT") and os.environ.get("TURTO_DISABLE_AUTO_UPDATE") == "1":
+        if process.wait(timeout=timeout) != 0:
+            raise RuntimeError("Nová verze se po instalaci nepodařila spustit.")
+        return
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            raise RuntimeError("Aktualizace je nainstalovaná, ale CRM se nepodařilo otevřít. Spusťte CRM znovu pomocí jeho zástupce.")
+        if _has_visible_window(process.pid):
+            return
+        time.sleep(0.1)
+    # Never roll back/replace files while the newly started process is alive.
+    raise RuntimeError("Aktualizace je nainstalovaná. CRM se zatím nepodařilo zobrazit; jeho spouštění může stále probíhat.")
 
 
 def _parse_arguments() -> tuple[Path, Path, int, str, str, str]:
@@ -232,38 +289,45 @@ def _write_failure_log(*, mode: str, current_version: str, expected_version: str
         pass
 
 
-def main() -> None:
-    global _READY_SENT
+def main(progress=None) -> None:
+    global _READY_SENT, _PROGRESS
+    _PROGRESS = progress
     package, target, pid, mode, expected_version, expected_sha = _parse_arguments()
     current_version = _version_from_install(target)
     try:
         with safety.FileLock(safety.stage_lock(_stage_root())):
+            _report("Ověřuji instalaci a aktualizační balíček…", detail="CRM je zatím otevřené. Kontroluji, zda lze bezpečně pokračovat.")
             safety.recover_interrupted(target)
             current_version = _validate_release(target, installed=True)
             _check_data_outside_install(target)
             _verify_package_hash(package, expected_sha)
             with tempfile.TemporaryDirectory(prefix="turto_update_payload_") as temp:
+                _report("Rozbaluji a kontroluji aktualizaci…")
                 source = _source_root(package, Path(temp))
                 source_version = _validate_release(source, expected_version)
                 if mode == "update" and source_version == current_version:
                     raise RuntimeError("Aktualizační payload má stejnou verzi jako instalace.")
                 _check_cancelled()
+                _report("Čekám na bezpečné uzavření CRM…", detail="Po uzavření programu vytvořím zálohu a nainstaluji aktualizaci.")
                 if _READY_PATH is not None:
                     safety.write_json(_READY_PATH, {"status": "ready", "pid": os.getpid(), "token": sys.argv[9]})
                     _READY_SENT = True
                 _wait_for_process(pid)
                 safety.preflight_files(target)
                 label = "pred_navratem" if mode == "rollback" else "pred_aktualizaci"
+                _report("Zálohuji databázi…", detail="Ukládám zálohu vašich dat před změnou programu.")
                 db_backup = _database_backup(label)
                 snapshot_path, snapshot_sha = _replace_program_with_rollback(source, target, current_version=current_version, expected_version=source_version)
             try:
-                _restart(target)
+                _report("Spouštím TURTO CRM…", detail="Instalace je dokončená. Čekám, až se zobrazí okno programu.")
+                restarted = _restart(target)
             except Exception as exc:
                 _verify_package_hash(snapshot_path, snapshot_sha)
                 _restore_program_snapshot(snapshot_path, target, current_version)
                 _restart(target)
                 raise RuntimeError("Novou verzi se nepodařilo spustit; původní verze byla automaticky obnovena.") from exc
             safety.write_json(data_location.data_root() / "updates" / "last_update.json", {"mode": mode, "from_version": current_version, "to_version": source_version, "package_sha256": expected_sha, "database": str(data_location.database_path()), "database_backup": str(db_backup) if db_backup else "", "program_snapshot": str(snapshot_path), "program_snapshot_sha256": snapshot_sha, "installed_at": datetime.now().isoformat(timespec="seconds")})
+            _wait_for_restart(restarted)
     except BaseException as exc:
         _write_failure_log(mode=mode, current_version=current_version, expected_version=expected_version, error=exc, package=package)
         if _READY_PATH is not None:
@@ -271,12 +335,40 @@ def main() -> None:
         raise
 
 
+def run_with_progress():
+    from update_progress import ProgressWindow
+    ui = ProgressWindow(version=sys.argv[6] if len(sys.argv) >= 8 else "")
+    failed = []
+
+    def worker():
+        try:
+            main(ui.report)
+        except BaseException as exc:
+            failed.append(exc)
+            ui.fail(str(exc))
+            if os.environ.get("TURTO_CRM_SMOKE_RESULT") and os.environ.get("TURTO_DISABLE_AUTO_UPDATE") == "1":
+                ui.complete()
+        else:
+            ui.complete()
+
+    thread = threading.Thread(target=worker, name="TURTO-Install", daemon=False)
+    thread.start()
+    ui.window.mainloop()
+    thread.join()
+    return 1 if failed else 0
+
+
 if __name__ == "__main__":
     try:
         if len(sys.argv) == 3 and sys.argv[1] == "--self-test":
-            safety.write_json(Path(sys.argv[2]), {"ok": True, "frozen": bool(getattr(sys, "frozen", False)), "format": "onedir-v1", "pid": os.getpid()})
+            from update_progress import ProgressWindow
+            ui = ProgressWindow()
+            ui.window.update()
+            visible = bool(ui.window.winfo_viewable())
+            ui.destroy()
+            safety.write_json(Path(sys.argv[2]), {"ok": visible, "progress_ui": visible, "frozen": bool(getattr(sys, "frozen", False)), "format": "onedir-v1", "pid": os.getpid()})
         else:
-            main()
+            sys.exit(run_with_progress())
     except Exception as exc:
         try:
             root = data_location.data_root() / "updates"

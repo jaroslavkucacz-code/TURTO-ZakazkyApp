@@ -84,7 +84,7 @@ jobs:
       - name: Validate responsive navigation
         run: python scripts/validate-ui-navigation.py ZakazkyApp_base_6.1
 
-      - name: Validate unattended automatic updates
+      - name: Validate automatic checks and manual installation
         run: python scripts/validate-auto-update.py ZakazkyApp_base_6.1
 
       # The native Tk application is exercised once by validate-6330.yml on
