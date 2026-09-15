@@ -1156,6 +1156,7 @@ def apply(M):
             widths["#0"] = int(design.get("#0", tree.column("#0", "width")))
         state = {"visible": visible, "widths": widths, "columns": columns}
         tree._v815_hidden_columns = set(columns) - set(visible)
+        tree._v815_has_saved_layout = True
         try:
             with M.db() as con:
                 con.execute(
@@ -1479,6 +1480,7 @@ def apply(M):
     def reset_tree_layout(tree):
         delete_layout(tree)
         tree._v815_hidden_columns = set()
+        tree._v815_has_saved_layout = False
         defaults = getattr(tree, "_v700_default_widths", {})
         design = getattr(tree, "_turto_design_widths", {})
         for column in tree_columns(tree):
@@ -1524,9 +1526,11 @@ def apply(M):
             if user_changed and not first:
                 tree._turto_design_widths = dict(tree._v700_default_widths)
                 tree._v815_hidden_columns = set()
+                tree._v815_has_saved_layout = False
                 tree.configure(displaycolumns=tuple(c for c in tree._v815_default_visible if c in columns))
             if first or user_changed or force or schema_changed:
                 state = load_layout(tree)
+                tree._v815_has_saved_layout = bool(state and not state.get("reset"))
                 if state and not state.get("reset"):
                     saved_visible = [
                         column for column in state.get("visible", []) if column in columns

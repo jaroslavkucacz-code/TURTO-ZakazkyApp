@@ -43,14 +43,17 @@ def apply(M):
     def register(app, tree):
         if not isinstance(tree, M.ttk.Treeview) or not tree.winfo_exists():
             return
-        if tree not in app._turto_preference_tables:
+        first = tree not in app._turto_preference_tables
+        if first:
             app._turto_preference_tables.add(tree)
         # The column-settings listing is a control surface, not a business
         # table: hiding its own controls would make it impossible to operate.
         controls = 'columns_dialog' in str(getattr(tree, '_name', ''))
         if not controls:
             tree._turto_configurable_columns = True
-        M.install_persistent_tree_layout(tree)
+        # Builders may apply their initial column preset after an older layer
+        # loaded preferences. Reconcile once after the builder has finished.
+        M.install_persistent_tree_layout(tree, force=first)
         if not controls and str(tree.cget('show')).find('headings') >= 0:
             M.install_v760_tree_polish(tree)
 
