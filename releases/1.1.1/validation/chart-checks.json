@@ -1,0 +1,15 @@
+{
+  "result": "PASS",
+  "checks": [
+    "Monthly types, every series toggle including last, signed axes, period click and saved state",
+    "Zero is valid; missing profit and incomplete margin are disabled and explained",
+    "All three metrics and views, legend click and ring on a narrow panel",
+    "Negative totals, zero totals, missing metrics, automatic fallback and completely empty data",
+    "Every available button on page Přehled",
+    "Every available button on page Obrat & marže",
+    "Every available button on page Obchodníci",
+    "Every available button on page Zákazníci",
+    "Every available button on page Produkty",
+    "Customer detail buttons, restored chart preferences after app restart, data unchanged"
+  ]
+}
