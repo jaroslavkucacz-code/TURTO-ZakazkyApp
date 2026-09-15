@@ -106,11 +106,14 @@ def check_shortcut_upgrade():
             link = pythoncom.CoCreateInstance(shell.CLSID_ShellLink, None,
                 pythoncom.CLSCTX_INPROC_SERVER, shell.IID_IShellLink)
             link.QueryInterface(pythoncom.IID_IPersistFile).Load(str(path))
-            assert link.GetPath(shell.SLGP_RAWPATH)[0] == str(target)
+            # Shell normalizes 8.3 paths (RUNNER~1) to their long form when
+            # saving a link. Compare the actual target, not the spelling.
+            assert Path(link.GetPath(shell.SLGP_RAWPATH)[0]).samefile(target)
             assert link.GetArguments() == arguments
-            assert link.GetWorkingDirectory() == str(root)
+            assert Path(link.GetWorkingDirectory()).samefile(root)
             assert link.GetDescription() == "Vlastní popis uživatele"
-            assert link.GetIconLocation() == (str(icon), 0)
+            linked_icon, icon_index = link.GetIconLocation()
+            assert Path(linked_icon).samefile(icon) and icon_index == 0
             props = link.QueryInterface(propsys.IID_IPropertyStore)
             assert props.GetValue(pscon.PKEY_AppUserModel_ID).GetValue() == APP_USER_MODEL_ID
         expected = shell_image(icon)
