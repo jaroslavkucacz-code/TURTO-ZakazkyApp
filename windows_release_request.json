@@ -1,8 +1,8 @@
 {
-  "version": "8.0.13",
+  "version": "8.0.14",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "7194cd218a0490f493e44a70751a407f5f7d4dad",
-  "validated_run_id": 34997152112,
-  "notes": "Z přehledu byl odstraněn panel „Rychlé akce“ včetně jeho pěti tlačítek.\n\nPřehled nyní tvoří dvě části: aktivní příležitosti vlevo, nejbližší úkoly a čekající poptávky nad sebou vpravo. Tabulky využívají uvolněné místo bez prázdného sloupce.\n\nAktualizaci spustíte v CRM tlačítkem „Nainstalovat aktualizaci“. Alternativně zavřete CRM a spusťte TURTO_CRM_Setup_8.0.13.exe přes stávající instalaci.\n\nOvěřeno skutečné rozhraní ve Windows a instalace, aktualizace i návrat verze se zachováním databáze."
+  "source_commit": "95e14fcd285e2e562cfa46a7ef3f4fb2fffd1d51",
+  "validated_run_id": 35000040369,
+  "notes": "Opraveno chybné zarovnání dělicích čar a sloupců při prvním otevření tabulek. Rozložení se nyní srovná automaticky po načtení uložených šířek; není potřeba ručně posouvat sloupec.\n\nOprava zahrnuje obnovu šířek, změnu pořadí a viditelnosti sloupců, vodorovné posouvání i přepnutí světlého a tmavého motivu. Uložené šířky a pořadí sloupců zůstávají zachovány.\n\nAktualizaci spustíte v CRM tlačítkem „Nainstalovat aktualizaci“. Alternativně zavřete CRM a spusťte TURTO_CRM_Setup_8.0.14.exe přes stávající instalaci.\n\nOvěřeno skutečné rozhraní ve Windows a instalace, aktualizace i návrat verze se zachováním databáze."
 }
