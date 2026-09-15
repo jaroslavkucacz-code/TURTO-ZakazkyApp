@@ -2215,6 +2215,7 @@ class AutocompleteEntry(ttk.Entry):
                 ex=self.winfo_rootx();ey=self.winfo_rooty()
 
             ph=min(7,max(1,self.listbox.size() if self.listbox else 1))*23+4
+            self._turto_popup_size=(ew,ph)
             self.popup.geometry(f"{ew}x{ph}+{ex}+{ey+eh}")
         except Exception:
             self.hide()
@@ -3409,8 +3410,7 @@ class RequestDialog(tk.Toplevel):
         ttk.Button(supplier_wrap,text="+ Nová společnost",
                    command=self.new_supplier_company).grid(row=0,column=1,padx=(6,0))
         self.company_box.bind("<<AutocompleteSelected>>",lambda e:self._select_request_company())
-        self.company_box.bind("<Return>",lambda e:self.after_idle(self._reload_contacts_from_company))
-        self.company_box.bind("<FocusOut>",lambda e:self.after(120,self._reload_contacts_from_company))
+        self.company_box.bind("<FocusOut>",lambda e:self.after(120,self._reload_contacts_from_company),add="+")
         self.company.trace_add("write",self._company_text_changed)
 
         ttk.Label(f,text="Odběratel").grid(row=1,column=0,sticky="w",padx=(0,10),pady=5)

@@ -689,8 +689,13 @@ def _install_dialog_policy(M: Any) -> None:
                 entry_w = max(120, int(self.winfo_width()))
                 entry_h = max(20, int(self.winfo_height()))
                 left, top, right, bottom = _workarea_for_point(self, entry_x + entry_w // 2, entry_y + entry_h // 2)
-                width = min(max(entry_w, int(popup.winfo_width()), 300), max(180, right - left - 20))
-                height = min(max(30, int(popup.winfo_height())), max(30, bottom - top - 20))
+                # The base owner has just requested geometry. Reading the old
+                # native dimensions here gives 1x1 on the first withdrawn show
+                # (or the previous result count on a later query).
+                desired_w, desired_h = getattr(self, '_turto_popup_size',
+                    (popup.winfo_width(), popup.winfo_height()))
+                width = min(max(entry_w, int(desired_w), 300), max(180, right - left - 20))
+                height = min(max(30, int(desired_h)), max(30, bottom - top - 20))
                 x = min(max(left + 5, entry_x), right - width - 5)
                 below = entry_y + entry_h
                 y = below if below + height <= bottom - 5 else entry_y - height

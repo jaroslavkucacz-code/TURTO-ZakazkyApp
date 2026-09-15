@@ -60,6 +60,8 @@ def run(td):
         crm_runtime._raise_dialog_chain(window)
         settle(window)
         assert window.focus_get() is entry and visible(), (label, 'activation stole focus')
+        unmapped = []
+        token = entry.popup.bind('<Unmap>', lambda e: unmapped.append(str(e.widget)), add='+')
         for key in ('a', 'l'):
             entry.event_generate('<KeyPress>', keysym=key)
             entry.event_generate('<KeyRelease>', keysym=key)
@@ -67,12 +69,16 @@ def run(td):
         assert entry.get() == 'al', (label, entry.get())
         assert list(entry.listbox.get(0, 'end')) == ['Alpha company', 'Alpine supplier']
         assert window.focus_get() is entry and visible(), (label, 'typing lost popup')
+        assert entry.popup.winfo_height() >= 50, (label, 'clipped result rows')
+        assert not unmapped, (label, 'popup remapped while typing', unmapped)
+        entry.popup.unbind('<Unmap>', token)
         entry.event_generate('<Down>')
         settle(window, .1)
         assert entry.listbox.curselection() == (1,), (label, 'arrow selection')
         entry.event_generate('<Return>')
         settle(window)
-        assert entry.get() == 'Alpine supplier' and entry.selected_payload == 81602
+        assert entry.get() == 'Alpine supplier' and entry.selected_payload == 81602, (
+            label, 'Enter ignored selected row', entry.get(), entry.selected_payload)
         assert not visible() and entry.winfo_toplevel().winfo_exists()
         # Reopen, select by real listbox press/release, then continue typing.
         entry.var.set('be')
