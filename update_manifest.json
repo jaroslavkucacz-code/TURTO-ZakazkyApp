@@ -1,13 +1,13 @@
 {
   "app_id": "cz.turto.mesicni-prehledy",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "minimum_version": "1.0.1",
-  "sha256": "5da1db97dbf09b959ed9352393e98aefaecd67ed8e751937c8b34e4239f1f341",
-  "notes": "Opravené a rozšířené ovládání grafů. Měsíční vývoj a historie zákazníka: kombinovaný graf, čáry nebo sloupce. Obchodníci, zákazníci a produkty: pruhy, prstenec a podíly 100 %. Prstenec funguje i v užším okně. Chybějící data, nulový součet a záporné hodnoty mají jasné vysvětlení. Volby grafů se pamatují i po restartu. Ověřeno klikáním na všech stránkách a v sestavené Windows aplikaci.",
+  "sha256": "b639e2938998c44f093c53de962e6a9748c9f07bef05822f0de49044cc9a8c28",
+  "notes": "Opravené spouštění z hlavního panelu a duplicitní zástupci ve Windows. Instalátor sjednotí rozpoznané zástupce aktuálního uživatele a opraví odkazy na starý spouštěč 0.2.x. Původní zástupci se zálohují; databáze a stará složka programu zůstávají zachované. V Nastavení je vidět přesná cesta ke spuštěnému programu a tlačítko Opravit zástupce Windows. Pokud Windows stále drží staré připnutí, jednou odepněte ikonu a připněte aktuální běžící verzi 1.1.2. Ověřeno spuštění přes opravený připnutý odkaz, instalace a aktualizace ve Windows.",
   "channel": "stable",
-  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/e3b26668fc57f4dcec7b2b0d99ad861c1ce7aa70/releases/1.1.1/TURTO_update_1.1.1.zip",
-  "installer_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/e3b26668fc57f4dcec7b2b0d99ad861c1ce7aa70/releases/1.1.1/TURTO_Mesicni_Prehledy_Setup_1.1.1.exe",
-  "installer_sha256": "08d215fe9d4384cc70b09a649d5bf07136c5e0b1cbd8988a826362c74a3e689a",
+  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/b4820b12a84ac35c34f147299a9af55106cccd04/releases/1.1.2/TURTO_update_1.1.2.zip",
+  "installer_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/b4820b12a84ac35c34f147299a9af55106cccd04/releases/1.1.2/TURTO_Mesicni_Prehledy_Setup_1.1.2.exe",
+  "installer_sha256": "4638bb9b582e2396f2a0374c78947072896e7fc22093e810e7073687c7bcaf81",
   "install_scope": "current_user",
   "update_mode": "installer"
 }
