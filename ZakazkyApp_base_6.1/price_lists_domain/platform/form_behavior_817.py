@@ -126,6 +126,15 @@ def register(M, win, save, snapshot=None, close=None):
     guard = getattr(win, '_turto_form_guard', None)
     if guard is None:
         guard = FormGuard(M, win, save, snapshot, close)
+    else:
+        # An explicit editor registration wins over an early Map discovery.
+        guard.save = save
+        if snapshot is not None:
+            guard.snapshot = snapshot
+        if close is not None:
+            guard.close = close
+        guard.mark_saved()
+        wire_close(win, guard.request_close)
     return guard
 
 

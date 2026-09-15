@@ -147,6 +147,48 @@ def run(td):
         with app.db() as con:
             assert con.execute('SELECT COUNT(*) FROM user_notes WHERE text=?', ('817 private note',)).fetchone()[0] == 1
 
+        # Editors with their own document fingerprints must use those same
+        # guards for the title-bar close button, not only their footer button.
+        editor = app.IssuedOfferEditor(app, window)
+        settle(window, .6)
+        editor.customer_note.insert('end', '817 pending issued offer')
+        replies.append(None); cross(editor.win)
+        assert editor.win.winfo_exists()
+        replies.append(False); cross(editor.win)
+        assert not editor.win.winfo_exists()
+        from price_lists_domain.issued_offers.template_settings import TemplateEditor
+        template = TemplateEditor(app, window)
+        settle(window, .5)
+        template.name.set('817 unsaved template')
+        replies.append(None); cross(template.win)
+        assert template.win.winfo_exists()
+        replies.append(False); cross(template.win)
+        assert not template.win.winfo_exists()
+
+        from price_lists_domain.platform import categories
+        category_result = []
+        def inspect_categories():
+            try:
+                manager = next(w for w in window.winfo_children() if isinstance(w, app.tk.Toplevel)
+                               and w.title() == 'Produktové skupiny a podskupiny')
+                entries = [w for w in children(manager) if isinstance(w, app.ttk.Entry)]
+                entries[0].insert(0, 'search only')
+                assert not manager._turto_form_guard.changed()
+                entries[1].insert(0, '817 unsaved group')
+                replies.append(None); cross(manager)
+                assert manager.winfo_exists()
+                replies.append(False); cross(manager)
+                assert not manager.winfo_exists()
+                category_result.append(True)
+            except Exception as exc:
+                category_result.append(repr(exc))
+                for w in tuple(window.winfo_children()):
+                    if isinstance(w, app.tk.Toplevel):
+                        w.destroy()
+        window.after(150, inspect_categories)
+        categories.manage_categories(app, window)
+        assert category_result == [True], category_result
+
         # Functional forms constructed without bind_dialog_keys are enrolled
         # too. A failed save and an exception both retain the original draft.
         generic = app.tk.Toplevel(window)
@@ -183,7 +225,7 @@ def run(td):
         dialog.destroy()
         assert not replies, replies
         assert not errors, errors
-        print('8.0.17: input-only Tab, six business forms, real save, cancel/discard, notes and generic forms OK', flush=True)
+        print('8.0.17: input-only Tab, six business forms, real save, cancel/discard, notes, offers, templates, categories and generic forms OK', flush=True)
     finally:
         window._turto_closing = True
         window.destroy()
