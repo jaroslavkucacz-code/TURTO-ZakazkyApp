@@ -4178,7 +4178,7 @@ class App(tk.Tk):
         brand=ttk.Frame(top,style="Topbar.TFrame")
         brand.grid(row=0,column=0,sticky="w")
         from branding import create_logo_label
-        self.brand_logo=create_logo_label(brand, ROOT)
+        self.brand_logo=create_logo_label(brand, ROOT, style="Topbar.TLabel")
         self.brand_logo.pack(side="left",padx=(0,8))
         ttk.Label(brand,text="  |  Zakázky CRM",style="Topbar.TLabel",
                   font=("Calibri",13,"bold")).pack(side="left")

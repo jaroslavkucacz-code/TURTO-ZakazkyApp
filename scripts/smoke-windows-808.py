@@ -73,6 +73,14 @@ def main():
     try:
         run([setup, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=" + str(installed)], env)
         checks.append("clean per-user installation")
+        # Both installers must deliver the exact alpha-preserving artwork that
+        # passed source validation, without any retired generated logo.
+        for name in ("turto_logo.png", "turto_logo.ico", "turto_icon.png"):
+            assert safety.digest(installed / "_internal" / name) == safety.digest(
+                REPO / "ZakazkyApp_base_6.1" / name)
+        assert not list(installed.rglob("turto_crm.ico"))
+        assert not list(installed.rglob("turto_crm.png"))
+        checks.append("exact transparent branding in installed application")
         main_exe = installed / "TURTO CRM.exe"
         print("Cold frozen runtime first start", flush=True)
         run([main_exe, "--smoke-test"], env)
@@ -161,8 +169,14 @@ def main():
         with sqlite3.connect(database) as db:
             assert db.execute("SELECT COUNT(*) FROM updater_808_sentinel").fetchone()[0] == 1
         before_repair = safety.digest(database)
+        retired_assets = [folder / name for folder in (installed, installed / "_internal")
+                          for name in ("turto_crm.ico", "turto_crm.png")]
+        for path in retired_assets:
+            path.write_bytes(b"retired generated logo")
         run([setup, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=" + str(installed)], env)
         assert safety.digest(database) == before_repair
+        assert all(not path.exists() for path in retired_assets)
+        checks.append("repair install removes retired generated logo files")
         checks.append("repair install over existing installation preserves data")
         uninstaller = next(installed.glob("unins*.exe"))
         run([uninstaller, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], env)

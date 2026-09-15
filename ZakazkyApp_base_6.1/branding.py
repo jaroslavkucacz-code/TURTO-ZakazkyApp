@@ -31,12 +31,6 @@ def icon_pair(root=None):
             png = directory / filename
             if ico.is_file() and png.is_file():
                 return ico, png, "packaged-logo"
-    # Older generated icons are a recovery fallback, never an override of the
-    # new company artwork delivered by an update.
-    for directory in roots:
-        ico, png = directory / "turto_crm.ico", directory / "turto_crm.png"
-        if ico.is_file() and png.is_file():
-            return ico, png, "legacy-generated"
     return None
 
 
@@ -61,7 +55,7 @@ def configure_window_icon(win, root=None, *, pair=None, tk_module=tk):
     try:
         # Apply the multi-resolution ICO last on Windows: iconphoto can replace
         # the native small/large icon selected from this file.
-        win.iconbitmap(default=str(ico))
+        win.iconbitmap(bitmap=str(ico))
         configured = True
     except Exception:
         pass
@@ -76,9 +70,9 @@ def configure_window_icon(win, root=None, *, pair=None, tk_module=tk):
         win._turto_icon_identity_signature = signature
 
 
-def create_logo_label(parent, root=None, size=64):
-    """Show the exact transparent source on a light card in either UI theme."""
-    label = ttk.Label(parent, text="TURTO", style="BrandAccent.TLabel")
+def create_logo_label(parent, root=None, size=64, *, style="TLabel"):
+    """Composite the supplied transparent logo directly onto the parent theme."""
+    label = ttk.Label(parent, text="TURTO", style=style, borderwidth=0, padding=0)
     path = logo_path(root)
     if path is None:
         return label
@@ -88,13 +82,8 @@ def create_logo_label(parent, root=None, size=64):
         with Image.open(path) as source:
             image = source.convert("RGBA")
             image.thumbnail((pixels, pixels), Image.Resampling.LANCZOS)
-        # The card is UI chrome; the original file and its colours/alpha remain
-        # unchanged. Black artwork stays visible in the dark theme as well.
-        card = Image.new("RGBA", image.size, "white")
-        card.alpha_composite(image)
-        photo = ImageTk.PhotoImage(card, master=parent)
-        ttk.Style(parent).configure("TurtoLogo.TLabel", background="white", padding=2)
-        label.configure(text="", image=photo, style="TurtoLogo.TLabel")
+        photo = ImageTk.PhotoImage(image, master=parent)
+        label.configure(text="", image=photo)
         label._turto_logo_photo = photo
         label._turto_logo_path = str(path)
     except Exception:

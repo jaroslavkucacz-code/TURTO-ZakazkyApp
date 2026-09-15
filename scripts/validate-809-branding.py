@@ -18,7 +18,18 @@ def main():
     assert hashlib.sha256((BASE / "turto_logo.png").read_bytes()).hexdigest() == source_hash
     with Image.open(BASE / "turto_logo.png") as im:
         assert im.mode == "RGBA" and im.getextrema()[3] == (0, 255)
+    with Image.open(BASE / "turto_icon.png") as png:
+        alpha = png.getchannel("A")
+        # Empty space INSIDE the image must stay transparent (rounded white
+        # cards passed the former corner-only transparency checks).
+        assert alpha.getpixel((128, 12)) == 0
+        assert sum(alpha.histogram()[:16]) > 256 * 256 * 0.65
+        assert png.getpixel((128, 12)) == (0, 0, 0, 0)
     with Image.open(BASE / "turto_logo.ico") as im:
+        for size in im.ico.sizes():
+            alpha = im.ico.getimage(size).convert("RGBA").getchannel("A")
+            assert sum(alpha.histogram()[:32]) > size[0] * size[1] * 0.6
+
         assert {(n, n) for n in (16, 20, 24, 32, 40, 48, 64, 96, 128, 256)} <= im.ico.sizes()
         with Image.open(BASE / "turto_icon.png") as png:
             assert png.size == (256, 256)
@@ -45,8 +56,8 @@ def main():
         assert branding.icon_pair(root)[0] == root / "turto_logo.ico"
         for name in ("turto_logo.ico", "turto_logo.png"):
             (root / name).unlink()
-        assert branding.icon_pair(root)[2] == "legacy-generated"
-    print("TURTO CRM 8.0.9 branding assets and upgrade paths: OK")
+        assert branding.icon_pair(root) is None
+    print("TURTO CRM 8.0.10 transparent branding assets and upgrade paths: OK")
 
 
 if __name__ == "__main__":

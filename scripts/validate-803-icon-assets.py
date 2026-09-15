@@ -26,9 +26,9 @@ class FakeWindow:
         self.bitmap_calls = 0
         self.photo_calls = 0
 
-    def iconbitmap(self, *, default):
+    def iconbitmap(self, *, bitmap):
         self.bitmap_calls += 1
-        self.bitmap = default
+        self.bitmap = bitmap
 
     def iconphoto(self, default, image):
         assert default is True
@@ -123,13 +123,20 @@ def main() -> None:
             assert window.photo_calls == 1
             assert window._turto_icon_asset_source == "packaged-logo"
 
-            # If neither complete pair exists, the original renderer remains the
-            # fallback and its newly generated pair is returned.
-            for candidate in (crm_ico, crm_png, logo_ico, logo_png):
-                candidate.unlink(missing_ok=True)
-            pair = fake_v770._ensure_icon_assets(M)
-            assert ensure_calls == ["fallback"]
-            assert pair == (crm_ico, crm_png, "legacy-generated")
+            # Retired icons are ignored even if the new assets are missing.
+            logo_ico.unlink()
+            logo_png.unlink()
+            assert fake_v770._ensure_icon_assets(M) is None
+            missing_window = FakeWindow()
+            fake_v770._configure_identity(M, missing_window)
+            assert missing_window.bitmap_calls == missing_window.photo_calls == 0
+            crm_ico.unlink()
+            crm_png.unlink()
+            assert fake_v770._ensure_icon_assets(M) is None
+            fake_v770._configure_identity(M, missing_window)
+            assert ensure_calls == configure_calls == []
+            assert list(root.iterdir()) == []
+
         finally:
             if previous_v770 is None:
                 sys.modules.pop("v770_runtime_policy", None)

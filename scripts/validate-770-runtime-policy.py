@@ -228,7 +228,8 @@ def main():
     legacy = (source / "v619_fixes.py").read_text(encoding="utf-8")
     assert 'M.APP_NAME = "TURTO CRM"' in policy
     assert 'app.title("TURTO CRM")' in policy
-    assert "turto_crm.ico" in policy and "turto_crm.png" in policy
+    assert "from branding import configure_window_icon" in policy
+    assert "turto_crm.ico" not in policy and "turto_crm.png" not in policy
     assert "_refresh_action_deadline_highlights = _attention_callback" in policy
     assert "_refresh_request_date_highlights = _request_attention_callback" in policy
     assert "_fit_action_tree" in policy and "_sync_filter_bar" in policy
@@ -270,9 +271,8 @@ def main():
     assert '"_rollback"' in updater
 
     assert "def _ensure_icon_assets" in policy
-    assert 'Image.new("RGBA"' in policy
-    assert 'image.save(\n            ico' in policy or 'format="ICO"' in policy
-    assert 'gold = (214, 169, 0, 255)' in policy
+    assert "from branding import icon_pair" in policy
+    assert "ImageDraw" not in policy
 
     reprocess = (source / "v767_offer_reprocess_images.py").read_text(encoding="utf-8")
     assert "images_restored_from_previous" in reprocess
