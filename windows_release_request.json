@@ -1,8 +1,8 @@
 {
-  "version": "8.0.12",
+  "version": "8.0.13",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "414d1d26da4b747f79dbed93998de560ce91be1c",
-  "validated_run_id": 34993597543,
-  "notes": "## Instalaci aktualizace spouštíte vy\n\n- CRM automaticky kontroluje dostupnost nové verze při spuštění a přibližně každých 10 minut. Samotná kontrola už nic nestahuje, neinstaluje ani neukončuje program.\n- Novou verzi nabídne horní pruh. V detailu aktualizace můžete zvolit „Později“, nebo tlačítkem „Nainstalovat aktualizaci“ zahájit stažení a instalaci. Před instalací uložte rozpracované změny.\n- Ruční kontrola pouze zobrazí výsledek nebo nabídku nové verze. Dvojité kliknutí ani další kontrola nespustí souběžnou instalaci.\n\n## Viditelný průběh\n\n- Během stahování vidíte přenesené množství dat a průběh, pokud server poskytne velikost balíčku.\n- Samostatné okno aktualizátoru se zobrazí ještě před uzavřením CRM. Ukazuje ověřování, zálohu databáze, zálohu programu, instalaci a spouštění CRM.\n- Okno zůstává aktivní i po uzavření CRM a při běžné aktualizaci čeká na zobrazení nového okna programu. Při chybě zobrazí konkrétní důvod.\n- Zachováno je ověření balíčků, potvrzení připravenosti aktualizátoru, bezpečné čekání na ukončení CRM a ochrana databáze.\n\n## Přechod na 8.0.12\n\nNové ovládání začne platit po instalaci této verze. Přechod z 8.0.11 a starších ještě obsluhuje dosavadní aktualizátor. Alternativně zavřete CRM a spusťte TURTO_CRM_Setup_8.0.12.exe přes stávající instalaci; předchozí odinstalace není potřeba.\n\n## Ověření\n\nOvěřeno skutečné ovládání v CRM na Windows, viditelnost instalačních tlačítek, reagující okna průběhu, samostatné okno před uzavřením rodičovského procesu a instalace/aktualizace/rollback hotových EXE se zachováním databáze."
+  "source_commit": "7194cd218a0490f493e44a70751a407f5f7d4dad",
+  "validated_run_id": 34997152112,
+  "notes": "Z přehledu byl odstraněn panel „Rychlé akce“ včetně jeho pěti tlačítek.\n\nPřehled nyní tvoří dvě části: aktivní příležitosti vlevo, nejbližší úkoly a čekající poptávky nad sebou vpravo. Tabulky využívají uvolněné místo bez prázdného sloupce.\n\nAktualizaci spustíte v CRM tlačítkem „Nainstalovat aktualizaci“. Alternativně zavřete CRM a spusťte TURTO_CRM_Setup_8.0.13.exe přes stávající instalaci.\n\nOvěřeno skutečné rozhraní ve Windows a instalace, aktualizace i návrat verze se zachováním databáze."
 }
