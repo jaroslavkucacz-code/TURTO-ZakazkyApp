@@ -2,6 +2,7 @@
 from __future__ import annotations
 from datetime import date, datetime
 import sqlite3
+from contextlib import closing
 from .analytics import Analytics as BaseAnalytics, period_bounds, _next_month, MONTH_NAMES, MONTH_SHORT_NAMES
 from .constants import PRIMARY_CENTERS
 
@@ -114,7 +115,7 @@ def collect_report(analytics,year,month,mode='month'):
     """All report queries see a single SQLite backup snapshot, never mixed imports."""
     mem=sqlite3.connect(':memory:');mem.row_factory=sqlite3.Row
     try:
-        with sqlite3.connect(analytics.db.path) as source:source.backup(mem)
+        with closing(sqlite3.connect(analytics.db.path)) as source:source.backup(mem)
         a=Analytics(_Snapshot(mem));start,end=period_bounds(year,month,mode)
         data={'year':year,'month':month,'mode':mode,'start':start.isoformat(),'end':end.isoformat(),
               'generated':datetime.now().strftime('%d.%m.%Y %H:%M'),

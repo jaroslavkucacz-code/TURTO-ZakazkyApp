@@ -1,6 +1,7 @@
 import csv
 import json
 import sqlite3
+from contextlib import closing
 import tempfile
 import unittest
 from pathlib import Path
@@ -30,7 +31,7 @@ class ImportTests(unittest.TestCase):
         p=self.dl();b=preview_imports(self.db,[p]);self.assertEqual(self.db.scalar('SELECT count(*) FROM delivery_notes'),0)
         self.assertEqual(b.summaries[0]['new'],1)
         result=self.apply([p]);self.assertEqual(result['changed'],1);self.assertTrue(Path(result['backup']).exists())
-        with sqlite3.connect(result['backup']) as c:self.assertEqual(c.execute('SELECT count(*) FROM delivery_notes').fetchone()[0],0)
+        with closing(sqlite3.connect(result['backup'])) as c:self.assertEqual(c.execute('SELECT count(*) FROM delivery_notes').fetchone()[0],0)
         self.assertEqual(self.apply([p])['duplicates'],1);self.assertEqual(self.db.scalar('SELECT count(*) FROM imports'),1)
     def test_existing_changes_need_selection(self):
         p=self.dl();self.apply([p]);q=self.dl('corrected.csv',value='2200')
@@ -41,7 +42,7 @@ class ImportTests(unittest.TestCase):
     def test_stale_preview_and_changed_source(self):
         p=self.dl();b=preview_imports(self.db,[p]);self.db.execute("INSERT INTO monthly_summary(period) VALUES ('2020-01')")
         with self.assertRaisesRegex(ValueError,'Databáze se'):apply_imports(self.db,b,self.root/'ar',self.root/'bu')
-        b=preview_imports(self.db,[p]);p.write_text(p.read_text()+'\n')
+        b=preview_imports(self.db,[p]);p.write_bytes(p.read_bytes()+b'\n')
         with self.assertRaisesRegex(ValueError,'soubor se'):apply_imports(self.db,b,self.root/'ar',self.root/'bu')
     def test_invalid_rows_numbers_and_empty(self):
         for value in ('nan','inf','xyz',''):

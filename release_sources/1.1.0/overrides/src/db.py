@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import shutil
 import sqlite3
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -137,7 +137,7 @@ class Database:
             con.close()
 
     def init_schema(self):
-        with sqlite3.connect(self.path, timeout=20) as con:
+        with closing(sqlite3.connect(self.path, timeout=20)) as con, con:
             con.execute('PRAGMA journal_mode=DELETE')
             con.execute('PRAGMA synchronous=FULL')
             con.executescript(SCHEMA)
@@ -157,7 +157,7 @@ class Database:
         backup_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
         target = backup_dir / f'turto_dashboard_{stamp}.db'
-        with sqlite3.connect(self.path) as src, sqlite3.connect(target) as dst:
+        with closing(sqlite3.connect(self.path)) as src, closing(sqlite3.connect(target)) as dst, dst:
             src.backup(dst)
         return target
 
