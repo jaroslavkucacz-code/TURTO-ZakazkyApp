@@ -1,0 +1,9 @@
+{
+  "result": "PASS",
+  "checks": [
+    "Legacy Python 0.2.8, native duplicate, desktop and existing taskbar links repaired; unrelated CRM and all old data unchanged",
+    "Repeated repair makes no changes and keeps backup intact",
+    "If backup cannot be written, the original shortcut stays unchanged",
+    "ShellExecute of repaired pinned .lnk opens actual 1.1.2 EXE, matching window AppUserModelID with no legacy relaunch command"
+  ]
+}
