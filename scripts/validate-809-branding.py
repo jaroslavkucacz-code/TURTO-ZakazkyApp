@@ -34,6 +34,9 @@ def main():
         with Image.open(BASE / "turto_icon.png") as png:
             assert png.size == (256, 256)
             assert im.ico.getimage((256, 256)).tobytes() == png.convert("RGBA").tobytes()
+    from windows_branding import TASKBAR_ICON_NAME
+    assert branding.taskbar_icon_path(BASE) == BASE / TASKBAR_ICON_NAME
+    assert (BASE / TASKBAR_ICON_NAME).read_bytes() == (BASE / "turto_logo.ico").read_bytes()
 
     with tempfile.TemporaryDirectory(prefix="turto-branding-") as td:
         root = Path(td)

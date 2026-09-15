@@ -1,7 +1,7 @@
 #ifndef MyAppVersion
   ; CI/release build normally injects MyAppVersion explicitly. This fallback
   ; follows the current stable EXE baseline for local/manual builds.
-  #define MyAppVersion "8.0.10"
+  #define MyAppVersion "8.0.11"
 #endif
 
 #define MyAppName "TURTO CRM"
@@ -47,9 +47,9 @@ Type: files; Name: "{app}\_internal\turto_crm.ico"
 Type: files; Name: "{app}\_internal\turto_crm.png"
 
 [Icons]
-Name: "{group}\TURTO CRM"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
-Name: "{group}\TURTO CRM - Připojit nebo změnit databázi"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--data-setup"; WorkingDir: "{app}"
-Name: "{autodesktop}\TURTO CRM"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{group}\TURTO CRM"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\_internal\turto_taskbar_transparent.ico"; AppUserModelID: "TURTO.CRM"
+Name: "{group}\TURTO CRM - Připojit nebo změnit databázi"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--data-setup"; WorkingDir: "{app}"; IconFilename: "{app}\_internal\turto_taskbar_transparent.ico"; AppUserModelID: "TURTO.CRM"
+Name: "{autodesktop}\TURTO CRM"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\_internal\turto_taskbar_transparent.ico"; AppUserModelID: "TURTO.CRM"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Spustit TURTO CRM"; Flags: nowait postinstall skipifsilent

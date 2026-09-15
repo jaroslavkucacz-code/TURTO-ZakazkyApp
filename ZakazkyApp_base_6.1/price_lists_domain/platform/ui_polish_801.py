@@ -461,9 +461,9 @@ def _create_desktop_shortcut(self) -> None:
         env["TURTO_TARGET"] = target
         env["TURTO_WORKDIR"] = str(root)
         env["TURTO_ARGS"] = arguments
-        from branding import icon_pair
-        pair = icon_pair(root)
-        env["TURTO_ICON"] = str(pair[0]) if pair else target
+        from branding import taskbar_icon_path
+        icon = taskbar_icon_path(root)
+        env["TURTO_ICON"] = str(icon) if icon else target
         script = r"""
 $w = New-Object -ComObject WScript.Shell
 $s = $w.CreateShortcut($env:TURTO_LINK)
@@ -485,6 +485,9 @@ $s.Save()
         )
         if result.returncode != 0:
             raise RuntimeError((result.stderr or result.stdout).strip())
+        if icon is not None:
+            from windows_branding import repair_shortcuts
+            repair_shortcuts(root, icon, folders=(desktop,))
         messagebox.showinfo(
             "Zástupce",
             f"Zástupce TURTO CRM byl vytvořen na ploše:\n{link}",
