@@ -1,12 +1,4 @@
-"""Reuse packaged TURTO icon assets before falling back to runtime rendering.
-
-TURTO CRM's Windows package already ships ``turto_logo.ico`` and
-``turto_logo.png`` and the executable itself uses the same ICO. Historical v770
-also knows how to render ``turto_crm.*`` with Pillow when no icon files are
-available. On a clean packaged start that rendering is redundant. This late
-compatibility layer keeps the historical fallback intact while preferring files
-that already exist on disk.
-"""
+"""Use only the supplied company artwork in historical identity wrappers."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -42,21 +34,12 @@ def _install_v770_icon_reuse(M: Any) -> bool:
         return True
 
     def ensure_icon_assets(module: Any):
-        pair = _existing_icon_pair(module)
-        if pair is not None:
-            return pair
-        # Preserve the historical Pillow renderer only for genuinely missing
-        # assets (source/debug copies or an incomplete installation).
-        previous_ensure(module)
         return _existing_icon_pair(module)
 
     def configure_identity(module: Any, win: Any) -> None:
         pair = ensure_icon_assets(module)
-        if pair is None:
-            # Defensive compatibility fallback: if the historical renderer failed,
-            # let its original configuration path attempt whatever remains usable.
-            return previous_configure(module, win)
-        _configure_from_pair(module, win, pair)
+        if pair is not None:
+            _configure_from_pair(module, win, pair)
 
     ensure_icon_assets._turto_803_packaged_icon_reuse = True
     ensure_icon_assets._turto_original_ensure_icon_assets = previous_ensure
@@ -75,8 +58,8 @@ def apply(M: Any) -> None:
     M.ICON_ASSET_OPTIMIZATION_803 = {
         "owner": POLICY_OWNER,
         "installed": bool(installed),
-        "preferred_existing_order": ("turto_logo", "turto_crm"),
-        "runtime_pillow_rendering": "fallback-only",
+        "preferred_existing_order": ("turto_logo",),
+        "runtime_pillow_rendering": "disabled",
         "window_identity": "idempotent-per-icon-pair",
         "application_user_model_id": "TURTO.CRM",
         "database_rows_rewritten": False,

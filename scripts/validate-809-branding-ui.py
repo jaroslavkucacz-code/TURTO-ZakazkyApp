@@ -14,7 +14,7 @@ os.environ["TURTO_DISABLE_AUTO_UPDATE"] = "1"
 
 
 def run_ui(td):
-    from PIL import ImageGrab
+    from PIL import ImageGrab, ImageTk
     os.environ["TURTO_CRM_DATA_ROOT"] = td
     os.environ["LOCALAPPDATA"] = str(Path(td) / "local")
     import app
@@ -48,22 +48,35 @@ def run_ui(td):
             label = window.brand_logo
             assert label.winfo_ismapped() and label.cget("image")
             assert Path(label._turto_logo_path) == BASE / "turto_logo.png"
+            rendered = ImageTk.getimage(label._turto_logo_photo)
+            alpha = rendered.getchannel("A")
+            assert sum(alpha.histogram()[:16]) > rendered.width * rendered.height * 0.65
+            style = app.ttk.Style(window)
+            assert style.lookup(label.cget("style"), "background") == style.lookup(
+                label.master.cget("style"), "background")
             assert window._turto_icon_asset_source == "packaged-logo"
+            assert Path(window.iconbitmap()) == BASE / "turto_logo.ico"
             for widget in (label, window.user_button, window.notes_button, window.bell_button):
                 assert widget.winfo_rootx() + widget.winfo_width() <= window.winfo_rootx() + window.winfo_width(), str(widget)
             dialog = app.tk.Toplevel(window)
             dialog.title("TURTO CRM – kontrola ikony")
             window.update()
             assert dialog._turto_icon_asset_source == "packaged-logo"
+            assert Path(dialog.iconbitmap()) == BASE / "turto_logo.ico"
             dialog.destroy()
             window.update()
             ImageGrab.grab(bbox=(window.winfo_rootx(), window.winfo_rooty(),
                                 window.winfo_rootx() + window.winfo_width(),
                                 window.winfo_rooty() + window.winfo_height())).save(destination / filename)
+            # Small preview includes the actual native caption and the full logo.
+            ImageGrab.grab(bbox=(window.winfo_rootx(), max(0, window.winfo_rooty() - 30),
+                                window.winfo_rootx() + 360,
+                                label.winfo_rooty() + label.winfo_height() + 12)).save(
+                                    destination / ("header-" + filename))
         assert not errors, errors
     finally:
         window.destroy()
-    print("TURTO CRM 8.0.9 real header and dialog branding: OK")
+    print("TURTO CRM 8.0.10 transparent header and native window icons: OK")
 
 
 def main():

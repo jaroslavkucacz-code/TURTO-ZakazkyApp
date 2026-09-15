@@ -1,7 +1,7 @@
 #ifndef MyAppVersion
   ; CI/release build normally injects MyAppVersion explicitly. This fallback
   ; follows the current stable EXE baseline for local/manual builds.
-  #define MyAppVersion "8.0.3"
+  #define MyAppVersion "8.0.10"
 #endif
 
 #define MyAppName "TURTO CRM"
@@ -39,6 +39,12 @@ Name: "desktopicon"; Description: "Vytvořit ikonu na ploše"; GroupDescription:
 
 [Files]
 Source: "..\..\dist\TURTO CRM\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[InstallDelete]
+Type: files; Name: "{app}\turto_crm.ico"
+Type: files; Name: "{app}\turto_crm.png"
+Type: files; Name: "{app}\_internal\turto_crm.ico"
+Type: files; Name: "{app}\_internal\turto_crm.png"
 
 [Icons]
 Name: "{group}\TURTO CRM"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"

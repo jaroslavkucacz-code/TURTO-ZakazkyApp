@@ -706,96 +706,15 @@ def _install_dialog_policy(M: Any) -> None:
         Autocomplete._turto_v770_popup_policy = True
 
 
-def _ensure_icon_assets(M: Any) -> None:
-    """Create the transparent TURTO CRM icon locally when the release has none."""
-    root = Path(getattr(M, "ROOT", Path.cwd()))
-    png = root / "turto_crm.png"
-    ico = root / "turto_crm.ico"
-    if png.is_file() and ico.is_file():
-        return
-    try:
-        from PIL import Image, ImageDraw, ImageFont
-
-        size = 256
-        image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(image)
-        silver = (210, 216, 222, 255)
-        dark = (40, 48, 56, 255)
-        gold = (214, 169, 0, 255)
-        shadow = (0, 0, 0, 95)
-
-        # Compact building mark: three structural bars plus a gold sweep.
-        bars = ((55, 62, 86, 150), (94, 34, 129, 150), (139, 76, 169, 150))
-        for left, top, right, bottom in bars:
-            draw.rounded_rectangle((left + 4, top + 5, right + 4, bottom + 5), radius=4, fill=shadow)
-            draw.rounded_rectangle((left, top, right, bottom), radius=4, fill=dark, outline=silver, width=4)
-            inner = max(5, (right - left) // 4)
-            draw.rounded_rectangle((left + inner, top + 14, right - inner, bottom - 8), radius=2, fill=(0, 0, 0, 0), outline=silver, width=3)
-        draw.arc((31, 91, 193, 181), 8, 174, fill=shadow, width=14)
-        draw.arc((27, 87, 189, 177), 8, 174, fill=silver, width=10)
-        draw.arc((31, 91, 193, 181), 8, 174, fill=gold, width=4)
-
-        def font(size_px: int):
-            candidates = (
-                Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts" / "calibrib.ttf",
-                Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts" / "arialbd.ttf",
-            )
-            for candidate in candidates:
-                try:
-                    if candidate.is_file():
-                        return ImageFont.truetype(str(candidate), size_px)
-                except Exception:
-                    pass
-            return ImageFont.load_default()
-
-        turto_font = font(48)
-        crm_font = font(30)
-        turto = "TURTO"
-        crm = "CRM"
-        tb = draw.textbbox((0, 0), turto, font=turto_font, stroke_width=1)
-        cb = draw.textbbox((0, 0), crm, font=crm_font, stroke_width=1)
-        tx = (size - (tb[2] - tb[0])) // 2
-        cx = (size - (cb[2] - cb[0])) // 2
-        draw.text((tx + 2, 166 + 2), turto, font=turto_font, fill=shadow, stroke_width=1, stroke_fill=shadow)
-        draw.text((tx, 166), turto, font=turto_font, fill=silver, stroke_width=1, stroke_fill=dark)
-        draw.line((35, 226, cx - 8, 226), fill=gold, width=3)
-        draw.line((cx + (cb[2] - cb[0]) + 8, 226, 221, 226), fill=gold, width=3)
-        draw.text((cx + 1, 207 + 1), crm, font=crm_font, fill=shadow, stroke_width=1, stroke_fill=shadow)
-        draw.text((cx, 207), crm, font=crm_font, fill=gold, stroke_width=1, stroke_fill=dark)
-
-        image.save(png, optimize=True)
-        image.save(
-            ico,
-            format="ICO",
-            sizes=((16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)),
-        )
-    except Exception:
-        pass
+def _ensure_icon_assets(M: Any):
+    """Resolve the supplied company icon; never recreate retired artwork."""
+    from branding import icon_pair
+    return icon_pair(getattr(M, "ROOT", None))
 
 
 def _configure_identity(M: Any, win: Any) -> None:
-    _ensure_icon_assets(M)
-    root = Path(getattr(M, "ROOT", Path.cwd()))
-    ico = root / "turto_crm.ico"
-    png = root / "turto_crm.png"
-    try:
-        if ico.is_file():
-            win.iconbitmap(default=str(ico))
-    except Exception:
-        pass
-    try:
-        if png.is_file():
-            image = M.tk.PhotoImage(file=str(png))
-            win.iconphoto(True, image)
-            win._turto_crm_icon_photo = image
-    except Exception:
-        pass
-    if sys.platform.startswith("win"):
-        try:
-            import ctypes
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("TURTO.CRM")
-        except Exception:
-            pass
+    from branding import configure_window_icon
+    configure_window_icon(win, getattr(M, "ROOT", None), tk_module=M.tk)
 
 
 def _walk(widget: Any):
@@ -957,15 +876,16 @@ def _install_shortcut_owner(M: Any) -> None:
             link = desktop / "TURTO CRM.lnk"
             target = str(Path(sys.executable).resolve()) if getattr(sys, "frozen", False) else str((root / "Spustit_Zakazky.bat").resolve())
             env = os.environ.copy()
-            env.update({"TURTO_LINK": str(link), "TURTO_TARGET": target, "TURTO_ROOT": str(root)})
+            pair = _ensure_icon_assets(M)
+            env.update({"TURTO_LINK": str(link), "TURTO_TARGET": target, "TURTO_ROOT": str(root),
+                        "TURTO_ICON": str(pair[0]) if pair else target})
             script = r'''
 $w=New-Object -ComObject WScript.Shell
 $s=$w.CreateShortcut($env:TURTO_LINK)
 $s.TargetPath=$env:TURTO_TARGET
 $s.WorkingDirectory=$env:TURTO_ROOT
 $s.Description='TURTO CRM'
-$icon=Join-Path $env:TURTO_ROOT 'turto_crm.ico'
-if (Test-Path $icon) { $s.IconLocation=$icon }
+$s.IconLocation=$env:TURTO_ICON
 $s.Save()
 '''
             completed = subprocess.run(
