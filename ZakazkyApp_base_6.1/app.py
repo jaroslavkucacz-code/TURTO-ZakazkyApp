@@ -4498,7 +4498,7 @@ class App(tk.Tk):
 
 
         body=ttk.Frame(p,style="App.TFrame");body.pack(fill="both",expand=True)
-        body.columnconfigure(0,weight=4);body.columnconfigure(1,weight=2);body.rowconfigure(0,weight=1)
+        body.columnconfigure(0,weight=4);body.columnconfigure(1,weight=3);body.rowconfigure(0,weight=1)
 
         left=ttk.Frame(body,style="Card.TFrame",padding=12);left.grid(row=0,column=0,sticky="nsew",padx=(0,10))
         ttk.Label(left,text="Aktivní příležitosti",style="Section.TLabel").pack(anchor="w",pady=(0,8))
@@ -4507,14 +4507,6 @@ class App(tk.Tk):
         bind_row_double_click(self.dash_tree,lambda e:self.edit_action(self.dash_tree))
 
         right=ttk.Frame(body,style="App.TFrame");right.grid(row=0,column=1,sticky="nsew")
-        quick=ttk.Frame(right,style="Card.TFrame",padding=12);quick.pack(fill="x",pady=(0,10))
-        ttk.Label(quick,text="Rychlé akce",style="Section.TLabel").pack(anchor="w",pady=(0,8))
-        ttk.Button(quick,text="+  Nová příležitost",style="QuickBlue.TButton",command=self.new_action).pack(fill="x",pady=3)
-        ttk.Button(quick,text="+  Nová poptávka",style="QuickOrange.TButton",command=self.new_request).pack(fill="x",pady=3)
-        ttk.Button(quick,text="+  Nový úkol",style="QuickGreen.TButton",command=self.new_task).pack(fill="x",pady=3)
-        ttk.Button(quick,text="+  Nová společnost",style="QuickPurple.TButton",command=self.new_company).pack(fill="x",pady=3)
-        ttk.Button(quick,text="+  Nová osoba",style="QuickGray.TButton",command=self.new_person).pack(fill="x",pady=3)
-
         tasks=ttk.Frame(right,style="Card.TFrame",padding=12);tasks.pack(fill="both",expand=True,pady=(0,10))
         ttk.Label(tasks,text="Moje nejbližší úkoly",style="Section.TLabel").pack(anchor="w",pady=(0,6))
         self.dash_tasks_tree=ttk.Treeview(tasks,columns=("Termín","Úkol"),show="headings",height=5)

@@ -47,7 +47,7 @@ def apply(M):
     # 2) DASHBOARD + NAVIGATION COMPOSITION
     # ------------------------------------------------------------------
     def dashboard_layout(app):
-        """Three-zone dashboard: opportunities | tasks/requests | quick actions."""
+        """Two-column dashboard: opportunities beside stacked tasks/requests."""
         try:
             tree = getattr(app, 'dash_tree', None)
             task_tree = getattr(app, 'dash_tasks_tree', None)
@@ -72,16 +72,9 @@ def apply(M):
             requests = req_tree.master
             right = tasks.master
             body = left.master
-            quick = next(
-                (w for w in right.winfo_children() if w not in (tasks, requests)),
-                None,
-            )
-            if quick is None:
-                return
-
             # Children of `right` were originally packed vertically. Reuse the
             # same widgets/parents and change only their geometry manager.
-            for widget in (quick, tasks, requests):
+            for widget in (tasks, requests):
                 try:
                     widget.pack_forget()
                 except Exception:
@@ -92,16 +85,14 @@ def apply(M):
                     pass
 
             body.columnconfigure(0, weight=4)
-            body.columnconfigure(1, weight=5)
+            body.columnconfigure(1, weight=3)
             body.rowconfigure(0, weight=1)
-            right.columnconfigure(0, weight=4)
-            right.columnconfigure(1, weight=2)
+            right.columnconfigure(0, weight=1)
             right.rowconfigure(0, weight=1)
             right.rowconfigure(1, weight=1)
 
             tasks.grid(row=0, column=0, sticky='nsew', pady=(0,10))
             requests.grid(row=1, column=0, sticky='nsew')
-            quick.grid(row=0, column=1, rowspan=2, sticky='new', padx=(10,0))
         except Exception:
             pass
 
