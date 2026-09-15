@@ -17,7 +17,10 @@ def _prepare_windows() -> None:
     if sys.platform != 'win32':
         return
     try:
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
+        set_app_id = ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID
+        set_app_id.argtypes = [ctypes.c_wchar_p]
+        set_app_id.restype = ctypes.c_long
+        set_app_id(APP_USER_MODEL_ID)
     except Exception:
         pass
     try:

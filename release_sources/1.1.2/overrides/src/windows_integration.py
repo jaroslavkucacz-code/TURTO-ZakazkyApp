@@ -188,7 +188,9 @@ def apply_native_window_icon(window, root) -> None:
 
         def add_hwnd(h):
             if h:
-                value = int(h)
+                # A constructed HWND is c_void_p; API return values are integers.
+                # int(c_void_p(...)) raises ValueError and used to abort this refresh.
+                value = int(h.value if isinstance(h, ctypes.c_void_p) else h)
                 if value and value not in hwnds:
                     hwnds.append(value)
 
@@ -232,7 +234,7 @@ def apply_native_window_icon(window, root) -> None:
                 except BaseException:
                     pass
 
-        shell_hwnd = int(root_hwnd) if root_hwnd else int(child)
+        shell_hwnd = int(root_hwnd) if root_hwnd else int(child.value)
         _set_window_app_properties(shell_hwnd, root_path)
         old = getattr(window, '_turto_native_icon_handles', [])
         window._turto_native_icon_handles = old + handles

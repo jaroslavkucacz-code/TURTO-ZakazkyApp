@@ -101,8 +101,12 @@ with tempfile.TemporaryDirectory(prefix='turto_shortcuts_') as temp,com_scope():
             if hwnds:break
             time.sleep(.1)
         assert hwnds,'Repaired pinned shortcut did not launch the current version'
-        time.sleep(.3)
+        # Tk maps the window before the scheduled native shell refresh runs.
+        deadline=time.monotonic()+5
         properties=window_properties(hwnds[0])
+        while properties[5]!=APP_ID and time.monotonic()<deadline:
+            time.sleep(.1)
+            properties=window_properties(hwnds[0])
         assert properties[5]==APP_ID,properties
         assert not properties[2] and not properties[3] and not properties[4],properties
         user=ctypes.windll.user32
