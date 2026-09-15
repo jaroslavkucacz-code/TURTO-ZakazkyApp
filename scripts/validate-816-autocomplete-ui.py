@@ -43,9 +43,16 @@ def run(td):
     errors = []
     window.report_callback_exception = lambda *exc: errors.append(str(exc))
     fixtures = [('Alpha company', 81601), ('Alpine supplier', 81602), ('Beta company', 81603)]
+    # These filter pages reload their suggestions after every query. Supply the
+    # same deterministic read-model values on refresh, without changing events.
+    from price_lists_domain.platform import commercial_workspace as commercial
+    names = [name for name, _ in fixtures]
+    commercial._price_filter_values = lambda M, app: (names, names, names, names)
+    commercial._offer_filter_values = lambda M: (names, names, [])
 
     def exercise(entry, label):
-        entry.set_values(fixtures)
+        payloads = not label.startswith(('pricelists:', 'offers:'))
+        entry.set_values(fixtures if payloads else names)
         entry.var.set('')
         entry.winfo_toplevel().focus_force()
         entry.event_generate('<ButtonPress-1>', x=8, y=8)
@@ -67,7 +74,8 @@ def run(td):
             entry.event_generate('<KeyRelease>', keysym=key)
         settle(window)
         assert entry.get() == 'al', (label, entry.get())
-        assert list(entry.listbox.get(0, 'end')) == ['Alpha company', 'Alpine supplier']
+        assert list(entry.listbox.get(0, 'end')) == ['Alpha company', 'Alpine supplier'], (
+            label, 'filtered results', entry.listbox.get(0, 'end'))
         assert window.focus_get() is entry and visible(), (label, 'typing lost popup')
         assert entry.popup.winfo_height() >= 50, (label, 'clipped result rows')
         assert not unmapped, (label, 'popup remapped while typing', unmapped)
@@ -77,7 +85,7 @@ def run(td):
         assert entry.listbox.curselection() == (1,), (label, 'arrow selection')
         entry.event_generate('<Return>')
         settle(window)
-        assert entry.get() == 'Alpine supplier' and entry.selected_payload == 81602, (
+        assert entry.get() == 'Alpine supplier' and entry.selected_payload == (81602 if payloads else None), (
             label, 'Enter ignored selected row', entry.get(), entry.selected_payload)
         assert not visible() and entry.winfo_toplevel().winfo_exists()
         # Reopen, select by real listbox press/release, then continue typing.
@@ -88,7 +96,7 @@ def run(td):
         entry.listbox.event_generate('<ButtonPress-1>', x=box[0]+5, y=box[1]+5)
         entry.listbox.event_generate('<ButtonRelease-1>', x=box[0]+5, y=box[1]+5)
         settle(window)
-        assert entry.selected_payload == 81603 and not visible(), (label, 'mouse selection')
+        assert entry.get() == 'Beta company' and entry.selected_payload == (81603 if payloads else None) and not visible(), (label, 'mouse selection')
         entry.var.set('no matching value')
         settle(window)
         assert not visible(), (label, 'empty results')

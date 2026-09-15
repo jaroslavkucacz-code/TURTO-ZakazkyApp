@@ -627,6 +627,8 @@ def manage_categories(M, app) -> None:
                 pass
 
     def refresh(select_iid=None):
+        if not tree.winfo_exists():
+            return
         opened = {iid for iid in tree.get_children("") if tree.item(iid, "open")}
         current = str(select_iid or (tree.selection()[0] if tree.selection() else ""))
         query = search.get().strip().casefold()
@@ -1058,8 +1060,17 @@ def manage_categories(M, app) -> None:
     tree.bind("<F2>", lambda _event: widgets["Název"].focus_set(), add="+")
     tree.bind("<Delete>", lambda _event: remove(), add="+")
     dialog.bind("<Control-s>", lambda _event: save(), add="+")
-    search.trace_add("write", lambda *_: refresh())
-    show_inactive.trace_add("write", lambda *_: refresh())
+    traces = [(variable, variable.trace_add("write", lambda *_: refresh()))
+              for variable in (search, show_inactive)]
+
+    def release_traces(event=None):
+        if event is not None and event.widget is not dialog:
+            return
+        for variable, token in traces:
+            variable.trace_remove("write", token)
+        traces.clear()
+
+    dialog.bind("<Destroy>", release_traces, add="+")
     refresh()
     dialog.wait_window()
 
