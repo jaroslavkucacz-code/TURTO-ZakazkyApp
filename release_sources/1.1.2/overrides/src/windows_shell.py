@@ -109,7 +109,7 @@ class ShellLink:
     def data(self):
         buf=ctypes.create_unicode_buffer(32768)
         checked(method(self.ptr,3,ctypes.c_long,ctypes.c_wchar_p,ctypes.c_int,ctypes.c_void_p,ctypes.c_uint32)(self.ptr,buf,len(buf),None,4))
-        return {'target':buf.value,'arguments':self._get_text(10),'working_dir':self._get_text(8),'app_id':get_property_string(self.store,5)}
+        return {'target':os.path.expandvars(buf.value),'arguments':self._get_text(10),'working_dir':os.path.expandvars(self._get_text(8)),'app_id':get_property_string(self.store,5)}
     def configure(self,target,arguments='',working_dir='',app_id=APP_ID):
         for index,value in [(20,target),(11,arguments),(9,working_dir),(7,APP_NAME)]:
             checked(method(self.ptr,index,ctypes.c_long,ctypes.c_wchar_p)(self.ptr,str(value)))
@@ -133,8 +133,8 @@ def write_link(path,target,arguments='',working_dir='',app_id=APP_ID):
         with ShellLink(path if path.exists() else None) as link:
             link.configure(target,arguments,working_dir,app_id);link.save(temp)
         check=read_link(temp)
-        if os.path.normcase(check['target'])!=os.path.normcase(str(target)) or check['arguments']!=arguments or check['app_id']!=app_id:
-            raise OSError('Kontrola uloženého zástupce selhala.')
+        if os.path.normcase(os.path.realpath(check['target']))!=os.path.normcase(os.path.realpath(str(target))) or check['arguments']!=arguments or check['app_id']!=app_id:
+            raise OSError(f'Kontrola uloženého zástupce selhala: {check!r}; očekávaný cíl: {str(target)!r}')
         os.replace(temp,path)
     finally:temp.unlink(missing_ok=True)
 
@@ -184,9 +184,9 @@ def is_our_link(info):
 
 
 def same_target(info,exe):
-    return (os.path.normcase(os.path.abspath(info['target']))==os.path.normcase(str(exe))
+    return (os.path.normcase(os.path.realpath(info['target']))==os.path.normcase(os.path.realpath(str(exe)))
             and not info['arguments'] and info['app_id']==APP_ID
-            and os.path.normcase(os.path.abspath(info['working_dir']))==os.path.normcase(str(exe.parent)))
+            and os.path.normcase(os.path.realpath(info['working_dir']))==os.path.normcase(os.path.realpath(str(exe.parent))))
 
 
 def repair_shortcuts(exe,*,programs,desktop,pinned,backup_root,notify=True):
