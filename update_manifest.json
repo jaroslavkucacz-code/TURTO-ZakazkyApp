@@ -1,13 +1,13 @@
 {
   "app_id": "cz.turto.mesicni-prehledy",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "minimum_version": "1.0.1",
-  "sha256": "22579551e50815ad1e9bbb9d1bc91effc8b77df7ca4f416bf51ce91ce2bc616d",
-  "notes": "Nové přehledy Vývoj firmy, Změny zákazníků, Zakázky a Kontrola dat, také v Excelu a PDF. Importy XLSX/XLSM/CSV mají náhled změn, kontrolu opakovaných souborů, zálohu a archivaci před uložením. Připraveny CSV šablony pro další exporty; stávající doklady se mění pouze po výslovném výběru. Opravena práce s položkami bez skladového kódu a uzavírání databáze na Windows. Instalace zůstává pro aktuálního uživatele a zachovává jeho data.",
+  "sha256": "5da1db97dbf09b959ed9352393e98aefaecd67ed8e751937c8b34e4239f1f341",
+  "notes": "Opravené a rozšířené ovládání grafů. Měsíční vývoj a historie zákazníka: kombinovaný graf, čáry nebo sloupce. Obchodníci, zákazníci a produkty: pruhy, prstenec a podíly 100 %. Prstenec funguje i v užším okně. Chybějící data, nulový součet a záporné hodnoty mají jasné vysvětlení. Volby grafů se pamatují i po restartu. Ověřeno klikáním na všech stránkách a v sestavené Windows aplikaci.",
   "channel": "stable",
-  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/e4498af30f65b7f37d86710a387130925714a8e8/releases/1.1.0/TURTO_update_1.1.0.zip",
-  "installer_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/e4498af30f65b7f37d86710a387130925714a8e8/releases/1.1.0/TURTO_Mesicni_Prehledy_Setup_1.1.0.exe",
-  "installer_sha256": "889e8e86b3e320f642a880548d934c03203a5c1b80b52d3c190f22f501e01ea3",
+  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/e3b26668fc57f4dcec7b2b0d99ad861c1ce7aa70/releases/1.1.1/TURTO_update_1.1.1.zip",
+  "installer_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/e3b26668fc57f4dcec7b2b0d99ad861c1ce7aa70/releases/1.1.1/TURTO_Mesicni_Prehledy_Setup_1.1.1.exe",
+  "installer_sha256": "08d215fe9d4384cc70b09a649d5bf07136c5e0b1cbd8988a826362c74a3e689a",
   "install_scope": "current_user",
   "update_mode": "installer"
 }
