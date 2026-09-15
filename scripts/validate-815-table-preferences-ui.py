@@ -143,6 +143,16 @@ def run(td, phase):
             button('Použít').invoke()
             settle(window)
             expected['dash_tree'] = snapshot(tree)
+            # Selecting a predefined price/offer view is also a deliberate
+            # column choice; the older custom layout must not override it.
+            from price_lists_domain.platform import commercial_workspace as commercial
+            window.price_column_mode.set(list(window.price_column_profiles)[-1])
+            commercial._price_mode_changed(app, window)
+            window.offer_column_mode.set(list(window.offer_column_profiles)[-1])
+            commercial._offer_mode_changed(app, window)
+            settle(window)
+            expected['price_current_tree'] = snapshot(window.price_current_tree)
+            expected['offer_tree'] = snapshot(window.offer_tree)
 
         user = window.active_user.get()
         window.active_user.set('Denisa Kovalová' if user != 'Denisa Kovalová' else 'Jaroslav Kučera')

@@ -352,6 +352,8 @@ def _price_mode_changed(M, app):
     except Exception:
         pass
     _set_display_columns(app.price_current_tree, app.price_column_profiles, mode)
+    M.save_persistent_tree_layout(app.price_current_tree)
+    M.schedule_persistent_tree_fit(app.price_current_tree, 20)
 
 
 def _price_sort_sql(app) -> str:
@@ -1897,6 +1899,8 @@ def _offer_mode_changed(M, app):
     except Exception:
         pass
     _set_display_columns(app.offer_tree, app.offer_column_profiles, mode)
+    M.save_persistent_tree_layout(app.offer_tree)
+    M.schedule_persistent_tree_fit(app.offer_tree, 20)
 
 
 def build_offers(M, app):
