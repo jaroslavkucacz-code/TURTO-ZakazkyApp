@@ -34,6 +34,12 @@ def icon_pair(root=None):
     return None
 
 
+def taskbar_icon_path(root=None):
+    from windows_branding import TASKBAR_ICON_NAME
+    return next((p / TASKBAR_ICON_NAME for p in asset_roots(root)
+                 if (p / TASKBAR_ICON_NAME).is_file()), None)
+
+
 def configure_window_icon(win, root=None, *, pair=None, tk_module=tk):
     pair = pair or icon_pair(root)
     if pair is None:
@@ -61,10 +67,13 @@ def configure_window_icon(win, root=None, *, pair=None, tk_module=tk):
         pass
     if sys.platform.startswith("win"):
         try:
-            import ctypes
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
-        except Exception:
-            pass
+            from windows_branding import configure_window, set_process_identity
+            set_process_identity()
+            shell_icon = taskbar_icon_path(root)
+            if shell_icon is not None:
+                configure_window(win, root or Path(__file__).resolve().parent, shell_icon)
+        except Exception as exc:
+            win._turto_taskbar_icon_error = str(exc)
     if configured:
         win._turto_icon_asset_source = source
         win._turto_icon_identity_signature = signature

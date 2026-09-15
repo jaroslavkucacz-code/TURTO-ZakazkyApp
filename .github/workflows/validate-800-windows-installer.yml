@@ -3,7 +3,7 @@ name: Validate TURTO CRM 8.0 Windows installer
 on:
   workflow_dispatch:
   push:
-    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding]
+    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon]
   pull_request:
     paths:
       - ZakazkyApp_base_6.1/updater_safety.py
@@ -11,6 +11,8 @@ on:
       - ZakazkyApp_base_6.1/data_onboarding.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/exe_distribution.py
       - build/windows/**
+      - ZakazkyApp_base_6.1/windows_branding.py
+      - scripts/validate-811-taskbar.py
       - ZakazkyApp_base_6.1/branding.py
       - ZakazkyApp_base_6.1/turto_logo.*
       - ZakazkyApp_base_6.1/turto_icon.png
@@ -77,6 +79,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-809-branding.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/validate-811-taskbar.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-809-branding-ui.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Archive branding previews
@@ -130,7 +134,10 @@ jobs:
           path: package
       - name: Cold frozen runtime first start and Frozen updater integration
         shell: pwsh
-        run: python scripts/smoke-windows-808.py package
+        run: |
+          python -m pip install Pillow pywin32
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/smoke-windows-808.py package
       - name: Archive frozen validation report
         if: always()
         uses: actions/upload-artifact@v4

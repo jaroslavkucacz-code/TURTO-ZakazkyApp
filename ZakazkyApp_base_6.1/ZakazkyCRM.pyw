@@ -10,6 +10,9 @@ RUNTIME = ROOT / "_runtime"
 if str(RUNTIME) not in sys.path:
     sys.path.insert(0, str(RUNTIME))
 
+import windows_branding
+windows_branding.initialize(ROOT)
+
 import app
 import runtime_bootstrap
 

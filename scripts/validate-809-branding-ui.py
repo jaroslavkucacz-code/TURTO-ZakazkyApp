@@ -24,8 +24,15 @@ def check_native_icons(window, destination, prefix):
     import win32gui
     import win32ui
     from PIL import Image
+    from win32com.propsys import propsys, pscon
+    from windows_branding import APP_USER_MODEL_ID, TASKBAR_ICON_NAME
 
     hwnd = int(window.tk.call("wm", "frame", window._w), 0)
+    properties = propsys.SHGetPropertyStoreForWindow(hwnd)
+    assert not getattr(window, "_turto_taskbar_icon_error", None), getattr(window, "_turto_taskbar_icon_error", None)
+    assert properties.GetValue(pscon.PKEY_AppUserModel_ID).GetValue() == APP_USER_MODEL_ID
+    assert properties.GetValue(pscon.PKEY_AppUserModel_RelaunchIconResource).GetValue() == str(BASE / TASKBAR_ICON_NAME) + ",0"
+    assert properties.GetValue(pscon.PKEY_AppUserModel_RelaunchCommand).GetValue()
 
     def render(icon, size, color):
         screen = win32gui.GetDC(0)

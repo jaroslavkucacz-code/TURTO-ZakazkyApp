@@ -17,6 +17,8 @@ def main():
     icon.alpha_composite(logo, ((256 - logo.width) // 2, (256 - logo.height) // 2))
     icon.save(BASE / "turto_icon.png", optimize=True)
     icon.save(BASE / "turto_logo.ico", format="ICO", sizes=[(n, n) for n in SIZES])
+    # A new Shell resource path prevents reuse of the former white-tile cache.
+    (BASE / "turto_taskbar_transparent.ico").write_bytes((BASE / "turto_logo.ico").read_bytes())
 
 
 if __name__ == "__main__":

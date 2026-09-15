@@ -150,13 +150,16 @@ def _validate_offer_engine_payload(app) -> list[str]:
 
 def _validate_branding_payload(app) -> list[str]:
     """Smoke-check real packaged artwork using the same resolver as the UI."""
-    from branding import icon_pair, logo_path
+    from branding import icon_pair, logo_path, taskbar_icon_path, configure_window_icon
     from PIL import Image
     pair = icon_pair(app.ROOT)
     logo = logo_path(app.ROOT)
     if pair is None or pair[2] != "packaged-logo" or logo is None:
         raise RuntimeError("V balíčku chybí logo nebo ikona TURTO.")
-    paths = (logo, pair[0], pair[1])
+    shell_icon = taskbar_icon_path(app.ROOT)
+    if shell_icon is None:
+        raise RuntimeError("V balíčku chybí ikona hlavního panelu TURTO.")
+    paths = (logo, pair[0], pair[1], shell_icon)
     for path in paths:
         with Image.open(path) as image:
             image.load()
@@ -164,10 +167,29 @@ def _validate_branding_payload(app) -> list[str]:
         bundle = Path(sys._MEIPASS).resolve()
         if any(path.resolve().parent != bundle for path in paths):
             raise RuntimeError("Logo TURTO se nenačítá z aktuálního balíčku.")
+    # Test the real frozen pywin32/property-store dependencies, not just source
+    # mode or the presence of ICO files in the onedir payload.
+    from win32com.propsys import propsys, pscon
+    from windows_branding import APP_USER_MODEL_ID
+    window = app.tk.Tk()
+    try:
+        window.withdraw()
+        configure_window_icon(window, app.ROOT)
+        window.update_idletasks()
+        properties = propsys.SHGetPropertyStoreForWindow(int(window.tk.call("wm", "frame", window._w), 0))
+        if properties.GetValue(pscon.PKEY_AppUserModel_ID).GetValue() != APP_USER_MODEL_ID:
+            raise RuntimeError("Identita hlavního panelu nebyla nastavena.")
+        if properties.GetValue(pscon.PKEY_AppUserModel_RelaunchIconResource).GetValue() != str(shell_icon.resolve()) + ",0":
+            raise RuntimeError("Ikona hlavního panelu není z aktuálního balíčku.")
+    finally:
+        window.destroy()
     return [path.name for path in paths]
 
 
 _smoke_checkpoint("launcher-start")
+
+import windows_branding
+shell_branding = windows_branding.initialize(ROOT, repair=not (SMOKE_TEST or CI_RESTART_PROBE))
 
 import data_location
 import data_onboarding

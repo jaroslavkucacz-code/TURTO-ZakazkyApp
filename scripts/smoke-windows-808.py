@@ -81,6 +81,8 @@ def main():
         assert not list(installed.rglob("turto_crm.ico"))
         assert not list(installed.rglob("turto_crm.png"))
         checks.append("exact transparent branding in installed application")
+        run([sys.executable, REPO / "scripts/validate-811-taskbar.py", installed], env)
+        checks.append("Windows Shell extracts transparent icons from the installed EXE and taskbar resource")
         main_exe = installed / "TURTO CRM.exe"
         print("Cold frozen runtime first start", flush=True)
         run([main_exe, "--smoke-test"], env)
