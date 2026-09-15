@@ -90,7 +90,7 @@ def _safe_auxiliary_redraw(app: Any) -> None:
                     tree.heading(column, anchor=anchor)
         except Exception:
             pass
-        for attribute in ("_sync_filter_bar", "_date_cell_redraw"):
+        for attribute in ("_sync_filter_bar", "_date_cell_redraw", "_v760_schedule_separators"):
             function = getattr(tree, attribute, None)
             if callable(function):
                 try:

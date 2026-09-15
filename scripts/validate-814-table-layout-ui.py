@@ -104,12 +104,22 @@ def run_ui(td):
         # Equal-total-width changes must also redraw (scroll fractions can be
         # unchanged), including reordering and hiding a column via the dialog.
         first, second = (tree.column(c, 'width') for c in columns[:2])
-        tree.column(columns[0], width=first + 23)
-        tree.column(columns[1], width=second - 23)
+        tree._turto_design_widths.update({columns[0]: first + 23, columns[1]: second - 23})
+        app.install_persistent_tree_layout(tree)
         settle(window)
+        assert tree.column(columns[0], 'width') == first + 23
+        assert tree.column(columns[1], 'width') == second - 23
         assert_aligned(tree, 'same-total-width')
+        # Late column contracts bypass the width owner, then invoke the
+        # application's bounded final-layout callback.
+        tree.column(columns[0], width=first)
+        tree.column(columns[1], width=second)
+        app.schedule_final_tree_layout(window)
+        settle(window)
+        assert_aligned(tree, 'late-column-contract')
         order = tuple(reversed(columns[:-1]))
         tree.configure(displaycolumns=order)
+        app.install_persistent_tree_layout(tree)
         settle(window)
         assert_aligned(tree, 'hidden-reordered')
         tree.xview_moveto(.35)

@@ -1179,6 +1179,12 @@ def apply(M):
                     minwidth=30,
                     stretch=bool(column == last and preferred <= target),
                 )
+            # A layout can redistribute widths without changing the total;
+            # then Tk need not notify xscrollcommand. Redraw decorations only
+            # after this owner has applied the complete saved layout.
+            redraw = getattr(tree, "_v760_schedule_separators", None)
+            if callable(redraw):
+                redraw()
             try:
                 sync = getattr(tree, "_sync_filter_bar", None)
                 if callable(sync):

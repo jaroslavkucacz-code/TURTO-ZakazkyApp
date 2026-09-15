@@ -13,6 +13,8 @@ on:
       - scripts/validate-812-update*.py
       - scripts/validate-814-table-layout-ui.py
       - ZakazkyApp_base_6.1/v760_table_activity_performance.py
+      - ZakazkyApp_base_6.1/v710_cleanup.py
+      - ZakazkyApp_base_6.1/v644_default_date_sort.py
       - ZakazkyApp_base_6.1/data_location.py
       - ZakazkyApp_base_6.1/data_onboarding.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/exe_distribution.py

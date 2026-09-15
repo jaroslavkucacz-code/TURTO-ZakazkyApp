@@ -624,6 +624,7 @@ def apply(M: Any) -> None:
             first_install = not getattr(tree, "_v760_table_polish", False)
             if first_install:
                 tree._v760_table_polish = True
+                tree._v760_schedule_separators = lambda: schedule_separators(tree, 0)
                 for sequence in (
                     "<Configure>",
                     "<Map>",
@@ -635,12 +636,10 @@ def apply(M: Any) -> None:
                         lambda _event, current=tree: schedule_separators(current),
                         add="+",
                     )
-                # Tk reports internal column layout changes through this
-                # callback even when the outer widget has not resized. Saved
-                # widths are restored after Map/Configure by the width owner;
-                # drawing only on those events leaves the old boundaries in
-                # place. Observe this widget, keeping native Treeview methods
-                # and any existing scrollbar/filter callback intact.
+                # Track scrolling and changes to the total content width even
+                # when the outer widget has not resized. The saved-width owner
+                # also schedules a redraw when that total stays the same.
+                # Keep native Treeview methods and the scrollbar/filter intact.
                 original_scroll = tree.cget("xscrollcommand")
 
                 def xscroll(first: Any, last: Any) -> None:
