@@ -1,13 +1,13 @@
 {
   "app_id": "cz.turto.mesicni-prehledy",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "minimum_version": "1.0.1",
-  "sha256": "cffe9fb51e014d61dcfdf495c281264ca0b96ecccf3ab6a9a43178ed93871b4a",
-  "notes": "Oprava aktualizací pro Windows Application Control: samostatný updater EXE se již nepoužívá. Aktualizace nově otevírá běžný Inno Setup instalátor stejně jako TURTO CRM; instalace zůstává pouze pro aktuálního uživatele bez administrátorských práv. Pokud politika Windows automatické spuštění nepovolí, program zachová stažený instalátor a otevře jeho složku místo pádu. Verze zároveň obsahuje všechny grafické opravy z 1.0.2.",
+  "sha256": "22579551e50815ad1e9bbb9d1bc91effc8b77df7ca4f416bf51ce91ce2bc616d",
+  "notes": "Nové přehledy Vývoj firmy, Změny zákazníků, Zakázky a Kontrola dat, také v Excelu a PDF. Importy XLSX/XLSM/CSV mají náhled změn, kontrolu opakovaných souborů, zálohu a archivaci před uložením. Připraveny CSV šablony pro další exporty; stávající doklady se mění pouze po výslovném výběru. Opravena práce s položkami bez skladového kódu a uzavírání databáze na Windows. Instalace zůstává pro aktuálního uživatele a zachovává jeho data.",
   "channel": "stable",
-  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/658d5fffc2703e7fad14a4b4e30514d40dbdcc55/releases/1.0.3/TURTO_update_1.0.3.zip",
-  "installer_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/658d5fffc2703e7fad14a4b4e30514d40dbdcc55/releases/1.0.3/TURTO_Mesicni_Prehledy_Setup_1.0.3.exe",
-  "installer_sha256": "3befffc8bd085cfe1f37fa40e75778f5517c7263cd29f5aab88eb932585e6391",
+  "url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/e4498af30f65b7f37d86710a387130925714a8e8/releases/1.1.0/TURTO_update_1.1.0.zip",
+  "installer_url": "https://raw.githubusercontent.com/jaroslavkucacz-code/TURTO-ZakazkyApp/e4498af30f65b7f37d86710a387130925714a8e8/releases/1.1.0/TURTO_Mesicni_Prehledy_Setup_1.1.0.exe",
+  "installer_sha256": "889e8e86b3e320f642a880548d934c03203a5c1b80b52d3c190f22f501e01ea3",
   "install_scope": "current_user",
   "update_mode": "installer"
 }
