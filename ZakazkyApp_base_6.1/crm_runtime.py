@@ -203,13 +203,8 @@ def _raise_dialog_chain(app,event=None):
 
 def _set_taskbar_identity(app):
     try:
-        if sys.platform.startswith("win"):
-            import ctypes;ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
-        ico=Path(M.ROOT)/"turto_logo.ico"
-        if ico.exists():app.iconbitmap(default=str(ico))
-        png=Path(M.ROOT)/"turto_logo.png"
-        if png.exists():
-            import tkinter as tk;ph=tk.PhotoImage(file=str(png));app.iconphoto(True,ph);app._turto_icon=ph
+        from branding import configure_window_icon
+        configure_window_icon(app, M.ROOT)
         app.bind("<Map>",lambda e:_raise_dialog_chain(app),add="+");app.bind("<FocusIn>",lambda e:_raise_dialog_chain(app),add="+")
     except:pass
 

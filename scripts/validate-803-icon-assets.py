@@ -40,7 +40,7 @@ class FakeTk:
     calls = []
 
     @classmethod
-    def PhotoImage(cls, *, file):
+    def PhotoImage(cls, *, file, master=None):
         cls.calls.append(file)
         return ("photo", file)
 
@@ -48,6 +48,7 @@ class FakeTk:
 def main() -> None:
     repo = Path(__file__).resolve().parents[1]
     base = repo / "ZakazkyApp_base_6.1"
+    sys.path.insert(0, str(base))
     path = base / "price_lists_domain" / "platform" / "icon_assets_803.py"
     bootstrap = (base / "runtime_bootstrap.py").read_text(encoding="utf-8")
     module = load_module(path, "turto_icon_assets_803_test")
@@ -110,18 +111,17 @@ def main() -> None:
             assert FakeTk.calls == [str(logo_png)]
             assert window._turto_icon_identity_reuse_skips == 1
 
-            # Existing legacy-generated assets keep priority, preserving the
-            # visual identity of an installation that already has them. A changed
-            # pair invalidates the per-window signature and is applied once.
+            # Old generated assets must not mask the new packaged company logo.
+            # Upgraded installations can still contain both legacy files.
             crm_ico = root / "turto_crm.ico"
             crm_png = root / "turto_crm.png"
             crm_ico.write_bytes(b"OLD-ICO")
             crm_png.write_bytes(b"OLD-PNG")
-            assert module._existing_icon_pair(M) == (crm_ico, crm_png, "legacy-generated")
+            assert module._existing_icon_pair(M) == (logo_ico, logo_png, "packaged-logo")
             fake_v770._configure_identity(M, window)
-            assert window.bitmap_calls == 2
-            assert window.photo_calls == 2
-            assert window._turto_icon_asset_source == "legacy-generated"
+            assert window.bitmap_calls == 1
+            assert window.photo_calls == 1
+            assert window._turto_icon_asset_source == "packaged-logo"
 
             # If neither complete pair exists, the original renderer remains the
             # fallback and its newly generated pair is returned.

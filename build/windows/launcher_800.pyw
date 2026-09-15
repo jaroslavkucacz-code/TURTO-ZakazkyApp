@@ -148,6 +148,25 @@ def _validate_offer_engine_payload(app) -> list[str]:
     return suppliers
 
 
+def _validate_branding_payload(app) -> list[str]:
+    """Smoke-check real packaged artwork using the same resolver as the UI."""
+    from branding import icon_pair, logo_path
+    from PIL import Image
+    pair = icon_pair(app.ROOT)
+    logo = logo_path(app.ROOT)
+    if pair is None or pair[2] != "packaged-logo" or logo is None:
+        raise RuntimeError("V balíčku chybí logo nebo ikona TURTO.")
+    paths = (logo, pair[0], pair[1])
+    for path in paths:
+        with Image.open(path) as image:
+            image.load()
+    if getattr(sys, "frozen", False):
+        bundle = Path(sys._MEIPASS).resolve()
+        if any(path.resolve().parent != bundle for path in paths):
+            raise RuntimeError("Logo TURTO se nenačítá z aktuálního balíčku.")
+    return [path.name for path in paths]
+
+
 _smoke_checkpoint("launcher-start")
 
 import data_location
@@ -213,6 +232,7 @@ _run_phase("post-import-cleanup", app.post_import_cleanup_v222_once)
 if SMOKE_TEST:
     if SMOKE_RESULT is None:
         raise SystemExit(2)
+    branding_assets = _run_phase("branding-payload", lambda: _validate_branding_payload(app))
     con = app.db()
     try:
         quick = con.execute("PRAGMA quick_check").fetchone()
@@ -237,6 +257,7 @@ if SMOKE_TEST:
                 "tables": tables,
                 "tkdnd_variants": tkdnd_variants,
                 "offer_parsers": offer_parsers,
+                "branding_assets": branding_assets,
                 "frozen": bool(getattr(sys, "frozen", False)),
             },
             ensure_ascii=False,

@@ -11,6 +11,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 import data_location
+from branding import configure_window_icon, create_logo_label
 
 
 def _database_ready() -> bool:
@@ -104,15 +105,19 @@ def configure_data_location(*, force: bool = False) -> bool:
         return True
 
     root = tk.Tk()
+    configure_window_icon(root)
     root.title("TURTO CRM – správa databáze" if force else "TURTO CRM – první spuštění")
-    root.geometry("720x470" if force else "700x430")
+    root.geometry("720x510" if force else "700x470")
     root.minsize(640, 400)
     root.option_add("*Font", "Calibri 10")
     result = {"ok": False}
 
     shell = ttk.Frame(root, padding=24)
     shell.pack(fill="both", expand=True)
-    ttk.Label(shell, text="TURTO CRM", font=("Calibri", 20, "bold")).pack(anchor="w")
+    brand = ttk.Frame(shell)
+    brand.pack(anchor="w")
+    create_logo_label(brand, size=56).pack(side="left", padx=(0, 12))
+    ttk.Label(brand, text="TURTO CRM", font=("Calibri", 20, "bold")).pack(side="left")
     ttk.Label(
         shell,
         text="Správa databáze pro tento počítač" if force else "Nastavení dat pro tento počítač",

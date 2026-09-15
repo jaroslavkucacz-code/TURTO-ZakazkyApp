@@ -461,6 +461,9 @@ def _create_desktop_shortcut(self) -> None:
         env["TURTO_TARGET"] = target
         env["TURTO_WORKDIR"] = str(root)
         env["TURTO_ARGS"] = arguments
+        from branding import icon_pair
+        pair = icon_pair(root)
+        env["TURTO_ICON"] = str(pair[0]) if pair else target
         script = r"""
 $w = New-Object -ComObject WScript.Shell
 $s = $w.CreateShortcut($env:TURTO_LINK)
@@ -468,7 +471,7 @@ $s.TargetPath = $env:TURTO_TARGET
 $s.WorkingDirectory = $env:TURTO_WORKDIR
 $s.Arguments = $env:TURTO_ARGS
 $s.Description = 'TURTO CRM'
-$icon = Join-Path $env:TURTO_WORKDIR 'turto_logo.ico'
+$icon = $env:TURTO_ICON
 if (Test-Path $icon) { $s.IconLocation = $icon }
 $s.Save()
 """

@@ -18,47 +18,13 @@ POLICY_OWNER = "price_lists_domain.platform.icon_assets_803"
 
 def _existing_icon_pair(M: Any) -> tuple[Path, Path, str] | None:
     """Return ``(ico, png, source)`` for the first complete existing pair."""
-    root = Path(getattr(M, "ROOT", Path.cwd()))
-    for stem, source in (("turto_crm", "legacy-generated"), ("turto_logo", "packaged-logo")):
-        ico = root / f"{stem}.ico"
-        png = root / f"{stem}.png"
-        if ico.is_file() and png.is_file():
-            return ico, png, source
-    return None
+    from branding import icon_pair
+    return icon_pair(getattr(M, "ROOT", None))
 
 
 def _configure_from_pair(M: Any, win: Any, pair: tuple[Path, Path, str]) -> None:
-    ico, png, source = pair
-    signature = (str(ico), str(png), source)
-    if getattr(win, "_turto_icon_identity_signature", None) == signature:
-        try:
-            win._turto_icon_identity_reuse_skips = int(
-                getattr(win, "_turto_icon_identity_reuse_skips", 0) or 0
-            ) + 1
-        except Exception:
-            pass
-        return
-    try:
-        win.iconbitmap(default=str(ico))
-    except Exception:
-        pass
-    try:
-        image = M.tk.PhotoImage(file=str(png))
-        win.iconphoto(True, image)
-        win._turto_crm_icon_photo = image
-    except Exception:
-        pass
-    if sys.platform.startswith("win"):
-        try:
-            import ctypes
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("TURTO.CRM")
-        except Exception:
-            pass
-    try:
-        win._turto_icon_asset_source = source
-        win._turto_icon_identity_signature = signature
-    except Exception:
-        pass
+    from branding import configure_window_icon
+    configure_window_icon(win, pair=pair, tk_module=M.tk)
 
 
 def _install_v770_icon_reuse(M: Any) -> bool:
@@ -109,7 +75,7 @@ def apply(M: Any) -> None:
     M.ICON_ASSET_OPTIMIZATION_803 = {
         "owner": POLICY_OWNER,
         "installed": bool(installed),
-        "preferred_existing_order": ("turto_crm", "turto_logo"),
+        "preferred_existing_order": ("turto_logo", "turto_crm"),
         "runtime_pillow_rendering": "fallback-only",
         "window_identity": "idempotent-per-icon-pair",
         "application_user_model_id": "TURTO.CRM",

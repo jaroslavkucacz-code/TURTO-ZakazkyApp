@@ -3815,19 +3815,8 @@ class RequestDialog(tk.Toplevel):
 
 def configure_windows_app_identity(win):
     """Set TURTO icon/identity on the real application window and Windows taskbar."""
-    try:
-        ico=ROOT/"turto_logo.ico"
-        if ico.exists():
-            win.iconbitmap(default=str(ico))
-    except Exception:
-        pass
-    if sys.platform.startswith("win"):
-        try:
-            import ctypes
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
-                "TURTO.Zakazky")
-        except Exception:
-            pass
+    from branding import configure_window_icon
+    configure_window_icon(win, ROOT)
 
 
 def _load_offer_router():
@@ -4188,8 +4177,9 @@ class App(tk.Tk):
         top.columnconfigure(1,weight=1)
         brand=ttk.Frame(top,style="Topbar.TFrame")
         brand.grid(row=0,column=0,sticky="w")
-        ttk.Label(brand,text="TURTO",style="BrandAccent.TLabel",
-                  font=("Calibri",13,"bold")).pack(side="left")
+        from branding import create_logo_label
+        self.brand_logo=create_logo_label(brand, ROOT)
+        self.brand_logo.pack(side="left",padx=(0,8))
         ttk.Label(brand,text="  |  Zakázky CRM",style="Topbar.TLabel",
                   font=("Calibri",13,"bold")).pack(side="left")
         ttk.Label(brand,text=f"   v{APP_VERSION}",style="TopbarMuted.TLabel",
