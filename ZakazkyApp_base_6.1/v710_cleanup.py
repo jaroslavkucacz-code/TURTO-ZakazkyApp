@@ -1555,6 +1555,7 @@ def apply(M):
                     tree.column("#0", width=tree._turto_design_widths["#0"], stretch=False)
             if first:
                 tree._v700_resize_column = None
+                tree._v815_reconcile_layout = lambda: install_tree(tree)
 
                 def press(event, current=tree):
                     try:
