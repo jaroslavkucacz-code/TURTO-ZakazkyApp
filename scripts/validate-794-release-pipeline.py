@@ -83,22 +83,34 @@ def main() -> None:
 
     assert windows_workflow.is_file(), "Missing Windows 8.x production publisher"
     windows = windows_workflow.read_text(encoding="utf-8")
-    for token in (
-        "windows_release_request.json",
-        "Validate explicit Windows release request",
-        "python scripts/validate-800-installation.py",
-        "python scripts/validate-800-updater-transaction.py",
-        "TURTO_CRM_Update_$version.zip",
-        "latest-windows.json",
-        "gh release create",
-        "bridge_legacy_preview",
-    ):
+    # Since 8.0.8 the production workflow promotes the exact previously tested
+    # artifacts. Building/testing again here would break that guarantee.
+    for token in ("windows_release_request.json", "python scripts/publish-windows-808.py"):
         assert token in windows, token
+    assert "pyinstaller" not in windows
+    publisher = (repo / "scripts" / "publish-windows-808.py").read_text(encoding="utf-8")
+    for token in (
+        'command("git", "merge-base", "--is-ancestor", source_commit, "HEAD")',
+        'require(changed <= allowed',
+        'run.get("head_sha") == source_commit',
+        'run.get("conclusion") == "success"',
+        'run.get("event") == "push"',
+        '"source-linux", "build-windows-preview", "clean-install-smoke"',
+        'setup_sha, package_sha = digest(setup), digest(package)',
+        '"latest-windows-v2.json"',
+        'request.get("bridge_legacy_preview")',
+    ):
+        assert token in publisher, token
 
     request = json.loads((repo / "windows_release_request.json").read_text(encoding="utf-8"))
     windows_version = (repo / "build" / "windows" / "version.txt").read_text(encoding="utf-8").strip()
     assert request["channel"] == "windows"
-    assert request["version"] == windows_version
+    # An application PR prepares the next candidate while the explicit release
+    # request continues to describe the last publication. The production
+    # publisher itself requires exact equality when a new request is submitted.
+    version_tuple = lambda value: tuple(int(part) for part in value.split("."))
+    assert version_tuple(windows_version) >= version_tuple(request["version"])
+    assert 'version == (REPO / "build/windows/version.txt")' in publisher
 
     print("TURTO CRM release pipelines: OK")
 
