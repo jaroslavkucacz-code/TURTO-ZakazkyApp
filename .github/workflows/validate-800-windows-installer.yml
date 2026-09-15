@@ -3,7 +3,7 @@ name: Validate TURTO CRM 8.0 Windows installer
 on:
   workflow_dispatch:
   push:
-    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress, feature/8.0.13-remove-quick-actions]
+    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress, feature/8.0.13-remove-quick-actions, fix/8.0.14-table-initial-layout]
   pull_request:
     paths:
       - ZakazkyApp_base_6.1/updater_safety.py
@@ -11,6 +11,8 @@ on:
       - ZakazkyApp_base_6.1/price_lists_domain/platform/automatic_updates.py
       - scripts/validate-auto-update.py
       - scripts/validate-812-update*.py
+      - scripts/validate-814-table-layout-ui.py
+      - ZakazkyApp_base_6.1/v760_table_activity_performance.py
       - ZakazkyApp_base_6.1/data_location.py
       - ZakazkyApp_base_6.1/data_onboarding.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/exe_distribution.py
@@ -78,6 +80,8 @@ jobs:
           python scripts/validate-812-update-progress.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-812-update-ui.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/validate-814-table-layout-ui.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Install Inno Setup compiler
         shell: pwsh
