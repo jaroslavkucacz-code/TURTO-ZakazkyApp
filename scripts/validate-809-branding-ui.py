@@ -13,6 +13,53 @@ sys.path.insert(0, str(BASE))
 os.environ["TURTO_DISABLE_AUTO_UPDATE"] = "1"
 
 
+def check_native_icons(window, destination, prefix):
+    """Compare actual Windows caption/task-switch icons with the supplied ICO.
+
+    Tk's iconbitmap query returns a bitmap name only for legacy X bitmaps; it
+    returns an empty string for a successfully loaded native Windows icon.
+    """
+    import win32api
+    import win32con
+    import win32gui
+    import win32ui
+    from PIL import Image
+
+    hwnd = int(window.tk.call("wm", "frame", window._w), 0)
+
+    def render(icon, size, color):
+        screen = win32gui.GetDC(0)
+        source = win32ui.CreateDCFromHandle(screen)
+        dc = source.CreateCompatibleDC()
+        bitmap = win32ui.CreateBitmap()
+        bitmap.CreateCompatibleBitmap(source, size, size)
+        previous = dc.SelectObject(bitmap)
+        try:
+            dc.FillSolidRect((0, 0, size, size), color)
+            win32gui.DrawIconEx(dc.GetSafeHdc(), 0, 0, icon, size, size, 0, None, win32con.DI_NORMAL)
+            return Image.frombytes("RGB", (size, size), bitmap.GetBitmapBits(True), "raw", "BGRX")
+        finally:
+            dc.SelectObject(previous)
+            win32gui.DeleteObject(bitmap.GetHandle())
+            dc.DeleteDC()
+            win32gui.ReleaseDC(0, screen)
+
+    for kind, metric in ((win32con.ICON_SMALL, win32con.SM_CXSMICON),
+                         (win32con.ICON_BIG, win32con.SM_CXICON)):
+        size = win32api.GetSystemMetrics(metric)
+        actual = win32gui.SendMessage(hwnd, win32con.WM_GETICON, kind, 0)
+        assert actual, (prefix, kind, "missing native icon")
+        expected = win32gui.LoadImage(0, str(BASE / "turto_logo.ico"), win32con.IMAGE_ICON,
+                                     size, size, win32con.LR_LOADFROMFILE)
+        try:
+            for color in (0xFFFFFF, 0x242424):
+                image = render(actual, size, color)
+                image.save(destination / f"{prefix}-icon-{size}-{color}.png")
+                assert image.tobytes() == render(expected, size, color).tobytes(), (prefix, size, color)
+        finally:
+            win32gui.DestroyIcon(expected)
+
+
 def run_ui(td):
     from PIL import ImageGrab, ImageTk
     os.environ["TURTO_CRM_DATA_ROOT"] = td
@@ -55,14 +102,14 @@ def run_ui(td):
             assert style.lookup(label.cget("style"), "background") == style.lookup(
                 label.master.cget("style"), "background")
             assert window._turto_icon_asset_source == "packaged-logo"
-            assert Path(window.iconbitmap()) == BASE / "turto_logo.ico"
+            check_native_icons(window, destination, theme + "-main")
             for widget in (label, window.user_button, window.notes_button, window.bell_button):
                 assert widget.winfo_rootx() + widget.winfo_width() <= window.winfo_rootx() + window.winfo_width(), str(widget)
             dialog = app.tk.Toplevel(window)
             dialog.title("TURTO CRM – kontrola ikony")
             window.update()
             assert dialog._turto_icon_asset_source == "packaged-logo"
-            assert Path(dialog.iconbitmap()) == BASE / "turto_logo.ico"
+            check_native_icons(dialog, destination, theme + "-dialog")
             dialog.destroy()
             window.update()
             ImageGrab.grab(bbox=(window.winfo_rootx(), window.winfo_rooty(),
