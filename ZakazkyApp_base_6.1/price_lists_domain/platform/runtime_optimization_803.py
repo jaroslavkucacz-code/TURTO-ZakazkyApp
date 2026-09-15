@@ -67,9 +67,9 @@ def _make_dialog_chain_coalescer(function: Callable[..., Any]) -> Callable[..., 
         try:
             grabbed = app.grab_current()
             if grabbed is not None and grabbed.winfo_exists():
-                grabbed.lift()
-                grabbed.focus_force()
-                return None
+                # The focus owner decides whether focus actually needs to
+                # move. Forcing the Toplevel here steals it from its Entry.
+                return function(app, event)
         except Exception:
             pass
 

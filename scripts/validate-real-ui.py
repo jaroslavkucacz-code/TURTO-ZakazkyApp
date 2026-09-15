@@ -436,6 +436,9 @@ def main() -> None:
                 assert {"Typ", "Stav", "Produktů", "Ceníků", "Nabídek"}.issubset(
                     set(manager_trees[0]["columns"])
                 )
+                search_entry = next(widget for widget in walk(manager) if isinstance(widget, app.ttk.Entry))
+                manager_result["search_variable"] = str(search_entry.cget("textvariable"))
+                assert root.tk.call('trace', 'info', 'variable', manager_result["search_variable"])
                 manager_result["ok"] = True
             except Exception:
                 manager_result["error"] = traceback.format_exc()
@@ -446,6 +449,9 @@ def main() -> None:
         root.after(80, inspect_category_manager)
         category_manager.manage_categories(app, root)
         assert manager_result.get("ok"), manager_result.get("error") or manager_result
+        search_name = manager_result["search_variable"]
+        assert not root.tk.call('trace', 'info', 'variable', search_name), 'Closed category manager retained search trace'
+        root.setvar(search_name, 'closed dialog regression')
         root.update()
         assert not callback_errors, "\n".join(callback_errors)
 

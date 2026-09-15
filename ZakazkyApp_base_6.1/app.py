@@ -2117,7 +2117,7 @@ class AutocompleteEntry(ttk.Entry):
         self.bind("<Down>",lambda e:self._navigate(1))
         self.bind("<Up>",lambda e:self._navigate(-1))
         self.bind("<Return>",self._accept_first)
-        self.bind("<Escape>",lambda e:self.hide())
+        self.bind("<Escape>",self._dismiss)
         self.bind("<Button-1>",lambda e:self.after_idle(self._show),add="+")
         self.bind("<FocusIn>",lambda e:self.after_idle(self._show),add="+")
         self.bind("<FocusOut>",lambda e:self.after(120,self._hide_if_needed))
@@ -2151,7 +2151,13 @@ class AutocompleteEntry(ttk.Entry):
         matches=self._matches()
         if not matches:self.hide();return
         if not self.popup or not self.popup.winfo_exists():
-            self.popup=tk.Toplevel(self);self.popup.overrideredirect(True);self.popup.attributes("-topmost",True)
+            self.popup=tk.Toplevel(self)
+            # Finish the popup before its first Map. Changing transient/topmost
+            # after showing it recreates the native Windows wrapper and flickers.
+            self.popup.withdraw()
+            self.popup.overrideredirect(True)
+            self.popup.attributes("-topmost",False)
+            self.popup.transient(self.winfo_toplevel())
             fr=ttk.Frame(self.popup,relief="solid",borderwidth=1);fr.pack(fill="both",expand=True)
             self.listbox=tk.Listbox(fr,height=7,exportselection=False,activestyle="dotbox")
             sb=ttk.Scrollbar(fr,orient="vertical",command=self.listbox.yview);self.listbox.configure(yscrollcommand=sb.set)
@@ -2161,7 +2167,7 @@ class AutocompleteEntry(ttk.Entry):
             self.listbox.bind("<Return>",self._choose)
             self.listbox.bind("<Up>",lambda e:self._move_list(-1))
             self.listbox.bind("<Down>",lambda e:self._move_list(1))
-            self.listbox.bind("<Escape>",lambda e:self.hide())
+            self.listbox.bind("<Escape>",self._dismiss)
         self.listbox.delete(0,"end")
         for v in matches:self.listbox.insert("end",v)
         self.listbox.selection_clear(0,"end");self.listbox.selection_set(0);self.listbox.activate(0)
@@ -2209,6 +2215,7 @@ class AutocompleteEntry(ttk.Entry):
                 ex=self.winfo_rootx();ey=self.winfo_rooty()
 
             ph=min(7,max(1,self.listbox.size() if self.listbox else 1))*23+4
+            self._turto_popup_size=(ew,ph)
             self.popup.geometry(f"{ew}x{ph}+{ex}+{ey+eh}")
         except Exception:
             self.hide()
@@ -2272,7 +2279,17 @@ class AutocompleteEntry(ttk.Entry):
             if f is self or f is self.listbox:return
         except:pass
         self.hide()
+    def _dismiss(self,event=None):
+        visible=bool(self.popup and self.popup.winfo_exists() and self.popup.winfo_viewable())
+        pending=bool(self.after_id)
+        self.hide()
+        # A second Escape, with no suggestion open/pending, belongs to the dialog.
+        return "break" if visible or pending else None
     def hide(self):
+        if self.after_id:
+            try:self.after_cancel(self.after_id)
+            except:pass
+            self.after_id=None
         if self.popup:
             try:self.popup.withdraw()
             except:pass
@@ -3403,8 +3420,7 @@ class RequestDialog(tk.Toplevel):
         ttk.Button(supplier_wrap,text="+ Nová společnost",
                    command=self.new_supplier_company).grid(row=0,column=1,padx=(6,0))
         self.company_box.bind("<<AutocompleteSelected>>",lambda e:self._select_request_company())
-        self.company_box.bind("<Return>",lambda e:self.after_idle(self._reload_contacts_from_company))
-        self.company_box.bind("<FocusOut>",lambda e:self.after(120,self._reload_contacts_from_company))
+        self.company_box.bind("<FocusOut>",lambda e:self.after(120,self._reload_contacts_from_company),add="+")
         self.company.trace_add("write",self._company_text_changed)
 
         ttk.Label(f,text="Odběratel").grid(row=1,column=0,sticky="w",padx=(0,10),pady=5)

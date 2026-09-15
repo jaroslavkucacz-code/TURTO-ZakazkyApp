@@ -1331,9 +1331,8 @@ def refresh_price_lists(M, app):
         app.price_evidence_supplier_box.set_values(suppliers)
         app.price_group_box.set_values(ranges)
         app.price_subgroup_box.set_values(subgroup_names)
-        current_subgroup = app.price_subgroup_filter.get().strip()
-        if current_subgroup and current_subgroup not in subgroup_names:
-            app.price_subgroup_filter.set("")
+        # Keep an unfinished search while the debounced table refresh runs.
+        # A deliberate category change already clears the dependent subgroup.
         values = ["Všechny"] + group_names
         app.price_category_box.configure(values=values)
         app.price_evidence_category_box.configure(values=values)
