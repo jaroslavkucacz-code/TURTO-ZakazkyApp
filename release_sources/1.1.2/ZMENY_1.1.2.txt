@@ -1,0 +1,10 @@
+TURTO – Měsíční přehledy 1.1.2
+
+- Oprava připínání na hlavní panel po přechodu ze starého Python spouštěče 0.2.x na nativní EXE.
+- Stejné AppUserModelID na běžící aplikaci i zástupcích vytvořených instalátorem; odstraněn chybný příkaz pro spuštění app.pyw z nativní aplikace.
+- Instalátor a první spuštění nové verze opraví rozpoznané staré zástupce v profilu aktuálního uživatele.
+- Jediný hlavní zástupce v nabídce Start; oprava existujících připnutých odkazů a sjednocení duplicit na ploše.
+- Před úpravou nebo odstraněním duplicitního zástupce se uloží jeho ověřená záloha a původní umístění. Ostatní aplikace se nemění.
+- V Nastavení je přesná cesta ke spuštěné aplikaci, tlačítko pro otevření její složky a možnost znovu opravit zástupce.
+- Databáze, konfigurace připojení k ní i původní složka programu zůstávají beze změny.
+- Windows může držet původní připnutí v paměti; pak jednou odepněte starou ikonu a znovu připněte aktuální běžící program.
