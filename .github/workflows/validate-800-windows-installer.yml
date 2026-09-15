@@ -3,10 +3,14 @@ name: Validate TURTO CRM 8.0 Windows installer
 on:
   workflow_dispatch:
   push:
-    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon]
+    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress]
   pull_request:
     paths:
       - ZakazkyApp_base_6.1/updater_safety.py
+      - ZakazkyApp_base_6.1/update_progress.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/automatic_updates.py
+      - scripts/validate-auto-update.py
+      - scripts/validate-812-update*.py
       - ZakazkyApp_base_6.1/data_location.py
       - ZakazkyApp_base_6.1/data_onboarding.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/exe_distribution.py
@@ -41,6 +45,8 @@ jobs:
         run: |
           python scripts/validate-800-updater-transaction.py
           python scripts/validate-808-handshake.py
+          python scripts/validate-auto-update.py
+          python scripts/validate-812-update-progress.py
 
   build-windows-preview:
     runs-on: windows-latest
@@ -66,6 +72,12 @@ jobs:
           python scripts/validate-800-updater-transaction.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-808-handshake.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/validate-auto-update.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/validate-812-update-progress.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/validate-812-update-ui.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Install Inno Setup compiler
         shell: pwsh
@@ -111,6 +123,10 @@ jobs:
             build/windows/updater_800.pyw
             build/windows/TURTO_CRM_Updater.spec
             ZakazkyApp_base_6.1/updater_safety.py
+            ZakazkyApp_base_6.1/update_progress.py
+            ZakazkyApp_base_6.1/price_lists_domain/platform/automatic_updates.py
+            scripts/validate-auto-update.py
+            scripts/validate-812-update*.py
             ZakazkyApp_base_6.1/data_location.py
             ZakazkyApp_base_6.1/price_lists_domain/platform/exe_distribution.py
             scripts/*808*

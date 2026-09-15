@@ -121,7 +121,7 @@ def _read_windows_manifest(updates) -> dict:
     return data
 
 
-def _download_windows_package(M, updates, manifest: dict) -> Path:
+def _download_windows_package(M, updates, manifest: dict, progress=None) -> Path:
     data = _validate_windows_manifest(manifest)
     package_name, expected_sha = data["package"], data["sha256"]
     download_url = data["download_url"]
@@ -140,12 +140,22 @@ def _download_windows_package(M, updates, manifest: dict) -> Path:
         digest = hashlib.sha256()
         try:
             with urllib.request.urlopen(request, timeout=45) as response, partial.open("wb") as handle:
+                total = int(response.headers.get("Content-Length", "0") or 0) if progress else 0
+                received = 0
                 while True:
                     chunk = response.read(1024 * 1024)
                     if not chunk:
                         break
                     digest.update(chunk)
                     handle.write(chunk)
+                    received += len(chunk)
+                    if progress:
+                        detail = f"Staženo {received / 1024 / 1024:.1f} MB"
+                        if total > 0:
+                            detail += f" z {total / 1024 / 1024:.1f} MB"
+                        progress("Stahuji aktualizaci…", received / total if total > 0 else None, detail)
+            if progress:
+                progress("Ověřuji stažený balíček…", None, "Kontroluji úplnost a pravost souborů.")
             actual_sha = digest.hexdigest().lower()
             if actual_sha != expected_sha:
                 raise ValueError("Stažený Windows balíček neodpovídá SHA-256 otisku z manifestu.")
@@ -183,7 +193,9 @@ def _launch_frozen_updater(M, updates, app, remote: str, package: Path) -> bool:
     expected_sha = str(getattr(M, "_turto_windows_expected_update_sha256", "") or "").strip().lower()
     if expected_version != str(remote).strip() or not _SHA256_RE.fullmatch(expected_sha):
         raise ValueError("Chybí ověřené údaje Windows aktualizačního balíčku.")
-    stage_root, staged_updater = _prepare_updater_stage(installed_updater)
+    prepared = getattr(M, "_turto_prepared_update_runtime", None)
+    M._turto_prepared_update_runtime = None
+    stage_root, staged_updater = prepared or _prepare_updater_stage(installed_updater)
     control_root = _updater_stage_root()
     token = uuid.uuid4().hex
     ready_file = control_root / ("ready-" + token + ".json")
@@ -215,6 +227,7 @@ def _launch_frozen_updater(M, updates, app, remote: str, package: Path) -> bool:
 
     def blocked(detail):
         app._turto_update_launching = False
+        app._turto_update_installing = False
         mark_blocked(detail)
         updates._log(M, "install-blocked-exe", detail)
         try:
@@ -223,7 +236,12 @@ def _launch_frozen_updater(M, updates, app, remote: str, package: Path) -> bool:
             app.configure(cursor="")
         except Exception:
             pass
-        _show_blocked_updater(M, app, remote, detail)
+        progress = getattr(app, "_turto_update_progress", None)
+        if progress is not None:
+            app._turto_update_security_warning_shown = True
+            progress.fail("Aktualizaci se nepodařilo bezpečně spustit. CRM zůstalo otevřené.\n\n" + detail)
+        else:
+            _show_blocked_updater(M, app, remote, detail)
 
     def confirm_and_close():
         try:
@@ -252,6 +270,11 @@ def _launch_frozen_updater(M, updates, app, remote: str, package: Path) -> bool:
             except Exception:
                 pass
             updates._log(M, "install-start-exe", f"{getattr(M, 'APP_VERSION', '')} -> {remote}")
+            progress = getattr(app, "_turto_update_progress", None)
+            if progress is not None:
+                # The standalone updater has already mapped its own window
+                # before sending ready. Release the CRM-owned modal grab.
+                progress.destroy()
             closer()
         except Exception as exc:
             blocked(f"Aktualizaci se nepodařilo bezpečně potvrdit: {exc}")
@@ -290,9 +313,20 @@ def apply(M) -> None:
             return _launch_frozen_updater(module, updates, app, remote, package)
         return previous_launcher(module, app, remote, package)
 
+    def download_with_progress(manifest, progress):
+        if getattr(sys, "frozen", False) and sys.platform.startswith("win"):
+            return _download_windows_package(M, updates, manifest, progress)
+        return download_package(manifest)
+
+    def prepare_runtime():
+        if getattr(sys, "frozen", False) and sys.platform.startswith("win"):
+            M._turto_prepared_update_runtime = _prepare_updater_stage(Path(M.ROOT) / UPDATER_EXE)
+
     updates._read_official_manifest = read_manifest
     updates._launch_updater = launch_updater
     M._download_update_package = download_package
+    M._download_update_with_progress = download_with_progress
+    M._prepare_update_runtime = prepare_runtime
     M.WINDOWS_UPDATE_MANIFEST = WINDOWS_MANIFEST
     M.WINDOWS_UPDATE_MANIFEST_FORMAT = WINDOWS_MANIFEST_FORMAT
     M.EXE_UPDATER_NAME = UPDATER_EXE

@@ -39,7 +39,7 @@ jobs:
       - name: Navigation stress and stale-widget regression test
         run: python scripts/validate-ui-navigation.py ZakazkyApp_base_6.1
 
-      - name: Unattended automatic update regression test
+      - name: Automatic check and manual installation regression test
         run: python scripts/validate-auto-update.py ZakazkyApp_base_6.1
 
       - name: MIVO and price-list clarity regression test

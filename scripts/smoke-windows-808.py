@@ -101,7 +101,7 @@ def main():
         runtime, updater = safety.prepare_stage(installed / safety.UPDATER_EXE, stage)
         self_test = root / "updater-self-test.json"
         run([updater, "--self-test", self_test], env)
-        assert read(self_test)["ok"] and read(self_test)["frozen"]
+        assert read(self_test)["ok"] and read(self_test)["frozen"] and read(self_test)["progress_ui"]
         checks.append("frozen onedir updater runtime")
 
         extract = root / "payload"
@@ -130,6 +130,13 @@ def main():
             ready = wait_file(stage / ("ready-" + token + ".json"), proc)
             assert ready["status"] == "ready" and ready["pid"] == proc.pid, ready
             assert parent.poll() is None, "Updater killed the live parent"
+            import win32gui
+            import win32process
+            windows = []
+            win32gui.EnumWindows(lambda hwnd, _: windows.append(hwnd) if
+                win32gui.IsWindowVisible(hwnd) and win32process.GetWindowThreadProcessId(hwnd)[1] == proc.pid else None, None)
+            assert windows, "Updater sent ready before showing its standalone progress window"
+            checks.append("standalone progress window is visible before CRM closes")
             assert read(installed / "version.json")["version"] == version
             assert safety.digest(database) == before
             time.sleep(0.3)
