@@ -2117,7 +2117,7 @@ class AutocompleteEntry(ttk.Entry):
         self.bind("<Down>",lambda e:self._navigate(1))
         self.bind("<Up>",lambda e:self._navigate(-1))
         self.bind("<Return>",self._accept_first)
-        self.bind("<Escape>",lambda e:(self.hide(), "break")[1])
+        self.bind("<Escape>",self._dismiss)
         self.bind("<Button-1>",lambda e:self.after_idle(self._show),add="+")
         self.bind("<FocusIn>",lambda e:self.after_idle(self._show),add="+")
         self.bind("<FocusOut>",lambda e:self.after(120,self._hide_if_needed))
@@ -2167,7 +2167,7 @@ class AutocompleteEntry(ttk.Entry):
             self.listbox.bind("<Return>",self._choose)
             self.listbox.bind("<Up>",lambda e:self._move_list(-1))
             self.listbox.bind("<Down>",lambda e:self._move_list(1))
-            self.listbox.bind("<Escape>",lambda e:(self.hide(), "break")[1])
+            self.listbox.bind("<Escape>",self._dismiss)
         self.listbox.delete(0,"end")
         for v in matches:self.listbox.insert("end",v)
         self.listbox.selection_clear(0,"end");self.listbox.selection_set(0);self.listbox.activate(0)
@@ -2279,7 +2279,17 @@ class AutocompleteEntry(ttk.Entry):
             if f is self or f is self.listbox:return
         except:pass
         self.hide()
+    def _dismiss(self,event=None):
+        visible=bool(self.popup and self.popup.winfo_exists() and self.popup.winfo_viewable())
+        pending=bool(self.after_id)
+        self.hide()
+        # A second Escape, with no suggestion open/pending, belongs to the dialog.
+        return "break" if visible or pending else None
     def hide(self):
+        if self.after_id:
+            try:self.after_cancel(self.after_id)
+            except:pass
+            self.after_id=None
         if self.popup:
             try:self.popup.withdraw()
             except:pass
