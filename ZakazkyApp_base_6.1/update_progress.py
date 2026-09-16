@@ -10,6 +10,7 @@ class ProgressWindow:
     def __init__(self, parent=None, version=""):
         self.window = tk.Toplevel(parent) if parent is not None else tk.Tk()
         win = self.window
+        win._turto_compact_dialog = True
         win.title("TURTO CRM – aktualizace")
         win.resizable(False, False)
         win.protocol("WM_DELETE_WINDOW", self.request_close)

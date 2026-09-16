@@ -175,6 +175,7 @@ def _show_update_offer(M, app):
         previous.lift()
         return
     win = tk.Toplevel(app)
+    win._turto_compact_dialog = True
     app._turto_update_offer = win
     win.title("Aktualizace TURTO CRM")
     win.transient(app)

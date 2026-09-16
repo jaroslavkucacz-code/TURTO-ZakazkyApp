@@ -126,6 +126,7 @@ def _theme_aware_calendar(self) -> None:
     selected_fg = "#ffffff" if dark else "#111111"
 
     pop = tk.Toplevel(self)
+    pop._turto_compact_dialog = True
     pop.title("Vybrat datum")
     pop.transient(self.winfo_toplevel())
     pop.resizable(False, False)

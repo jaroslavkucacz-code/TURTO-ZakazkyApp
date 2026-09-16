@@ -59,8 +59,13 @@ def is_maximized(win):
     return False
 
 
+def is_compact_dialog(win):
+    from tkinter.simpledialog import Dialog
+    return bool(getattr(win, '_turto_compact_dialog', False)) or isinstance(win, Dialog)
+
+
 def prepare_dialog(win):
-    if getattr(win, '_turto_chrome_busy', False):
+    if getattr(win, '_turto_chrome_busy', False) or is_compact_dialog(win):
         return
     try:
         if not win.winfo_exists() or win.overrideredirect():
