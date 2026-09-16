@@ -27,7 +27,7 @@ BADGES = {
 }
 ROW_TAGS = set('status_active status_offer status_wait status_done status_won status_cancel status_late status_soon req_fresh req_mid req_old req_received late soon waiting done won lost info over today wait deadline_urgent warning_bold v770_deadline_attention v770_request_attention v7616_request_attention mivo_wait_7'.split())
 STATUS_COLUMNS = {'stav', 'status', 'stav nabídky', 'stav poptávky'}
-DATE_COLUMNS = {'deadline', 'termín', 'termin', 'poptáno'}
+DATE_COLUMNS = {'deadline', 'termín', 'termin', 'poptáno', 'kdy'}
 PRICE_KINDS = dict(price_current='ready', price_future='active', price_expiring='wait',
                    price_review='wait', price_expired='late', price_archived='cancel')
 ROW_TAGS.update(PRICE_KINDS)
@@ -276,11 +276,17 @@ class CellBadges:
                     tags = set(tree.item(iid, 'tags'))
                     if col.casefold() == 'poptáno':
                         late = bool(tags & {'deadline_urgent', 'req_overdue_bold'})
+                    elif col.casefold() == 'kdy':
+                        # Notification dates have explicit business tags. Audit
+                        # history also uses Kdy, but past events are not overdue.
+                        late = bool(tags & {'over', 'today', 'soon'})
                     else:
                         late = parsed is not None and parsed < date.today() and kind not in ('done','cancel')
                     if not late:
                         continue
                     cell_kind = 'late'
+                    if col.casefold() == 'kdy' and 'over' not in tags:
+                        cell_kind = 'wait'
                 box = tree.bbox(iid, col)
                 if not box:
                     continue

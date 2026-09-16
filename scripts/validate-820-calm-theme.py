@@ -61,18 +61,21 @@ def run(td):
                     ('Sedlec A','Připraveno','V.D.O. Group s.r.o.'),
                     ('Nádrž Slavoňov','Hotovo','BAUFERA s.r.o.'),
                     ('YARD Hrdlořezy','Rozpracováno','ROLAND monolity s.r.o.')]
-        for i,(project,status,company) in enumerate(fixtures):
-            values = dict(Stav=status, Přijato='15.09.2026', Deadline='01.01.2020' if i==3 else '',
-                          Příležitost=project, Společnost=company, Obchodník='Milan Soukup')
-            tree.insert('', 'end', iid='theme-'+str(i), values=[values.get(c,'') for c in cols],
-                        tags=('status_done' if status=='Hotovo' else 'status_active',))
+        fixture_ids = []
+        with app.db() as con:
+            for i,(project,status,company) in enumerate(fixtures):
+                cid = con.execute('INSERT INTO companies(short_name,official_name) VALUES(?,?)', (company,company)).lastrowid
+                aid = con.execute('INSERT INTO actions(name,company_id,created_date,deadline,status) VALUES(?,?,?,?,?)',
+                    (project,cid,'2099-09-16','2020-01-01' if i==3 else '',status)).lastrowid
+                fixture_ids.append('a'+str(aid))
+        root.refresh_actions()
         settle(root)
         for name in ('Světlý','Tmavý'):
             root.apply_theme(name)
             settle(root)
             deco = tree._turto_cells_820
             assert any(c=='Stav' for _,c,_,_ in deco.rendered), deco.rendered
-            assert ('theme-3','Deadline','late') in [r[:3] for r in deco.rendered], deco.rendered
+            assert (fixture_ids[3],'Deadline','late') in [r[:3] for r in deco.rendered], deco.rendered
             assert tree.tag_configure('status_active')['background'] == ''
             style = app.ttk.Style(root)
             assert style.lookup('Accent.TButton','foreground',('active',)).upper() == '#FFFFFF'
