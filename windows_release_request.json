@@ -1,8 +1,8 @@
 {
-  "version": "8.0.19",
+  "version": "8.0.20",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "18ab52f89126747522a655c63560914434179fb2",
-  "validated_run_id": 35056941511,
-  "notes": "Oprava krátkého probliknutí dialogu na nesprávném monitoru při otevírání. Formulář se nově zviditelní až po dokončení velikosti a umístění nad hlavním oknem CRM.\n\nZachována je velikost přibližně 90 %, stejný monitor, ovládání klávesnicí i našeptávače. Oprava platí také pro vnořené a později otevírané dialogy; běžné opětovné zobrazení již otevřeného okna se znovu neschovává."
+  "source_commit": "426615c42c99f19cc550228e28185c4181dd7556",
+  "validated_run_id": 35063152075,
+  "notes": "Nový, klidnější vzhled TURTO CRM podle schváleného návrhu: bílé záhlaví s dobře čitelným logem, tmavá navigace s červeným podtržením a červená hlavní tlačítka.\n\nTabulky mají neutrální podklad. Stavy se rozlišují jemnými barevnými štítky, termíny a čekající položky vyžadující pozornost se zvýrazňují pouze v příslušných buňkách. Sjednoceny jsou formuláře, filtry, přehled a tmavý režim.\n\nZachováno je ovládání tabulek včetně dvojkliku, pravého tlačítka, posouvání a uložených šířek/skrytí sloupců. Dekorace se vykreslují pouze u viditelných řádků. Databáze, nastavení a způsob potvrzování aktualizace zůstávají zachované."
 }
