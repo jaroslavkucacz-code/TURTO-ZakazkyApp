@@ -118,6 +118,7 @@ def configure_theme(app):
     for name in ('TEntry', 'TCombobox', 'TSpinbox'):
         s.configure(name, fieldbackground=p['field'], background=p['field'], foreground=p['fg'],
                     insertcolor=p['fg'], arrowcolor=p['fg'], bordercolor=p['border'],
+                    lightcolor=p['border'], darkcolor=p['border'],
                     selectbackground=p['select'], selectforeground=p['selection_fg'])
         s.map(name, fieldbackground=[('disabled',p['head']), ('readonly',p['field'])],
               foreground=[('disabled',p['muted']), ('readonly',p['fg'])],
@@ -130,7 +131,8 @@ def configure_theme(app):
     s.map('TNotebook.Tab', background=[('selected',p['panel']), ('active',p['select'])],
           foreground=[('selected',p['fg']), ('active',p['fg'])])
     s.configure('Treeview', background=p['card'], fieldbackground=p['card'], foreground=p['fg'],
-                bordercolor=p['border'], rowheight=30, selectbackground=p['select'], selectforeground=p['selection_fg'])
+                bordercolor=p['border'], lightcolor=p['border'], darkcolor=p['border'],
+                rowheight=30, selectbackground=p['select'], selectforeground=p['selection_fg'])
     s.configure('Treeview.Heading', background=p['head'], foreground=p['fg'], bordercolor=p['border'])
     s.map('Treeview.Heading', background=[('pressed',p['select']), ('active',p['head'])], foreground=[('active',p['fg'])])
     for axis in ('Horizontal', 'Vertical'):
@@ -252,7 +254,8 @@ class CellBadges:
                 self.schedule()
                 return 'break'
         tree.event_generate(sequence, **options)
-        self.schedule()
+        if sequence != '<Motion>':
+            self.schedule()
         return 'break'
 
     def draw(self):
@@ -261,10 +264,10 @@ class CellBadges:
         if not tree.winfo_exists():
             return
         self.draw_count += 1
-        for canvas in self.canvases:
-            canvas.place_forget()
         self.rendered = []
         if not tree.winfo_ismapped():
+            for canvas in self.canvases:
+                canvas.place_forget()
             return
         p = palette(tree)
         colors = BADGES[p['bg'] == DARK['bg']]
@@ -272,6 +275,8 @@ class CellBadges:
         statuses = [c for c in columns if c.casefold() in STATUS_COLUMNS]
         dates = [c for c in columns if c.casefold() in DATE_COLUMNS]
         if not statuses and not dates:
+            for canvas in self.canvases:
+                canvas.place_forget()
             return
         # identify_row at half-row steps bounds work to the viewport, even for
         # 100,000 rows or hierarchical trees. Never enumerate all data rows.
@@ -337,6 +342,8 @@ class CellBadges:
                 tk.Misc.lift(c)
                 self.rendered.append((iid,col,cell_kind,box))
                 index += 1
+        for canvas in self.canvases[index:]:
+            canvas.place_forget()
 
 
 def install_tree(tree):
