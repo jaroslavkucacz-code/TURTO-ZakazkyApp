@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import date, datetime
 import time
 from typing import Any, Callable, Iterable
+from price_lists_domain.platform.universal_search import insert_matching
 
 
 LAST_ACTIVITY_COLUMN = "Poslední pohyb"
@@ -1091,7 +1092,7 @@ def apply(M: Any) -> None:
                 if not active
                 else ("status_active" if int(_row_value(row, "active_count", 0) or 0) > 0 else "status_done")
             )
-            tree.insert(
+            insert_matching(tree,
                 "",
                 "end",
                 iid=f"p{int(_row_value(row, 'id', 0))}",

@@ -7,6 +7,7 @@ right. Only Ceníky and explicit manual products feed this catalogue; received
 supplier offers remain independent commercial documents.
 """
 from __future__ import annotations
+from . import universal_search as search
 
 from datetime import date
 
@@ -168,7 +169,7 @@ def _structure_rows(M, include_inactive_products: bool = False):
 
 def _catalog_rows(
     M, scope: dict, query: str = "", manufacturer: str = "", show_inactive: bool = False,
-    limit: int = 250, offset: int = 0, sort_mode: str = "Skupina → podskupina → produkt",
+    limit: int = 250, offset: int = 0, sort_mode: str = "Skupina → podskupina → produkt", search_terms=(),
 ):
     """Return one SQL-filtered page in the user-selected deterministic order."""
     where = ["1=1"]
@@ -190,6 +191,10 @@ def _catalog_rows(
     if maker:
         where.append("lower(coalesce(cp.manufacturer_name,'')||' '||coalesce(src.suppliers,'')) LIKE ?")
         params.append("%" + maker + "%")
+    search.add_sql_terms(where, params, search_terms, [
+        "cp.internal_code", "cp.internal_name", "cp.manufacturer_name", "src.suppliers", "src.source_code", "src.source_name",
+        "coalesce(c.name,'Nezařazeno')", "sg.name",
+    ])
     where_sql = " AND ".join(where)
     today = date.today().isoformat()
     sql_from = """
@@ -249,6 +254,7 @@ def _catalog_rows(
                             ORDER BY p.valid_from DESC,p.id DESC,i.id DESC LIMIT 1) current_currency
                    """ + sql_from + " WHERE " + where_sql
     with M.db() as con:
+        search.register_sql(con)
         total = int(con.execute(
             "SELECT COUNT(*) " + sql_from + " WHERE " + where_sql, params
         ).fetchone()[0] or 0)
@@ -513,7 +519,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         offset = int(state["page"]) * int(state["page_size"])
         total, rows, summary = _catalog_rows(
             M, scope, query.get(), manufacturer.get(), bool(show_inactive.get()),
-            int(state["page_size"]), offset, sort_mode.get(),
+            int(state["page_size"]), offset, sort_mode.get(), search.terms(products, "catalog"),
         )
         from ..storage import _format_price
         for row in rows:
@@ -759,6 +765,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
         refresh_all(state["scope_iid"])
 
     def clear_filters():
+        search.reset_search(products, "catalog")
         query.set("")
         manufacturer.set("")
         show_inactive.set(False)
@@ -878,6 +885,9 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
     next_button.configure(
         command=lambda: (state.__setitem__("page", int(state["page"]) + 1), refresh_products())
     )
+
+    search.replace_filters(filters, products, "catalog", schedule_products, keep_columns=(2, 3),
+                           clear_extra=clear_filters)
 
     initial_iid = (
         f"{_SCOPE_SUBGROUP_PREFIX}{int(subgroup_id)}" if subgroup_id else

@@ -31,6 +31,8 @@ def editable(widget):
 def values(win):
     result = {}
     for widget in children(win):
+        if getattr(widget, "_turto_search_input", False):
+            continue
         cls = widget.winfo_class()
         try:
             if cls == 'Text' and str(widget.cget('state')) != 'disabled':

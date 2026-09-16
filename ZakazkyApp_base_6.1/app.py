@@ -8,6 +8,7 @@ from urllib.parse import urlencode, quote
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
 import tkinter.font as tkfont
+from price_lists_domain.platform import universal_search as table_search
 
 APP_NAME="Zakázky"
 APP_VERSION="6.1.0"
@@ -218,6 +219,7 @@ def db():
     con=sqlite3.connect(DB)
     con.row_factory=sqlite3.Row
     con.create_collation("CZECH",_czech_collate)
+    table_search.register_sql(con)
     con.execute("PRAGMA foreign_keys=ON")
     con.execute("PRAGMA journal_mode=WAL")
     return con
@@ -2806,6 +2808,7 @@ class UserNotesDialog(tk.Toplevel):
             command=self.refresh,
         ).grid(row=0,column=2,sticky='e',padx=(12,0))
         self.search_var.trace_add('write',lambda *_:self.refresh())
+        notes_search=table_search.replace_filters(tools,self,"notes",self.refresh,keep_columns=(2,))
 
         tree_wrap=ttk.Frame(outer,style='Panel.TFrame')
         tree_wrap.grid(row=4,column=0,sticky='nsew')
@@ -2817,6 +2820,7 @@ class UserNotesDialog(tk.Toplevel):
             show='headings',
             selectmode='browse',
          name='layout__app__usernotesdialog____init____self_tree')
+        self.tree._table_search=notes_search
         self.tree.heading('Vytvořeno',text='Vytvořeno')
         self.tree.heading('Poznámka',text='Poznámka')
         self.tree.column('Vytvořeno',width=145,minwidth=125,stretch=False,anchor='w')
@@ -2881,7 +2885,7 @@ class UserNotesDialog(tk.Toplevel):
         for row in rows:
             preview=' '.join(str(row['text'] or '').split())
             tags=('archived',) if int(row['archived'] or 0) else ()
-            self.tree.insert(
+            table_search.insert_matching(self.tree,
                 '','end',iid=f"n{row['id']}",
                 values=(fmt_history_datetime(row['created_at']),preview),
                 tags=tags,
@@ -4604,11 +4608,12 @@ class App(tk.Tk):
 
         self.action_tree=self.tree(p,("Stav","Přijato","Deadline","Příležitost","Společnost","Obchodník","Co se řeší","Poznámka"),
                                    list(widths))
-        attach_filter_bar(self.action_tree,filters)
+        table_search.install_main_search(self,self.action_tree,filters,"actions","refresh_actions")
         bind_row_double_click(self.action_tree,lambda e:self.edit_action(self.action_tree))
         self.action_tree.bind("<Button-1>",self._action_status_cell_click,add="+")
 
     def clear_action_filters(self):
+        table_search.reset_search(self,"actions")
         for v in (self.action_name_filter,self.action_company_filter,self.action_status,self.action_sp,
                   self.action_received_filter,self.action_date_filter):
             v.set("")
@@ -4680,11 +4685,12 @@ class App(tk.Tk):
 
         self.request_tree=self.tree(p,("Stav","Řeší","Poptáno","Obdrženo","Odběratel","Dodavatel","Akce","Poptáváno","Příjemci"),
                                     list(widths))
-        attach_filter_bar(self.request_tree,filters)
+        table_search.install_main_search(self,self.request_tree,filters,"requests","refresh_requests")
         bind_row_double_click(self.request_tree,lambda e:self.edit_request())
         self.request_tree.bind("<Configure>",lambda e:self.after_idle(self.refresh_requests),add="+")
 
     def clear_request_filters(self):
+        table_search.reset_search(self,"requests")
         for v in (self.req_status_filter,self.req_user_filter,self.req_at_filter,
                   self.req_action_filter,self.req_date_filter):
             v.set("")
@@ -4775,12 +4781,13 @@ class App(tk.Tk):
 
         self.mivo_tree=self.tree(p,("Stav","Řeší","Poptáno","Obdrženo","Odběratel","Akce","Poptáváno","Příjemci"),
                                  list(widths))
-        attach_filter_bar(self.mivo_tree,filters)
+        table_search.install_main_search(self,self.mivo_tree,filters,"mivo","refresh_mivo_requests")
         bind_row_double_click(self.mivo_tree,
             lambda e:self._run_on_request_tree(self.mivo_tree,self.edit_request))
         self.mivo_tree.bind("<Configure>",lambda e:self.after_idle(self.refresh_mivo_requests),add="+")
 
     def clear_mivo_filters(self):
+        table_search.reset_search(self,"mivo")
         for v in (self.mivo_status_filter,self.mivo_user_filter,
                   self.mivo_action_filter,self.mivo_date_filter):
             v.set("")
@@ -4789,19 +4796,23 @@ class App(tk.Tk):
 
 
     def clear_task_filters(self):
+        table_search.reset_search(self,"tasks")
         if hasattr(self,"task_user_filter"):self.task_user_filter.set("Všichni")
         if hasattr(self,"task_q"):self.task_q.set("")
         self.refresh_tasks()
 
     def clear_project_filters(self):
+        table_search.reset_search(self,"projects")
         if hasattr(self,"project_q"):self.project_q.set("")
         self.refresh_projects()
 
     def clear_people_filters(self):
+        table_search.reset_search(self,"people")
         if hasattr(self,"people_q"):self.people_q.set("")
         self.refresh_people()
 
     def clear_company_filters(self):
+        table_search.reset_search(self,"companies")
         if hasattr(self,"comp_q"):self.comp_q.set("")
         self.refresh_companies()
 
@@ -4916,7 +4927,7 @@ class App(tk.Tk):
         ttk.Label(p,text="Barvy: modrá = budoucí · žlutá = do 3 dnů · oranžová = dnes · červená = po termínu · zelená = hotovo",
                   style="Panel.TLabel").pack(anchor="w",pady=(0,6))
         self.task_tree=self.tree(p,("Stav","Řeší","Termín","Akce","Úkol","Vytvořil","Dokončil"),list(widths))
-        attach_filter_bar(self.task_tree,filters)
+        table_search.install_main_search(self,self.task_tree,filters,"tasks","refresh_tasks")
         bind_row_double_click(self.task_tree,lambda e:self.edit_task())
 
     def build_projects(self):
@@ -4934,7 +4945,7 @@ class App(tk.Tk):
         self.project_q.trace_add("write",lambda *a:self.refresh_projects())
         setup_clear_filter_button(filters,self.clear_project_filters,(self.project_q,))
         self.project_tree=self.tree(p,("Název Akce","Adresa","Investor","Generální dodavatel","Zahájení","Dokončení","Příležitostí","Poslední pohyb"),list(widths))
-        attach_filter_bar(self.project_tree,filters)
+        table_search.install_main_search(self,self.project_tree,filters,"projects","refresh_projects")
         bind_row_double_click(self.project_tree,lambda e:self.edit_project())
 
     def build_people(self):
@@ -4962,7 +4973,7 @@ class App(tk.Tk):
         setup_clear_filter_button(filters,self.clear_people_filters,(self.people_q,))
 
         self.people_tree=self.tree(p,("Jméno","E-mail","Telefon","Společnost","Funkce"),[220,260,140,270,300])
-        attach_filter_bar(self.people_tree,filters)
+        table_search.install_main_search(self,self.people_tree,filters,"people","refresh_people")
         bind_row_double_click(self.people_tree,lambda e:self.edit_person())
 
     def build_companies(self):
@@ -4983,7 +4994,7 @@ class App(tk.Tk):
         self.comp_q.trace_add("write",lambda *a:self.refresh_companies())
         setup_clear_filter_button(filters,self.clear_company_filters,(self.comp_q,))
         self.company_tree=self.tree(p,("Oficiální název","IČO","DIČ","Sídlo","Právní forma","Vznik","CZ-NACE","ARES"),list(widths))
-        attach_filter_bar(self.company_tree,filters)
+        table_search.install_main_search(self,self.company_tree,filters,"companies","refresh_companies")
         bind_row_double_click(self.company_tree,lambda e:self.edit_company())
 
     def build_help(self):
@@ -5862,7 +5873,7 @@ $s.Save()
             if sp and sp not in (r["salesperson"] or "").casefold():continue
             if rfilter and not date_matches(r["created_date"],rmode,rfilter):continue
             if dfilter and not date_matches(r["deadline"],dmode,dfilter):continue
-            self.action_tree.insert("","end",iid=f"a{r['id']}",
+            table_search.insert_matching(self.action_tree,"","end",iid=f"a{r['id']}",
                 values=(self.effective(r),fmt_date(r["created_date"]),fmt_date(r["deadline"]),
                         r["name"],r["company"] or "",r["salesperson"] or "",r["products"],r["note"] or ""),
                 tags=(self.tag(r),))
@@ -5945,7 +5956,7 @@ $s.Save()
         for r in rows:
             if q and q not in " ".join(str(r[k] or "") for k in ("name","email","phone","company","role")).lower():continue
             tag="status_cancel" if not r["active"] else "info"
-            self.people_tree.insert("","end",iid=f"p{r['id']}",
+            table_search.insert_matching(self.people_tree,"","end",iid=f"p{r['id']}",
                 values=(r["name"],r["email"],r["phone"],r["company"] or "",r["role"]),tags=(tag,))
 
     def refresh_companies(self):
@@ -5959,7 +5970,7 @@ $s.Save()
         for r in rows:
             if q and q not in " ".join(str(r[k] or "") for k in ("official_name","ico","dic","address")).lower():continue
             tag="status_cancel" if not r["active"] else "info"
-            self.company_tree.insert("","end",iid=f"c{r['id']}",
+            table_search.insert_matching(self.company_tree,"","end",iid=f"c{r['id']}",
                 values=(r["official_name"],r["ico"],r["dic"],r["address"],r["legal_form"],
                         fmt_date(r["date_created"]),r["cz_nace"],fmt_date(r["ares_checked"])),tags=(tag,))
 

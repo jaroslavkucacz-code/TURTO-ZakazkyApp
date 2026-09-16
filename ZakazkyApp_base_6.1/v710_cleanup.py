@@ -314,8 +314,8 @@ def apply(M):
                     )
             return item
 
-        def catalog_products(module, query="", limit=500):
-            rows = original_catalog_products(module, query, limit)
+        def catalog_products(module, query="", limit=500, search_terms=()):
+            rows = original_catalog_products(module, query, limit, **({"search_terms": search_terms} if search_terms else {}))
             for row in rows:
                 row["category_name_snapshot"] = _text(
                     row.get("category_name_snapshot") or row.get("category"),

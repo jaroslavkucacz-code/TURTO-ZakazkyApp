@@ -11,7 +11,7 @@ import os
 import time
 from datetime import date, datetime, timedelta
 
-from . import categories, product_catalog
+from . import categories, product_catalog, universal_search as search
 
 EXPIRING_DAYS = 30
 
@@ -934,19 +934,19 @@ def build_price_lists(M, app) -> None:
     app.price_column_mode = M.tk.StringVar(value=stored_mode if stored_mode in ("Přehled", "Obchodní", "Technické") else "Přehled")
     app.price_sort_mode = M.tk.StringVar(value=stored_sort if stored_sort in price_sort_options else price_sort_options[0])
 
-    search = M.ttk.Frame(current, style="Panel.TFrame", padding=(10, 8))
-    search.pack(fill="x", pady=(0, 6))
-    search.columnconfigure(0, weight=1)
-    search.columnconfigure(1, weight=0)
-    M.ttk.Label(search, text="Rychlé hledání", style="FilterLabel.TLabel").grid(row=0, column=0, sticky="w")
-    M.ttk.Entry(search, textvariable=app.price_q).grid(row=1, column=0, sticky="ew", padx=(0, 12))
-    sorting = M.ttk.Frame(search, style="Panel.TFrame")
+    search_frame = M.ttk.Frame(current, style="Panel.TFrame", padding=(10, 8))
+    search_frame.pack(fill="x", pady=(0, 6))
+    search_frame.columnconfigure(0, weight=1)
+    search_frame.columnconfigure(1, weight=0)
+    M.ttk.Label(search_frame, text="Rychlé hledání", style="FilterLabel.TLabel").grid(row=0, column=0, sticky="w")
+    M.ttk.Entry(search_frame, textvariable=app.price_q).grid(row=1, column=0, sticky="ew", padx=(0, 12))
+    sorting = M.ttk.Frame(search_frame, style="Panel.TFrame")
     sorting.grid(row=0, column=1, rowspan=2, sticky="e", padx=(0, 14))
     M.ttk.Label(sorting, text="Řazení", style="FilterLabel.TLabel").pack(anchor="w")
     M.safe_combobox(
         sorting, textvariable=app.price_sort_mode, values=price_sort_options, state="readonly", width=31,
     ).pack(anchor="e")
-    modes = M.ttk.Frame(search, style="Panel.TFrame")
+    modes = M.ttk.Frame(search_frame, style="Panel.TFrame")
     modes.grid(row=0, column=2, rowspan=2, sticky="e")
     M.ttk.Label(modes, text="Sloupce:", style="PageSubtitle.TLabel").pack(side="left", padx=(0, 4))
     for label in ("Přehled", "Obchodní", "Technické"):
@@ -1307,6 +1307,16 @@ def build_price_lists(M, app) -> None:
     ):
         variable.trace_add("write", schedule_evidence)
     notebook.bind("<<NotebookTabChanged>>", lambda _event: refresh_price_lists(M, app), add="+")
+    search.replace_filters(search_frame, app, "prices", schedule_current, keep_columns=(1, 2),
+                           clear_extra=lambda: _clear_current_filters(M, app))
+    for widget in app.price_primary_filters.winfo_children():
+        info = widget.grid_info()
+        if info and int(info.get("column", -1)) not in (3, 4):
+            widget.grid_remove()
+    app.price_advanced_visible.set(False)
+    app.price_advanced_frame.pack_forget()
+    search.replace_filters(evidence_filters, app, "price_evidence", schedule_evidence,
+                           clear_extra=lambda: _clear_evidence_filters(M, app))
     app._commercial_price_ui_ready = True
     refresh_price_lists(M, app)
 
@@ -1428,6 +1438,14 @@ def _refresh_current(M, app, allow_fts_retry=True):
         page_size = 250
     offset = max(0, int(app.price_page or 0)) * page_size
     order_sql = _price_sort_sql(app)
+    search_where, search_params = [], []
+    search.add_sql_terms(search_where, search_params, search.terms(app, "prices"), [
+        "internal_code", "internal_name", "manufacturer", "supplier", "product_code", "item_key", "name",
+        "description", "category", "subgroup", "normalized_unit_price", "source_price", "currency",
+        "margin_pct", "sales_discount_pct", "unit", "dimensions", "condition_text", "title", "product_group",
+        "valid_from", "valid_to", "package_qty", "package_unit", "pallet_qty", "minimum_qty", "weight_unit",
+    ])
+    search_sql = " AND ".join(search_where) or "1=1"
     sql = f"""
         WITH candidates AS (
           SELECT i.id item_id,i.price_list_id,i.product_code,i.item_key,i.name,i.description,i.unit,
@@ -1461,13 +1479,14 @@ def _refresh_current(M, app, allow_fts_retry=True):
           LEFT JOIN product_subgroups sg ON sg.id=i.subgroup_id
           WHERE {where_sql}
         ), effective_rows AS (SELECT * FROM candidates WHERE list_rank=1)
-        SELECT *,COUNT(*) OVER() total_count FROM effective_rows
+        SELECT *,COUNT(*) OVER() total_count FROM effective_rows WHERE {search_sql}
         ORDER BY {order_sql}
         LIMIT ? OFFSET ?
     """
     try:
         with M.db() as con:
-            rows = con.execute(sql, params + [page_size, offset]).fetchall()
+            search.register_sql(con)
+            rows = con.execute(sql, params + search_params + [page_size, offset]).fetchall()
     except M.sqlite3.OperationalError:
         if use_fts and allow_fts_retry:
             M.PRICE_FTS_AVAILABLE = False
@@ -1600,6 +1619,12 @@ def _refresh_evidence(M, app):
         where.append(review)
     elif status == "Archivované":
         where.append("p.archived=1")
+    search.add_sql_terms(where, params, search.terms(app, "price_evidence"), [
+        supplier_expr, "p.title", "p.valid_from", "p.valid_to", "p.product_group", "p.branch", "p.source_filename",
+        "p.parse_status", "p.note", "p.terms_text", "p.imported_at", "p.update_mode",
+        "(SELECT name FROM product_categories WHERE id=p.category_id)",
+        "(SELECT group_concat(pc.name,' ') FROM price_list_items ix LEFT JOIN catalog_products cp ON cp.id=ix.catalog_product_id LEFT JOIN product_categories pc ON pc.id=coalesce(cp.category_id,ix.category_id) WHERE ix.price_list_id=p.id AND ix.active=1)",
+    ])
     where_sql = " AND ".join(where) if where else "1=1"
     offset = max(0, int(app.price_evidence_page or 0)) * app.price_evidence_page_size
     base_joins = """
@@ -1607,6 +1632,7 @@ def _refresh_evidence(M, app):
         LEFT JOIN product_categories cat ON cat.id=p.category_id
     """
     with M.db() as con:
+        search.register_sql(con)
         total = int(con.execute(
             f"SELECT COUNT(*) FROM price_lists p LEFT JOIN companies c ON c.id=p.supplier_company_id WHERE {where_sql}",
             params,
@@ -1772,6 +1798,7 @@ def _change_evidence_page(M, app, delta):
 
 
 def _clear_current_filters(M, app):
+    search.reset_search(app, "prices")
     app.price_q.set("")
     app.price_supplier_filter.set("")
     app.price_category_filter.set("Všechny")
@@ -1787,6 +1814,7 @@ def _clear_current_filters(M, app):
 
 
 def _clear_evidence_filters(M, app):
+    search.reset_search(app, "price_evidence")
     app.price_evidence_q.set("")
     app.price_evidence_supplier.set("")
     app.price_evidence_category.set("Všechny")
@@ -1990,6 +2018,12 @@ def build_offers(M, app):
     ).grid(row=1, column=4, sticky="ew", padx=(0, 5))
     M.ttk.Button(filter_panel, text="Vymazat filtry", command=lambda: clear_offer_filters(M, app)).grid(row=1, column=5, sticky="e")
 
+    def search_offers():
+        app.offer_page = 0
+        schedule_offer_refresh(M, app, 0)
+    search.replace_filters(filter_panel, app, "offers", search_offers,
+                           clear_extra=lambda: clear_offer_filters(M, app))
+
     views = M.ttk.Frame(page, style="Panel.TFrame", padding=(10, 7))
     views.pack(fill="x", pady=(0, 6))
     M.ttk.Label(views, text="Pracovní pohled:", style="PageSubtitle.TLabel").pack(side="left")
@@ -2191,6 +2225,11 @@ def refresh_offers(M, app):
             "lower(coalesce(sx.original_name,'')||' '||coalesce(sx.item_key,'')||' '||coalesce(sx.product_code,'')) LIKE ?))"
         )
         params.extend(("%" + query + "%", "%" + query + "%"))
+    search.add_sql_terms(where, params, search.terms(app, "offers"), [
+        supplier_expr, action_expr, link_expr, "o.offer_date", "o.offer_number", "o.reference", "o.note", "o.status",
+        "o.total_value", "o.currency", f"CASE WHEN {price_list_exists} THEN 'Ceník' ELSE 'Nabídka' END",
+        "(SELECT group_concat(turto_search_text(sx.original_name,sx.item_key,sx.product_code,pc.name),' ') FROM supplier_offer_items sx LEFT JOIN catalog_products cp ON cp.id=sx.catalog_product_id LEFT JOIN product_categories pc ON pc.id=coalesce(cp.category_id,sx.category_id) WHERE sx.offer_id=o.id)",
+    ])
     where_sql = " AND ".join(where) if where else "1=1"
     try:
         page_size_value = app.offer_page_size.get() if hasattr(app.offer_page_size, "get") else app.offer_page_size
@@ -2206,6 +2245,7 @@ def refresh_offers(M, app):
       LEFT JOIN projects pr ON pr.id=ra.project_id
     """
     with M.db() as con:
+        search.register_sql(con)
         total = int(con.execute(
             f"SELECT COUNT(*) FROM supplier_offers o {base_joins} WHERE {where_sql}", params
         ).fetchone()[0] or 0)
@@ -2308,6 +2348,7 @@ def update_offer_selection(M, app, *_):
 
 
 def clear_offer_filters(M, app):
+    search.reset_search(app, "offers")
     app.offer_q.set("")
     app.offer_supplier_filter.set("")
     app.offer_action_filter.set("")

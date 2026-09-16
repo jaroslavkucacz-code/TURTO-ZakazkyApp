@@ -99,6 +99,8 @@ class FakeApp:
 
 def main() -> None:
     repo = Path(__file__).resolve().parents[1]
+    import sys
+    sys.path.insert(0, str(repo / "ZakazkyApp_base_6.1"))
     base = repo / "ZakazkyApp_base_6.1"
     path = base / "price_lists_domain" / "platform" / "operational_refresh_804.py"
     worksets_path = base / "price_lists_domain" / "platform" / "worksets.py"

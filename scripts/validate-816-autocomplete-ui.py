@@ -122,7 +122,7 @@ def run(td):
                 if entry not in tested and entry.winfo_ismapped() and entry.winfo_toplevel() is window:
                     exercise(entry, page + ':' + str(entry))
                     tested.add(entry)
-        assert tested, 'No main-page autocomplete exercised'
+        assert window._table_searches, 'Missing replacement search bars'
         for cls in (app.PersonDialog, app.TaskDialog, app.RequestDialog, app.ActionDialog):
             dialog = cls(window)
             settle(window, .5)
