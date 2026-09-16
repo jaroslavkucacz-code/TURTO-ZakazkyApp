@@ -1,8 +1,8 @@
 {
-  "version": "8.0.22",
+  "version": "8.0.23",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "52fc07b6525461943fa43c5b897a1a74e892a7dc",
-  "validated_run_id": 35143506881,
-  "notes": "Aktivní univerzální filtr je nyní označen barevnou lištou s textem Filtrování aktivní a počtem podmínek. Potvrzené podmínky mají sjednocené barevné štítky. V buňkách se jemně podbarvují shody potvrzených i právě psaných výrazů, včetně vyhledávání bez diakritiky. Zvýraznění respektuje světlý i tmavý motiv a po zrušení filtrování zmizí.\n\nSvislé čáry tabulek se při rozšiřování a zužování sloupců překreslují spolu s jejich geometrií, bez opakovaně odkládaného časovače. Zachováno je řazení, výběr, dvojklik, místní nabídky, posouvání i uložené rozložení sloupců. Hodnoty buněk a exportovaná data se nemění.\n\nAktualizace se nadále kontrolují automaticky a instalují až po kliknutí na instalační tlačítko."
+  "source_commit": "80e9385b76027ab341df033e258227ef4b1fd019",
+  "validated_run_id": 35148303552,
+  "notes": "Vydané nabídky lze nyní smazat bez ohledu na stav a vytvořené PDF. Příkaz Smazat nabídku… je dostupný tlačítkem i v místní nabídce. Před smazáním se zobrazí číslo nabídky a žádost o potvrzení. Nabídka, položky a revize se odstraní z databáze společně, exportované PDF soubory a audit zůstanou zachované. Číslo smazané nabídky se znovu nepoužije.\n\nV Akcích je sloupec Poslední pohyb přejmenován na Poslední aktivita. Zobrazuje poslední dostupnou aktivitu akce a jejích souvisejících příležitostí, poptávek, úkolů, přijatých a vydaných nabídek včetně změn položek, historie a revizí. Nově se eviduje také smazání a přesunutí záznamů mezi akcemi. Čtení tabulky, otevření programu ani budoucí termín se za aktivitu nepovažují. Starší údaje vycházejí z dostupné historie; dříve neevidované změny nelze zpětně rekonstruovat.\n\nUložené šířky, pořadí a skrytí sloupců zůstávají zachované. Aktualizace se nadále kontrolují automaticky a instalují až po kliknutí na instalační tlačítko."
 }
