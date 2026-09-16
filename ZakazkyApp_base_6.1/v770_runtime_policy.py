@@ -557,6 +557,7 @@ def _workarea_for_window(win: Any) -> tuple[int, int, int, int]:
     if sys.platform.startswith("win"):
         try:
             import ctypes
+            from ctypes import wintypes
 
             class RECT(ctypes.Structure):
                 _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long), ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
@@ -564,11 +565,16 @@ def _workarea_for_window(win: Any) -> tuple[int, int, int, int]:
             class MONITORINFO(ctypes.Structure):
                 _fields_ = [("cbSize", ctypes.c_ulong), ("rcMonitor", RECT), ("rcWork", RECT), ("dwFlags", ctypes.c_ulong)]
 
+            user32 = ctypes.WinDLL('user32', use_last_error=True)
+            user32.MonitorFromWindow.argtypes = [wintypes.HWND, wintypes.DWORD]
+            user32.MonitorFromWindow.restype = wintypes.HANDLE
+            user32.GetMonitorInfoW.argtypes = [wintypes.HANDLE, ctypes.POINTER(MONITORINFO)]
+            user32.GetMonitorInfoW.restype = wintypes.BOOL
             hwnd = int(win.winfo_id())
-            monitor = ctypes.windll.user32.MonitorFromWindow(hwnd, 2)
+            monitor = user32.MonitorFromWindow(hwnd, 2)
             info = MONITORINFO()
             info.cbSize = ctypes.sizeof(MONITORINFO)
-            if ctypes.windll.user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+            if user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
                 return info.rcWork.left, info.rcWork.top, info.rcWork.right, info.rcWork.bottom
         except Exception:
             pass
@@ -579,6 +585,7 @@ def _workarea_for_point(win: Any, x: int, y: int) -> tuple[int, int, int, int]:
     if sys.platform.startswith("win"):
         try:
             import ctypes
+            from ctypes import wintypes
 
             class POINT(ctypes.Structure):
                 _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
@@ -589,46 +596,90 @@ def _workarea_for_point(win: Any, x: int, y: int) -> tuple[int, int, int, int]:
             class MONITORINFO(ctypes.Structure):
                 _fields_ = [("cbSize", ctypes.c_ulong), ("rcMonitor", RECT), ("rcWork", RECT), ("dwFlags", ctypes.c_ulong)]
 
-            monitor = ctypes.windll.user32.MonitorFromPoint(POINT(int(x), int(y)), 2)
+            user32 = ctypes.WinDLL('user32', use_last_error=True)
+            user32.MonitorFromPoint.argtypes = [POINT, wintypes.DWORD]
+            user32.MonitorFromPoint.restype = wintypes.HANDLE
+            user32.GetMonitorInfoW.argtypes = [wintypes.HANDLE, ctypes.POINTER(MONITORINFO)]
+            user32.GetMonitorInfoW.restype = wintypes.BOOL
+            monitor = user32.MonitorFromPoint(POINT(int(x), int(y)), 2)
             info = MONITORINFO()
             info.cbSize = ctypes.sizeof(MONITORINFO)
-            if ctypes.windll.user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+            if user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
                 return info.rcWork.left, info.rcWork.top, info.rcWork.right, info.rcWork.bottom
         except Exception:
             pass
     return _workarea_for_window(win)
 
 
+def _dialog_frame_size(win):
+    """Read native decorations in the same coordinate space as Tk geometry."""
+    if sys.platform.startswith('win'):
+        try:
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.WinDLL('user32', use_last_error=True)
+            user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
+            user32.GetAncestor.restype = wintypes.HWND
+            user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+            user32.GetWindowRect.restype = wintypes.BOOL
+            rect = wintypes.RECT()
+            if user32.GetWindowRect(user32.GetAncestor(win.winfo_id(), 2), ctypes.byref(rect)):
+                return (max(0, rect.right-rect.left-win.winfo_width()),
+                        max(0, rect.bottom-rect.top-win.winfo_height()))
+        except Exception:
+            pass
+    return 16, 40
+
+
+def _dialog_geometry(owner_rect, workarea, compact_size=None, frame_size=(16, 40)):
+    """Client size at 90% of the main window, bounded by its monitor work area."""
+    px, py, pw, ph = owner_rect
+    left, top, right, bottom = workarea
+    # Leave room for the native border/title bar and the Windows taskbar.
+    frame_w, frame_h = frame_size
+    limit_w, limit_h = max(1, right-left-frame_w-20), max(1, bottom-top-frame_h-20)
+    requested = compact_size or (round(pw * .90), round(ph * .90))
+    width = min(max(320, requested[0]), limit_w)
+    height = min(max(220, requested[1]), limit_h)
+    x = min(max(left+10, px+(pw-width-frame_w)//2), right-width-frame_w-10)
+    y = min(max(top+10, py+(ph-height-frame_h)//2), bottom-height-frame_h-10)
+    return int(width), int(height), int(x), int(y)
+
+
 def _place_dialog(win: Any, parent: Any = None, preferred: tuple[int, int] | None = None) -> None:
-    from dialog_chrome import is_maximized, prepare_dialog
+    from dialog_chrome import is_compact_dialog, is_maximized, prepare_dialog
     try:
-        if not win.winfo_exists() or bool(win.overrideredirect()):
+        if (not win.winfo_exists() or bool(win.overrideredirect())
+                or not win.winfo_ismapped() or getattr(win, '_turto_dialog_placed_818', False)):
             return
         prepare_dialog(win)
         if is_maximized(win):
+            win._turto_dialog_placed_818 = True
             return
-    except Exception:
-        return
-    try:
-        parent = parent or getattr(win, "master", None)
-        if parent is None or not parent.winfo_exists():
-            parent = win
-        # Placement already runs in a deferred callback. Never nest the Tk
-        # event loop while a child window or its font resources are changing.
-        left, top, right, bottom = _workarea_for_window(parent)
-        area_w, area_h = max(420, right - left), max(320, bottom - top)
-        pref = preferred or getattr(win, "_v770_preferred_size", None) or getattr(win, "_preferred_dialog_size", None) or (0, 0)
-        req_w = max(int(win.winfo_reqwidth() or 0), int(win.winfo_width() or 0), int(pref[0] or 0), 360)
-        req_h = max(int(win.winfo_reqheight() or 0), int(win.winfo_height() or 0), int(pref[1] or 0), 220)
-        width = min(req_w, max(360, area_w - 30))
-        height = min(req_h, max(220, area_h - 30))
-        px = int(parent.winfo_rootx() + max(0, parent.winfo_width()) / 2)
-        py = int(parent.winfo_rooty() + max(0, parent.winfo_height()) / 2)
-        x = min(max(left + 10, px - width // 2), right - width - 10)
-        y = min(max(top + 10, py - height // 2), bottom - height - 10)
-        win.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
-        # Allow the entire work area on maximize, including native frame bounds.
-        win.maxsize(max(360, area_w + 32), max(220, area_h + 32))
+        # Always anchor to the main CRM window, including dialogs opened from
+        # another dialog or a widget. The mouse monitor is irrelevant here.
+        owner = win._root()
+        if owner is win or not owner.winfo_exists():
+            owner = parent or getattr(win, 'master', None)
+        if owner is None or not owner.winfo_exists():
+            return
+        workarea = _workarea_for_window(owner)
+        owner_rect = (owner.winfo_rootx(), owner.winfo_rooty(),
+                      owner.winfo_width(), owner.winfo_height())
+        compact_size = None
+        if is_compact_dialog(win):
+            pref = preferred or getattr(win, '_v770_preferred_size', None) or (0, 0)
+            compact_size = (max(win.winfo_reqwidth(), win.winfo_width(), pref[0]),
+                            max(win.winfo_reqheight(), win.winfo_height(), pref[1]))
+        width, height, x, y = _dialog_geometry(owner_rect, workarea, compact_size, _dialog_frame_size(win))
+        min_w, min_h = win.minsize()
+        win.minsize(min(min_w, width), min(min_h, height))
+        win.geometry(f"{width}x{height}+{x}+{y}")
+        # Delayed construction callbacks must not reset a user's later resize
+        # or move, nor undo maximize/restore.
+        win._turto_dialog_placed_818 = True
+        left, top, right, bottom = workarea
+        win.maxsize(max(360, right-left+32), max(220, bottom-top+32))
     except Exception:
         pass
 
@@ -663,6 +714,7 @@ def _install_dialog_policy(M: Any) -> None:
             def mapped(event):
                 if event.widget is self:
                     self.after_idle(lambda: prepare_dialog(self))
+                    self.after_idle(lambda: _place_dialog(self, getattr(self, 'master', None)))
             self.bind("<Map>", mapped, add="+")
             for delay in (20, 140, 260):
                 try:
