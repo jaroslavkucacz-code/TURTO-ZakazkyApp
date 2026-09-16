@@ -158,12 +158,21 @@ def run(td):
         delayed.destroy()
 
         ephemeral = app.tk.Toplevel(root)
-        root.update_idletasks()
-        jobs = set(ephemeral._turto_dialog_jobs_819)
-        assert jobs, 'Did not exercise destruction before reveal'
-        ephemeral.destroy()
-        assert not jobs.intersection(root.tk.call('after', 'info'))
+        disposals = []
+        def dispose_during_map(event):
+            if event.widget is not ephemeral:
+                return
+            jobs = set(ephemeral._turto_dialog_jobs_819)
+            assert jobs, 'Did not exercise destruction before reveal'
+            assert native(ephemeral)[1] == 0
+            ephemeral.destroy()
+            assert not jobs.intersection(root.tk.call('after', 'info'))
+            disposals.append(True)
+        # Windows may defer an empty Toplevel's Map beyond update_idletasks.
+        # Destroy from the real Map, after the presentation owner queued work.
+        ephemeral.bind('<Map>', dispose_during_map, add='+')
         settle(root)
+        assert disposals == [True], disposals
         assert not errors, errors
         print(f'8.0.19: first Map hidden, {len(revealed)} native reveals already positioned, nested/delayed forms and pending-callback teardown OK', flush=True)
     finally:
