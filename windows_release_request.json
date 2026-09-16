@@ -1,8 +1,8 @@
 {
-  "version": "8.0.20",
+  "version": "8.0.21",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "426615c42c99f19cc550228e28185c4181dd7556",
-  "validated_run_id": 35063152075,
-  "notes": "Nový, klidnější vzhled TURTO CRM podle schváleného návrhu: bílé záhlaví s dobře čitelným logem, tmavá navigace s červeným podtržením a červená hlavní tlačítka.\n\nTabulky mají neutrální podklad. Stavy se rozlišují jemnými barevnými štítky, termíny a čekající položky vyžadující pozornost se zvýrazňují pouze v příslušných buňkách. Sjednoceny jsou formuláře, filtry, přehled a tmavý režim.\n\nZachováno je ovládání tabulek včetně dvojkliku, pravého tlačítka, posouvání a uložených šířek/skrytí sloupců. Dekorace se vykreslují pouze u viditelných řádků. Databáze, nastavení a způsob potvrzování aktualizace zůstávají zachované."
+  "source_commit": "fbcf288acae0167d54c4fbba6105087fa751581c",
+  "validated_run_id": 35138724939,
+  "notes": "Jedno společné vyhledávací pole v tabulkách TURTO CRM. Při psaní se seznam průběžně filtruje. Enter potvrdí výraz jako štítek a uvolní pole pro další podmínku; všechny podmínky platí současně. Křížkem lze odebrat jednotlivý štítek, tlačítkem Zrušit filtrování obnovit seznam.\n\nVyhledávání nerozlišuje velikost písmen ani diakritiku. Funguje také přes skryté sloupce, v nabídkách a cenících prohledává záznamy před stránkováním. Česká data a částky lze hledat ve zobrazovaném formátu. Sjednoceny jsou hlavní přehledy, nabídky, ceníky, katalog a výběr produktů i poznámky.\n\nZachovány jsou přepínače archivu, pracovní pohledy, datum platnosti cen, řazení a uložené rozložení tabulek. Vyhledávání v dialogu nevyvolá uložení stiskem Enteru. Aktualizaci uživatel nadále spouští instalačním tlačítkem."
 }
