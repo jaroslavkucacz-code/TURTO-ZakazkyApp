@@ -836,6 +836,41 @@ def delete_draft(M, document_id: int) -> bool:
     return True
 
 
+def delete_document(M, document_id: int) -> bool:
+    """Delete an issued offer atomically; keep exported PDFs and the audit trail.
+
+    Explicit child deletion also supports older databases without CASCADE on
+    item rows. Never release its sequence number or delete source/catalog data.
+    """
+    user = active_user(M)
+    with M.db() as con:
+        con.execute('BEGIN IMMEDIATE')
+        row = con.execute(
+            'SELECT * FROM business_documents WHERE id=? AND document_type=? AND direction=?',
+            (int(document_id), DOCUMENT_TYPE, DOCUMENT_DIRECTION),
+        ).fetchone()
+        if row is None:
+            return False
+        snapshot = dict(row)
+        snapshot['pdf_revisions'] = [dict(r) for r in con.execute(
+            'SELECT revision_no,pdf_path,pdf_sha256 FROM business_document_revisions WHERE document_id=?',
+            (int(document_id),))]
+        if con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='audit_history'").fetchone():
+            con.execute('''INSERT INTO audit_history(user_name,entity_type,entity_id,action,old_value,new_value)
+                           VALUES(?,?,?,?,?,?)''',
+                        (user, 'Vydaná nabídka', str(document_id), 'Smazání',
+                         json.dumps(snapshot, ensure_ascii=False, default=str), ''))
+        if row['action_id'] and con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='action_history'").fetchone():
+            con.execute('''INSERT INTO action_history(action_id,user_name,event_type,summary,details)
+                           VALUES(?,?,?,?,?)''',
+                        (row['action_id'], user, 'issued_offer_delete', 'Smazal vydanou nabídku',
+                         str(row['document_number'] or '')+' · '+str(row['customer_name_snapshot'] or '')))
+        for table in ('business_document_items', 'business_document_revisions', 'business_document_history'):
+            con.execute(f'DELETE FROM {table} WHERE document_id=?', (int(document_id),))
+        con.execute('DELETE FROM business_documents WHERE id=?', (int(document_id),))
+    return True
+
+
 def duplicate_document(M, document_id: int) -> int:
     document, items = load_document(M, document_id)
     today = date.today()
@@ -1044,6 +1079,6 @@ __all__ = [
     "default_template_id", "load_template", "list_templates", "save_template", "deactivate_template",
     "company_snapshot", "contact_snapshot", "normalize_item", "calculate_totals", "save_document",
     "load_document", "next_revision_no", "document_archive_dir", "record_revision", "set_archived",
-    "delete_draft", "duplicate_document", "set_status", "list_companies", "list_people",
+    "delete_draft", "delete_document", "duplicate_document", "set_status", "list_companies", "list_people",
     "list_projects", "list_actions", "catalog_products", "latest_pdf_path", "open_path",
 ]
