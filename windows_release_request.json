@@ -1,8 +1,8 @@
 {
-  "version": "8.0.17",
+  "version": "8.0.18",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "127e6f4c1fad736282f32023ce5eb6446d0efbe4",
-  "validated_run_id": 35022608825,
-  "notes": "Tab nyní přeskakuje jen mezi poli, do kterých lze psát; Shift+Tab se vrací zpět. Tlačítka, tabulky a nepřístupná či pouze čtecí pole se přeskakují.\n\nPři zavření změněného formuláře křížkem nebo Esc si vyberete uložení, zahození změn nebo návrat k úpravám. Neúspěšné uložení ponechá formulář otevřený. Ochrana platí také pro poznámky, nabídky, PDF šablony, správce produktových skupin a ukládané nastavení administrace.\n\nOtevřená nabídka našeptávače se zavírá prvním Esc; formulář řeší až další Esc."
+  "source_commit": "56f8116be6862b409fe3bd3f41886c157ba607a3",
+  "validated_run_id": 35054577644,
+  "notes": "Formulářová a pracovní dialogová okna se nyní otevírají přibližně na 90 % šířky i výšky hlavního okna CRM, vycentrovaná na jeho monitoru. Platí to i při maximalizovaném hlavním okně a pro další formuláře otevřené z dialogu.\n\nOkna respektují pracovní plochu monitoru včetně rámečku a titulku Windows. Ruční změna velikosti, přesun a maximalizace zůstávají zachované. Našeptávače, kalendář, krátké systémové dotazy a průběh aktualizace zůstávají kompaktní."
 }
