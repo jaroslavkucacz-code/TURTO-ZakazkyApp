@@ -316,6 +316,9 @@ def main() -> None:
                             '2026-05-01 08:00:00','2026-05-01')"""
             )
 
+            # This part tests pre-upgrade historical timestamps. New writes are
+            # intentionally stamped today by 8.0.23; remove only that test ledger.
+            con.execute('DELETE FROM project_activity')
             union = layer._project_activity_union(con)
             latest = con.execute(
                 f"""WITH activity(project_id,activity_at) AS ({union})

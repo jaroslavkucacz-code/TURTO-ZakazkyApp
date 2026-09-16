@@ -180,7 +180,7 @@ def build_issued_offers(M, app):
     M.ttk.Button(actions, text="Duplikovat nabídku", command=lambda: _duplicate_selected(M, app)).pack(fill="x", pady=2)
     M.ttk.Button(actions, text="Změnit stav…", command=lambda: _change_status(M, app)).pack(fill="x", pady=2)
     M.ttk.Button(actions, text="Archivovat / obnovit", command=lambda: _toggle_archive(M, app)).pack(fill="x", pady=2)
-    M.ttk.Button(actions, text="Odstranit koncept", command=lambda: _delete_selected(M, app)).pack(fill="x", pady=2)
+    M.ttk.Button(actions, text="Smazat nabídku…", command=lambda: _delete_selected(M, app)).pack(fill="x", pady=2)
 
     context = M.tk.Menu(app.issued_offer_tree, tearoff=False)
     context.add_command(label="Otevřít nabídku", command=lambda: _open_selected(M, app))
@@ -190,6 +190,8 @@ def build_issued_offers(M, app):
     context.add_command(label="Duplikovat", command=lambda: _duplicate_selected(M, app))
     context.add_command(label="Změnit stav…", command=lambda: _change_status(M, app))
     context.add_command(label="Archivovat / obnovit", command=lambda: _toggle_archive(M, app))
+    context.add_separator()
+    context.add_command(label="Smazat nabídku…", command=lambda: _delete_selected(M, app))
 
     def popup(event):
         iid = app.issued_offer_tree.identify_row(event.y)
@@ -466,13 +468,18 @@ def _delete_selected(M, app):
         return
     if not M.messagebox.askyesno(
         "Vydané nabídky",
-        "Odstranit rozpracovaný koncept z databáze? Tuto operaci nelze použít na nabídku s vytvořeným PDF.",
-        parent=app,
+        f"Smazat vydanou nabídku {row.get('document_number') or row['id']}?\n\n"
+        "Z databáze se odstraní nabídka, její položky a revize. Uložené PDF soubory zůstanou na disku.\n"
+        "Tuto operaci nelze vrátit.",
+        parent=app, default="no", icon="warning",
     ):
         return
     try:
-        service.delete_draft(M, int(row["id"]))
+        service.delete_document(M, int(row["id"]))
         refresh_issued_offers(M, app)
+        refresh = getattr(app, 'refresh_projects', None)
+        if callable(refresh):
+            refresh()
     except Exception as exc:
         M.messagebox.showwarning("Vydané nabídky", str(exc), parent=app)
 

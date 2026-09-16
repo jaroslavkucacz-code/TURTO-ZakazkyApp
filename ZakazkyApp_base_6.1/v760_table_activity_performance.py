@@ -12,7 +12,9 @@ from typing import Any, Callable, Iterable
 from price_lists_domain.platform.universal_search import insert_matching
 
 
+# Keep the stored column identifier so saved widths, order and visibility survive.
 LAST_ACTIVITY_COLUMN = "Poslední pohyb"
+LAST_ACTIVITY_LABEL = "Poslední aktivita"
 
 
 def _text(value: Any, fallback: str = "") -> str:
@@ -248,104 +250,8 @@ def _timestamp_expr(alias: str, columns: set[str], candidates: Iterable[str]) ->
 
 
 def _project_activity_union(con: Any) -> str:
-    parts: list[str] = []
-
-    project_columns = _table_columns(con, "projects")
-    project_ts = _timestamp_expr(
-        "p",
-        project_columns,
-        ("updated_at", "archived_at", "created_at", "start_date"),
-    )
-    parts.append(f"SELECT p.id project_id,{project_ts} activity_at FROM projects p")
-
-    action_columns = _table_columns(con, "actions")
-    if action_columns and "project_id" in action_columns:
-        action_ts = _timestamp_expr(
-            "a",
-            action_columns,
-            ("updated_at", "created_at", "created_date"),
-        )
-        parts.append(
-            f"SELECT a.project_id,{action_ts} activity_at FROM actions a "
-            "WHERE a.project_id IS NOT NULL"
-        )
-
-    if _table_exists(con, "action_history") and action_columns:
-        history_columns = _table_columns(con, "action_history")
-        history_ts = _timestamp_expr(
-            "h", history_columns, ("created_at", "event_date", "date_created")
-        )
-        parts.append(
-            f"SELECT a.project_id,{history_ts} activity_at "
-            "FROM action_history h JOIN actions a ON a.id=h.action_id "
-            "WHERE a.project_id IS NOT NULL"
-        )
-
-    if _table_exists(con, "requests") and action_columns:
-        request_columns = _table_columns(con, "requests")
-        request_ts = _timestamp_expr(
-            "r",
-            request_columns,
-            ("updated_at", "received_date", "asked_date", "created_at"),
-        )
-        parts.append(
-            f"SELECT a.project_id,{request_ts} activity_at "
-            "FROM requests r JOIN actions a ON a.id=r.action_id "
-            "WHERE a.project_id IS NOT NULL"
-        )
-
-    if _table_exists(con, "tasks") and action_columns:
-        task_columns = _table_columns(con, "tasks")
-        task_ts = _timestamp_expr(
-            "t", task_columns, ("updated_at", "done_at", "created_at")
-        )
-        parts.append(
-            f"SELECT a.project_id,{task_ts} activity_at "
-            "FROM tasks t JOIN actions a ON a.id=t.action_id "
-            "WHERE a.project_id IS NOT NULL"
-        )
-
-    if _table_exists(con, "supplier_offers") and action_columns:
-        offer_columns = _table_columns(con, "supplier_offers")
-        if "action_id" in offer_columns:
-            offer_ts = _timestamp_expr(
-                "o",
-                offer_columns,
-                ("updated_at", "imported_at", "created_at", "offer_date"),
-            )
-            parts.append(
-                f"SELECT a.project_id,{offer_ts} activity_at "
-                "FROM supplier_offers o JOIN actions a ON a.id=o.action_id "
-                "WHERE a.project_id IS NOT NULL"
-            )
-
-    if _table_exists(con, "business_documents"):
-        document_columns = _table_columns(con, "business_documents")
-        document_ts = _timestamp_expr(
-            "d",
-            document_columns,
-            (
-                "updated_at",
-                "sent_at",
-                "accepted_at",
-                "rejected_at",
-                "created_at",
-                "issue_date",
-            ),
-        )
-        if "project_id" in document_columns:
-            parts.append(
-                f"SELECT d.project_id,{document_ts} activity_at "
-                "FROM business_documents d WHERE d.project_id IS NOT NULL"
-            )
-        if "action_id" in document_columns and action_columns:
-            parts.append(
-                f"SELECT a.project_id,{document_ts} activity_at "
-                "FROM business_documents d JOIN actions a ON a.id=d.action_id "
-                "WHERE a.project_id IS NOT NULL"
-            )
-
-    return " UNION ALL ".join(parts)
+    from price_lists_domain.platform.project_activity import activity_union
+    return activity_union(con)
 
 
 def apply(M: Any) -> None:
@@ -426,6 +332,9 @@ def apply(M: Any) -> None:
                 "supplier_offers",
                 ("action_id", "offer_date"),
             )
+
+            from price_lists_domain.platform.project_activity import ensure_schema as ensure_activity
+            ensure_activity(con)
 
     previous_ensure_schema = getattr(M, "ensure_schema", None)
     if callable(previous_ensure_schema):
@@ -916,12 +825,15 @@ def apply(M: Any) -> None:
                 button.pack(side="left", padx=2, pady=(0, 2))
         app._v760_nav_order = tuple(order)
 
-    # Poslední pohyb is displayed in Czech format but sorted as a real date.
+    # Poslední aktivita is displayed in Czech format but sorted as a real date.
     previous_sort_tree = getattr(M.App, "sort_tree", None)
     if callable(previous_sort_tree):
         def sort_tree(self: Any, tree: Any, column: str):
             if column != LAST_ACTIVITY_COLUMN:
-                return previous_sort_tree(self, tree, column)
+                result = previous_sort_tree(self, tree, column)
+                if LAST_ACTIVITY_COLUMN in _all_columns(tree):
+                    tree.heading(LAST_ACTIVITY_COLUMN, text=LAST_ACTIVITY_LABEL)
+                return result
             descending = bool(getattr(tree, "_sort_state", {}).get(column, False))
             try:
                 index = _all_columns(tree).index(column)
@@ -944,7 +856,7 @@ def apply(M: Any) -> None:
             tree._sort_state[column] = not descending
             tree._active_sort = (column, descending)
             for current in _all_columns(tree):
-                label = current
+                label = LAST_ACTIVITY_LABEL if current == LAST_ACTIVITY_COLUMN else current
                 if current == column:
                     label += " ▼" if descending else " ▲"
                 tree.heading(
@@ -981,7 +893,7 @@ def apply(M: Any) -> None:
             try:
                 tree.heading(
                     LAST_ACTIVITY_COLUMN,
-                    text=LAST_ACTIVITY_COLUMN,
+                    text=LAST_ACTIVITY_LABEL,
                     command=lambda current=tree: app.sort_tree(
                         current, LAST_ACTIVITY_COLUMN
                     ),
@@ -1022,6 +934,15 @@ def apply(M: Any) -> None:
         visible_now = _displayed_columns(tree)
         if LAST_ACTIVITY_COLUMN not in visible_now and LAST_ACTIVITY_COLUMN not in getattr(tree, "_v815_hidden_columns", ()):
             _set_displayed_columns(tree, visible_now + [LAST_ACTIVITY_COLUMN])
+        # The base builder already contains the stable ID. Rename its visible
+        # label as well, including column settings, without migrating layouts.
+        heading = str(tree.heading(LAST_ACTIVITY_COLUMN, 'text'))
+        suffix = ' ▼' if heading.endswith(' ▼') else ' ▲' if heading.endswith(' ▲') else ''
+        tree.heading(LAST_ACTIVITY_COLUMN, text=LAST_ACTIVITY_LABEL+suffix,
+                     command=lambda: app.sort_tree(tree, LAST_ACTIVITY_COLUMN))
+        labels = dict(getattr(tree, '_turto_heading_labels', {}) or {})
+        labels[LAST_ACTIVITY_COLUMN] = LAST_ACTIVITY_LABEL
+        tree._turto_heading_labels = labels
         install_tree_polish(tree)
 
     def refresh_projects(self: Any) -> None:
@@ -1331,7 +1252,7 @@ def apply(M: Any) -> None:
 
         M.App.build_projects = build_projects
 
-    # Project edits update the timestamp used by Poslední pohyb.
+    # Project edits update the timestamp used by Poslední aktivita.
     ProjectDialog = getattr(M, "ProjectDialog", None)
     if ProjectDialog is not None and not getattr(ProjectDialog, "_turto_v760_timestamp", False):
         previous_project_ok = ProjectDialog.ok

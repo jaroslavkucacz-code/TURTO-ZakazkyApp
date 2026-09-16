@@ -2997,6 +2997,11 @@ def _install_page_workflow(
                         module, app
                     ),
                 )
+                context.add_separator()
+                context.add_command(
+                    label="Smazat nabídku…",
+                    command=lambda: issued_page._delete_selected(module, app),
+                )
 
                 def popup(event: Any):
                     iid = tree.identify_row(event.y)

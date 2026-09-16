@@ -100,7 +100,9 @@ def apply(M):
             else:
                 tree.configure(show='headings')
             for c in cols:
-                tree.heading(c,text=c,anchor=tree.column(c,'anchor'),command=lambda col=c,t=tree:app.sort_tree(t,col))
+                # Labels may differ from stable IDs used by saved layouts.
+                label=getattr(tree,'_turto_heading_labels',{}).get(c,c)
+                tree.heading(c,text=label,anchor=tree.column(c,'anchor'),command=lambda col=c,t=tree:app.sort_tree(t,col))
         except Exception:pass
 
     def _project_offer_counts(count_cache=None):
