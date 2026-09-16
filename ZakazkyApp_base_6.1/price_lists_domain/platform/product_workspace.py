@@ -888,6 +888,7 @@ def build_product_workspace(M, app, parent, category_id=None, subgroup_id=None, 
 
     search.replace_filters(filters, products, "catalog", schedule_products, keep_columns=(2, 3),
                            clear_extra=clear_filters)
+    search.attach_tree(products, products._table_searches["catalog"])
 
     initial_iid = (
         f"{_SCOPE_SUBGROUP_PREFIX}{int(subgroup_id)}" if subgroup_id else

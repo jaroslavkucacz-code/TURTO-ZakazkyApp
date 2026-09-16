@@ -562,21 +562,19 @@ def apply(M: Any) -> None:
             except Exception:
                 pass
 
-        def schedule_separators(tree: Any, delay: int = 20) -> None:
+        def schedule_separators(tree: Any, delay: int = 0) -> None:
+            # Coalesce without postponing: resetting a 20 ms timer on every
+            # mouse move starves the lines during a continuous column drag.
+            # Idle runs after Tk's native Treeview binding updates the widths,
+            # in the same paint cycle. Keep delay only for older callers.
             if not _exists(tree):
                 return
             previous = getattr(tree, "_v760_separator_after", None)
             if previous is not None:
-                try:
-                    tree.after_cancel(previous)
-                except Exception:
-                    pass
+                return
             try:
                 redraw = lambda current=tree: draw_separators(current)
-                tree._v760_separator_after = (
-                    tree.after_idle(redraw) if delay <= 0
-                    else tree.after(int(delay), redraw)
-                )
+                tree._v760_separator_after = tree.after_idle(redraw)
             except Exception:
                 pass
 
@@ -673,8 +671,6 @@ def apply(M: Any) -> None:
                 tree.bind("<Destroy>", destroyed, add="+")
             sync_heading_anchors(tree)
             schedule_separators(tree, 0)
-            if first_install:
-                schedule_separators(tree, 90)
             from price_lists_domain.platform.calm_theme_820 import install_tree
             install_tree(tree)
 

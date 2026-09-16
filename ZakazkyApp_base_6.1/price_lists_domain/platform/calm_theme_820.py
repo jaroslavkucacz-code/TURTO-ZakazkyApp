@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import date, datetime
 import tkinter as tk
 from tkinter import ttk, font as tkfont
+from .universal_search import match_ranges
 
 LIGHT = dict(bg='#F4F5F7', panel='#FFFFFF', field='#FFFFFF', fg='#263442',
              muted='#667585', head='#EDF0F3', select='#E6EDF5', border='#DDE3E9',
@@ -17,6 +18,10 @@ DARK = dict(bg='#182129', panel='#222D37', field='#202A34', fg='#E8EEF4',
             muted='#B0BECC', head='#2A3642', select='#344E66', border='#3A4856',
             card='#202A34', alternate='#242F3A', topbar='#F4F5F7', navbar='#131C24',
             accent='#B71926', hover='#991520', selection_fg='#FFFFFF')
+SEARCH = {
+    False: dict(panel='#FFF7DF', ink='#745211', match='#FFE39A', chip='#F6E3AC'),
+    True: dict(panel='#393426', ink='#F2D68A', match='#665026', chip='#51452A'),
+}
 BADGES = {
     False: dict(active=('#EAF1F8', '#315F87'), ready=('#E8F3F0', '#286C68'),
                 done=('#EBF3EC', '#386A43'), wait=('#FBF2DF', '#826016'),
@@ -112,6 +117,13 @@ def configure_theme(app):
         ('Button.padding', {'sticky':'nswe', 'children':[('Button.label', {'sticky':'nswe'})]})]})])
     for name in ('FocusBadge.TLabel', 'TestMode.TLabel'):
         s.configure(name, background=p['accent'], foreground='#FFFFFF')
+    search = SEARCH[p['bg'] == DARK['bg']]
+    s.configure('ActiveSearch.TFrame', background=search['panel'])
+    s.configure('ActiveSearch.TLabel', background=search['panel'], foreground=search['ink'])
+    s.configure('SearchChip.TButton', background=search['chip'], foreground=search['ink'],
+                bordercolor=search['chip'], padding=(9, 4))
+    s.map('SearchChip.TButton', background=[('active',search['match']), ('pressed',search['match'])],
+          foreground=[('!disabled',search['ink'])], bordercolor=[('focus',search['ink'])])
     for name, kind in (('KPIBlue.TLabel','active'), ('KPIRed.TLabel','late'),
                        ('KPIOrange.TLabel','wait'), ('KPIGreen.TLabel','done')):
         s.configure(name, background=p['card'], foreground=BADGES[p['bg']==DARK['bg']][kind][1])
@@ -183,7 +195,9 @@ class CellBadges:
             pass
         self.font = tkfont.Font(tree, family='Calibri', size=10)
         self.bold = tkfont.Font(tree, family='Calibri', size=10, weight='bold')
+        self.fonts = {}
         self.rendered = []
+        self.matches = []
         self.draw_count = 0
         for event in ('<Configure>', '<Map>', '<ButtonRelease-1>', '<B1-Motion>', '<<TreeviewSelect>>', '<<TreeviewOpen>>', '<<TreeviewClose>>'):
             tree.bind(event, lambda e: self.schedule(), add='+')
@@ -265,6 +279,7 @@ class CellBadges:
             return
         self.draw_count += 1
         self.rendered = []
+        self.matches = []
         if not tree.winfo_ismapped():
             for canvas in self.canvases:
                 canvas.place_forget()
@@ -274,7 +289,9 @@ class CellBadges:
         columns = tuple(map(str, tree.cget('columns')))
         statuses = [c for c in columns if c.casefold() in STATUS_COLUMNS]
         dates = [c for c in columns if c.casefold() in DATE_COLUMNS]
-        if not statuses and not dates:
+        bar = getattr(tree, '_table_search', None)
+        terms = tuple(bar.terms) if bar is not None else ()
+        if not statuses and not dates and not terms:
             for canvas in self.canvases:
                 canvas.place_forget()
             return
@@ -282,18 +299,43 @@ class CellBadges:
         # 100,000 rows or hierarchical trees. Never enumerate all data rows.
         rows = dict.fromkeys(tree.identify_row(y) for y in range(1, tree.winfo_height(), 15))
         selected = set(tree.selection())
+        style = ttk.Style(tree)
+        body_font = style.lookup(str(tree.cget('style') or 'Treeview'), 'font') or 'TkDefaultFont'
+        search_color = SEARCH[p['bg'] == DARK['bg']]['match']
+        # Resolve visibility once. bbox() below also clips horizontally scrolled
+        # columns. Only the current viewport is examined, never all data rows.
+        displayed = tuple(map(str, tree.cget('displaycolumns')))
+        visible = columns if displayed == ('#all',) else tuple(
+            columns[int(c)] if c.isdigit() else c for c in displayed)
+        candidates = visible if terms else tuple(c for c in visible if c in statuses or c in dates)
         index = 0
         for iid in rows:
             if not iid:
                 continue
             values = dict(zip(columns, tree.item(iid, 'values')))
-            tags = set(tree.item(iid, 'tags'))
+            row_tags = tree.item(iid, 'tags')
+            tags = set(row_tags)
             kind = status_kind(values.get(statuses[0], '')) if statuses else ''
-            for col in statuses + dates:
+            row_style = {}
+            if terms:
+                for tag in row_tags:
+                    for option in ('background', 'foreground', 'font'):
+                        value = tree.tag_configure(tag, option)
+                        if value and option not in row_style:
+                            row_style[option] = value
+            for col in candidates:
                 text = str(values.get(col, ''))
                 if not text.strip():
                     continue
-                cell_kind = status_kind(text)
+                box = tree.bbox(iid, col)
+                if not box:
+                    continue
+                x,y,w,h = box
+                left, right = max(1,x+1), min(tree.winfo_width()-1,x+w-1)
+                if right-left < 8 or y < 0:
+                    continue
+                spans = match_ranges(text, terms) if terms else []
+                cell_kind = status_kind(text) if col in statuses else None
                 if col.casefold() == 'platnost':
                     cell_kind = next((PRICE_KINDS[t] for t in tags if t in PRICE_KINDS), cell_kind)
                 if col in dates:
@@ -316,34 +358,50 @@ class CellBadges:
                         late = parsed is not None and parsed < date.today() and kind not in ('done','cancel')
                         soon = (parsed is not None and parsed >= date.today() and kind not in ('done','cancel')
                                 and bool(tags & {'v770_deadline_attention', 'status_soon', 'soon'}))
-                    if not late and not soon:
-                        continue
-                    cell_kind = 'wait' if soon else 'late'
-                    if col.casefold() == 'kdy' and 'over' not in tags:
+                    if late or soon:
+                        cell_kind = 'wait' if soon else 'late'
+                    if cell_kind and col.casefold() == 'kdy' and 'over' not in tags:
                         cell_kind = 'wait'
-                box = tree.bbox(iid, col)
-                if not box:
+                if not cell_kind and not spans:
                     continue
-                x,y,w,h = box
-                left, right = max(1,x+1), min(tree.winfo_width()-1,x+w-1)
-                if right-left < 8 or y < 0:
-                    continue
-                bg, fg = colors[cell_kind]
                 c = self.canvas(index)
                 c.delete('all')
-                c.configure(background=p['select'] if iid in selected else p['card'])
+                c.configure(background=p['select'] if iid in selected else row_style.get('background', p['card']))
                 offset = x-left
                 if col in statuses:
+                    bg, fg = colors[cell_kind]
                     width = min(w-10, self.font.measure(text)+30)
                     c.create_rectangle(offset+5,4,offset+5+width,h-4, fill=bg, outline=bg)
                     c.create_oval(offset+11,h//2-3,offset+17,h//2+3,fill=fg,outline=fg)
-                    c.create_text(offset+23,h//2,text=text,fill=fg,font=self.font,anchor='w')
-                else:
+                    text_x, font = offset+23, self.font
+                elif cell_kind:
+                    bg, fg = colors[cell_kind]
                     c.create_rectangle(offset+3,3,offset+w-4,h-3,fill=bg,outline=bg)
-                    c.create_text(offset+7,h//2,text=text,fill=fg,font=self.bold,anchor='w')
+                    text_x, font = offset+7, self.bold
+                else:
+                    spec = row_style.get('font', body_font)
+                    key = str(spec)
+                    if key not in self.fonts:
+                        self.fonts[key] = tkfont.Font(tree, font=spec)
+                    font = self.fonts[key]
+                    fg = p['selection_fg'] if iid in selected else row_style.get('foreground', p['fg'])
+                    anchor = str(tree.column(col, 'anchor'))
+                    size = font.measure(text)
+                    text_x = offset + (w-5-size if anchor == 'e' else (w-size)/2 if anchor == 'center' else 5)
+                # One full text item keeps kerning, alignment and clipping intact.
+                # Rectangles only decorate the actual matched character ranges.
+                text_height = font.metrics('linespace')
+                for start, end in spans:
+                    a = text_x + font.measure(text[:start])
+                    b = text_x + font.measure(text[:end])
+                    c.create_rectangle(a, max(1,(h-text_height)//2), b, min(h-2,(h+text_height)//2),
+                                       fill=search_color, outline='', tags='search-match')
+                c.create_text(text_x,h//2,text=text,fill=fg,font=font,anchor='w')
                 c.place(x=left,y=y+1,width=right-left,height=h-2)
                 tk.Misc.lift(c)
                 self.rendered.append((iid,col,cell_kind,box))
+                if spans:
+                    self.matches.append((iid, col, tuple(spans)))
                 index += 1
         for canvas in self.canvases[index:]:
             canvas.place_forget()

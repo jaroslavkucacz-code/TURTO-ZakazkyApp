@@ -18,6 +18,52 @@ def normalize(value):
     ) if not unicodedata.combining(c)).split())
 
 
+def match_ranges(text, search_terms):
+    """Map normalized matches back to original glyphs, including combining marks.
+
+    Case folding can expand one character (ß -> ss), while accents and repeated
+    whitespace contract. Never use normalized offsets to slice displayed text.
+    """
+    text = str(text)
+    folded, positions = [], []
+    for index, char in enumerate(text):
+        chars = ''.join(c for c in unicodedata.normalize('NFKD', char.casefold())
+                        if not unicodedata.combining(c))
+        if not chars and positions:
+            positions[-1] = (positions[-1][0], index + 1)
+        for c in chars:
+            if c.isspace():
+                if not folded:
+                    continue
+                if folded[-1] == ' ':
+                    positions[-1] = (positions[-1][0], index + 1)
+                    continue
+                c = ' '
+            folded.append(c)
+            positions.append((index, index + 1))
+    haystack = ''.join(folded).rstrip()
+    matches = []
+    for term in search_terms:
+        term = normalize(term)
+        start = haystack.find(term) if term else -1
+        while start >= 0:
+            matches.append((positions[start][0], positions[start + len(term) - 1][1]))
+            start = haystack.find(term, start + 1)
+    merged = []
+    for start, end in sorted(matches):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(end, merged[-1][1]))
+        else:
+            merged.append((start, end))
+    return merged
+
+
+def attach_tree(tree, bar):
+    """Presentation-only association; SQL remains responsible for paged filtering."""
+    tree._table_search = bar
+    bar.trees.append(tree)
+
+
 def searchable_text(*values):
     parts = [str(v) for v in values if v is not None]
     for value in values:
@@ -70,19 +116,21 @@ class SearchBar(ttk.Frame):
         super().__init__(parent, style="Panel.TFrame", padding=(8, 6))
         self.callback, self.clear_extra = callback, clear_extra
         self.confirmed = []
+        self.trees = []
         self._terms = []
         self.draft = tk.StringVar(self)
         self._after = self._layout_after = None
         self._changing = False
         self.columnconfigure(1, weight=1)
-        ttk.Label(self, text="Hledat v tabulce", style="FilterLabel.TLabel").grid(row=0, column=0, padx=(0, 8))
+        self.title = ttk.Label(self, text="Hledat v tabulce", style="FilterLabel.TLabel")
+        self.title.grid(row=0, column=0, padx=(0, 8))
         self.entry = ttk.Entry(self, textvariable=self.draft, takefocus=True)
         self.entry._turto_search_input = True
         self.entry.grid(row=0, column=1, sticky="ew")
         self.clear_button = ttk.Button(self, text="Zrušit filtrování", command=self.clear, takefocus=False)
         self.clear_button.grid(row=0, column=2, padx=(8, 0))
-        ttk.Label(self, text="Pište pro filtrování · Enter přidá podmínku · × podmínku odebere",
-                  style="PageSubtitle.TLabel").grid(row=1, column=0, columnspan=3, sticky="w", pady=(3, 0))
+        self.hint = ttk.Label(self, style="PanelMuted.TLabel")
+        self.hint.grid(row=1, column=0, columnspan=3, sticky="w", pady=(3, 0))
         self.chips = ttk.Frame(self, style="Panel.TFrame")
         self.chips.grid(row=2, column=0, columnspan=3, sticky="ew")
         self.buttons = []
@@ -146,11 +194,23 @@ class SearchBar(ttk.Frame):
 
     def update_state(self):
         self.clear_button.state(["!disabled"] if self.terms or self.clear_extra else ["disabled"])
+        active = bool(self.terms)
+        self.configure(style="ActiveSearch.TFrame" if active else "Panel.TFrame")
+        self.chips.configure(style="ActiveSearch.TFrame" if active else "Panel.TFrame")
+        self.title.configure(style="ActiveSearch.TLabel" if active else "FilterLabel.TLabel")
+        self.hint.configure(
+            style="ActiveSearch.TLabel" if active else "PanelMuted.TLabel",
+            text=(f"Filtrování aktivní · Podmínky: {len(self.terms)} · Enter přidá další · × podmínku odebere"
+                  if active else "Pište pro filtrování · Enter přidá podmínku · × podmínku odebere"))
+        for tree in self.trees:
+            decorator = getattr(tree, '_turto_cells_820', None)
+            if decorator and tree.winfo_exists():
+                decorator.schedule()
 
     def render_chips(self):
         for button in self.buttons:
             button.destroy()
-        self.buttons = [ttk.Button(self.chips, text=value + "  ×", takefocus=False,
+        self.buttons = [ttk.Button(self.chips, text=value + "  ×", takefocus=False, style="SearchChip.TButton",
                                   command=lambda i=i: self.remove(i))
                         for i, value in enumerate(self.confirmed)]
         self.queue_layout()
@@ -214,5 +274,5 @@ def install_main_search(owner, tree, frame, key, refresh):
     # Keep old variables for shortcuts/compatibility, but their controls are no
     # longer mapped or in the keyboard focus path.
     bar = replace_filters(frame, owner, key, lambda: getattr(owner, refresh)())
-    tree._table_search = bar
+    attach_tree(tree, bar)
     return bar

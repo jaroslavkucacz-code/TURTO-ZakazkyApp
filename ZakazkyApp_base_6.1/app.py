@@ -2820,7 +2820,7 @@ class UserNotesDialog(tk.Toplevel):
             show='headings',
             selectmode='browse',
          name='layout__app__usernotesdialog____init____self_tree')
-        self.tree._table_search=notes_search
+        table_search.attach_tree(self.tree,notes_search)
         self.tree.heading('Vytvořeno',text='Vytvořeno')
         self.tree.heading('Poznámka',text='Poznámka')
         self.tree.column('Vytvořeno',width=145,minwidth=125,stretch=False,anchor='w')

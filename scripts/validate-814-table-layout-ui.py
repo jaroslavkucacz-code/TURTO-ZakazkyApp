@@ -24,7 +24,8 @@ def assert_aligned(tree, context):
     assert tree.winfo_ismapped(), context
     rows = tree.get_children('')
     assert rows, (context, 'missing fixture row')
-    row = rows[0]
+    # The first data row may be outside the viewport after vertical scrolling.
+    row = tree.identify_row(getattr(tree, '_v760_body_top', 0) + 1) or rows[0]
     expected = []
     for column in _displayed_columns(tree)[:-1]:
         box = tree.bbox(row, column)
