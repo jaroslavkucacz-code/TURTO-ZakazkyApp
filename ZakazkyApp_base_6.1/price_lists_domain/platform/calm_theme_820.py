@@ -59,7 +59,7 @@ def status_kind(value):
         return 'done'
     if any(word in value for word in ('připraven', 'obdržen', 'přijat', 'platn', 'v pořádku')):
         return 'ready'
-    if any(word in value for word in ('ček', 'kontrol', 'končí', 'návrh', 'dnes', 'nepřiřazen', 'nezařazen')):
+    if any(word in value for word in ('ček', 'kontrol', 'končí', 'návrh', 'dnes', 'brzy', 'nepřiřazen', 'nezařazen')):
         return 'wait'
     return 'active'
 
@@ -305,6 +305,7 @@ class CellBadges:
                         except ValueError:
                             pass
                     tags = set(tree.item(iid, 'tags'))
+                    soon = False
                     if col.casefold() == 'poptáno':
                         late = bool(tags & {'deadline_urgent', 'req_overdue_bold'})
                     elif col.casefold() == 'kdy':
@@ -313,9 +314,11 @@ class CellBadges:
                         late = bool(tags & {'over', 'today', 'soon'})
                     else:
                         late = parsed is not None and parsed < date.today() and kind not in ('done','cancel')
-                    if not late:
+                        soon = (parsed is not None and parsed >= date.today() and kind not in ('done','cancel')
+                                and bool(tags & {'v770_deadline_attention', 'status_soon', 'soon'}))
+                    if not late and not soon:
                         continue
-                    cell_kind = 'late'
+                    cell_kind = 'wait' if soon else 'late'
                     if col.casefold() == 'kdy' and 'over' not in tags:
                         cell_kind = 'wait'
                 box = tree.bbox(iid, col)

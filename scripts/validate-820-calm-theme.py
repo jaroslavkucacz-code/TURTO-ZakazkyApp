@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import time
+from datetime import date, timedelta
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / 'ZakazkyApp_base_6.1'))
@@ -92,12 +93,15 @@ def run(td):
             t.column(col,width=180,stretch=False)
         for i in range(2000):
             t.insert('','end',iid=str(i),values=('Hotovo' if i==1 else 'Rozpracováno','01.01.2020','Záznam '+str(i)),tags=('status_active',))
+        t.set('2', 'Deadline', (date.today()+timedelta(days=1)).isoformat())
+        t.item('2', tags=('status_active','v770_deadline_attention'))
         settle(root)
         install_tree(t)
         settle(root)
         d = t._turto_cells_820
         assert len(d.canvases) < 100, len(d.canvases)
         assert not any(i=='1' and c=='Deadline' for i,c,_,_ in d.rendered), d.rendered
+        assert ('2','Deadline','wait') in [r[:3] for r in d.rendered], d.rendered
         original = tuple(t.item('0','values'))
         double, context = [], []
         t.bind('<Double-Button-1>',lambda e: double.append(t.identify_row(e.y)))
