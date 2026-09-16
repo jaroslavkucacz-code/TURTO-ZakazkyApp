@@ -1317,6 +1317,7 @@ def build_price_lists(M, app) -> None:
     notebook.bind("<<NotebookTabChanged>>", lambda _event: refresh_price_lists(M, app), add="+")
     search.replace_filters(search_frame, app, "prices", schedule_current, keep_columns=(1, 2),
                            clear_extra=lambda: _clear_current_filters(M, app))
+    search.attach_tree(app.price_current_tree, app._table_searches["prices"])
     for widget in app.price_primary_filters.winfo_children():
         info = widget.grid_info()
         if info and int(info.get("column", -1)) not in (3, 4):
@@ -1325,6 +1326,7 @@ def build_price_lists(M, app) -> None:
     app.price_advanced_frame.pack_forget()
     search.replace_filters(evidence_filters, app, "price_evidence", schedule_evidence,
                            clear_extra=lambda: _clear_evidence_filters(M, app))
+    search.attach_tree(app.price_list_evidence_tree, app._table_searches["price_evidence"])
     app._commercial_price_ui_ready = True
     refresh_price_lists(M, app)
 
@@ -2069,6 +2071,7 @@ def build_offers(M, app):
     widths = (95, 185, 135, 110, 245, 220, 70, 210, 115, 60, 85, 100)
     anchors = {"Položek": "e", "Hodnota": "e"}
     app.offer_tree = _make_tree(M, app, table_side, columns, widths, anchors)
+    search.attach_tree(app.offer_tree, app._table_searches["offers"])
     _configure_tags(app.offer_tree, _OFFER_TAGS)
     app.offer_column_profiles = {
         "Přehled": ("Datum", "Dodavatel", "Číslo nabídky", "Akce", "Položek", "Hodnota", "Měna", "Typ", "Stav"),

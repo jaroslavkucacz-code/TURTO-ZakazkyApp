@@ -923,6 +923,7 @@ def apply(M) -> None:
             self.query.trace_add("write", lambda *_: self.refresh())
             from price_lists_domain.platform import universal_search
             self.search_bar = universal_search.replace_filters(search, self, "picker", self.refresh)
+            universal_search.attach_tree(self.tree, self.search_bar)
             self.load_structure()
             self.structure.selection_set("all")
             self.refresh()
