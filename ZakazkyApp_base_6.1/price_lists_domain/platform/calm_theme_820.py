@@ -170,6 +170,15 @@ def recolor_tree(tree):
 class CellBadges:
     def __init__(self, tree):
         self.tree, self.pending, self.canvases = tree, None, []
+        self.last_click = None
+        self.double_time, self.double_distance = 500, (4, 4)
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            self.double_time = user32.GetDoubleClickTime()
+            self.double_distance = (user32.GetSystemMetrics(36), user32.GetSystemMetrics(37))
+        except AttributeError:
+            pass
         self.font = tkfont.Font(tree, family='Calibri', size=10)
         self.bold = tkfont.Font(tree, family='Calibri', size=10, weight='bold')
         self.rendered = []
@@ -225,6 +234,23 @@ class CellBadges:
                        state=event.state, time=event.time)
         if sequence == '<MouseWheel>':
             options['delta'] = event.delta
+        if sequence == '<ButtonPress-1>':
+            previous = self.last_click
+            self.last_click = (event.time, options['x'], options['y'])
+            if (previous is not None and 0 <= event.time-previous[0] <= self.double_time
+                    and abs(options['x']-previous[1]) <= self.double_distance[0]
+                    and abs(options['y']-previous[2]) <= self.double_distance[1]):
+                self.last_click = None
+                # Tk's native double-click matcher sees the child canvas and
+                # forwarded tree events as different targets. Replay the real
+                # tree's double-click bindings as one virtual event, preserving
+                # bindtag order, event coordinates and each handler's break.
+                scripts = [str(tree.tk.call('bind', tag, '<Double-Button-1>'))
+                           for tag in tree.bindtags()]
+                tree.bind('<<TurtoCellDoubleClick>>', '\n'.join(scripts))
+                tree.event_generate('<<TurtoCellDoubleClick>>', **options)
+                self.schedule()
+                return 'break'
         tree.event_generate(sequence, **options)
         self.schedule()
         return 'break'
