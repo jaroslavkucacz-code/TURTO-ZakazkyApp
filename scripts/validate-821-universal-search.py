@@ -16,6 +16,7 @@ from price_lists_domain.platform import universal_search as search
 def source_checks():
     assert search.normalize(' ŽLUŤOUČKÁ  ŘEČ ') == 'zlutoucka rec'
     assert '16.09.2026' in search.searchable_text('2026-09-16')
+    assert '1 200,00' in search.searchable_text(1200.0)
     con = sqlite3.connect(':memory:')
     search.register_sql(con)
     con.execute('CREATE TABLE rows(name,company)')
@@ -100,7 +101,7 @@ def run(td):
                     (str(i), label, 'Maker')).lastrowid
                 if target:
                     target_offer, target_issued, target_product = 'o'+str(oid), 'bo'+str(bid), cp
-            pl = con.execute("INSERT INTO price_lists(title,supplier_name,valid_from,parse_status) VALUES('821 Žluťoučká ALPHA','Supplier','2000-01-01','OK')").lastrowid
+            pl = con.execute("INSERT INTO price_lists(title,supplier_name,valid_from,parse_status) VALUES('821 Ceník','Supplier','2000-01-01','OK')").lastrowid
             for i in range(301):
                 label = 'ZZZ 821 Žluťoučká ALPHA' if i == 0 else 'AAA filler '+str(i)
                 item = con.execute('INSERT INTO price_list_items(price_list_id,product_code,name,normalized_unit_price,source_price,currency,unit) VALUES(?,?,?,?,?,?,?)',
@@ -158,8 +159,8 @@ def run(td):
         root.price_notebook.select(1)
         settle(root)
         bar = root._table_searches['price_evidence']
-        type_term(bar, 'zlutoucka', True)
-        type_term(bar, 'alpha')
+        type_term(bar, 'cenik', True)
+        type_term(bar, '821')
         assert 'pl'+str(pl) in root.price_list_evidence_tree.get_children()
         bar.clear()
 
@@ -214,5 +215,5 @@ def run(td):
 if __name__ == '__main__':
     source_checks()
     if '--source-only' not in sys.argv:
-        with tempfile.TemporaryDirectory(prefix='turto-821-') as td:
+        with tempfile.TemporaryDirectory(prefix='turto-821-', ignore_cleanup_errors=True) as td:
             run(td)

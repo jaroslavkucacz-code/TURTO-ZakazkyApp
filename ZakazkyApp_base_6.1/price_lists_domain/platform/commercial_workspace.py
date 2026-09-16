@@ -107,6 +107,14 @@ def _validity_text(M, valid_from, valid_to, today=None) -> str:
     return "bez omezení"
 
 
+def _register_price_search(M, con):
+    from ..storage import _list_status
+    search.register_sql(con)
+    con.create_function("turto_price_validity", 2, lambda starts, ends: _validity_text(M, starts, ends))
+    con.create_function("turto_price_status", 4, lambda archived, starts, ends, status: _list_status(
+        {"archived": archived, "valid_from": starts, "valid_to": ends, "parse_status": status}))
+
+
 def _price_status(row, today=None) -> str:
     today = today or date.today()
     if int(row["archived"] or 0):
@@ -1444,6 +1452,8 @@ def _refresh_current(M, app, allow_fts_retry=True):
         "description", "category", "subgroup", "normalized_unit_price", "source_price", "currency",
         "margin_pct", "sales_discount_pct", "unit", "dimensions", "condition_text", "title", "product_group",
         "valid_from", "valid_to", "package_qty", "package_unit", "pallet_qty", "minimum_qty", "weight_unit",
+        "turto_price_validity(valid_from,valid_to)",
+        "normalized_unit_price*(1+margin_pct/100.0)*(1-sales_discount_pct/100.0)",
     ])
     search_sql = " AND ".join(search_where) or "1=1"
     sql = f"""
@@ -1485,7 +1495,7 @@ def _refresh_current(M, app, allow_fts_retry=True):
     """
     try:
         with M.db() as con:
-            search.register_sql(con)
+            _register_price_search(M, con)
             rows = con.execute(sql, params + search_params + [page_size, offset]).fetchall()
     except M.sqlite3.OperationalError:
         if use_fts and allow_fts_retry:
@@ -1622,6 +1632,9 @@ def _refresh_evidence(M, app):
     search.add_sql_terms(where, params, search.terms(app, "price_evidence"), [
         supplier_expr, "p.title", "p.valid_from", "p.valid_to", "p.product_group", "p.branch", "p.source_filename",
         "p.parse_status", "p.note", "p.terms_text", "p.imported_at", "p.update_mode",
+        "turto_price_status(p.archived,p.valid_from,p.valid_to,p.parse_status)",
+        "turto_price_validity(p.valid_from,p.valid_to)",
+        "(SELECT COUNT(*) FROM price_list_items ix WHERE ix.price_list_id=p.id AND ix.active=1)",
         "(SELECT name FROM product_categories WHERE id=p.category_id)",
         "(SELECT group_concat(pc.name,' ') FROM price_list_items ix LEFT JOIN catalog_products cp ON cp.id=ix.catalog_product_id LEFT JOIN product_categories pc ON pc.id=coalesce(cp.category_id,ix.category_id) WHERE ix.price_list_id=p.id AND ix.active=1)",
     ])
@@ -1632,7 +1645,7 @@ def _refresh_evidence(M, app):
         LEFT JOIN product_categories cat ON cat.id=p.category_id
     """
     with M.db() as con:
-        search.register_sql(con)
+        _register_price_search(M, con)
         total = int(con.execute(
             f"SELECT COUNT(*) FROM price_lists p LEFT JOIN companies c ON c.id=p.supplier_company_id WHERE {where_sql}",
             params,

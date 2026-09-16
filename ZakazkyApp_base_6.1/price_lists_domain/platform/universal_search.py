@@ -6,6 +6,7 @@ No database content, table values, sorting or persisted layouts are rewritten.
 from __future__ import annotations
 
 import re
+import math
 import unicodedata
 import tkinter as tk
 from tkinter import ttk
@@ -18,7 +19,12 @@ def normalize(value):
 
 
 def searchable_text(*values):
-    text = " | ".join(str(v) for v in values if v is not None)
+    parts = [str(v) for v in values if v is not None]
+    for value in values:
+        if isinstance(value, (int, float)) and math.isfinite(value):
+            whole, fraction = f"{value:,.4f}".split(".")
+            parts.append(whole.replace(",", " ") + "," + fraction.rstrip("0").ljust(2, "0"))
+    text = " | ".join(parts)
     # Search dates in the Czech form displayed in the UI as well as ISO storage.
     dates = re.findall(r"\b(\d{4})-(\d{2})-(\d{2})\b", text)
     text += " " + " ".join(f"{d}.{m}.{y}" for y, m, d in dates)
@@ -64,6 +70,7 @@ class SearchBar(ttk.Frame):
         super().__init__(parent, style="Panel.TFrame", padding=(8, 6))
         self.callback, self.clear_extra = callback, clear_extra
         self.confirmed = []
+        self._terms = []
         self.draft = tk.StringVar(self)
         self._after = self._layout_after = None
         self._changing = False
@@ -88,11 +95,12 @@ class SearchBar(ttk.Frame):
 
     @property
     def terms(self):
-        return [normalize(s) for s in (*self.confirmed, self.draft.get()) if normalize(s)]
+        return self._terms
 
     def changed(self, *_):
         if self._changing:
             return
+        self._terms = [normalize(s) for s in (*self.confirmed, self.draft.get()) if normalize(s)]
         self.update_state()
         if self._after is not None:
             self.after_cancel(self._after)

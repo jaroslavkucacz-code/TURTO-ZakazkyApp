@@ -124,23 +124,17 @@ def main():
         try:wf.ensure_current_pdf(M,did)
         except ValueError as exc:assert 'kopii' in str(exc)
         else:raise AssertionError('Unsafe locked archive was reused')
-        # Visible real filters must accommodate their actual label/entry heights.
+        # The universal field stays fully visible above each table.
         count=0
         for key in ('requests','actions','mivo','offers'):
             root.show_page(key);pump(.45)
-            for widget in walk(root):
-                if not isinstance(widget,M.ttk.Treeview) or not widget.winfo_ismapped():continue
-                frame=getattr(widget,'_filter_frame',None)
-                if frame is None or not frame.winfo_ismapped():continue
-                assert frame.winfo_height()>=50,(key,frame.winfo_height())
-                for cell in getattr(widget,'_filter_cells',[]):
-                    if not cell.winfo_ismapped():continue
-                    count+=1
-                    for entry in walk(cell):
-                        if entry.winfo_class() not in ('TEntry','TCombobox','Entry'):continue
-                        if entry.winfo_ismapped():
-                            assert entry.winfo_height()>=entry.winfo_reqheight()-2,(key,entry.winfo_height(),entry.winfo_reqheight())
-        assert count>=5,count
+            bar=root._table_searches[key]
+            assert bar.winfo_ismapped(),key
+            assert bar.entry.winfo_height()>=bar.entry.winfo_reqheight()-2,key
+            assert bar.entry.winfo_width()>=180,(key,bar.entry.winfo_width())
+            assert bar.clear_button.winfo_ismapped(),key
+            count+=1
+        assert count==4,count
         # Normal form can maximize; the late centering callbacks must preserve it.
         dialog=M.tk.Toplevel(root);dialog.title('QA dialog 792');dialog.transient(root)
         M.enable_dialog_maximize(dialog,900,600);pump(.4)

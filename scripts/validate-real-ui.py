@@ -493,25 +493,18 @@ def main() -> None:
         assert int(request_tree._turto_design_widths[width_column]) == 347
         assert int(request_tree.column(width_column, "width")) == 347
 
-        # Filter cells must follow displaycolumns and hidden columns.
-        filter_map = dict(zip(
-            getattr(request_tree, "_filter_cell_columns", ()),
-            getattr(request_tree, "_filter_cells", ()),
-        ))
-        candidates = [column for column in request_tree["columns"] if column in filter_map]
-        assert len(candidates) >= 3, candidates
-        first, hidden, second = candidates[:3]
-        request_tree.configure(displaycolumns=(second, first))
-        request_tree._sync_filter_bar()
+        # Universal search is independent of hidden/reordered columns.
+        search_bar = root._table_searches["requests"]
+        assert search_bar.entry.winfo_ismapped()
+        width = search_bar.entry.winfo_width()
+        request_tree.configure(displaycolumns=("Akce", "Stav"))
         root.update()
-        assert not filter_map[hidden].place_info(), hidden
-        assert int(filter_map[second].place_info()["x"]) < int(
-            filter_map[first].place_info()["x"]
-        )
+        assert search_bar.entry.winfo_ismapped()
+        assert abs(search_bar.entry.winfo_width() - width) <= 2
+        assert not getattr(request_tree, "_filter_cells", ())
         request_tree.configure(displaycolumns="#all")
-        request_tree._sync_filter_bar()
         root.update()
-        assert filter_map[hidden].place_info(), hidden
+        assert search_bar.entry.winfo_ismapped()
 
         # Open the real visual issued-offer editor without saving. Its canvas is
         # rendered by the production PDF renderer and therefore must not reserve
