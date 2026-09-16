@@ -14,9 +14,9 @@ import v770_runtime_policy as policy
 
 def geometry_checks():
     # Independent examples include displays left of and above the primary one.
-    assert policy._dialog_geometry((100, 100, 1000, 700), (0, 0, 1920, 1040)) == (900, 630, 150, 135)
-    assert policy._dialog_geometry((-1800, 100, 1200, 800), (-1920, 0, 0, 1040)) == (1080, 720, -1740, 140)
-    assert policy._dialog_geometry((100, -1000, 1000, 800), (0, -1080, 1920, 0)) == (900, 720, 150, -960)
+    assert policy._dialog_geometry((100, 100, 1000, 700), (0, 0, 1920, 1040)) == (900, 630, 142, 115)
+    assert policy._dialog_geometry((-1800, 100, 1200, 800), (-1920, 0, 0, 1040)) == (1080, 720, -1748, 120)
+    assert policy._dialog_geometry((100, -1000, 1000, 800), (0, -1080, 1920, 0)) == (900, 720, 142, -980)
     for owner, area in [((20, 20, 2560, 1440), (0, 0, 1280, 720)),
                         ((-2300, -200, 2500, 1600), (-1920, 0, 0, 1040)),
                         ((0, 0, 500, 300), (0, 0, 640, 480))]:
@@ -65,7 +65,7 @@ def run(td):
         area = tuple(win32api.GetMonitorInfo(monitor)['Work'])
         assert policy._workarea_for_window(root) == area
         owner = (root.winfo_rootx(), root.winfo_rooty(), root.winfo_width(), root.winfo_height())
-        expected = policy._dialog_geometry(owner, area)
+        expected = policy._dialog_geometry(owner, area, frame_size=policy._dialog_frame_size(win))
         actual = (win.winfo_width(), win.winfo_height())
         assert all(abs(a-b) <= 2 for a, b in zip(actual, expected[:2])), (label, actual, expected, win.geometry())
         rect = win32gui.GetWindowRect(win32gui.GetAncestor(win.winfo_id(), 2))

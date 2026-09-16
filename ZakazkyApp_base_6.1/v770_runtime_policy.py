@@ -611,17 +611,38 @@ def _workarea_for_point(win: Any, x: int, y: int) -> tuple[int, int, int, int]:
     return _workarea_for_window(win)
 
 
-def _dialog_geometry(owner_rect, workarea, compact_size=None):
+def _dialog_frame_size(win):
+    """Read native decorations in the same coordinate space as Tk geometry."""
+    if sys.platform.startswith('win'):
+        try:
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.WinDLL('user32', use_last_error=True)
+            user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
+            user32.GetAncestor.restype = wintypes.HWND
+            user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+            user32.GetWindowRect.restype = wintypes.BOOL
+            rect = wintypes.RECT()
+            if user32.GetWindowRect(user32.GetAncestor(win.winfo_id(), 2), ctypes.byref(rect)):
+                return (max(0, rect.right-rect.left-win.winfo_width()),
+                        max(0, rect.bottom-rect.top-win.winfo_height()))
+        except Exception:
+            pass
+    return 16, 40
+
+
+def _dialog_geometry(owner_rect, workarea, compact_size=None, frame_size=(16, 40)):
     """Client size at 90% of the main window, bounded by its monitor work area."""
     px, py, pw, ph = owner_rect
     left, top, right, bottom = workarea
     # Leave room for the native border/title bar and the Windows taskbar.
-    limit_w, limit_h = max(1, right-left-32), max(1, bottom-top-64)
+    frame_w, frame_h = frame_size
+    limit_w, limit_h = max(1, right-left-frame_w-20), max(1, bottom-top-frame_h-20)
     requested = compact_size or (round(pw * .90), round(ph * .90))
     width = min(max(320, requested[0]), limit_w)
     height = min(max(220, requested[1]), limit_h)
-    x = min(max(left+10, px+(pw-width)//2), right-width-10)
-    y = min(max(top+10, py+(ph-height)//2), bottom-height-44)
+    x = min(max(left+10, px+(pw-width-frame_w)//2), right-width-frame_w-10)
+    y = min(max(top+10, py+(ph-height-frame_h)//2), bottom-height-frame_h-10)
     return int(width), int(height), int(x), int(y)
 
 
@@ -650,7 +671,7 @@ def _place_dialog(win: Any, parent: Any = None, preferred: tuple[int, int] | Non
             pref = preferred or getattr(win, '_v770_preferred_size', None) or (0, 0)
             compact_size = (max(win.winfo_reqwidth(), win.winfo_width(), pref[0]),
                             max(win.winfo_reqheight(), win.winfo_height(), pref[1]))
-        width, height, x, y = _dialog_geometry(owner_rect, workarea, compact_size)
+        width, height, x, y = _dialog_geometry(owner_rect, workarea, compact_size, _dialog_frame_size(win))
         min_w, min_h = win.minsize()
         win.minsize(min(min_w, width), min(min_h, height))
         win.geometry(f"{width}x{height}+{x}+{y}")
