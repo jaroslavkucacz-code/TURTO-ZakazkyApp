@@ -3,7 +3,7 @@ name: Validate TURTO CRM 8.0 Windows installer
 on:
   workflow_dispatch:
   push:
-    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress, feature/8.0.13-remove-quick-actions, fix/8.0.14-table-initial-layout, feature/8.0.15-persistent-table-layouts, fix/8.0.16-autocomplete-focus, feature/8.0.17-form-navigation-unsaved, feature/8.0.18-large-dialogs, fix/8.0.19-dialog-first-show]
+    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress, feature/8.0.13-remove-quick-actions, fix/8.0.14-table-initial-layout, feature/8.0.15-persistent-table-layouts, fix/8.0.16-autocomplete-focus, feature/8.0.17-form-navigation-unsaved, feature/8.0.18-large-dialogs, fix/8.0.19-dialog-first-show, feature/8.0.20-calm-theme]
   pull_request:
     paths:
       - ZakazkyApp_base_6.1/updater_safety.py
@@ -11,6 +11,8 @@ on:
       - ZakazkyApp_base_6.1/price_lists_domain/platform/automatic_updates.py
       - scripts/validate-auto-update.py
       - scripts/validate-812-update*.py
+      - scripts/validate-820-calm-theme.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/calm_theme_820.py
       - scripts/validate-819-dialog-first-show.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/dialog_presentation_819.py
       - scripts/validate-818-dialog-size.py
@@ -93,6 +95,8 @@ jobs:
           python scripts/validate-812-update-progress.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-812-update-ui.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/validate-820-calm-theme.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-819-dialog-first-show.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

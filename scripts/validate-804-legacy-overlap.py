@@ -22,8 +22,8 @@ def main() -> None:
     assert "CREATE TABLE IF NOT EXISTS recipient_usage" in v608
 
     v628 = (base / "v628_modernui_resize.py").read_text(encoding="utf-8")
-    assert "tree.tag_configure('status_late', font=('Calibri',10,'bold'))" in v628
-    assert "single owner of both status_late colors and its font" in v628
+    assert "from price_lists_domain.platform.calm_theme_820 import recolor_tree, walk" in v628
+    assert "def modernize_tree" not in v628
 
     v632 = (base / "v632_offerlinks.py").read_text(encoding="utf-8")
     assert "for name in ('refresh_requests','refresh_all'):" in v632

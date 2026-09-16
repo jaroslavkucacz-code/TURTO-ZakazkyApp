@@ -515,6 +515,8 @@ def apply(M: Any) -> None:
         if theme is not None and str(theme).strip() not in SUPPORTED_THEMES:
             theme = "Světlý"
         result = old_apply_theme(self, theme, save)
+        from .calm_theme_820 import configure_theme
+        configure_theme(self)
         _configure_muted_styles(self)
         return result
 

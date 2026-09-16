@@ -248,81 +248,13 @@ def apply(M):
         refresh_selection()
 
     # ------------------------------------------------------------------
-    # 4) STRONGER MODERN STATUS PALETTE
+    # 4) Shared 8.0.20 palette; historical full-row status fills are retired.
     # ------------------------------------------------------------------
-    DARK = {
-        'status_active': ('#244E73', '#F4FAFF'),
-        'status_offer':  ('#176A63', '#F1FFFC'),
-        'status_wait':   ('#7A5A12', '#FFF5CF'),
-        'status_done':   ('#2D6A48', '#F2FFF7'),
-        'status_cancel': ('#753743', '#FFF3F5'),
-        'status_late':   ('#8A3434', '#FFF3F3'),
-        'status_soon':   ('#7A5A12', '#FFF5CF'),
-        'req_fresh':     ('#7A5A12', '#FFF5CF'),
-        'req_received':  ('#176A63', '#F1FFFC'),
-    }
-    LIGHT = {
-        'status_active': ('#CFE7FA', '#173A55'),
-        'status_offer':  ('#CBEDE7', '#124D48'),
-        'status_wait':   ('#F9E4A4', '#5B420C'),
-        'status_done':   ('#CDE9D8', '#1E4F35'),
-        'status_cancel': ('#F0C9D0', '#66303A'),
-        'status_late':   ('#F3C1C1', '#6D2C2C'),
-        'status_soon':   ('#F9E4A4', '#5B420C'),
-        'req_fresh':     ('#F9E4A4', '#5B420C'),
-        'req_received':  ('#CBEDE7', '#124D48'),
-    }
-
-    def is_dark(app):
-        try:
-            return 'tmav' in str(app.theme.get() or '').casefold()
-        except Exception:
-            return True
-
-    def modernize_tree(tree, palette, dark):
-        try:
-            if not isinstance(tree, M.ttk.Treeview):
-                return
-            for tag, (bg, fg) in palette.items():
-                try:
-                    tree.tag_configure(tag, background=bg, foreground=fg)
-                except Exception:
-                    pass
-            # v605 historically made late rows bold. The final v628 palette is
-            # now the single owner of both status_late colors and its font, so
-            # no extra theme wrapper/callback is needed in the legacy layer.
-            try:
-                tree.tag_configure('status_late', font=('Calibri',10,'bold'))
-            except Exception:
-                pass
-            try:
-                style_name = str(tree.cget('style') or 'Treeview')
-                style = M.ttk.Style(tree)
-                style.configure(style_name, rowheight=30)
-                if dark:
-                    style.map(style_name,
-                              background=[('selected', '#2F6F9F')],
-                              foreground=[('selected', '#FFFFFF')])
-                else:
-                    style.map(style_name,
-                              background=[('selected', '#A9D2F0')],
-                              foreground=[('selected', '#102C42')])
-            except Exception:
-                pass
-        except Exception:
-            pass
-
     def apply_modern_palette(app):
-        dark = is_dark(app)
-        palette = DARK if dark else LIGHT
-        def walk(widget):
-            try:
-                modernize_tree(widget, palette, dark)
-                for child in widget.winfo_children():
-                    walk(child)
-            except Exception:
-                pass
-        walk(app)
+        from price_lists_domain.platform.calm_theme_820 import recolor_tree, walk
+        for widget in walk(app):
+            if isinstance(widget, M.ttk.Treeview):
+                recolor_tree(widget)
 
     # Treeview tag/style configuration persists across data refreshes. Repaint
     # only on a real theme change; the old refresh wrappers caused a full-window
@@ -362,7 +294,7 @@ def apply(M):
                 def walk(widget):
                     if isinstance(widget, tk.Text):
                         widget.configure(state='normal')
-                        widget.insert('end', '\n\nBAREVNOST 6.0.29\nStavove barvy maji vyssi kontrast a Poptavky jsou zahrnuty stejnym systemem. Cekajici poptavky pouzivaji jantarovy akcent, prijata odpoved tyrkysovy a archiv/zruseno vinovy. Optimalizace resize hlavniho okna zustava zachovana.')
+                        widget.insert('end', '\n\nBAREVNOST\nTabulky používají světlý nebo tmavý neutrální podklad. Stavové štítky rozlišují rozpracované, připravené, dokončené a čekající položky. Termíny vyžadující pozornost mají vlastní zvýraznění. Hlavní tlačítka používají červenou TURTO.')
                         widget.configure(state='disabled')
                     for child in widget.winfo_children():
                         walk(child)

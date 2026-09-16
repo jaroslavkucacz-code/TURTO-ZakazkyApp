@@ -198,7 +198,7 @@ def main() -> None:
         assert obsolete not in source, obsolete
 
     v628 = v628_path.read_text(encoding="utf-8")
-    assert "#CFE7FA" in v628 and "#173A55" in v628
+    assert "from price_lists_domain.platform.calm_theme_820 import recolor_tree, walk" in v628
     assert "apply_theme_modern" in v628
     for method_name in (
         "refresh_dash", "refresh_actions", "refresh_requests",
