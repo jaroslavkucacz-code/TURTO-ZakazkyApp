@@ -929,7 +929,7 @@ def list_actions(M) -> list[tuple[int, str, int | None]]:
     return [(int(row[0]), str(row[1] or ""), int(row[2]) if row[2] is not None else None) for row in rows]
 
 
-def catalog_products(M, query: str = "", limit: int = 500) -> list[dict[str, Any]]:
+def catalog_products(M, query: str = "", limit: int = 500, search_terms=()) -> list[dict[str, Any]]:
     today = date.today().isoformat()
     q = str(query or "").strip().casefold()
     where = ["cp.active=1"]
@@ -941,8 +941,14 @@ def catalog_products(M, query: str = "", limit: int = 500) -> list[dict[str, Any
             "coalesce(src.source_name,'')) LIKE ?"
         )
         where_params.append("%" + q + "%")
+    from ..platform import universal_search as search
+    search.add_sql_terms(where, where_params, search_terms, [
+        "cp.internal_code", "cp.internal_name", "cp.manufacturer_name", "src.supplier_product_code",
+        "src.source_name", "coalesce(cat.name,'Nezařazeno')", "coalesce(sg.name,'Bez podskupiny')",
+    ])
     params: list[Any] = [today, today, today, today, today, today, today] + where_params + [int(limit)]
     with M.db() as con:
+        search.register_sql(con)
         rows = con.execute(
             f"""SELECT cp.id,cp.internal_code,cp.internal_name,cp.manufacturer_name,
                        cp.category_id,cp.subgroup_id,cat.name category,sg.name subgroup,

@@ -175,6 +175,8 @@ def build_db(path: Path):
 
 def main() -> None:
     repo = Path(__file__).resolve().parents[1]
+    import sys
+    sys.path.insert(0, str(repo / "ZakazkyApp_base_6.1"))
     worksets = load_worksets(repo)
     assert worksets.REQUEST_ATTENTION_TAG == "v770_request_attention"
 

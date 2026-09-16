@@ -1,5 +1,6 @@
 """CRM list page for issued offers."""
 from __future__ import annotations
+from ..platform import universal_search as search
 
 import os
 from datetime import date, timedelta
@@ -112,6 +113,12 @@ def build_issued_offers(M, app):
         ["Aktivní", "Všechny", *service.STATUSES, "Končí", "Po platnosti", "Archivováno"],
     ).grid(row=1, column=3, sticky="ew", padx=(0, 5))
     _combobox(M, filters, app.issued_offer_page_size, ["100", "250", "500", "1000"], 8).grid(row=1, column=4, sticky="ew")
+
+    def search_issued():
+        app.issued_offer_page = 0
+        _schedule_refresh(M, app, 0)
+    search.replace_filters(filters, app, "issued_offers", search_issued, keep_columns=(3, 4),
+                           clear_extra=lambda: _clear_filters(M, app))
 
     body = M.ttk.Panedwindow(page, orient="horizontal")
     body.pack(fill="both", expand=True)
@@ -265,12 +272,18 @@ def refresh_issued_offers(M, app):
     elif status != "Všechny":
         where.append("d.archived=0 AND d.status=?")
         params.append(status)
+    search.add_sql_terms(where, params, search.terms(app, "issued_offers"), [
+        "d.document_number", "d.issue_date", "d.valid_to", "coalesce(nullif(d.customer_name_snapshot,''),c.official_name,c.short_name,'')",
+        "p.name", "a.name", "d.offer_subject", "d.customer_reference", "d.status", "d.subtotal_net", "d.total_gross",
+        "d.currency", "d.salesperson_snapshot", "printf('R%02d',coalesce(d.revision_no,0))",
+    ])
     try:
         page_size = max(50, min(1000, int(app.issued_offer_page_size.get() or 250)))
     except Exception:
         page_size = 250
     offset = max(0, int(app.issued_offer_page or 0)) * page_size
     with M.db() as con:
+        search.register_sql(con)
         total = int(con.execute(
             f"""SELECT COUNT(*) FROM business_documents d
                  LEFT JOIN companies c ON c.id=d.company_id
@@ -470,6 +483,7 @@ def _quick_view(M, app, target):
 
 
 def _clear_filters(M, app):
+    search.reset_search(app, "issued_offers")
     app.issued_offer_q.set("")
     app.issued_offer_company.set("")
     app.issued_offer_project.set("")

@@ -351,10 +351,10 @@ def apply(M) -> None:
 
     original_catalog_products = service.catalog_products
 
-    def catalog_products(module, query="", limit=500):
+    def catalog_products(module, query="", limit=500, search_terms=()):
         rows = [
             dict(row)
-            for row in original_catalog_products(module, query, max(1, int(limit)))
+            for row in original_catalog_products(module, query, max(1, int(limit)), **({"search_terms": search_terms} if search_terms else {}))
         ]
         ids = [
             int(row.get("catalog_product_id") or row.get("id"))
@@ -921,6 +921,8 @@ def apply(M) -> None:
             )
             self.tree.bind("<Double-1>", lambda _event: self.finish())
             self.query.trace_add("write", lambda *_: self.refresh())
+            from price_lists_domain.platform import universal_search
+            self.search_bar = universal_search.replace_filters(search, self, "picker", self.refresh)
             self.load_structure()
             self.structure.selection_set("all")
             self.refresh()
@@ -1011,7 +1013,7 @@ def apply(M) -> None:
                 self.tree.delete(iid)
             self.rows.clear()
             for row in service.catalog_products(
-                self.M, self.query.get(), 2000
+                self.M, self.query.get(), 2000, search_terms=self.search_bar.terms
             ):
                 if (
                     self.scope_kind == "category"

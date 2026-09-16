@@ -1,5 +1,6 @@
 """SQL-first refreshes for the fast-changing operational tables."""
 from __future__ import annotations
+from price_lists_domain.platform import universal_search as search
 
 from datetime import date, datetime
 
@@ -175,6 +176,11 @@ def _request_where(M, app, mivo: bool):
     if clause:
         where.append(clause.replace(" AND ", "", 1))
         params.extend(date_params)
+    search.add_sql_terms(where, params, search.terms(app, "mivo" if mivo else "requests"), [
+        "CASE WHEN r.archived THEN 'Archivováno' WHEN r.no_response THEN 'Bez odezvy' WHEN trim(coalesce(r.received_date,''))<>'' THEN 'Obdrženo' ELSE 'Čekám' END",
+        "r.assigned_user", "r.asked_date", "r.received_date", "cf.official_name", "c.official_name",
+        "a.name", "r.item", "r.recipients_snapshot", "r.note",
+    ])
     return where, params
 
 
@@ -185,6 +191,7 @@ def refresh_requests(M, app, mivo: bool = False):
         tree.delete(iid)
     where, params = _request_where(M, app, mivo)
     with M.db() as con:
+        search.register_sql(con)
         rows = con.execute(
             f"""SELECT r.id,r.asked_date,r.received_date,r.item,r.recipients_snapshot,r.assigned_user,
                        r.archived,r.no_response,c.official_name company,c.short_name company_short,

@@ -12,6 +12,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from functools import lru_cache
 from typing import Any
+from price_lists_domain.platform.universal_search import insert_matching
 
 POLICY_OWNER = "price_lists_domain.platform.operational_refresh_804"
 ATTENTION_TAG = "v770_deadline_attention"
@@ -305,7 +306,7 @@ def _refresh_tasks_fast(M: Any, app: Any, schedule_separators: Any = None) -> No
             else:
                 state, tag = "Čeká", "status_active"
 
-        tree.insert(
+        insert_matching(tree,
             "",
             "end",
             iid=f"t{int(row['id'] or 0)}",
