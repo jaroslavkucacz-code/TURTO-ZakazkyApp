@@ -168,6 +168,10 @@ def run(td):
         root.update_idletasks()
         assert not d.matches and not bar.terms and bar.cget('style') == 'Panel.TFrame'
         assert all(not c.find_withtag('search-match') for c in d.canvases if c.winfo_ismapped())
+        # Drain the queued native Configure/focus events and the search callback
+        # before measuring a genuinely idle interval (drag assertions above do
+        # not wait for timers).
+        settle(root, .6)
         count = d.draw_count
         settle(root, .5)
         assert d.draw_count == count, (count, d.draw_count)
