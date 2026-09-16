@@ -90,7 +90,7 @@ def run(td):
         bar.confirm()
         bar.draft.set('zlutoucky')
         root.update_idletasks()
-        assert ('0', 'Název', ((0, 3), (9, 17))) in d.matches, d.matches
+        assert ('0', 'Název', ((0, 3), (9, 18))) in d.matches, d.matches
         assert ('0', 'Společnost', ((0, 4),)) in d.matches
         assert len(d.canvases) < 150, len(d.canvases)
         assert tuple(t.item('0', 'values')) == original
