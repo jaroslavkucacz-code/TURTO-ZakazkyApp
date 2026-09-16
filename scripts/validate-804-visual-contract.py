@@ -25,35 +25,12 @@ if str(BASE) not in sys.path:
 
 os.environ["TURTO_DISABLE_AUTO_UPDATE"] = "1"
 
-STATUS_PALETTES = {
-    "Tmavý": {
-        "status_active": ("#244E73", "#F4FAFF"),
-        "status_offer": ("#176A63", "#F1FFFC"),
-        "status_wait": ("#7A5A12", "#FFF5CF"),
-        "status_done": ("#2D6A48", "#F2FFF7"),
-        "status_cancel": ("#753743", "#FFF3F5"),
-        "status_late": ("#8A3434", "#FFF3F3"),
-        "status_soon": ("#7A5A12", "#FFF5CF"),
-        "req_fresh": ("#7A5A12", "#FFF5CF"),
-        "req_received": ("#176A63", "#F1FFFC"),
-    },
-    "Světlý": {
-        "status_active": ("#CFE7FA", "#173A55"),
-        "status_offer": ("#CBEDE7", "#124D48"),
-        "status_wait": ("#F9E4A4", "#5B420C"),
-        "status_done": ("#CDE9D8", "#1E4F35"),
-        "status_cancel": ("#F0C9D0", "#66303A"),
-        "status_late": ("#F3C1C1", "#6D2C2C"),
-        "status_soon": ("#F9E4A4", "#5B420C"),
-        "req_fresh": ("#F9E4A4", "#5B420C"),
-        "req_received": ("#CBEDE7", "#124D48"),
-    },
-}
-
-SELECTION = {
-    "Tmavý": ("#2F6F9F", "#FFFFFF"),
-    "Světlý": ("#A9D2F0", "#102C42"),
-}
+# 8.0.20 moves semantic colors into cells; row tags stay neutral.
+STATUS_PALETTES = {theme: {tag: ('', '') for tag in (
+    'status_active', 'status_offer', 'status_wait', 'status_done',
+    'status_cancel', 'status_late', 'status_soon', 'req_fresh', 'req_received')}
+    for theme in ('Světlý', 'Tmavý')}
+SELECTION = {'Tmavý': ('#344E66', '#FFFFFF'), 'Světlý': ('#E6EDF5', '#263442')}
 
 TREE_NAMES = (
     "dash_tree",
@@ -177,10 +154,8 @@ def assert_tree_palette(window, theme: str) -> dict[str, dict]:
             tag_results[tag] = {"background": actual_bg, "foreground": actual_fg}
 
         late_font = tag_option(tree, "status_late", "font")
-        if "calibri" not in late_font.casefold() or "bold" not in late_font.casefold():
-            raise AssertionError(
-                f"{name}/status_late lost Calibri bold formatting: {late_font!r}"
-            )
+        if late_font:
+            raise AssertionError(f"{name}: full-row emphasis must be owned by the cell decorator")
         tag_results["status_late"]["font"] = late_font
 
         results[name] = {
@@ -201,27 +176,16 @@ def assert_calibri_contract(window) -> dict[str, str]:
     if "calibri" not in muted_font.casefold():
         raise AssertionError(f"Muted.TLabel lost Calibri: {muted_font!r}")
 
-    # refresh_requests owns both current request emphasis tags directly. v770
-    # uses Calibri bold for the older overdue warning, while historical v637
-    # uses red Calibri bold after more than three unanswered days.
+    # Native values/tags retain business meaning; emphasis is now cell-local.
     window.refresh_requests()
     window.update_idletasks()
     attention_font = tag_option(window.request_tree, "v770_request_attention", "font")
-    if "calibri" not in attention_font.casefold() or "bold" not in attention_font.casefold():
-        raise AssertionError(
-            f"Request attention tag lost Calibri bold formatting: {attention_font!r}"
-        )
-
     urgent_font = tag_option(window.request_tree, "deadline_urgent", "font")
     urgent_foreground = norm(tag_option(window.request_tree, "deadline_urgent", "foreground"))
-    if "calibri" not in urgent_font.casefold() or "bold" not in urgent_font.casefold():
-        raise AssertionError(
-            f"Urgent request tag lost Calibri bold formatting: {urgent_font!r}"
-        )
-    if urgent_foreground != "#C62828":
-        raise AssertionError(
-            f"Urgent request foreground regressed: {urgent_foreground!r}, expected '#C62828'"
-        )
+    assert not attention_font and not urgent_font and not urgent_foreground
+    decorator = window.request_tree._turto_cells_820
+    assert decorator.bold.actual('family').casefold() == 'calibri'
+    assert decorator.bold.actual('weight') == 'bold'
 
     help_font = ""
     try:

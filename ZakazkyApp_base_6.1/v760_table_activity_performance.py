@@ -555,6 +555,9 @@ def apply(M: Any) -> None:
                     line.lift()
                 tree._v760_separator_widgets = lines
                 tree._v760_separator_count = len(boundaries)
+                badges = getattr(tree, '_turto_cells_820', None)
+                if badges is not None:
+                    badges.schedule()
             except Exception:
                 pass
 
@@ -671,6 +674,8 @@ def apply(M: Any) -> None:
             schedule_separators(tree, 0)
             if first_install:
                 schedule_separators(tree, 90)
+            from price_lists_domain.platform.calm_theme_820 import install_tree
+            install_tree(tree)
 
 
         def tree_init(self: Any, *args: Any, **kwargs: Any):
