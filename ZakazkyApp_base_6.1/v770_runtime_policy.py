@@ -650,7 +650,9 @@ def _place_dialog(win: Any, parent: Any = None, preferred: tuple[int, int] | Non
     from dialog_chrome import is_compact_dialog, is_maximized, prepare_dialog
     try:
         if (not win.winfo_exists() or bool(win.overrideredirect())
-                or not win.winfo_ismapped() or getattr(win, '_turto_dialog_placed_818', False)):
+                or not win.winfo_ismapped()
+                or (getattr(win, '_turto_dialog_placed_818', False)
+                    and not getattr(win, '_turto_dialog_pending_819', False))):
             return
         prepare_dialog(win)
         if is_maximized(win):
@@ -674,6 +676,7 @@ def _place_dialog(win: Any, parent: Any = None, preferred: tuple[int, int] | Non
         width, height, x, y = _dialog_geometry(owner_rect, workarea, compact_size, _dialog_frame_size(win))
         min_w, min_h = win.minsize()
         win.minsize(min(min_w, width), min(min_h, height))
+        win._turto_dialog_target_818 = (width, height, x, y)
         win.geometry(f"{width}x{height}+{x}+{y}")
         # Delayed construction callbacks must not reset a user's later resize
         # or move, nor undo maximize/restore.
@@ -710,11 +713,11 @@ def _install_dialog_policy(M: Any) -> None:
 
         def init(self, *args, **kwargs):
             previous_init(self, *args, **kwargs)
-            from dialog_chrome import prepare_dialog
+            from price_lists_domain.platform import dialog_presentation_819
+            dialog_presentation_819.begin(self)
             def mapped(event):
                 if event.widget is self:
-                    self.after_idle(lambda: prepare_dialog(self))
-                    self.after_idle(lambda: _place_dialog(self, getattr(self, 'master', None)))
+                    dialog_presentation_819.mapped(self, _place_dialog)
             self.bind("<Map>", mapped, add="+")
             for delay in (20, 140, 260):
                 try:
