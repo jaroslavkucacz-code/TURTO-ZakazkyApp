@@ -1,8 +1,8 @@
 {
-  "version": "8.0.18",
+  "version": "8.0.19",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "56f8116be6862b409fe3bd3f41886c157ba607a3",
-  "validated_run_id": 35054577644,
-  "notes": "Formulářová a pracovní dialogová okna se nyní otevírají přibližně na 90 % šířky i výšky hlavního okna CRM, vycentrovaná na jeho monitoru. Platí to i při maximalizovaném hlavním okně a pro další formuláře otevřené z dialogu.\n\nOkna respektují pracovní plochu monitoru včetně rámečku a titulku Windows. Ruční změna velikosti, přesun a maximalizace zůstávají zachované. Našeptávače, kalendář, krátké systémové dotazy a průběh aktualizace zůstávají kompaktní."
+  "source_commit": "18ab52f89126747522a655c63560914434179fb2",
+  "validated_run_id": 35056941511,
+  "notes": "Oprava krátkého probliknutí dialogu na nesprávném monitoru při otevírání. Formulář se nově zviditelní až po dokončení velikosti a umístění nad hlavním oknem CRM.\n\nZachována je velikost přibližně 90 %, stejný monitor, ovládání klávesnicí i našeptávače. Oprava platí také pro vnořené a později otevírané dialogy; běžné opětovné zobrazení již otevřeného okna se znovu neschovává."
 }
