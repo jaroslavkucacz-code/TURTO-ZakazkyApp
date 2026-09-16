@@ -494,6 +494,8 @@ def main() -> None:
         assert int(request_tree.column(width_column, "width")) == 347
 
         # Universal search is independent of hidden/reordered columns.
+        root.deiconify()
+        root.update()
         search_bar = root._table_searches["requests"]
         assert search_bar.entry.winfo_ismapped()
         width = search_bar.entry.winfo_width()
@@ -505,6 +507,8 @@ def main() -> None:
         request_tree.configure(displaycolumns="#all")
         root.update()
         assert search_bar.entry.winfo_ismapped()
+
+        root.withdraw()
 
         # Open the real visual issued-offer editor without saving. Its canvas is
         # rendered by the production PDF renderer and therefore must not reserve
