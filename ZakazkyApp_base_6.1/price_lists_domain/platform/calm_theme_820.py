@@ -32,6 +32,7 @@ PRICE_KINDS = dict(price_current='ready', price_future='active', price_expiring=
                    price_review='wait', price_expired='late', price_archived='cancel')
 ROW_TAGS.update(PRICE_KINDS)
 ROW_TAGS.update(('offer_archived', 'offer_unassigned', 'offer_uncategorized', 'offer_pricelist'))
+ROW_TAGS.add('req_overdue_bold')
 STATUS_COLUMNS.update(('platnost', 'vazba', 'zařazení produktů'))
 
 
@@ -159,9 +160,8 @@ def recolor_tree(tree):
     name = str(tree.cget('style') or 'Treeview')
     s.configure(name, background=p['card'], fieldbackground=p['card'], foreground=p['fg'], rowheight=30)
     s.map(name, background=[('selected',p['select'])], foreground=[('selected',p['selection_fg'])])
-    for tag in ROW_TAGS | set(tree.tag_names()):
-        if tag in ROW_TAGS:
-            tree.tag_configure(tag, background='', foreground='', font='')
+    for tag in ROW_TAGS:
+        tree.tag_configure(tag, background='', foreground='', font='')
     decorator = getattr(tree, '_turto_cells_820', None)
     if decorator:
         decorator.schedule()
@@ -275,7 +275,7 @@ class CellBadges:
                             pass
                     tags = set(tree.item(iid, 'tags'))
                     if col.casefold() == 'poptáno':
-                        late = 'deadline_urgent' in tags
+                        late = bool(tags & {'deadline_urgent', 'req_overdue_bold'})
                     else:
                         late = parsed is not None and parsed < date.today() and kind not in ('done','cancel')
                     if not late:
