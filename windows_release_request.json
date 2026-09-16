@@ -1,8 +1,8 @@
 {
-  "version": "8.0.21",
+  "version": "8.0.22",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "fbcf288acae0167d54c4fbba6105087fa751581c",
-  "validated_run_id": 35138724939,
-  "notes": "Jedno společné vyhledávací pole v tabulkách TURTO CRM. Při psaní se seznam průběžně filtruje. Enter potvrdí výraz jako štítek a uvolní pole pro další podmínku; všechny podmínky platí současně. Křížkem lze odebrat jednotlivý štítek, tlačítkem Zrušit filtrování obnovit seznam.\n\nVyhledávání nerozlišuje velikost písmen ani diakritiku. Funguje také přes skryté sloupce, v nabídkách a cenících prohledává záznamy před stránkováním. Česká data a částky lze hledat ve zobrazovaném formátu. Sjednoceny jsou hlavní přehledy, nabídky, ceníky, katalog a výběr produktů i poznámky.\n\nZachovány jsou přepínače archivu, pracovní pohledy, datum platnosti cen, řazení a uložené rozložení tabulek. Vyhledávání v dialogu nevyvolá uložení stiskem Enteru. Aktualizaci uživatel nadále spouští instalačním tlačítkem."
+  "source_commit": "52fc07b6525461943fa43c5b897a1a74e892a7dc",
+  "validated_run_id": 35143506881,
+  "notes": "Aktivní univerzální filtr je nyní označen barevnou lištou s textem Filtrování aktivní a počtem podmínek. Potvrzené podmínky mají sjednocené barevné štítky. V buňkách se jemně podbarvují shody potvrzených i právě psaných výrazů, včetně vyhledávání bez diakritiky. Zvýraznění respektuje světlý i tmavý motiv a po zrušení filtrování zmizí.\n\nSvislé čáry tabulek se při rozšiřování a zužování sloupců překreslují spolu s jejich geometrií, bez opakovaně odkládaného časovače. Zachováno je řazení, výběr, dvojklik, místní nabídky, posouvání i uložené rozložení sloupců. Hodnoty buněk a exportovaná data se nemění.\n\nAktualizace se nadále kontrolují automaticky a instalují až po kliknutí na instalační tlačítko."
 }
