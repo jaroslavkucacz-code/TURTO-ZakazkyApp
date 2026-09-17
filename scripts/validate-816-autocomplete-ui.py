@@ -47,6 +47,9 @@ def run(td):
     # real IDs in both roles so the shared event test exercises that refresh,
     # instead of having its transient set_values replaced by an empty DB.
     with app.db() as con:
+        # The isolated bootstrap includes sample address-book companies too.
+        # Only the three fixture rows participate in this role-filtered test.
+        con.execute("UPDATE companies SET is_customer=0,is_supplier=0")
         for name, cid in fixtures:
             con.execute("INSERT INTO companies(id,short_name,official_name,is_customer,is_supplier) VALUES(?,?,?,1,1)", (cid,name,name))
     # These filter pages reload their suggestions after every query. Supply the
