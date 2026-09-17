@@ -93,10 +93,6 @@ class OfferDetailDialog(tk.Toplevel):
     def _size_offer_table(self,event=None):
         table=getattr(self,'_offer_table_frame',None)
         if table is None or not table.winfo_exists():return
-        footer=getattr(self,'_offer_footer',None)
-        siblings=self.f.pack_slaves()
-        if footer is not None and footer in siblings and siblings[-1] is not footer:
-            footer.pack_configure(after=siblings[-1])
         viewport=self._dialog_canvas.winfo_height()
         if viewport<=1:return
         # Let the table take all remaining height after the actual toolbars,
@@ -125,6 +121,8 @@ class OfferDetailDialog(tk.Toplevel):
             items=con.execute("SELECT * FROM supplier_offer_items WHERE offer_id=? ORDER BY position,id",(self.oid,)).fetchall()
         return r,items
     def _build(self):
+        footer=getattr(self,'_offer_footer',None)
+        if footer is not None and footer.winfo_exists():footer.destroy()
         for w in self.f.winfo_children():w.destroy()
         r,items=self._load();self.offer_row=r
         if not r:return
@@ -156,7 +154,8 @@ class OfferDetailDialog(tk.Toplevel):
             iid=f"i{it['id']}";self.item_by_iid[iid]=dict(it);tags=("discount",) if float(it["discount_pct"] or 0)>0 else ()
             self.tree.insert("","end",iid=iid,tags=tags,values=(it["position"],it["product_code"] or "",it["original_name"],it["item_key"],it["quantity"],it["unit"],f"{float(it['original_unit_price'] or 0):.2f}",f"{float(it['discount_pct'] or 0):.2f} %",f"{float(it['unit_price'] or 0):.2f}",f"{float(it['total_price'] or 0):.2f}"))
         M.bind_row_double_click(self.tree,lambda e:self.open_history())
-        b=self._offer_footer=ttk.Frame(self.f);b.pack(fill="x",pady=(10,0))
+        b=self._offer_footer=ttk.Frame(self,padding=(18,8))
+        b.pack(side="bottom",fill="x",before=self._dialog_canvas.master)
         if r["source_pdf"] and Path(r["source_pdf"]).exists():ttk.Button(b,text="Otevřít původní PDF",style="Toolbar.TButton",command=lambda:os.startfile(r["source_pdf"]) if sys.platform.startswith("win") else None).pack(side="left")
         ttk.Button(b,text="Zavřít",style="Accent.TButton",command=self._close_offer_detail).pack(side="right")
     def _selected_item(self):

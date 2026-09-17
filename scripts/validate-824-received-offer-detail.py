@@ -135,6 +135,7 @@ def ui_checks(td):
                     (oid,pos,name,name,'610000006'+str(pos))).lastrowid)
         root.show_page('offers'); settle(root)
         dialog=crm_features.OfferDetailDialog(root,oid); settle(root,1)
+        capture(dialog,'detail-initial.png')
         check_geometry(dialog)
         assert dialog.tree.column('Poz.','width')==55, 'New detail must use compact defaults, not temporary Tk widths'
         capture(dialog,'detail.png')
