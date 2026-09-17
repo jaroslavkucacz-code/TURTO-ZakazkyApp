@@ -7,6 +7,7 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+from contextlib import closing
 
 
 def main() -> None:
@@ -94,7 +95,18 @@ def main() -> None:
         assert '_turto_navigation_owner = "price_lists_domain.platform.lazy_refresh"' in lazy_refresh
         assert '_cancel(app, "_turto_final_layout_after")' in lazy_refresh
         assert "def _install_safe_backup(module)" in lazy_refresh
-        assert "source.backup(destination" in lazy_refresh
+        # The runtime delegates to the shared verified backup owner. Exercise
+        # the actual installed callback with an uncheckpointed WAL commit.
+        from price_lists_domain.platform import lazy_refresh as lazy_owner
+        lazy_owner._install_safe_backup(M)
+        with closing(sqlite3.connect(M.DB)) as source:
+            source.execute("PRAGMA journal_mode=WAL")
+            source.execute("INSERT OR REPLACE INTO app_meta VALUES('wal-backup-probe','committed')")
+            source.commit()
+            snapshot = M.backup_now("manual")
+            with closing(sqlite3.connect(snapshot)) as restored:
+                assert restored.execute("SELECT value FROM app_meta WHERE key='wal-backup-probe'").fetchone()[0] == "committed"
+                assert restored.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
 
         fast_ocr = (platform / "fast_ocr.py").read_text(encoding="utf-8")
         assert "DPI = 170" in fast_ocr and "price_list_ocr_cache" in fast_ocr and "ocr_batch.ps1" in fast_ocr

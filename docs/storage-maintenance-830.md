@@ -50,9 +50,12 @@ proto ani tato pravidla nepředstavují absolutní limit velikosti složky.
 ## Obnova
 
 Zálohy vznikají SQLite backup API včetně potvrzených dat z WAL a před zveřejněním
-se kontrolují. Obnova dat je nadále přes existující **Import kompletní databáze…**;
-nejprve si ověřte požadované datum a počítejte s nahrazením aktuálního obsahu.
-Archivovaný soubor lze nejprve zkopírovat zpět na bezpečné místo a ověřit jeho
+se kontrolují. Jde o soubory SQLite `.db`, nikoli ZIP balíčky pro **Import kompletní
+databáze…**. Pro obnovu použijte existující **Správu databáze → Připojit existující
+databázi…** a doporučenou volbu zkopírování do standardní složky. Předem zavřete
+ostatní okna CRM, ověřte požadované datum a počítejte s nahrazením aktuálního
+obsahu; dialog před nahrazením nabízí bezpečnostní zálohu dosavadních dat.
+Archivovaný soubor lze nejprve zkopírovat na bezpečné místo a ověřit jeho
 SHA-256 podle manifestu. Návrat programu používá existující dialog pro návrat
 verze; úklid chrání soubory, na které tento mechanismus odkazuje.
 

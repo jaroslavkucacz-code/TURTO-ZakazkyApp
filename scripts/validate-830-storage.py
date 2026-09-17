@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Real SQLite/filesystem safety regressions plus Windows Tk interaction checks."""
-from contextlib import closing
+from contextlib import closing, nullcontext
 from datetime import datetime, timedelta
 import importlib.util
 import json
@@ -252,11 +252,13 @@ class StorageTests(unittest.TestCase):
         self.unchanged()
 
 
-def ui_checks():
+def ui_checks(td):
     spec = importlib.util.spec_from_file_location("previous830", REPO / "scripts/validate-827-processing-catalogs.py")
     previous = importlib.util.module_from_spec(spec); spec.loader.exec_module(previous)
     from price_lists_domain.platform import storage_ui
-    with tempfile.TemporaryDirectory(prefix="turto830_ui_") as td:
+    # The parent removes this fixture after the GUI child exits, as in other
+    # runtime UI tests: the CRM connection cache lives until process exit.
+    with nullcontext(td):
         M = previous.prepare(str(Path(td) / "crm"), runtime=True)
         fixture(Path(M.DATA_ROOT), Path(M.DB))
         M.App.maybe_show_morning_overview = lambda self: None
@@ -276,7 +278,14 @@ def ui_checks():
             raise AssertionError("Storage worker did not finish")
         try:
             root.show_page("settings"); root.update()
-            win = root.open_storage_maintenance(); settle(win)
+            def descendants(widget):
+                for child in widget.winfo_children():
+                    yield child
+                    yield from descendants(child)
+            entry_button = next(w for w in descendants(root.tabs["settings"])
+                                if isinstance(w, M.ttk.Button) and w.cget("text") == "Zálohy a úklid úložiště…")
+            entry_button.invoke()
+            win = root._storage_window; settle(win)
             ui = win._storage
             assert not ui["auto"].get()
             assert ui["tree"].winfo_width() > 750
@@ -309,10 +318,11 @@ def ui_checks():
 
 if __name__ == "__main__":
     if "--ui-worker" in sys.argv:
-        ui_checks()
+        ui_checks(sys.argv[-1])
     else:
         suite = unittest.defaultTestLoader.loadTestsFromTestCase(StorageTests)
         if not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful():
             raise SystemExit(1)
         if "--source-only" not in sys.argv:
-            subprocess.run([sys.executable, "-B", __file__, "--ui-worker"], check=True)
+            with tempfile.TemporaryDirectory(prefix="turto830_ui_") as td:
+                subprocess.run([sys.executable, "-B", __file__, "--ui-worker", td], check=True)
