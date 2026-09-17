@@ -15,6 +15,7 @@ import time
 import zipfile
 
 import data_location
+import storage_maintenance
 import updater_safety as safety
 
 MAIN_EXE = "TURTO CRM.exe"
@@ -295,7 +296,7 @@ def main(progress=None) -> None:
     package, target, pid, mode, expected_version, expected_sha = _parse_arguments()
     current_version = _version_from_install(target)
     try:
-        with safety.FileLock(safety.stage_lock(_stage_root())):
+        with safety.FileLock(safety.stage_lock(_stage_root())), storage_maintenance.maintenance_lock(data_location.data_root()):
             _report("Ověřuji instalaci a aktualizační balíček…", detail="CRM je zatím otevřené. Kontroluji, zda lze bezpečně pokračovat.")
             safety.recover_interrupted(target)
             current_version = _validate_release(target, installed=True)

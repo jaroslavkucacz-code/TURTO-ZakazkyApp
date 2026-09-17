@@ -8,15 +8,23 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import sys
 import tempfile
 
 
 def load_data_location(base: Path):
+    if str(base) not in sys.path:
+        sys.path.insert(0, str(base))
     path = base / "data_location.py"
     spec = importlib.util.spec_from_file_location("data_location_800_test", path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
+    if os.name != "nt":
+        # Exercise Windows location semantics using the fixture's directories,
+        # without ever writing into the developer's real Documents/config.
+        module.default_data_root = lambda: Path(os.environ["USERPROFILE"]) / "Documents" / "TURTO Zakazky"
+        module.config_dir = lambda: Path(os.environ["LOCALAPPDATA"]) / module.APP_DIR_NAME
     return module
 
 
@@ -242,7 +250,11 @@ def main() -> None:
 
         lazy_refresh = (platform_dir / "lazy_refresh.py").read_text(encoding="utf-8")
         assert "def _install_safe_backup(module)" in lazy_refresh
-        assert "source.backup(destination" in lazy_refresh
+        assert "from storage_maintenance import create_backup" in lazy_refresh
+        assert "return create_backup(db_path, Path(module.BACKUP_DIR), prefix)" in lazy_refresh
+        storage = (base / "storage_maintenance.py").read_text(encoding="utf-8")
+        assert "src.backup(dst, pages=256" in storage
+        assert 'dst.execute("PRAGMA journal_mode=DELETE")' in storage
         assert not (platform_dir / "lazy_refresh" / "__init__.py").exists()
         assert not (platform_dir / "worksets" / "__init__.py").exists()
         assert not (platform_dir / "database" / "__init__.py").exists()

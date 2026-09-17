@@ -58,15 +58,8 @@ def _install_safe_backup(module) -> None:
         db_path = Path(module.DB)
         if not db_path.exists():
             return None
-        backup_dir = Path(module.BACKUP_DIR)
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        target = backup_dir / f"zakazky_{prefix}_{datetime.now():%Y%m%d_%H%M%S}.db"
-        # SQLite backup API includes all committed WAL pages and produces a
-        # consistent copy even while the application remains open.
-        with module.sqlite3.connect(str(db_path), timeout=10.0) as source:
-            with module.sqlite3.connect(str(target), timeout=10.0) as destination:
-                source.backup(destination, pages=256, sleep=0.01)
-        return target
+        from storage_maintenance import create_backup
+        return create_backup(db_path, Path(module.BACKUP_DIR), prefix)
 
     module.backup_now = backup_now
     module._turto_sqlite_backup_v630 = True

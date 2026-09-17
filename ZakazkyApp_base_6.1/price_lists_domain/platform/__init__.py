@@ -19,6 +19,7 @@ def install(module) -> None:
     from .lazy_refresh import install as install_lazy_refresh
     from .project_table_stability import install as install_project_table_stability
     from .automatic_updates import install as install_automatic_updates
+    from .storage_ui import install as install_storage
 
     if getattr(module, "_turto_platform_v6339", False):
         return
@@ -48,6 +49,7 @@ def install(module) -> None:
     # Register the Akce table stabilizer before v760.apply() runs. The hook
     # installs its final owner only after v760 has finished composing the table.
     install_project_table_stability(module)
+    install_storage(module)
     # The updater is installed last so no older runtime layer can restore a
     # confirmation dialog or a second competing startup check.
     install_automatic_updates(module)

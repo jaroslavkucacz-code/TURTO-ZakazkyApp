@@ -134,7 +134,8 @@ def _download_windows_package(M, updates, manifest: dict, progress=None) -> Path
     root.mkdir(parents=True, exist_ok=True)
     target = root / package_name
     partial = target.with_suffix(target.suffix + ".part")
-    with safety.FileLock(root / (package_name + ".lock")):
+    import storage_maintenance
+    with storage_maintenance.maintenance_lock(root.parent.parent), safety.FileLock(root / (package_name + ".lock")):
         partial.unlink(missing_ok=True)
         request = urllib.request.Request(download_url, headers={"User-Agent": "TURTO-CRM-Windows-Updater", "Cache-Control": "no-cache", "Pragma": "no-cache"})
         digest = hashlib.sha256()
