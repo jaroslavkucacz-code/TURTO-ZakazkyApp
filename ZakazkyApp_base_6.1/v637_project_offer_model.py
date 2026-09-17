@@ -106,9 +106,8 @@ def apply(M):
             s=rt.selection()
             if not s:return 'break'
             rid=int(s[0])
-            with M.db() as c:
-                pid=_project_for_request(c,rid)
-                c.execute('UPDATE supplier_offers SET request_id=?,project_id=?,action_id=NULL WHERE id=?',(rid,pid,offer_id))
+            from price_lists_domain.platform.offer_request_receipt import assign_from_ui
+            if not assign_from_ui(M,app,offer_id,rid,d):return 'break'
             finish();return 'break'
         def assign_project(e=None):
             s=pt.selection()
