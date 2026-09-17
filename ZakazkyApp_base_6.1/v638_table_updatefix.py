@@ -86,7 +86,7 @@ def apply(M):
     # ------------------------------------------------------------------
 
     REQUEST_COLS=("Stav","Řeší","Poptáno","Obdrženo","Odběratel","Dodavatel","Akce","Poptáváno","Příjemci","Nabídky")
-    OPPORTUNITY_COLS=("Stav","Přijato","Deadline","Příležitost","Společnost","Obchodník","Co se řeší","Poznámka")
+    OPPORTUNITY_COLS=("Stav","Přijato","Deadline","Příležitost","Společnost","Obchodník","Co se řeší","Poznámka","Řeší")
     PROJECT_COLS=("Název Akce","Adresa","Investor","Generální dodavatel","Zahájení","Dokončení","Příležitostí","Nabídky")
 
     def _heading_contract(app,tree,cols):

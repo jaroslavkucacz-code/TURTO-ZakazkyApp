@@ -8,7 +8,6 @@ import subprocess
 import sys
 import tempfile
 import time
-from types import SimpleNamespace
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / 'ZakazkyApp_base_6.1'))
@@ -158,6 +157,7 @@ def ui_checks(td):
         assert 'dash' in root.tabs
         root.show_page('actions'); settle(root)
         tree = root.action_tree
+        assert 'Řeší' in tree['columns'], tree['columns']
         iid = f'a{aid}'
         assert iid in tree.get_children(), tree.get_children()
         assert button(root.tabs['actions'], 'Řeší…').winfo_viewable()
@@ -270,7 +270,10 @@ def ui_checks(td):
         root._turto_closing = True
         for token in root.tk.splitlist(root.tk.call('after', 'info')):
             root.after_cancel(token)
-        root.destroy()
+        try:
+            root.destroy()
+        except (app.tk.TclError, TypeError):
+            pass  # Child process exit releases any legacy Tcl/SQLite handles.
 
 
 if __name__ == '__main__':
