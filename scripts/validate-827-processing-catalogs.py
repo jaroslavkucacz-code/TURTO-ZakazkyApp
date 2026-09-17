@@ -2,6 +2,7 @@
 """Explicit catalog writes, concurrent multi-user assignment and real Tk events."""
 import json
 import os
+import re
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -220,8 +221,24 @@ def ui_checks(td):
         # Leave a popup with a prior selection, then Enter before its 70 ms update.
         entry.focus_force(); dialog.topic_entry_var.set('827'); settle(root)
         dialog.topic_entry_var.set('827 Aku')
-        entry.event_generate('<KP_Enter>'); settle(root)
+        assert root.focus_get() is entry, ('autocomplete focus', root.focus_get())
+        entry.event_generate('<Return>'); settle(root)
         assert dialog.topic_entry_var.get() == '827 Akustika', dialog.topic_entry_var.get()
+        assert snapshot() == before
+        # Check the installed keypad binding as well. Tk on Windows can drop
+        # synthesized keypad events; only in that case invoke its Tcl command.
+        keys = []
+        tag = 'Processing827KeyProbe'
+        entry.bind_class(tag, '<KeyPress>', lambda e: keys.append(e.keysym))
+        tags = entry.bindtags(); entry.bindtags((tag, *tags))
+        dialog.topic_entry_var.set('827 Dil')
+        entry.event_generate('<KP_Enter>'); settle(root, .05)
+        if not keys:
+            command = re.search(r'\[([^\s]+)', entry.bind('<KP_Enter>')).group(1)
+            entry.tk.call(command)
+        entry.bindtags(tags); entry.unbind_class(tag, '<KeyPress>')
+        settle(root)
+        assert dialog.topic_entry_var.get() == '827 Dilatace', (dialog.topic_entry_var.get(), keys)
         assert snapshot() == before
         dialog.topic_entry_var.set('827 Neznámý prefix')
         button(dialog, '+ Přidat').invoke(); settle(root)
