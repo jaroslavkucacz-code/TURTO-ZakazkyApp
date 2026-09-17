@@ -3,9 +3,11 @@ name: Validate TURTO CRM 8.0 Windows installer
 on:
   workflow_dispatch:
   push:
-    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress, feature/8.0.13-remove-quick-actions, fix/8.0.14-table-initial-layout, feature/8.0.15-persistent-table-layouts, fix/8.0.16-autocomplete-focus, feature/8.0.17-form-navigation-unsaved, feature/8.0.18-large-dialogs, fix/8.0.19-dialog-first-show, feature/8.0.20-calm-theme, feature/8.0.21-universal-search, fix/8.0.22-filter-highlights-separators, feature/8.0.23-issued-delete-project-activity, feature/8.0.24-received-offer-detail, feature/8.0.25-offer-request-received, feature/8.0.26-grouped-navigation, feature/8.0.27-work-processing-catalogs, feature/8.0.28-company-roles-orders]
+    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress, feature/8.0.13-remove-quick-actions, fix/8.0.14-table-initial-layout, feature/8.0.15-persistent-table-layouts, fix/8.0.16-autocomplete-focus, feature/8.0.17-form-navigation-unsaved, feature/8.0.18-large-dialogs, fix/8.0.19-dialog-first-show, feature/8.0.20-calm-theme, feature/8.0.21-universal-search, fix/8.0.22-filter-highlights-separators, feature/8.0.23-issued-delete-project-activity, feature/8.0.24-received-offer-detail, feature/8.0.25-offer-request-received, feature/8.0.26-grouped-navigation, feature/8.0.27-work-processing-catalogs, feature/8.0.28-company-roles-orders, feature/8.0.29-request-mail-profiles]
   pull_request:
     paths:
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/request_mail.py
+      - scripts/validate-829-request-mail.py
       - ZakazkyApp_base_6.1/price_lists_domain/received_orders/**
       - ZakazkyApp_base_6.1/price_lists_domain/platform/company_roles.py
       - scripts/validate-828-company-roles-orders.py
@@ -93,6 +95,7 @@ jobs:
           python scripts/validate-824-received-offer-detail.py --source-only
           python scripts/validate-825-offer-request-receipt.py --source-only
           python scripts/validate-826-grouped-navigation.py --source-only
+          python scripts/validate-829-request-mail.py --source-only
           python scripts/validate-828-company-roles-orders.py --source-only
           python scripts/validate-827-processing-catalogs.py --source-only
 
@@ -126,6 +129,8 @@ jobs:
           python scripts/validate-812-update-progress.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-812-update-ui.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/validate-829-request-mail.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-816-autocomplete-ui.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
