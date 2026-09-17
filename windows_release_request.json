@@ -1,8 +1,8 @@
 {
-  "version": "8.0.25",
+  "version": "8.0.26",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "27de16674c12c984f95781ce3b1ab4e576968a65",
-  "validated_run_id": 35219706919,
-  "notes": "Při přiřazení přijaté nabídky k poptávce se automaticky nastaví stav Obdrženo a datum podle původního e-mailu. U více nabídek k téže poptávce se použije nejstarší platné datum zdrojového e-mailu. Změna se zaznamená do historie a zruší označení Bez odezvy. Pokud datum e-mailu chybí, zachová se již zadané datum a případně se zobrazí upozornění k jeho doplnění.\n\nTabulka v detailu přijaté nabídky využívá dostupnou šířku i výšku okna. Tlačítko Zavřít je stále dostupné pod obsahem.\n\nInterní kód a interní označení lze upravit přímo v buňkách tabulky. Enter změnu uloží, Esc zruší rozepsanou úpravu a Tab přejde do další editovatelné buňky. Více řádků lze vybrat přes Ctrl/Shift nebo všechny pomocí Ctrl+A a hromadně použít Převzít od výrobce, včetně volitelného dodatku, například „izolační nosník“.\n\nAktualizace se nadále kontrolují automaticky a instalují po kliknutí na instalační tlačítko."
+  "source_commit": "18628ade7bf9ad513688e33782b6ae682f66a3ad",
+  "validated_run_id": 35235553172,
+  "notes": "Navigace CRM má nově dvě úrovně. Pod záložkou Adresář jsou Společnosti a Osoby. Pod záložkou Technika jsou Příležitosti, Poptávky, MIVO, Přijaté nabídky a Úkoly.\n\nPodzáložky se zobrazují v samostatném řádku pod hlavní navigací. Zvýrazněná je současně nadřazená záložka i otevřená podzáložka. Při návratu do skupiny se otevře naposledy použitá stránka v aktuálním okně CRM. Přímé přechody do poptávek a dalších stránek automaticky otevřou také správnou nadřazenou záložku.\n\nPřepínání zachovává filtry, výběr řádků a šířky tabulek. Navigace je upravená pro světlý i tmavý motiv a lze ji ovládat také klávesou Enter.\n\nAktualizace se nadále kontrolují automaticky a instalují po kliknutí na instalační tlačítko."
 }
