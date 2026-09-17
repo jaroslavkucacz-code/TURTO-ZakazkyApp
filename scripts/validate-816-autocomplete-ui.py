@@ -43,6 +43,12 @@ def run(td):
     errors = []
     window.report_callback_exception = lambda *exc: errors.append(str(exc))
     fixtures = [('Alpha company', 81601), ('Alpine supplier', 81602), ('Beta company', 81603)]
+    # Request selectors now reload eligible companies on focus. Seed the same
+    # real IDs in both roles so the shared event test exercises that refresh,
+    # instead of having its transient set_values replaced by an empty DB.
+    with app.db() as con:
+        for name, cid in fixtures:
+            con.execute("INSERT INTO companies(id,short_name,official_name,is_customer,is_supplier) VALUES(?,?,?,1,1)", (cid,name,name))
     # These filter pages reload their suggestions after every query. Supply the
     # same deterministic read-model values on refresh, without changing events.
     from price_lists_domain.platform import commercial_workspace as commercial

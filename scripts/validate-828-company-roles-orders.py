@@ -66,6 +66,7 @@ def source_checks(td):
         assert all(actual[key] == getattr(expected, key) for key in ("items_subtotal", "subtotal_net", "vat_total", "total_gross")), (actual, expected)
     original = offers.load_document(M, offer_id)
     draft, lines = orders.draft_from_offer(M, offer_id)
+    draft["issue_date"] = "2026-09-17"  # Stable numbering assertion across calendar years.
     assert orders.list_documents(M) == [], "Converting/closing a draft wrote an order"
     assert draft["source_offer_number"] == original[0]["document_number"]
     assert lines[0]["unit_price"] == original[1][0]["unit_price"]

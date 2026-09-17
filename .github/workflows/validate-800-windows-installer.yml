@@ -127,6 +127,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-812-update-ui.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/validate-816-autocomplete-ui.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-828-company-roles-orders.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-827-processing-catalogs.py
@@ -150,8 +152,6 @@ jobs:
           python scripts/validate-818-dialog-size.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-817-form-behavior-ui.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/validate-816-autocomplete-ui.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-814-table-layout-ui.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
