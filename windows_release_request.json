@@ -1,8 +1,8 @@
 {
-  "version": "8.0.23",
+  "version": "8.0.24",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "80e9385b76027ab341df033e258227ef4b1fd019",
-  "validated_run_id": 35148303552,
-  "notes": "Vydané nabídky lze nyní smazat bez ohledu na stav a vytvořené PDF. Příkaz Smazat nabídku… je dostupný tlačítkem i v místní nabídce. Před smazáním se zobrazí číslo nabídky a žádost o potvrzení. Nabídka, položky a revize se odstraní z databáze společně, exportované PDF soubory a audit zůstanou zachované. Číslo smazané nabídky se znovu nepoužije.\n\nV Akcích je sloupec Poslední pohyb přejmenován na Poslední aktivita. Zobrazuje poslední dostupnou aktivitu akce a jejích souvisejících příležitostí, poptávek, úkolů, přijatých a vydaných nabídek včetně změn položek, historie a revizí. Nově se eviduje také smazání a přesunutí záznamů mezi akcemi. Čtení tabulky, otevření programu ani budoucí termín se za aktivitu nepovažují. Starší údaje vycházejí z dostupné historie; dříve neevidované změny nelze zpětně rekonstruovat.\n\nUložené šířky, pořadí a skrytí sloupců zůstávají zachované. Aktualizace se nadále kontrolují automaticky a instalují až po kliknutí na instalační tlačítko."
+  "source_commit": "01e0a65bf0fc97c11b58afd79df026bdca69ef51",
+  "validated_run_id": 35204072976,
+  "notes": "Detail přijaté nabídky se nyní drží šířky okna. Tabulka má vlastní vodorovný i svislý posuvník a tlačítko Změnit přiřazení… je vlevo nad tabulkou. Poslední sloupec lze zúžit bez automatického roztažení zpět; uložené šířky, pořadí a skrytí sloupců zůstávají zachované. Dostupná je také přímá volba Sloupce….\n\nVybrané položky přijaté nabídky lze označit přes Interní označení…. Editor umožňuje zadat interní kód a označení jednotlivě nebo hromadně převzít původní názvy s volitelným dodatkem. Předvolba Izolační nosníky uloží původní název jako interní kód a původní název s dodatkem „- izolační nosník“ jako interní označení. Pro jiné zboží lze použít libovolné vlastní údaje.\n\nInterní údaje se ukládají k položkám nabídky, zahrnují se do hledání a přenášejí se do vydané nabídky. Při opětovném zpracování PDF se zachovají u rozpoznaného stejného výrobku. Původní názvy, kódy a ceny dodavatele ani katalog produktů se tím nemění. Zavření rozepsaného editoru vyžaduje rozhodnutí o neuložených změnách.\n\nAktualizace se nadále kontrolují automaticky a instalují až po kliknutí na instalační tlačítko."
 }
