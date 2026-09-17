@@ -105,6 +105,7 @@ def main():
                 assert normalized_pdf_text(page.get_text()).count('CN26-00042')==1
                 assert '614,85' not in page.get_text()
         # Existing unsanitized concept: no database mutation on read, internal preservation on save.
+        doc['company_id']=1
         doc['template_id']=tid
         did=service.save_document(M,doc,[item])
         with M.db() as con:

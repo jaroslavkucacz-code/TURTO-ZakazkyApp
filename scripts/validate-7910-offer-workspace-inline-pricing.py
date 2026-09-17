@@ -46,6 +46,8 @@ def main():
         try:
             pump(.8)
             document=service.offer_defaults(M)
+            with M.db() as con:
+                document['company_id']=con.execute("INSERT INTO companies(short_name,official_name) VALUES('Test s.r.o.','Test s.r.o.')").lastrowid
             document.update(customer_name_snapshot='Test s.r.o.',offer_subject='Inline marže',global_discount_pct=10)
             items=[
                 {'row_type':'heading','name':'Sekce A'},

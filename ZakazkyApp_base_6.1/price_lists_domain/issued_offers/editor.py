@@ -335,6 +335,8 @@ class IssuedOfferEditor:
                 widget = M.safe_combobox(header, textvariable=variable, values=["CZK", "EUR", "PLN"], state="readonly")
             elif kind == "company":
                 widget = M.AutocompleteEntry(header, textvariable=variable, values=list(self.company_map))
+                self.company_entry = widget
+                widget.bind("<FocusIn>", self.refresh_company_choices, add="+")
                 self.company_box = widget
             elif kind == "contact":
                 widget = M.AutocompleteEntry(header, textvariable=variable, values=[])
@@ -489,6 +491,10 @@ class IssuedOfferEditor:
         if preview is not None:
             preview.schedule()
 
+    def refresh_company_choices(self, event=None):
+        self.company_map = {name: cid for cid, name in service.list_companies(self.M)}
+        self.company_entry.set_values(list(self.company_map))
+
     def company_changed(self, *_):
         self.refresh_contacts()
 
@@ -641,7 +647,11 @@ class IssuedOfferEditor:
         self.tree.see(f"r{target}")
 
     def collect(self):
-        company_id = self.company_map.get(self.company.get().strip())
+        from ..platform import company_roles
+        with self.M.db() as con:
+            company_id = company_roles.resolve(con, self.company.get(), "customer",
+                self.company_map.get(self.company.get().strip()),
+                self.document.get("company_id") if self.document_id else None)
         contact_id = self.contact_map.get(self.contact.get().strip())
         project_id = self.project_map.get(self.project.get().strip())
         action_info = self.action_map.get(self.action.get().strip())
@@ -674,7 +684,7 @@ class IssuedOfferEditor:
             return self.document_id
         values = self.collect()
         if not values.get("customer_name_snapshot"):
-            self.M.messagebox.showwarning("Vydané nabídky", "Vyberte nebo vyplňte odběratele.", parent=self.win)
+            self.M.messagebox.showwarning("Vydané nabídky", "Vyberte společnost označenou jako Odběratel v Adresáři.", parent=self.win)
             return None
         if not self.items:
             self.M.messagebox.showwarning("Vydané nabídky", "Nabídka zatím neobsahuje žádné položky.", parent=self.win)

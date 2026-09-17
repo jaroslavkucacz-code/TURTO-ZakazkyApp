@@ -50,6 +50,7 @@ def foundation(M):
         CREATE TABLE business_documents(id INTEGER PRIMARY KEY AUTOINCREMENT,document_type TEXT,direction TEXT,document_number TEXT,issue_date TEXT,valid_to TEXT,company_id INTEGER,project_id INTEGER,status TEXT,currency TEXT,total_value REAL,archived INTEGER DEFAULT 0,archived_at TEXT,archived_by TEXT,created_at TEXT,updated_at TEXT);
         CREATE TABLE business_document_items(id INTEGER PRIMARY KEY AUTOINCREMENT,document_id INTEGER,position INTEGER,product_code TEXT,item_key TEXT,name TEXT,description TEXT,quantity REAL,unit TEXT,unit_price REAL,discount_pct REAL,total_price REAL,category_id INTEGER);
         INSERT INTO companies VALUES(1,'Testovací odběratel','TEST','Ukázková 1','12345678','CZ12345678');
+        ALTER TABLE companies ADD COLUMN active INTEGER NOT NULL DEFAULT 1;
         INSERT INTO projects VALUES(1,'Testovací stavba');
         INSERT INTO supplier_offers VALUES(1,'Nevoga');
         INSERT INTO supplier_offer_items VALUES(1,1,'nevoga:plexus:B',NULL,'PLEXUS B','PLEXUS B');

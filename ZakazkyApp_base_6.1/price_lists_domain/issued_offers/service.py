@@ -675,11 +675,13 @@ def save_document(M, values: dict[str, Any], items: Iterable[dict[str, Any]], do
     )
 
     with M.db() as con:
+        from ..platform import company_roles
         old_status = ""
         if document_id:
-            old = con.execute("SELECT status,document_number,created_by FROM business_documents WHERE id=?", (document_id,)).fetchone()
+            old = con.execute("SELECT status,document_number,created_by,company_id,customer_name_snapshot FROM business_documents WHERE id=? AND document_type=? AND direction=?", (document_id,DOCUMENT_TYPE,DOCUMENT_DIRECTION)).fetchone()
             if not old:
                 raise ValueError("Vydaná nabídka už v databázi neexistuje.")
+            company_roles.require(con,data.get("company_id"),"customer",old["company_id"],optional=not data.get("company_id") and not old["company_id"] and data.get("customer_name_snapshot")==old["customer_name_snapshot"])
             old_status = str(old["status"] or "")
             data["document_number"] = str(old["document_number"] or data.get("document_number") or "")
             data["created_by"] = str(old["created_by"] or user)
@@ -691,6 +693,7 @@ def save_document(M, values: dict[str, Any], items: Iterable[dict[str, Any]], do
             result = int(document_id)
             con.execute("DELETE FROM business_document_items WHERE document_id=?", (result,))
         else:
+            company_roles.require(con,data.get("company_id"),"customer")
             data["document_number"] = _sequence_number(con, M, data["issue_date"])
             data["created_by"] = user
             columns = ",".join(fields + ("created_at",))
@@ -899,7 +902,7 @@ def set_status(M, document_id: int, status: str) -> None:
     now = datetime.now().isoformat(timespec="seconds")
     user = active_user(M)
     with M.db() as con:
-        row = con.execute("SELECT status FROM business_documents WHERE id=?", (int(document_id),)).fetchone()
+        row = con.execute("SELECT status FROM business_documents WHERE id=? AND document_type=? AND direction=?", (int(document_id),DOCUMENT_TYPE,DOCUMENT_DIRECTION)).fetchone()
         if not row:
             raise ValueError("Vydaná nabídka nebyla nalezena.")
         old = str(row[0] or "")
@@ -928,7 +931,7 @@ def list_companies(M) -> list[tuple[int, str]]:
     with M.db() as con:
         rows = con.execute(
             """SELECT id,coalesce(nullif(trim(official_name),''),short_name) name
-               FROM companies WHERE active=1 ORDER BY name COLLATE CZECH,id"""
+               FROM companies WHERE active=1 AND is_customer=1 ORDER BY name COLLATE CZECH,id"""
         ).fetchall()
     return [(int(row[0]), str(row[1] or "")) for row in rows]
 

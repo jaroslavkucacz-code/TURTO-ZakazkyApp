@@ -18,6 +18,11 @@ def _add_column(con, table: str, declaration: str) -> None:
 def ensure_business_documents_schema(M) -> None:
     """Create only new tables and columns; never rewrite an existing document."""
     with M.db() as con:
+        from ..platform.company_roles import ensure_columns
+        ensure_columns(con)
+        _add_column(con, "business_documents", "source_offer_id INTEGER REFERENCES business_documents(id) ON DELETE SET NULL")
+        _add_column(con, "business_documents", "source_offer_number TEXT NOT NULL DEFAULT ''")
+        _add_column(con, "business_documents", "edit_revision INTEGER NOT NULL DEFAULT 0")
         con.executescript(
             """
             CREATE TABLE IF NOT EXISTS document_sequences(

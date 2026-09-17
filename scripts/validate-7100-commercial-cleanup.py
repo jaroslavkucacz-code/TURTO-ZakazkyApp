@@ -201,6 +201,8 @@ def functional_request_checks() -> None:
         assert transferred["category_name_snapshot"] == "Správná skupina"
         assert transferred["subgroup_name_snapshot"] == "Správná podskupina"
         assert transferred.get("_taxonomy_authoritative_ids") is True
+        with app.db() as con:
+            document["company_id"] = con.execute("INSERT INTO companies(short_name,official_name) VALUES('Testovací odběratel','Testovací odběratel')").lastrowid
         document["customer_name_snapshot"] = "Testovací odběratel"
         document_id = service.save_document(app, document, items)
         _saved_document, saved_items = service.load_document(app, document_id)

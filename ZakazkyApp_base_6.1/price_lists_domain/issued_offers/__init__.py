@@ -26,6 +26,8 @@ def apply(module) -> None:
     module.ensure_schema = ensure_schema
     module.ensure_business_documents_schema = lambda: ensure_business_documents_schema(module)
     install(module)
+    from ..received_orders import install as install_orders
+    install_orders(module)
     module._turto_business_documents_domain_v6338 = True
 
 

@@ -131,7 +131,7 @@ def ui_checks(td):
         con.execute("INSERT INTO users(name) VALUES('827 Editor'),('827 Layout')")
         uid = con.execute("INSERT INTO users(name) VALUES('827 Alena')").lastrowid
         second = con.execute("INSERT INTO users(name) VALUES('827 Bára')").lastrowid
-        cid = con.execute("INSERT INTO companies(short_name,official_name) VALUES('827 Dodavatel','827 Dodavatel')").lastrowid
+        cid = con.execute("INSERT INTO companies(short_name,official_name,is_supplier) VALUES('827 Dodavatel','827 Dodavatel',1)").lastrowid
         aid = con.execute("INSERT INTO actions(name,company_id,created_date) VALUES('827 Ověření',?,'2026-09-17')", (cid,)).lastrowid
         con.execute("INSERT INTO work_topics(name) VALUES('827 Akustika'),('827 Dilatace')")
         con.execute("INSERT INTO person_roles(name) VALUES('827 Projektant')")
