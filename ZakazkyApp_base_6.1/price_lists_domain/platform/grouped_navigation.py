@@ -10,7 +10,7 @@ PAGE_GROUP = {page: group for group, pages in GROUPS.items() for page in pages}
 TOP_ORDER = ("dash", "technical", "pricelists", "issued_offers", "projects", "directory", "help")
 LABELS = {
     "dash": "⌂  Přehled", "technical": "Technika", "directory": "Adresář",
-    "actions": "Příležitosti", "requests": "Poptávky", "mivo": "MIVO",
+    "actions": "Ke zpracování", "requests": "Poptávky", "mivo": "MIVO",
     "offers": "Přijaté nabídky", "tasks": "Úkoly",
     "companies": "Společnosti", "people": "Osoby", "projects": "▣  Akce",
     "help": "?  Nápověda",

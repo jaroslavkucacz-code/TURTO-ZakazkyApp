@@ -9,6 +9,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
 import tkinter.font as tkfont
 from price_lists_domain.platform import universal_search as table_search
+from price_lists_domain.platform import catalog_selection, action_assignees
 
 APP_NAME="Zakázky"
 APP_VERSION="6.1.0"
@@ -1041,6 +1042,7 @@ def ensure_schema():
             backup_now("before_v070")
             marker.write_text(datetime.now().isoformat(),encoding="utf-8")
     with db() as con:
+        existing_tables={r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         con.executescript("""
         CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT DEFAULT '');
         CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL UNIQUE,active INTEGER NOT NULL DEFAULT 1);
@@ -1177,6 +1179,8 @@ def ensure_schema():
         if not has_column(con,"requests","requested_for_company_id"):
             con.execute("ALTER TABLE requests ADD COLUMN requested_for_company_id INTEGER")
             # Starší poptávky záměrně nepřiřazujeme k „Odběratel“ bez jistoty.
+        if not has_column(con,"actions","assignees_json"):
+            con.execute("ALTER TABLE actions ADD COLUMN assignees_json TEXT NOT NULL DEFAULT '[]'")
         if not has_column(con,"actions","project_id"):
             con.execute("ALTER TABLE actions ADD COLUMN project_id INTEGER")
         if not has_column(con,"projects","gps_coordinates"):
@@ -1340,15 +1344,10 @@ def ensure_schema():
                     con.execute("UPDATE people SET company_id=? WHERE id=?",(cid,r["id"]))
         except sqlite3.Error:pass
 
-        # Naplnit číselník "Co se řeší" a vytvořit vrstvu Akcí nad existujícími daty.
-        for topic in ("Izolační nosníky","Vibroizolace","Akustika","Dilatace"):
-            con.execute("INSERT OR IGNORE INTO work_topics(name) VALUES(?)",(topic,))
-        for rr in con.execute("SELECT products FROM actions WHERE trim(coalesce(products,''))<>''").fetchall():
-            raw=rr["products"] or ""
-            for part in re.split(r"[;,/+]",raw):
-                part=part.strip()
-                if part:
-                    con.execute("INSERT OR IGNORE INTO work_topics(name) VALUES(?)",(part,))
+        # Výchozí číselník jen při prvním vytvoření; historie jej nedoplňuje.
+        if "work_topics" not in existing_tables:
+            for topic in ("Izolační nosníky","Vibroizolace","Akustika","Dilatace"):
+                con.execute("INSERT OR IGNORE INTO work_topics(name) VALUES(?)",(topic,))
 
         # Akce vychází z dosavadního přehledu/Příležitostí a jejich Poptávek.
         # Slučujeme pouze přesnou normalizovanou shodu názvu; nejasné názvy zůstávají oddělené.
@@ -1418,9 +1417,6 @@ def ensure_schema():
                 if len(ids)==1:
                     con.execute("UPDATE people SET company_id=? WHERE id=?",(next(iter(ids)),p["id"]))
 
-        # Seed material list from historical requests
-        for r in con.execute("SELECT DISTINCT trim(item) x FROM requests WHERE trim(coalesce(item,''))<>''"):
-            con.execute("INSERT OR IGNORE INTO materials(name) VALUES(?)",(r["x"],))
         # Jednorázově vytvořit základ historie i ze starších dat, pokud historie ještě neexistuje.
         if con.execute("SELECT COUNT(*) FROM action_history").fetchone()[0]==0:
             for a in con.execute("SELECT id,created_date,updated_by FROM actions"):
@@ -1434,12 +1430,11 @@ def ensure_schema():
                 con.execute("""INSERT INTO action_history(action_id,created_at,user_name,event_type,summary,details,related_company_id,related_request_id)
                     VALUES(?,?,?,?,?,?,?,?)""",(r["action_id"],created,r["updated_by"] or "Historický záznam","legacy_request","Historická poptávka",detail,r["company_id"],r["id"]))
 
-        # Číselník funkcí Osob: základní nabídka + všechny dosavadní hodnoty.
-        for _role in ("Stavbyvedoucí","Jednatel","Obchodní zástupce","Projektant",
-                      "Přípravář","Nákupčí","Rozpočtář","Mistr","Technik","Asistent/ka"):
-            con.execute("INSERT OR IGNORE INTO person_roles(name,active) VALUES(?,1)",(_role,))
-        for _r in con.execute("SELECT DISTINCT trim(role) role FROM people WHERE trim(coalesce(role,''))<>''").fetchall():
-            con.execute("INSERT OR IGNORE INTO person_roles(name,active) VALUES(?,1)",(_r["role"],))
+        # Výchozí funkce pouze v novém číselníku. Smazané položky neobnovujeme.
+        if "person_roles" not in existing_tables:
+            for _role in ("Stavbyvedoucí","Jednatel","Obchodní zástupce","Projektant",
+                          "Přípravář","Nákupčí","Rozpočtář","Mistr","Technik","Asistent/ka"):
+                con.execute("INSERT OR IGNORE INTO person_roles(name,active) VALUES(?,1)",(_role,))
 
         # Bezpečná deduplikace Osob:
         # 1) stejný neprázdný e-mail, 2) u kontaktů bez e-mailu stejné jméno + společnost.
@@ -1930,7 +1925,6 @@ def import_mail_contacts_v220_once():
                 if cr:cid=cr["id"]
                 else:cid=con.execute("INSERT INTO companies(short_name,official_name,active) VALUES(?,?,1)",(cname,cname)).lastrowid
             role=(rec.get("role") or "").strip()
-            if role:con.execute("INSERT OR IGNORE INTO person_roles(name,active) VALUES(?,1)",(role,))
             if existing:
                 # Never overwrite populated user data; only fill missing fields/company.
                 con.execute("""UPDATE people SET
@@ -1964,7 +1958,6 @@ def import_mail_contacts_v221_once():
                 if cr:cid=cr["id"]
                 else:cid=con.execute("INSERT INTO companies(short_name,official_name,active) VALUES(?,?,1)",(cname,cname)).lastrowid
             role=(rec.get("role") or "").strip()
-            if role:con.execute("INSERT OR IGNORE INTO person_roles(name,active) VALUES(?,1)",(role,))
             if existing:
                 con.execute("""UPDATE people SET name=CASE WHEN trim(coalesce(name,''))='' THEN ? ELSE name END,
                     phone=CASE WHEN trim(coalesce(phone,''))='' THEN ? ELSE phone END,
@@ -2024,13 +2017,6 @@ def post_import_cleanup_v222_once():
             nr=_normalize_person_role_v222(r["role"])
             if nr!=(r["role"] or "").strip():
                 con.execute("UPDATE people SET role=? WHERE id=?",(nr,r["id"]))
-        con.execute("DELETE FROM person_roles")
-        roles=[r["role"] for r in con.execute("""SELECT DISTINCT trim(role) role FROM people
-                                                WHERE trim(coalesce(role,''))<>''
-                                                ORDER BY trim(role) COLLATE CZECH""").fetchall()]
-        for role in roles:
-            con.execute("INSERT OR IGNORE INTO person_roles(name,active) VALUES(?,1)",(role,))
-
         # 2) První spolehlivě dohledatelný kontakt k Příležitosti z obou exportů pošty.
         # Hodnoty se zapisují pouze tam, kde je Přijato stále prázdné.
         received=[
@@ -2453,6 +2439,7 @@ class PersonDialog(tk.Toplevel):
                 r=con.execute("SELECT official_name FROM companies WHERE id=?",(pre_company_id,)).fetchone()
                 if r:vals["company"]=r["official_name"]
         self.companies=list(companies);self.roles=list(roles)
+        self._original_role=vals.get("role","") or ""
         f=scrollable_dialog_frame(self,14)
         self.vars={k:tk.StringVar(value=vals.get(k,"") or "") for k in ("name","email","phone","role")}
         self.company=tk.StringVar(value=vals.get("company","") or "")
@@ -2470,7 +2457,7 @@ class PersonDialog(tk.Toplevel):
         role_wrap=ttk.Frame(f);role_wrap.grid(row=4,column=1,columnspan=2,sticky="ew");role_wrap.columnconfigure(0,weight=1)
         self.role_box=AutocompleteEntry(role_wrap,textvariable=self.vars["role"],values=self.roles)
         self.role_box.grid(row=0,column=0,sticky="ew")
-        ttk.Button(role_wrap,text="+ Přidat funkci",command=self.add_role).grid(row=0,column=1,padx=(6,0))
+        ttk.Button(role_wrap,text="+ Nová funkce",command=self.add_role).grid(row=0,column=1,padx=(6,0))
         ttk.Button(role_wrap,text="⚙ Spravovat",command=self.manage_roles).grid(row=0,column=2,padx=(6,0))
 
         ttk.Label(f,text="Poznámka").grid(row=5,column=0,sticky="nw",padx=(0,10),pady=5)
@@ -2504,12 +2491,20 @@ class PersonDialog(tk.Toplevel):
             self.role_box.set_values(self.roles)
 
     def add_role(self):
-        role=self.vars["role"].get().strip()
-        if not role:return messagebox.showinfo("Funkce","Napište název funkce.",parent=self)
-        with db() as con:con.execute("INSERT OR IGNORE INTO person_roles(name,active) VALUES(?,1)",(role,))
-        if not any(x.casefold()==role.casefold() for x in self.roles):
-            self.roles.append(role);self.roles.sort(key=str.casefold)
-            self.role_box.set_values(self.roles)
+        name=simpledialog.askstring("Nová funkce","Název nové funkce:",
+                                    initialvalue=self.vars["role"].get(),parent=self)
+        if name is None:return
+        try:
+            with db() as con:role=catalog_selection.create_name(con,"person_roles",name)
+        except ValueError as exc:
+            return messagebox.showwarning("Funkce",str(exc),parent=self)
+        self.vars["role"].set(role)
+        self.manage_role_values()
+
+    def manage_role_values(self):
+        with db() as con:
+            self.roles=[r["name"] for r in con.execute("SELECT name FROM person_roles WHERE active=1 ORDER BY name COLLATE CZECH")]
+        self.role_box.set_values(self.roles)
 
     def ok(self):
         name=self.vars["name"].get().strip()
@@ -2518,6 +2513,12 @@ class PersonDialog(tk.Toplevel):
         if not name:return messagebox.showwarning("Osoba","Vyplňte jméno.",parent=self)
         if not email:return messagebox.showwarning("Osoba","Vyplňte e-mail.",parent=self)
         if not company_name:return messagebox.showwarning("Osoba","Vyberte společnost.",parent=self)
+        try:
+            with db() as con:
+                role=catalog_selection.existing_name(con,"person_roles",self.vars["role"].get(),
+                                                     (self._original_role,))
+        except ValueError as exc:
+            return messagebox.showwarning("Funkce",str(exc),parent=self)
 
         with db() as con:
             c=con.execute("""SELECT id FROM companies
@@ -2547,8 +2548,6 @@ class PersonDialog(tk.Toplevel):
                 "Opravdu chcete založit další osobu?",parent=self):
                 return
 
-            role=self.vars["role"].get().strip()
-            if role:con.execute("INSERT OR IGNORE INTO person_roles(name,active) VALUES(?,1)",(role,))
             vals=(name,email,self.vars["phone"].get().strip(),role,c["id"],
                   self.note.get("1.0","end").strip(),1 if self.active.get() else 0)
             if self.pid:
@@ -3089,6 +3088,8 @@ class ActionDialog(tk.Toplevel):
         self.deadline=tk.StringVar(value=vals.get("deadline",""))
         self.status=tk.StringVar(value=vals.get("status","Rozpracováno"))
         self.products=tk.StringVar(value=vals.get("products",""))
+        self._original_topics=tuple(x.strip() for x in re.split(r"[;,]",self.products.get()) if x.strip())
+        self._original_salesperson=vals.get("salesperson","") or ""
         self.next=tk.StringVar(value=vals.get("next_step",""))
 
         # Akce
@@ -3133,7 +3134,6 @@ class ActionDialog(tk.Toplevel):
         self.selected_topics=[]
         for _topic in re.split(r"\s*[;,]\s*",self.products.get().strip()):
             if _topic:self._append_topic(_topic)
-        self.topic_entry.bind("<Return>",lambda e:self.add_topic())
 
         ttk.Label(f,text="Poznámka").grid(row=7,column=0,sticky="nw",padx=(0,10),pady=5)
         self.note=tk.Text(f,wrap="word",height=4);self.note.grid(row=7,column=1,sticky="ew")
@@ -3281,10 +3281,16 @@ class ActionDialog(tk.Toplevel):
 
     def add_topic(self):
         topic=self.topic_entry_var.get().strip()
-        if not topic:return
+        if not topic:return True
+        try:
+            with db() as con:
+                topic=catalog_selection.existing_name(con,"work_topics",topic,self._original_topics)
+        except ValueError as exc:
+            messagebox.showwarning("Co se řeší",str(exc),parent=self)
+            return False
         self._append_topic(topic)
-        with db() as con:con.execute("INSERT OR IGNORE INTO work_topics(name) VALUES(?)",(topic,))
         self.topic_entry_var.set("")
+        return True
 
     def remove_topic(self,topic):
         self.selected_topics=[x for x in self.selected_topics if x.lower()!=topic.lower()]
@@ -3294,15 +3300,19 @@ class ActionDialog(tk.Toplevel):
         action_name=self.name.get().strip()
         if not action_name:
             return messagebox.showwarning("Příležitost","Zadejte Akci.",parent=self)
-        if hasattr(self,"topic_entry_var") and self.topic_entry_var.get().strip():
-            self._append_topic(self.topic_entry_var.get().strip())
+        if not self.add_topic():return
         self.products.set("; ".join(self.selected_topics))
         user=get_setting("active_user","")
 
         with db() as con:
-            for part in re.split(r"[;,]",self.products.get()):
-                part=part.strip()
-                if part:con.execute("INSERT OR IGNORE INTO work_topics(name) VALUES(?)",(part,))
+            try:
+                self.selected_topics=[catalog_selection.existing_name(con,"work_topics",part,self._original_topics)
+                                      for part in self.selected_topics]
+                self.products.set("; ".join(self.selected_topics))
+                salesperson=catalog_selection.existing_name(con,"salespeople",self.salesperson.get(),
+                                                             (self._original_salesperson,))
+            except ValueError as exc:
+                return messagebox.showwarning("Ke zpracování",str(exc),parent=self)
 
             company_name=self.company.get().strip()
             c=con.execute("""SELECT id FROM companies
@@ -3312,7 +3322,7 @@ class ActionDialog(tk.Toplevel):
                 return messagebox.showwarning("Příležitost",
                     "Vyberte existující společnost, nebo použijte „+ Nová společnost“.",parent=self)
 
-            s=con.execute("SELECT id FROM salespeople WHERE name=?",(self.salesperson.get(),)).fetchone()
+            s=con.execute("SELECT id FROM salespeople WHERE name=?",(salesperson,)).fetchone()
 
             # Akce a název Příležitosti jsou pro uživatele totožné.
             p=con.execute("SELECT id FROM projects WHERE lower(trim(name))=lower(trim(?)) AND active=1 ORDER BY id LIMIT 1",
@@ -3408,6 +3418,7 @@ class RequestDialog(tk.Toplevel):
         self.asked=tk.StringVar(value=vals.get("asked_date",date.today().isoformat()))
         self.received=tk.StringVar(value=vals.get("received_date",""))
         self.item=tk.StringVar(value=vals.get("item",""))
+        self._original_item=vals.get("item","") or ""
         with db() as con:
             self.user_names=[r["name"] for r in con.execute("SELECT name FROM users WHERE active=1 ORDER BY name COLLATE CZECH")]
         self.assigned=tk.StringVar(value=vals.get("assigned_user","") or get_setting("active_user",""))
@@ -3730,9 +3741,14 @@ class RequestDialog(tk.Toplevel):
 
     def new_material(self):
         name=simpledialog.askstring("Materiál","Název nového poptávaného materiálu:",initialvalue=self.item.get(),parent=self)
-        if not name:return
-        with db() as con:con.execute("INSERT OR IGNORE INTO materials(name) VALUES(?)",(name.strip(),))
-        self.item.set(name.strip());self.item_box.set_values(self.item_box.values+[name.strip()])
+        if name is None:return
+        try:
+            with db() as con:name=catalog_selection.create_name(con,"materials",name)
+        except ValueError as exc:
+            return messagebox.showwarning("Materiál",str(exc),parent=self)
+        self.item.set(name)
+        with db() as con:
+            self.item_box.set_values([r["name"] for r in con.execute("SELECT name FROM materials WHERE active=1 ORDER BY name COLLATE CZECH")])
 
     def update_preview(self):
         if self.is_mivo:
@@ -3817,7 +3833,12 @@ class RequestDialog(tk.Toplevel):
         asked=parse_date(self.asked.get())
         if not asked:return messagebox.showwarning("Poptávka","Vyplňte platné datum Poptáno.",parent=self)
         received=parse_date(self.received.get()) if self.received.get().strip() else ""
-        with db() as con:con.execute("INSERT OR IGNORE INTO materials(name) VALUES(?)",(self.item.get().strip(),))
+        try:
+            with db() as con:
+                item=catalog_selection.existing_name(con,"materials",self.item.get(),(self._original_item,))
+        except ValueError as exc:
+            return messagebox.showwarning("Materiál",str(exc),parent=self)
+        self.item.set(item)
         rec=[email for var,email in self.contact_vars if email and var.get()]
         manual=(self.manual_recipient.get() or "").strip()
         if manual and manual not in rec:rec.append(manual)
@@ -4530,12 +4551,14 @@ class App(tk.Tk):
 
 
     def build_actions(self):
-        p=self.tabs["actions"];self.title_label(p,"Příležitosti","+ Nová příležitost",self.new_action)
+        p=self.tabs["actions"];self.title_label(p,"Ke zpracování","+ Nová příležitost",self.new_action)
         bar=ttk.Frame(p,style="Panel.TFrame",padding=10);bar.pack(fill="x",pady=(0,6))
         ttk.Button(bar,text="🗑 Smazat",style="Toolbar.TButton",command=self.delete_action).pack(side="right",padx=4)
         ttk.Button(bar,text="🔔 Připomínka",style="Toolbar.TButton",command=self.task_from_selected_action).pack(side="right",padx=4)
         ttk.Button(bar,text="✉ Poptat",style="Toolbar.TButton",command=self.request_from_selected_action).pack(side="right",padx=4)
         ttk.Button(bar,text="✎ Editovat",style="Toolbar.TButton",command=lambda:self.edit_action(self.action_tree)).pack(side="right",padx=4)
+        ttk.Button(bar,text="Řeší…",style="Toolbar.TButton",
+                   command=lambda:action_assignees.open_picker(sys.modules[__name__],self)).pack(side="right",padx=4)
 
         with db() as con:
             companies=[r["official_name"] for r in con.execute("""SELECT MIN(id) id,official_name FROM companies
@@ -4556,7 +4579,7 @@ class App(tk.Tk):
         self.action_date_filter=tk.StringVar()
 
         filters=ttk.Frame(p,style="Panel.TFrame",padding=0);filters.pack(fill="x",pady=(0,4))
-        widths=(120,90,90,280,200,160,230,220)
+        widths=(120,90,90,280,200,160,230,220,210)
         for i,w in enumerate(widths):filters.columnconfigure(i,weight=w)
         def cell(col,label):
             f=ttk.Frame(filters,style="Panel.TFrame");f.grid(row=0,column=col,sticky="ew",padx=2)
@@ -4592,10 +4615,10 @@ class App(tk.Tk):
         setup_clear_filter_button(filters,self.clear_action_filters,_afv,
             {id(self.action_received_mode):"Do data",id(self.action_date_mode):"Do data"})
 
-        self.action_tree=self.tree(p,("Stav","Přijato","Deadline","Příležitost","Společnost","Obchodník","Co se řeší","Poznámka"),
+        self.action_tree=self.tree(p,("Stav","Přijato","Deadline","Příležitost","Společnost","Obchodník","Co se řeší","Poznámka","Řeší"),
                                    list(widths))
         table_search.install_main_search(self,self.action_tree,filters,"actions","refresh_actions")
-        bind_row_double_click(self.action_tree,lambda e:self.edit_action(self.action_tree))
+        bind_row_double_click(self.action_tree,lambda e:action_assignees.row_double_click(sys.modules[__name__],self,e))
         self.action_tree.bind("<Button-1>",self._action_status_cell_click,add="+")
 
     def clear_action_filters(self):
@@ -5389,11 +5412,12 @@ $s.Save()
                 self._action_status_editor.destroy()
                 self._action_status_editor=None
             if tree.identify_region(event.x,event.y)!="cell":return
-            if tree.identify_column(event.x)!="#1":return
+            column=tree.identify_column(event.x)
+            if not column or tree.column(column,"id")!="Stav":return
             row=tree.identify_row(event.y)
             if not row:return
             tree.selection_set(row);tree.focus(row)
-            bbox=tree.bbox(row,"#1")
+            bbox=tree.bbox(row,"Stav")
             if not bbox:return
             x,y,w,h=bbox
             current=str(tree.set(row,"Stav") or "")
@@ -5861,7 +5885,8 @@ $s.Save()
             if dfilter and not date_matches(r["deadline"],dmode,dfilter):continue
             table_search.insert_matching(self.action_tree,"","end",iid=f"a{r['id']}",
                 values=(self.effective(r),fmt_date(r["created_date"]),fmt_date(r["deadline"]),
-                        r["name"],r["company"] or "",r["salesperson"] or "",r["products"],r["note"] or ""),
+                        r["name"],r["company"] or "",r["salesperson"] or "",r["products"],r["note"] or "",
+                        action_assignees.display(r["assignees_json"])),
                 tags=(self.tag(r),))
             deadline_cells.append((f"a{r['id']}",self.late(r),self.soon(r)))
         self.reapply_tree_sort(self.action_tree)
