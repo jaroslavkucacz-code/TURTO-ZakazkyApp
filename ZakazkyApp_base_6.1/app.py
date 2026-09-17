@@ -9,7 +9,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
 import tkinter.font as tkfont
 from price_lists_domain.platform import universal_search as table_search
-from price_lists_domain.platform import catalog_selection, action_assignees, company_roles
+from price_lists_domain.platform import catalog_selection, action_assignees, company_roles, request_mail
 
 APP_NAME="Zakázky"
 APP_VERSION="6.1.0"
@@ -1115,7 +1115,7 @@ def ensure_schema():
           item TEXT DEFAULT '',
           note TEXT DEFAULT '',
           mail_subject TEXT DEFAULT '',
-          include_project_in_subject INTEGER NOT NULL DEFAULT 1,
+          include_project_in_subject INTEGER NOT NULL DEFAULT 0,
           recipients_snapshot TEXT DEFAULT '',
           cc_snapshot TEXT DEFAULT 'info@turto.cz',
           updated_by TEXT DEFAULT '',
@@ -1177,6 +1177,10 @@ def ensure_schema():
         CREATE INDEX IF NOT EXISTS idx_action_history_action ON action_history(action_id,created_at);
         """)
         company_roles.ensure_columns(con)
+        if not has_column(con,"requests","mail_body"):
+            con.execute("ALTER TABLE requests ADD COLUMN mail_body TEXT DEFAULT NULL")
+        if not has_column(con,"requests","urgent"):
+            con.execute("ALTER TABLE requests ADD COLUMN urgent INTEGER NOT NULL DEFAULT 0")
         if not has_column(con,"requests","requested_for_company_id"):
             con.execute("ALTER TABLE requests ADD COLUMN requested_for_company_id INTEGER")
             # Starší poptávky záměrně nepřiřazujeme k „Odběratel“ bez jistoty.
@@ -1223,7 +1227,6 @@ def ensure_schema():
         con.execute("INSERT OR IGNORE INTO users(name) VALUES('Denisa Kovalová')")
         con.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('active_user','Jaroslav Kučera')")
         con.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('theme','Světlý')")
-        con.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('include_project_default','1')")
         # Vlastní společnost TURTO a interní osoby.
         turto=con.execute("SELECT id FROM companies WHERE lower(trim(short_name))='turto' OR lower(trim(official_name)) LIKE 'turto%' LIMIT 1").fetchone()
         if turto:
@@ -1736,15 +1739,16 @@ def build_subject(company_short,action,item,asked,include_action):
 
 EMAIL_BODY="Dobrý den,\r\n\r\n\r\n\r\nPředem velice děkuji,"
 
-def open_mail_draft(recipients,subject,cc=CC_ALWAYS):
+def open_mail_draft(recipients,subject,cc=CC_ALWAYS,body=None):
     recipients=[x.strip() for x in recipients if x and x.strip()]
+    body=request_mail.text_lf(EMAIL_BODY if body is None else body).replace("\n","\r\n")
 
     if sys.platform.startswith("win"):
         env=os.environ.copy()
         env["ZAK_TO"]=";".join(recipients)
         env["ZAK_CC"]=cc or ""
         env["ZAK_SUBJECT"]=subject or ""
-        env["ZAK_BODY"]=EMAIL_BODY
+        env["ZAK_BODY"]=body
         ps=r"""
 $ErrorActionPreference='Stop'
 try {
@@ -1839,7 +1843,7 @@ try {
     # Na jiných systémech vytvoříme koncept i bez pole Komu.
     to=";".join(recipients)
     url="mailto:"+quote(to,safe="@;,.") + "?" + urlencode(
-        {"cc":cc,"subject":subject,"body":EMAIL_BODY},quote_via=quote)
+        {"cc":cc,"subject":subject,"body":body},quote_via=quote)
     try:
         webbrowser.open(url);return True
     except Exception as e:
@@ -3426,8 +3430,10 @@ class RequestDialog(tk.Toplevel):
         self.item=tk.StringVar(value=vals.get("item",""))
         self._original_item=vals.get("item","") or ""
         with db() as con:
-            self.user_names=[r["name"] for r in con.execute("SELECT name FROM users WHERE active=1 ORDER BY name COLLATE CZECH")]
-        self.assigned=tk.StringVar(value=vals.get("assigned_user","") or get_setting("active_user",""))
+            self.user_names=request_mail.users(con)
+        self._original_assigned=vals.get("assigned_user","") or ""
+        assigned=self._original_assigned if rid else request_mail.default_user(sys.modules[__name__],parent,self.user_names)
+        self.assigned=tk.StringVar(value="" if request_mail.technical_user(assigned) else assigned)
 
         ttk.Label(f,text="Dodavatel").grid(row=0,column=0,sticky="w",padx=(0,10),pady=5)
         self.company_map={r["official_name"]:r["id"] for r in self.companies}
@@ -3476,8 +3482,13 @@ class RequestDialog(tk.Toplevel):
         ttk.Button(mr,text="+ Přidat",command=self.new_material).grid(row=0,column=1,padx=(6,0))
         ttk.Button(mr,text="⚙ Spravovat",command=self.manage_materials).grid(row=0,column=2,padx=(6,0))
 
-        self.include=tk.BooleanVar(value=bool(int(vals.get("include_project_in_subject",get_setting("include_project_default","1")) or 1)))
-        ttk.Checkbutton(f,text="Uvést název akce v předmětu",variable=self.include,command=self.update_preview).grid(row=6,column=1,sticky="w",pady=4)
+        self.include=tk.BooleanVar(value=request_mail.flag(vals.get("include_project_in_subject",0)))
+        self.urgent=tk.BooleanVar(value=request_mail.flag(vals.get("urgent",0)))
+        subject_options=ttk.Frame(f);subject_options.grid(row=6,column=1,columnspan=2,sticky="w",pady=4)
+        self.include_check=ttk.Checkbutton(subject_options,text="Uvést název akce v předmětu",variable=self.include,command=self.update_preview)
+        self.include_check.pack(side="left")
+        self.urgent_check=ttk.Checkbutton(subject_options,text="SPĚCHÁ!",variable=self.urgent,command=self.update_preview)
+        self.urgent_check.pack(side="left",padx=(16,0))
 
         self.open_after=tk.BooleanVar(value=False)
 
@@ -3502,15 +3513,22 @@ class RequestDialog(tk.Toplevel):
         _default_subject=vals.get("mail_subject","") or build_subject(
             vals.get("company",""),vals.get("action_name",""),vals.get("item",""),
             vals.get("asked_date",date.today().isoformat()),
-            bool(int(vals.get("include_project_in_subject",get_setting("include_project_default","1")) or 1))
+            self.include.get()
         )
         self.subject=tk.StringVar(value=_default_subject)
+        self._mivo_generated_subject=None if rid else _default_subject
         ttk.Entry(f,textvariable=self.subject,state=("normal" if self.is_mivo else "readonly")).grid(
             row=10,column=1,columnspan=2,sticky="ew")
 
         ttk.Label(f,text="Text").grid(row=11,column=0,sticky="nw",padx=(0,10),pady=5)
-        tx=tk.Text(f,wrap="word",height=5);tx.grid(row=11,column=1,columnspan=2,sticky="ew")
-        tx.insert("1.0","Dobrý den,\n\n\n\nPředem velice děkuji,");tx.configure(state="disabled")
+        body_wrap=ttk.Frame(f);body_wrap.grid(row=11,column=1,columnspan=2,sticky="ew")
+        self.mail_body=tk.Text(body_wrap,wrap="word",height=5,undo=True)
+        self.mail_body.pack(fill="x")
+        self._loaded_mail_profile=request_mail.profile(sys.modules[__name__],self.assigned.get())
+        self.mail_body.insert("1.0",request_mail.text_lf(vals["mail_body"]) if vals.get("mail_body") is not None else self._loaded_mail_profile)
+        body_buttons=ttk.Frame(body_wrap);body_buttons.pack(fill="x",pady=(4,0))
+        ttk.Button(body_buttons,text="Výchozí text uživatele…",command=self.edit_mail_profile).pack(side="left")
+        ttk.Button(body_buttons,text="Načíst text uživatele",command=self.load_mail_profile).pack(side="left",padx=(6,0))
 
         # Similar history panel is useful for normal Poptávky, but deliberately omitted in MIVO.
         if not self.is_mivo:
@@ -3530,9 +3548,10 @@ class RequestDialog(tk.Toplevel):
         else:
             detail_row=12
 
-        ttk.Label(f,text="Řeší").grid(row=detail_row,column=0,sticky="nw",padx=(0,10),pady=5)
+        ttk.Label(f,text="Poptávající").grid(row=detail_row,column=0,sticky="nw",padx=(0,10),pady=5)
         self.assigned_box=InlineChoice(f,textvariable=self.assigned,values=self.user_names,editable=True,max_rows=6)
         self.assigned_box.grid(row=detail_row,column=1,sticky="ew",pady=5)
+        self.assigned.trace_add("write",lambda *a:self._assigned_changed())
         ttk.Label(f,text="Poznámka").grid(row=detail_row+1,column=0,sticky="nw",padx=(0,10),pady=5)
         self.note=tk.Text(f,wrap="word",height=3);self.note.grid(row=detail_row+1,column=1,columnspan=2,sticky="ew")
         self.note.insert("1.0",vals.get("note","") or "")
@@ -3565,6 +3584,55 @@ class RequestDialog(tk.Toplevel):
         self.update_preview()
         if not self.is_mivo:self.refresh_similar()
         self.after(80,self._reload_contacts_from_company)
+
+    def _set_mail_body(self,body):
+        self.mail_body.delete("1.0","end")
+        self.mail_body.insert("1.0",body)
+
+    def _assigned_changed(self):
+        name=self.assigned.get().strip()
+        with db() as con:self.user_names=request_mail.users(con)
+        # Partial typing is not a user selection and must not replace text.
+        if name not in self.user_names:return
+        body=request_mail.profile(sys.modules[__name__],name)
+        if self.mail_body.get("1.0","end-1c")==self._loaded_mail_profile:
+            self._set_mail_body(body)
+        self._loaded_mail_profile=body
+
+    def _mail_profile_user(self):
+        name=self.assigned.get().strip()
+        with db() as con:eligible=request_mail.users(con)
+        if name not in eligible:
+            messagebox.showwarning("Výchozí text","Nejdříve vyberte poptávajícího ze seznamu aktivních uživatelů.",parent=self)
+            return None
+        return name
+
+    def load_mail_profile(self):
+        name=self._mail_profile_user()
+        if name is None:return
+        body=request_mail.profile(sys.modules[__name__],name)
+        if self.mail_body.get("1.0","end-1c") not in (body,self._loaded_mail_profile):
+            if not messagebox.askyesno("Načíst výchozí text","Nahradit rozepsaný text této poptávky výchozím textem uživatele?",parent=self):return
+        self._loaded_mail_profile=body
+        self._set_mail_body(body)
+
+    def edit_mail_profile(self):
+        name=self._mail_profile_user()
+        if name is None:return
+        previous=request_mail.profile(sys.modules[__name__],name)
+        editor=request_mail.ProfileDialog(self,sys.modules[__name__],name)
+        self.wait_window(editor)
+        self.grab_set()
+        if editor.result is not None:
+            if self.mail_body.get("1.0","end-1c")==previous:self._set_mail_body(editor.result)
+            self._loaded_mail_profile=editor.result
+
+    def _assigned_value(self):
+        value=self.assigned.get().strip()
+        # Hide technical accounts in the editor without silently rewriting history.
+        if not value and request_mail.technical_user(self._original_assigned):
+            value=self._original_assigned
+        with db() as con:return request_mail.validate_user(con,value,self._original_assigned)
 
     def _resolve_company_id(self,name):
         with db() as con:
@@ -3751,9 +3819,16 @@ class RequestDialog(tk.Toplevel):
             self.item_box.set_values([r["name"] for r in con.execute("SELECT name FROM materials WHERE active=1 ORDER BY name COLLATE CZECH")])
 
     def update_preview(self):
+        if not hasattr(self,"subject"):return
+        generated=build_subject(self.company.get().strip(),self.action.get().strip(),self.item.get().strip(),self.asked.get(),self.include.get())
         if self.is_mivo:
-            return
-        self.subject.set(build_subject(self.company.get().strip(),self.action.get().strip(),self.item.get().strip(),self.asked.get(),self.include.get()))
+            current=request_mail.with_urgency(self.subject.get(),False)
+            if current==self._mivo_generated_subject:
+                self._mivo_generated_subject=generated
+            else:
+                generated=current
+                self._mivo_generated_subject=None
+        self.subject.set(request_mail.with_urgency(generated,self.urgent.get()))
 
 
     def refresh_similar(self):
@@ -3839,16 +3914,20 @@ class RequestDialog(tk.Toplevel):
         except ValueError as exc:
             return messagebox.showwarning("Materiál",str(exc),parent=self)
         self.item.set(item)
+        try:assigned=self._assigned_value()
+        except ValueError as exc:
+            return messagebox.showwarning("Poptávající",str(exc),parent=self)
         rec=[email for var,email in self.contact_vars if email and var.get()]
         manual=(self.manual_recipient.get() or "").strip()
         if manual and manual not in rec:rec.append(manual)
-        set_setting("include_project_default","1" if self.include.get() else "0")
+        self.update_preview()
         self.result={
-            "company_id":cid,"requested_for_company_id":for_id,"action_id":aid,"assigned_user":self.assigned.get().strip(),
+            "company_id":cid,"requested_for_company_id":for_id,"action_id":aid,"assigned_user":assigned,
             "asked":asked,"received":received,
             "item":self.item.get().strip(),"note":self.note.get("1.0","end").strip(),
             "include":1 if self.include.get() else 0,"recipients":rec,
-            "subject":self.subject.get(),"open":self.open_after.get()
+            "subject":self.subject.get(),"open":self.open_after.get(),
+            "urgent":int(self.urgent.get()),"mail_body":self.mail_body.get("1.0","end-1c")
         }
         self.destroy()
 
@@ -6001,15 +6080,17 @@ $s.Save()
         r=d.result
         user=get_setting("active_user","")
         with db() as con:
-            try:company_roles.validate_request(con,r)
+            try:
+                company_roles.validate_request(con,r)
+                r["assigned_user"]=request_mail.validate_user(con,r.get("assigned_user",""))
             except ValueError as exc:return messagebox.showwarning("Poptávka",str(exc),parent=self)
             rid=con.execute("""INSERT INTO requests(
                 company_id,requested_for_company_id,action_id,asked_date,received_date,item,note,
-                mail_subject,include_project_in_subject,recipients_snapshot,cc_snapshot,updated_by,assigned_user
-            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                mail_subject,include_project_in_subject,recipients_snapshot,cc_snapshot,updated_by,assigned_user,mail_body,urgent
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (r["company_id"],r["requested_for_company_id"],r["action_id"],r["asked"],r["received"],
              r["item"],r["note"],r["subject"],r["include"],";".join(r["recipients"]),
-             CC_ALWAYS,user,r.get("assigned_user",""))).lastrowid
+             CC_ALWAYS,user,r.get("assigned_user",""),r.get("mail_body"),int(request_mail.flag(r.get("urgent",0))))).lastrowid
             comp=con.execute("SELECT official_name FROM companies WHERE id=?",(r["company_id"],)).fetchone()
             comp_for=con.execute("SELECT official_name FROM companies WHERE id=?",(r["requested_for_company_id"],)).fetchone()
         log_history(r["action_id"],"request_create","Vytvořil poptávku",
@@ -6166,7 +6247,9 @@ $s.Save()
         with db() as con:
             before=con.execute("SELECT * FROM requests WHERE id=?",(rid,)).fetchone()
             if not before:return
-            try:company_roles.validate_request(con,data,before)
+            try:
+                company_roles.validate_request(con,data,before)
+                data["assigned_user"]=request_mail.validate_user(con,data.get("assigned_user",""),before["assigned_user"] or "")
             except ValueError as exc:return messagebox.showwarning("Poptávka",str(exc),parent=self)
             no_response=0 if data["received"] else int(before["no_response"] or 0)
             con.execute("""UPDATE requests SET
@@ -6183,6 +6266,8 @@ $s.Save()
                 cc_snapshot=?,
                 updated_by=?,
                 assigned_user=?,
+                mail_body=?,
+                urgent=?,
                 no_response=?
                 WHERE id=?""",
                 (data["company_id"],
@@ -6198,6 +6283,8 @@ $s.Save()
                  CC_ALWAYS,
                  user,
                  data.get("assigned_user",""),
+                 data.get("mail_body",before["mail_body"]),
+                 int(request_mail.flag(data.get("urgent",before["urgent"]))),
                  no_response,
                  rid))
 
@@ -6212,12 +6299,15 @@ $s.Save()
             ("note","Poznámka",data["note"]),
             ("recipients_snapshot","Příjemci",";".join(data["recipients"])),
             ("assigned_user","Řeší",data.get("assigned_user","")),
+            ("mail_subject","Předmět",data["subject"]),
         ]
         for key,label,newval in pairs:
             oldval=(before[key] or "") if before and key in before.keys() else ""
             if str(oldval)!=str(newval or ""):
                 changes.append(f"{label}: {oldval or '—'} → {newval or '—'}")
 
+        if data.get("mail_body",before["mail_body"])!=before["mail_body"]:
+            changes.append("Upraven text e-mailu.")
         log_history(
             data["action_id"],
             "request_edit",
@@ -6233,8 +6323,12 @@ $s.Save()
     def mail_selected(self):
         rid=self.selected_id(self.request_tree,"r")
         if not rid:return
-        with db() as con:r=con.execute("SELECT recipients_snapshot,mail_subject,cc_snapshot FROM requests WHERE id=?",(rid,)).fetchone()
-        open_mail_draft((r["recipients_snapshot"] or "").split(";"),r["mail_subject"] or "",r["cc_snapshot"] or CC_ALWAYS)
+        with db() as con:r=con.execute("SELECT recipients_snapshot,mail_subject,cc_snapshot,mail_body,assigned_user,urgent FROM requests WHERE id=?",(rid,)).fetchone()
+        if not r:return
+        subject=r["mail_subject"] or ""
+        if request_mail.flag(r["urgent"]):subject=request_mail.with_urgency(subject,True)
+        open_mail_draft((r["recipients_snapshot"] or "").split(";"),subject,r["cc_snapshot"] or CC_ALWAYS,
+                        body=request_mail.body_for_request(sys.modules[__name__],r))
     def export_people_csv(self):
         path=filedialog.asksaveasfilename(parent=self,title="Export adresáře",defaultextension=".csv",
                                           filetypes=[("CSV","*.csv")],initialfile="adresar_osob.csv")
