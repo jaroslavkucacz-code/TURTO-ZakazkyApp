@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation
+from math import isfinite
 import hashlib
 import json
 
@@ -39,10 +40,6 @@ def numeric(value, label="Číslo"):
         raise ValueError(f"{label}: vyplňte platné číslo.") from None
 
 
-def money(value):
-    return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
-
 def normalize_item(item, position=1):
     row = {key: item.get(key) for key in ITEM_FIELDS}
     row.update(position=position, row_type=item.get("row_type") or "product")
@@ -53,6 +50,8 @@ def normalize_item(item, position=1):
         raise ValueError("Vyplňte název položky.")
     for key in ("quantity", "purchase_unit_price", "margin_pct", "recommended_unit_price", "discount_pct", "unit_price", "vat_rate"):
         row[key] = float(numeric(item.get(key, 0), key))
+        if not isfinite(row[key]):
+            raise ValueError("Číselná hodnota je příliš vysoká.")
     if row["row_type"] in {"heading", "text"}:
         row.update(quantity=0, unit_price=0, total_price=0, vat_rate=0)
     else:
@@ -60,7 +59,9 @@ def normalize_item(item, position=1):
             raise ValueError("Množství a cena nesmí být záporné; DPH musí být od 0 do 100 %.")
         # unit_price is the agreed price AFTER the line discount. Never reprice
         # it from purchase cost/margin, including an explicitly free line.
-        row["total_price"] = float(money(numeric(row["quantity"]) * numeric(row["unit_price"])))
+        row["total_price"] = row["quantity"] * row["unit_price"]
+        if not isfinite(row["total_price"]):
+            raise ValueError("Celková cena je příliš vysoká.")
     for key in ("description", "product_code", "item_key", "unit", "purchase_currency", "internal_code_snapshot",
                 "internal_name_snapshot", "category_name_snapshot", "subgroup_name_snapshot", "price_source_label", "line_note", "image_asset_key_snapshot", "image_file_snapshot"):
         row[key] = str(row.get(key) or "")
@@ -69,15 +70,20 @@ def normalize_item(item, position=1):
 
 
 def totals(items, discount=0):
-    discount = numeric(discount, "Celková sleva")
-    if not 0 <= discount <= 100:
-        raise ValueError("Celková sleva musí být od 0 do 100 %.")
-    subtotal = sum((numeric(row["total_price"]) for row in items), Decimal(0))
-    factor = 1 - discount / 100
-    net = money(subtotal * factor)
-    vat = money(sum((numeric(row["total_price"]) * factor * numeric(row["vat_rate"]) / 100 for row in items), Decimal(0)))
-    return dict(items_subtotal=float(subtotal), subtotal_net=float(net), vat_total=float(vat),
-                total_gross=float(net + vat), total_value=float(net))
+    discount = float(numeric(discount, "Celková sleva"))
+    if not -100 <= discount <= 100:
+        raise ValueError("Celková sleva musí být od −100 do 100 %.")
+    # Match issued-offer precision. Rounding each row to cents would change the
+    # agreed amount when copying fractional quantities/prices from an offer.
+    subtotal = sum(float(numeric(row["total_price"])) for row in items)
+    factor = 1.0 - discount / 100.0
+    net = subtotal * factor
+    vat = sum(float(numeric(row["total_price"])) * factor * float(numeric(row["vat_rate"])) / 100.0
+              for row in items if row["row_type"] not in {"heading", "text"})
+    if not all(isfinite(value) for value in (subtotal, net, vat, net + vat)):
+        raise ValueError("Celková cena je příliš vysoká.")
+    return dict(items_subtotal=round(subtotal, 6), subtotal_net=round(net, 6), vat_total=round(vat, 6),
+                total_gross=round(net + vat, 6), total_value=round(net, 6))
 
 
 def defaults(M):

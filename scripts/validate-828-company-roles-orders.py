@@ -56,6 +56,14 @@ def source_checks(td):
         previous.rejects(lambda: roles.validate_request(con, {"company_id": supplier, "requested_for_company_id": supplier}))
         roles.validate_request(con, {"company_id": supplier, "requested_for_company_id": customer})
         roles.validate_request(con, {"company_id": customer}, {"company_id": customer})
+    # Keep all six stored decimal places of the issued offer, including
+    # negative global discounts (surcharges) and mixed VAT rates.
+    precision_items = [dict(name="Zlomková položka", quantity=1.234, unit_price=2.675, vat_rate=21),
+                       dict(name="Druhá položka", quantity=3.789, unit_price=4.56789, vat_rate=12)]
+    for discount in (-7.125, 0, 5.555, 100):
+        expected = offers.calculate_totals(precision_items, discount)
+        actual = orders.totals([orders.normalize_item(row) for row in precision_items], discount)
+        assert all(actual[key] == getattr(expected, key) for key in ("items_subtotal", "subtotal_net", "vat_total", "total_gross")), (actual, expected)
     original = offers.load_document(M, offer_id)
     draft, lines = orders.draft_from_offer(M, offer_id)
     assert orders.list_documents(M) == [], "Converting/closing a draft wrote an order"
