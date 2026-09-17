@@ -6,6 +6,7 @@ import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 import tempfile
+import sys
 
 
 def load_module(path: Path, name: str):
@@ -163,7 +164,8 @@ def main() -> None:
 
     assert module_path.is_file(), "8.0.3 runtime optimization owner is missing"
     optimization = load_module(module_path, "turto_runtime_optimization_test")
-    lazy_module = load_module(lazy_path, "turto_lazy_refresh_test")
+    sys.path.insert(0, str(base))
+    from price_lists_domain.platform import lazy_refresh as lazy_module
 
     # Header optimization is dynamic: today's hidden widgets skip the historical
     # DB summary, while any future mapped header widget automatically restores it.

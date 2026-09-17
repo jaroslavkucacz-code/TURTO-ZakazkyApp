@@ -100,6 +100,10 @@ def apply(M):
 
     def reorder_navigation(app):
         """Keep Akce between Společnosti and Úkoly without rebuilding pages."""
+        if hasattr(app, 'nav_groups'):
+            from price_lists_domain.platform.grouped_navigation import arrange
+            arrange(app)
+            return
         try:
             order = (
                 'dash','actions','requests','mivo','offers',

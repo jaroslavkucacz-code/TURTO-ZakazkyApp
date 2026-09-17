@@ -77,6 +77,7 @@ def configure_theme(app):
     s.configure('.', font=('Calibri', 11), background=p['bg'], foreground=p['fg'])
     for name, key in {'TFrame':'bg', 'App.TFrame':'bg', 'Panel.TFrame':'panel',
                       'Card.TFrame':'card', 'Topbar.TFrame':'topbar', 'NavBar.TFrame':'navbar',
+                      'SubNav.TFrame':'panel',
                       'Footer.TFrame':'bg', 'DialogShell.TFrame':'bg', 'DialogBody.TFrame':'bg',
                       'DialogHeader.TFrame':'panel'}.items():
         s.configure(name, background=p[key], bordercolor=p['border'])
@@ -115,6 +116,12 @@ def configure_theme(app):
     s.layout('TopNavActive.TButton', [('Button.border', {'sticky':'nswe', 'children':[
         ('TurtoNav.underline', {'side':'bottom', 'sticky':'ew'}),
         ('Button.padding', {'sticky':'nswe', 'children':[('Button.label', {'sticky':'nswe'})]})]})])
+    for name in ('SubNav.TButton', 'SubNavActive.TButton'):
+        s.configure(name, background=p['panel'], foreground=p['fg'], borderwidth=0,
+                    padding=(12, 8), font=('Calibri', 10))
+        s.map(name, background=[('active',p['head'])], foreground=[('active',p['fg'])])
+    s.configure('SubNavActive.TButton', font=('Calibri', 10, 'bold'))
+    s.layout('SubNavActive.TButton', s.layout('TopNavActive.TButton'))
     for name in ('FocusBadge.TLabel', 'TestMode.TLabel'):
         s.configure(name, background=p['accent'], foreground='#FFFFFF')
     search = SEARCH[p['bg'] == DARK['bg']]

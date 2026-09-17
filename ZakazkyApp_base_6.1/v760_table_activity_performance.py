@@ -783,6 +783,10 @@ def apply(M: Any) -> None:
         setattr(app, f"_v760_{page_key}_original_action", original)
 
     def repack_navigation(app: Any) -> None:
+        if hasattr(app, "nav_groups"):
+            from price_lists_domain.platform.grouped_navigation import arrange
+            arrange(app)
+            return
         nav = getattr(app, "nav", {}) or {}
         if not all(key in nav for key in ("people", "companies", "tasks")):
             return

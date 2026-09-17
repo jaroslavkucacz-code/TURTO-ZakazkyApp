@@ -4229,26 +4229,10 @@ class App(tk.Tk):
                    command=lambda:self.show_page("settings")).grid(row=0,column=5,padx=(6,0))
 
         # Hlavní horizontální navigace.
-        navrow=ttk.Frame(root,style="NavBar.TFrame",padding=(10,0))
+        navrow=ttk.Frame(root,style="NavBar.TFrame")
         navrow.grid(row=1,column=0,sticky="ew")
-        self.nav={}
-        nav_defs=[
-            ("dash","⌂  Přehled"),
-            ("actions","◫  Příležitosti"),
-            ("projects","▣  Akce"),
-            ("requests","✉  Poptávky"),
-            ("mivo","M  MIVO"),
-            ("offers","▤  Nabídky"),
-            ("tasks","✓  Úkoly"),
-            ("companies","▦  Společnosti"),
-            ("people","♙  Osoby"),
-            ("help","?  Nápověda"),
-        ]
-        for k,label in nav_defs:
-            b=ttk.Button(navrow,text=label,style="TopNav.TButton",
-                         command=lambda x=k:self.show_page(x))
-            b.pack(side="left",padx=2,pady=(0,2))
-            self.nav[k]=b
+        from price_lists_domain.platform import grouped_navigation
+        grouped_navigation.build(self, navrow)
 
         self.host=ttk.Frame(root,style="App.TFrame")
         self.host.grid(row=2,column=0,sticky="nsew")
@@ -4283,10 +4267,11 @@ class App(tk.Tk):
         self.build_help();self.build_settings();self.show_page("dash")
 
     def show_page(self,k):
+        from price_lists_domain.platform import grouped_navigation
+        k=grouped_navigation.resolve_page(self,k)
         previous=getattr(self,"_current_page",None)
         self.tabs[k].tkraise()
-        for x,b in self.nav.items():
-            b.configure(style="TopNavActive.TButton" if x==k else "TopNav.TButton")
+        grouped_navigation.activate(self,k)
         self._current_page=k
         # Vlastní ruční řazení je pouze dočasné. Při návratu na záložku se
         # tabulka znovu načte ve svém výchozím pořadí.

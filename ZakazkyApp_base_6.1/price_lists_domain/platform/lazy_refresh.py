@@ -8,6 +8,7 @@ from __future__ import annotations
 import traceback
 from datetime import datetime
 from pathlib import Path
+from . import grouped_navigation
 
 PAGE_REFRESH = {
     "dash": "refresh_dash",
@@ -153,12 +154,7 @@ def _raise_page(app, key: str) -> None:
     except Exception:
         pass
     page.tkraise()
-    for name, button in list(getattr(app, "nav", {}).items()):
-        if _exists(button):
-            try:
-                button.configure(style="TopNavActive.TButton" if name == key else "TopNav.TButton")
-            except Exception:
-                pass
+    grouped_navigation.activate(app, key)
     app._current_page = key
 
 
@@ -352,6 +348,7 @@ def install(M) -> None:
         _state(self)
         if getattr(self, "_turto_closing", False):
             return None
+        key = grouped_navigation.resolve_page(self, key)
         if key not in getattr(self, "tabs", {}):
             return fallback_show_page(self, key, *args, **kwargs) if callable(fallback_show_page) else None
         previous = getattr(self, "_current_page", None)

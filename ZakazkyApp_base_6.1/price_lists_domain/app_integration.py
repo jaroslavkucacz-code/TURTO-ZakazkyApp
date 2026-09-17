@@ -24,36 +24,8 @@ def _install_app_page(module):
                 page.grid(row=0, column=0, sticky="nsew")
                 self.tabs["pricelists"] = page
 
-            nav_parent = self.nav["offers"].master
-            button = self.nav.get("pricelists")
-            if button is None or not button.winfo_exists():
-                button = module.ttk.Button(
-                    nav_parent,
-                    text="▥  Ceníky",
-                    style="TopNav.TButton",
-                    command=lambda: self.show_page("pricelists"),
-                )
-                self.nav["pricelists"] = button
-
-            # Keep the user-approved navigation order.
-            order = [
-                "dash", "actions", "requests", "mivo", "offers", "pricelists",
-                "companies", "projects", "tasks", "people", "help",
-            ]
-            for key in order:
-                widget = self.nav.get(key)
-                if widget is not None:
-                    try:
-                        widget.pack_forget()
-                    except Exception:
-                        pass
-            for key in order:
-                widget = self.nav.get(key)
-                if widget is not None:
-                    try:
-                        widget.pack(side="left", padx=2, pady=(0, 2))
-                    except Exception:
-                        pass
+            from .platform.grouped_navigation import register_page
+            register_page(self, "pricelists", "▥  Ceníky")
 
             # platform.integration installs the scalable builder before any App
             # instance exists. The fallback keeps source compatibility.
