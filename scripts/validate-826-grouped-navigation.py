@@ -4,6 +4,7 @@ import importlib.util
 import os
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 import time
 from types import SimpleNamespace
@@ -236,6 +237,7 @@ def ui_checks(td):
         print('8.0.26: Windows two-level buttons, Enter, direct links, remembered tabs, filters/selection/widths, themes and resize OK', flush=True)
     finally:
         try:
+            root._turto_closing = True
             for token in root.tk.splitlist(root.tk.call('after', 'info')):
                 root.after_cancel(token)
             root.destroy()
@@ -244,7 +246,13 @@ def ui_checks(td):
 
 
 if __name__ == '__main__':
-    with tempfile.TemporaryDirectory(prefix='turto-navigation-826-') as td:
-        source_checks(td)
-        if '--source-only' not in sys.argv:
-            ui_checks(td)
+    if '--ui-worker' in sys.argv:
+        ui_checks(sys.argv[sys.argv.index('--ui-worker') + 1])
+    else:
+        with tempfile.TemporaryDirectory(prefix='turto-navigation-826-') as td:
+            source_checks(td)
+            if '--source-only' not in sys.argv:
+                # Windows releases every legacy SQLite handle when the UI
+                # process exits, before the parent removes its temporary DB.
+                subprocess.run([sys.executable, str(Path(__file__).resolve()),
+                                '--ui-worker', td], check=True)
