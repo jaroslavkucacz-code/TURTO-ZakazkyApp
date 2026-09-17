@@ -101,7 +101,7 @@ class ReceivedOrderEditor:
         table.columnconfigure(0, weight=1)
         table.rowconfigure(0, weight=1)
         columns = ("Poz.", "Kód", "Název", "Interní označení", "Množství", "MJ", "Cena / MJ", "DPH %", "Celkem bez DPH")
-        self.tree = M.ttk.Treeview(table, columns=columns, show="headings", selectmode="extended", name="received_order_items")
+        self.tree = M.ttk.Treeview(table, columns=columns, show="headings", selectmode="extended", name="layout__received_orders_editor__receivedordereditor__items")
         for key, width in zip(columns, (45, 110, 260, 200, 85, 55, 110, 65, 130)):
             self.tree.heading(key, text=key)
             self.tree.column(key, width=width, minwidth=45, stretch=key == "Název", anchor="w")
