@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+"""Offer-local labels and actual Windows detail geometry/controls."""
+import importlib.util
+import os
+from pathlib import Path
+import sys
+import tempfile
+import time
+
+REPO=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(REPO/'ZakazkyApp_base_6.1'))
+from price_lists_domain.platform import received_item_labels as labels, project_activity
+from price_lists_domain.issued_offers import service
+
+
+def source_checks(td):
+    # Reuse the established realistic offer/catalog separation fixture.
+    spec=importlib.util.spec_from_file_location('offer_fixture',REPO/'scripts/validate-6341-offer-catalog-separation.py')
+    fixture=importlib.util.module_from_spec(spec)
+    argv=sys.argv; sys.argv=[argv[0]]
+    try:spec.loader.exec_module(fixture)
+    finally:sys.argv=argv
+    M=fixture.Module(Path(td)/'labels.db'); fixture.seed(M)
+    with M.db() as con:
+        con.execute("UPDATE supplier_offer_items SET original_name='HIT-HP FT 1-0202-20-025',product_code='6100000066',item_key='HIT-HP FT 1-0202-20-025' WHERE id=1")
+        con.execute("INSERT INTO supplier_offer_items(id,offer_id,position,original_name,product_code,item_key,quantity,unit,unit_price) VALUES(2,1,2,'Jiný výrobek','SUP2','OTHER',3,'ks',20)")
+        con.execute("INSERT INTO supplier_offer_items(id,offer_id,position,original_name) VALUES(3,999,1,'Cizí nabídka')")
+        project_activity.ensure_schema(con)  # Upgrade an existing 8.0.23 database.
+        con.execute('DELETE FROM project_activity')
+        labels.ensure_columns(con); labels.ensure_columns(con)
+        assert not con.execute('SELECT * FROM project_activity').fetchall()
+        before=[tuple(r) for r in con.execute('SELECT id,original_name,product_code,quantity,unit_price,catalog_product_id FROM supplier_offer_items ORDER BY id')]
+        catalog=[tuple(r) for r in con.execute('SELECT * FROM catalog_products')]
+    originals=labels.load_items(M,1,[1,2]); drafts=[dict(r) for r in originals]
+    for row in drafts:row['internal_code'],row['internal_name']=labels.from_original(row,' - izolační nosník')
+    assert drafts[0]['internal_code']=='HIT-HP FT 1-0202-20-025'
+    assert drafts[0]['internal_name']=='HIT-HP FT 1-0202-20-025 - izolační nosník'
+    drafts[1].update(internal_code='VLASTNÍ-002',internal_name='Vlastní název')
+    labels.save_items(M,1,drafts,originals)
+    with M.db() as con:
+        assert [tuple(r) for r in con.execute('SELECT id,original_name,product_code,quantity,unit_price,catalog_product_id FROM supplier_offer_items ORDER BY id')]==before
+        assert [tuple(r) for r in con.execute('SELECT * FROM catalog_products')]==catalog
+        assert con.execute('SELECT last_activity_at FROM project_activity WHERE project_id=1000').fetchone()
+    reloaded=labels.load_items(M,1,[1,2])
+    assert [r['internal_name'] for r in reloaded]==[r['internal_name'] for r in drafts]
+    _,copied=service.draft_from_supplier_offer(M,1)
+    assert copied[0]['internal_code_snapshot']==drafts[0]['internal_code']
+    assert copied[0]['internal_name_snapshot']==drafts[0]['internal_name']
+    assert copied[0]['name']==drafts[0]['internal_name'] and copied[0]['product_code']=='6100000066'
+    assert copied[0]['quantity']==2 and copied[0]['purchase_unit_price']==90
+    assert all(r['catalog_product_id'] is None for r in copied)
+    assert labels.matching_labels(reloaded,product_code='6100000066',position=20)==(drafts[0]['internal_code'],drafts[0]['internal_name'])
+    assert labels.matching_labels(reloaded,original_name='Nový výrobek',product_code='NEW',position=1)==('','')
+    # Stale second row rolls back an already attempted first-row write.
+    with M.db() as con:con.execute("UPDATE supplier_offer_items SET internal_name='Jiný uživatel' WHERE id=2")
+    changed=[dict(r,internal_name='Přepsat') for r in reloaded]
+    try:labels.save_items(M,1,changed,reloaded)
+    except ValueError:pass
+    else:raise AssertionError('Stale edits must fail atomically')
+    assert labels.load_items(M,1,[1])[0]['internal_name']==drafts[0]['internal_name']
+    try:labels.load_items(M,1,[3])
+    except ValueError:pass
+    else:raise AssertionError('Foreign offer item accepted')
+    current=labels.load_items(M,1,[1])
+    labels.save_items(M,1,[dict(current[0],internal_code='',internal_name='')],current)
+    assert labels.load_items(M,1,[1])[0]['internal_code']==''
+    print('8.0.24: migration, original-name preset, arbitrary labels, persistence, source/catalog isolation, activity, issued snapshots and atomic stale-edit protection OK',flush=True)
+
+
+def settle(root,seconds=.45):
+    end=time.monotonic()+seconds
+    while time.monotonic()<end:root.update(); time.sleep(.01)
+
+
+def ui_checks(td):
+    os.environ['TURTO_CRM_DATA_ROOT']=td
+    os.environ['LOCALAPPDATA']=str(Path(td)/'local')
+    os.environ['TURTO_DISABLE_AUTO_UPDATE']='1'
+    import app,data_location,runtime_bootstrap,crm_features
+    from price_lists_domain.platform.calm_theme_820 import walk
+    data_location.apply_to_app(app); app.ensure_schema(); runtime_bootstrap.apply_all(app); app.ensure_schema(); app.ensure_test_user()
+    app.App.maybe_show_morning_overview=lambda self:None
+    app.messagebox.showinfo=lambda *a,**k:None
+    app.messagebox.showwarning=lambda *a,**k:None
+    root=app.App(); errors=[]
+    root.report_callback_exception=lambda *exc:errors.append(str(exc))
+    app.messagebox.showerror=lambda *a,**k:errors.append(str(a))
+
+    def button(win,text):
+        return next(w for w in walk(win) if isinstance(w,app.ttk.Button) and str(w.cget('text'))==text)
+
+    def capture(win,name):
+        from PIL import ImageGrab
+        target=REPO/'build/validation/received-824'; target.mkdir(parents=True,exist_ok=True)
+        ImageGrab.grab().crop((win.winfo_rootx(),win.winfo_rooty(),
+            win.winfo_rootx()+win.winfo_width(),win.winfo_rooty()+win.winfo_height())).save(target/name)
+
+    def check_geometry(dialog):
+        canvas=dialog._dialog_canvas
+        assert dialog.f.winfo_width()<=canvas.winfo_width()+2,(dialog.f.winfo_width(),canvas.winfo_width())
+        assert canvas.xview()==(0.,1.),canvas.xview()
+        link=button(dialog,'Změnit přiřazení…')
+        assert link.winfo_viewable()
+        assert 0<=link.winfo_rootx()-dialog.winfo_rootx()<100
+        assert link.winfo_rooty()+link.winfo_height()<dialog.winfo_rooty()+dialog.winfo_height()
+        assert dialog.tree.winfo_width()<dialog.winfo_width()
+
+    try:
+        root.state('normal'); root.geometry('1100x800+0+0'); settle(root,4)
+        with app.db() as con:
+            pid=con.execute("INSERT INTO projects(name) VALUES('824 Akce')").lastrowid
+            oid=con.execute("INSERT INTO supplier_offers(source_hash,supplier_name,offer_number,project_id,offer_date) VALUES('824-labels','Leviat s.r.o.','10388907',?,'2026-09-17')",(pid,)).lastrowid
+            ids=[]
+            for pos,name in enumerate(('HIT-HP FT 1-0202-20-025','HIT-HP FT 2-0300'),1):
+                ids.append(con.execute('INSERT INTO supplier_offer_items(offer_id,position,original_name,item_key,product_code,quantity,unit,unit_price) VALUES(?,?,?,?,?,490,\'KS\',766)',
+                    (oid,pos,name,name,'610000006'+str(pos))).lastrowid)
+        root.show_page('offers'); settle(root)
+        dialog=crm_features.OfferDetailDialog(root,oid); settle(root,1)
+        check_geometry(dialog)
+        capture(dialog,'detail.png')
+        tree=dialog.tree
+        # The table scrolls horizontally without moving its surrounding controls.
+        assert tree.xview()[1]<1,tree.xview()
+        link_x=button(dialog,'Změnit přiřazení…').winfo_rootx()
+        tree.xview_moveto(1); settle(root)
+        assert button(dialog,'Změnit přiřazení…').winfo_rootx()==link_x
+        check_geometry(dialog)
+        # Actual native mouse drag on the LAST column, with room to spare.
+        visible=('Původní název','Interní kód','Interní označení')
+        tree.configure(displaycolumns=visible)
+        tree._turto_design_widths.update(dict(zip(visible,(220,180,200))))
+        app.schedule_persistent_tree_fit(tree,0); tree.xview_moveto(0); settle(root)
+        last=visible[-1]; iid='i'+str(ids[0]); box=tree.bbox(iid,last)
+        right=box[0]+box[2]-1
+        y=next(y for y in range(1,box[1]) if tree.identify_region(right,y)=='separator')
+        before=tree.column(last,'width')
+        tree.event_generate('<ButtonPress-1>',x=right,y=y)
+        tree.event_generate('<B1-Motion>',x=right-55,y=y)
+        tree.event_generate('<ButtonRelease-1>',x=right-55,y=y); settle(root)
+        width=tree.column(last,'width')
+        assert width<before-25,(before,width)
+        assert not tree.column(last,'stretch')
+        root.geometry('1500x950+0+0'); dialog.geometry('1300x800+10+10'); settle(root)
+        assert tree.column(last,'width')==width
+        check_geometry(dialog)
+        # Use the real entry point, preset, edited fields and save button.
+        tree.selection_set(tuple('i'+str(i) for i in ids))
+        button(dialog,'Interní označení…').invoke(); settle(root)
+        editor=next(w for w in walk(dialog) if isinstance(w,app.tk.Toplevel) and w.title()=='Interní označení položek')
+        button(editor,'Izolační nosníky').invoke(); settle(root)
+        capture(editor,'internal-labels.png')
+        assert editor.internal_code.get()=='HIT-HP FT 1-0202-20-025'
+        assert editor.internal_name.get().endswith(' - izolační nosník')
+        editor.item_tree.selection_set(str(ids[1])); settle(root)
+        editor.internal_code.set('VLASTNI-KOD'); editor.internal_name.set('Samostatné interní označení')
+        button(editor,'Uložit').invoke(); settle(root)
+        assert tree.set('i'+str(ids[1]),'Interní kód')=='VLASTNI-KOD'
+        # Dirty Escape refuses to discard silently; cancellation writes nothing.
+        tree.selection_set('i'+str(ids[1])); button(dialog,'Interní označení…').invoke(); settle(root)
+        editor=next(w for w in walk(dialog) if isinstance(w,app.tk.Toplevel) and w.title()=='Interní označení položek')
+        editor.internal_name.set('NEULOŽENO')
+        prompts=[]; app.messagebox.askyesnocancel=lambda *a,**k:(prompts.append(a) or None)
+        editor._turto_form_close(); assert editor.winfo_exists() and prompts
+        app.messagebox.askyesnocancel=lambda *a,**k:False
+        editor._turto_form_close(); settle(root)
+        assert labels.load_items(app,oid,[ids[1]])[0]['internal_name']=='Samostatné interní označení'
+        dialog.destroy(); settle(root)
+        dialog=crm_features.OfferDetailDialog(root,oid); settle(root,.8)
+        assert dialog.tree.column(last,'width')==width
+        assert tuple(dialog.tree.cget('displaycolumns'))==visible
+        assert dialog.tree.set('i'+str(ids[0]),'Interní označení').endswith(' - izolační nosník')
+        check_geometry(dialog)
+        # Assignment is the existing actual editor, now reachable from the left.
+        opened=[]
+        def close_assignment():
+            for w in list(walk(dialog)):
+                if isinstance(w,app.tk.Toplevel) and w is not dialog:
+                    opened.append(w.title()); w.destroy()
+        root.after(250,close_assignment)
+        button(dialog,'Změnit přiřazení…').invoke(); settle(root)
+        assert 'Vazba nabídky' in opened,opened
+        dialog.destroy(); settle(root)
+        _,copied=service.draft_from_supplier_offer(app,oid)
+        assert copied[1]['internal_code_snapshot']=='VLASTNI-KOD'
+        # Filtering must include the new persisted identities.
+        control=root._table_searches['offers']
+        control.draft.set('VLASTNI-KOD'); settle(root)
+        assert root.offer_tree.exists('o'+str(oid))
+        assert not errors,errors
+        print('8.0.24: Windows bounded detail, left assignment, independent scrolling, native last-column drag/reopen, bulk/custom labels, dirty close and issued copy OK',flush=True)
+    finally:
+        root._turto_closing=True; root.destroy()
+
+
+if __name__=='__main__':
+    with tempfile.TemporaryDirectory(prefix='turto-824-source-',ignore_cleanup_errors=True) as td:source_checks(td)
+    if '--source-only' not in sys.argv:
+        with tempfile.TemporaryDirectory(prefix='turto-824-ui-',ignore_cleanup_errors=True) as td:ui_checks(td)

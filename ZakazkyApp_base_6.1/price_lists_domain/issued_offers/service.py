@@ -528,6 +528,8 @@ def draft_from_supplier_offer(M, offer_id: int) -> tuple[dict[str, Any], list[di
         product_code = str(row.get("product_code") or row.get("item_key") or "").strip()
         item_key = str(row.get("item_key") or product_code).strip()
         name = str(row.get("original_name") or item_key or product_code or "Položka").strip()
+        internal_code = str(row.get("internal_code") or '').strip() or product_code
+        internal_name = str(row.get("internal_name") or '').strip() or name
         description = str(row.get("details") or "").strip()
         item = normalize_item(
             {
@@ -535,7 +537,7 @@ def draft_from_supplier_offer(M, offer_id: int) -> tuple[dict[str, Any], list[di
                 "row_type": "product",
                 "product_code": product_code,
                 "item_key": item_key,
-                "name": name,
+                "name": internal_name,
                 "description": description,
                 "quantity": quantity,
                 "unit": str(row.get("unit") or "ks").strip() or "ks",
@@ -551,8 +553,8 @@ def draft_from_supplier_offer(M, offer_id: int) -> tuple[dict[str, Any], list[di
                 "category_id": category_id,
                 "subgroup_id": subgroup_id,
                 "catalog_product_id": None,
-                "internal_code_snapshot": product_code,
-                "internal_name_snapshot": name,
+                "internal_code_snapshot": internal_code,
+                "internal_name_snapshot": internal_name,
                 "price_source_label": source_label + (f" · {supplier}" if supplier else ""),
                 "source_price_list_item_id": None,
                 "source_supplier_offer_item_id": row.get("id"),

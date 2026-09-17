@@ -430,11 +430,12 @@ def scrollable_dialog_frame(win,padding=18):
             canvas.update_idletasks()
             content_w=inner.winfo_reqwidth()
             view_w=max(1,canvas.winfo_width())
-            req_w=max(content_w,view_w)
+            fit_width=bool(getattr(win,'_turto_dialog_fit_width',False))
+            req_w=view_w if fit_width else max(content_w,view_w)
             canvas.itemconfigure(item,width=req_w)
             bbox=canvas.bbox(item)
             if bbox:canvas.configure(scrollregion=bbox)
-            if content_w>view_w+8:hs.grid()
+            if not fit_width and content_w>view_w+8:hs.grid()
             else:hs.grid_remove()
         except Exception:pass
 

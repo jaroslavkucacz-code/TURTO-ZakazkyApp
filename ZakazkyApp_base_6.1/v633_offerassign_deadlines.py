@@ -95,8 +95,11 @@ def apply(M):
                 if x and x['request_id']:text+=f"Poptávka: {x['request_item'] or '#'+str(x['request_id'])}  •  Akce: {x['action_name'] or '—'}"
                 elif x and x['action_id']:text+=f"Akce: {x['action_name'] or '#'+str(x['action_id'])}  •  bez Poptávky"
                 else:text+='nepřiřazeno'
-                M.ttk.Label(panel,text=text,style='PageSubtitle.TLabel').pack(side='left',fill='x',expand=True)
-                M.ttk.Button(panel,text='Změnit přiřazení…',style='Accent.TButton',command=lambda:edit_offer_links(self.parent_app,self.oid,self)).pack(side='right')
+                M.ttk.Button(panel,text='Změnit přiřazení…',style='Accent.TButton',command=lambda:edit_offer_links(self.parent_app,self.oid,self)).pack(side='left',padx=(0,12))
+                M.ttk.Label(panel,text=text,style='PageSubtitle.TLabel',wraplength=650).pack(side='left',fill='x',expand=True)
+                for child in list(self.f.winfo_children()):
+                    if child.winfo_class().endswith('Label') and str(child.cget('text')).startswith('Vazba:'):
+                        child.destroy()
             except Exception:pass
             return r
         D._build=build

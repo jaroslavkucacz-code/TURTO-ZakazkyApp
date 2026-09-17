@@ -321,6 +321,12 @@ def apply(M):
                         'UPDATE supplier_offer_items SET image_asset_key=? WHERE id=?',
                         (asset_key, int(cursor.lastrowid)),
                     )
+                if {'internal_code','internal_name'} <= item_columns:
+                    from price_lists_domain.platform.received_item_labels import matching_labels
+                    labels = matching_labels(previous_rows, original_name=original, item_key=key,
+                                             product_code=item.get('product'), position=item.get('position') or pos)
+                    con.execute('UPDATE supplier_offer_items SET internal_code=?,internal_name=? WHERE id=?',
+                                (*labels, int(cursor.lastrowid)))
                 if plexus_type and 'plexus_type' in item_columns:
                     con.execute(
                         'UPDATE supplier_offer_items SET plexus_type=? WHERE id=?',

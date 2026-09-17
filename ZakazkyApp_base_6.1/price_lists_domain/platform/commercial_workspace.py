@@ -2238,13 +2238,13 @@ def refresh_offers(M, app):
             f"(lower({supplier_expr}||' '||{action_expr}||' '||coalesce(o.offer_number,'')||' '||"
             "coalesce(o.reference,'')||' '||coalesce(o.note,'')||' '||coalesce(o.status,'')) LIKE ? OR "
             "EXISTS(SELECT 1 FROM supplier_offer_items sx WHERE sx.offer_id=o.id AND "
-            "lower(coalesce(sx.original_name,'')||' '||coalesce(sx.item_key,'')||' '||coalesce(sx.product_code,'')) LIKE ?))"
+            "lower(coalesce(sx.original_name,'')||' '||coalesce(sx.item_key,'')||' '||coalesce(sx.product_code,'')||' '||coalesce(sx.internal_code,'')||' '||coalesce(sx.internal_name,'')) LIKE ?))"
         )
         params.extend(("%" + query + "%", "%" + query + "%"))
     search.add_sql_terms(where, params, search.terms(app, "offers"), [
         supplier_expr, action_expr, link_expr, "o.offer_date", "o.offer_number", "o.reference", "o.note", "o.status",
         "o.total_value", "o.currency", f"CASE WHEN {price_list_exists} THEN 'Ceník' ELSE 'Nabídka' END",
-        "(SELECT group_concat(turto_search_text(sx.original_name,sx.item_key,sx.product_code,pc.name),' ') FROM supplier_offer_items sx LEFT JOIN catalog_products cp ON cp.id=sx.catalog_product_id LEFT JOIN product_categories pc ON pc.id=coalesce(cp.category_id,sx.category_id) WHERE sx.offer_id=o.id)",
+        "(SELECT group_concat(turto_search_text(sx.original_name,sx.item_key,sx.product_code,sx.internal_code,sx.internal_name,pc.name),' ') FROM supplier_offer_items sx LEFT JOIN catalog_products cp ON cp.id=sx.catalog_product_id LEFT JOIN product_categories pc ON pc.id=coalesce(cp.category_id,sx.category_id) WHERE sx.offer_id=o.id)",
     ])
     where_sql = " AND ".join(where) if where else "1=1"
     try:

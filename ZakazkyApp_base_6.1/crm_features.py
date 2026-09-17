@@ -79,6 +79,7 @@ class OfferActionLinkDialog(tk.Toplevel):
 class OfferDetailDialog(tk.Toplevel):
     def __init__(self,parent,oid):
         super().__init__(parent);M.enable_dialog_maximize(self,1260,760);self.title("Cenová nabídka");self.transient(parent);self.grab_set();self.oid=oid;self.parent_app=parent
+        self._turto_dialog_fit_width=True
         self.f=M.scrollable_dialog_frame(self,18);self._build()
     def _load(self):
         with M.db() as con:
@@ -112,9 +113,19 @@ class OfferDetailDialog(tk.Toplevel):
         ttk.Button(tools,text="Historie ceny",command=self.open_history).pack(side="left",padx=(0,5));ttk.Button(tools,text="Obrázek položky",command=self.open_image).pack(side="left",padx=5);ttk.Button(tools,text="Přiřadit k Akci…",command=self.link_action).pack(side="left",padx=5)
         ttk.Label(tools,text="Tip: dvojklik na položku otevře historii ceny.",style="PageSubtitle.TLabel").pack(side="right")
         cols=("Poz.","Kód","Původní název","item_key","Množství","MJ","Pův. cena","Sleva","Cena/ks","Cena celkem")
-        self.tree=ttk.Treeview(self.f,columns=cols,show="headings",height=17, name='layout__crm_features__offerdetaildialog___build__self_tree')
-        for c,w in (("Poz.",55),("Kód",110),("Původní název",330),("item_key",240),("Množství",80),("MJ",55),("Pův. cena",100),("Sleva",75),("Cena/ks",100),("Cena celkem",115)):self.tree.heading(c,text=c);self.tree.column(c,width=w,anchor="w")
-        self.tree.pack(fill="both",expand=True);self.item_by_iid={}
+        table=self._offer_table_frame=ttk.Frame(self.f,width=800,height=360)
+        table.pack(fill="both",expand=True)
+        table.grid_propagate(False)
+        table.columnconfigure(0,weight=1);table.rowconfigure(0,weight=1)
+        self.tree=ttk.Treeview(table,columns=cols,show="headings",height=17, name='layout__crm_features__offerdetaildialog___build__self_tree')
+        self.tree._turto_fill_last_column=False
+        for c,w in (("Poz.",55),("Kód",110),("Původní název",260),("item_key",200),("Množství",80),("MJ",55),("Pův. cena",100),("Sleva",75),("Cena/ks",100),("Cena celkem",115)):self.tree.heading(c,text=c);self.tree.column(c,width=w,minwidth=30,stretch=False,anchor="w")
+        self.tree.grid(row=0,column=0,sticky="nsew")
+        self._offer_xscroll=ttk.Scrollbar(table,orient="horizontal",command=self.tree.xview)
+        self._offer_xscroll.grid(row=1,column=0,sticky="ew")
+        sy=ttk.Scrollbar(table,orient="vertical",command=self.tree.yview);sy.grid(row=0,column=1,sticky="ns")
+        self.tree.configure(xscrollcommand=self._offer_xscroll.set,yscrollcommand=sy.set)
+        self.item_by_iid={}
         try:self.tree.tag_configure("discount",font=("Calibri",10,"bold"))
         except Exception:pass
         for it in items:
