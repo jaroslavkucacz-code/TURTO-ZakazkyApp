@@ -25,6 +25,8 @@ def assign_to_request(con, offer_id, request_id, user_name=''):
     existing manually entered receipt is retained if no source mail is dated.
     Reassignment/unlinking does not erase the previous request's receipt.
     """
+    if not con.in_transaction:
+        con.execute('BEGIN IMMEDIATE')
     offer = con.execute('''SELECT request_id,project_id,action_id,offer_number
         FROM supplier_offers WHERE id=?''', (offer_id,)).fetchone()
     request = con.execute('''SELECT r.*,a.project_id FROM requests r

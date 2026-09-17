@@ -147,6 +147,8 @@ def ui_checks(td):
                 # Two native click sequences exercise the real double-click callback.
                 for _ in range(2):
                     tree.event_generate('<ButtonPress-1>',x=x,y=y)
+                    if not tree.winfo_exists():
+                        break
                     tree.event_generate('<ButtonRelease-1>',x=x,y=y)
                 completed.append(True)
             except Exception as exc:
