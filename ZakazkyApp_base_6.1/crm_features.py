@@ -81,6 +81,13 @@ class OfferDetailDialog(tk.Toplevel):
         super().__init__(parent);M.enable_dialog_maximize(self,1260,760);self.title("Cenová nabídka");self.transient(parent);self.grab_set();self.oid=oid;self.parent_app=parent
         self._turto_dialog_fit_width=True
         self.f=M.scrollable_dialog_frame(self,18);self._build()
+        self._dialog_canvas.bind('<Configure>',self._size_offer_table,add='+')
+        self.after_idle(self._size_offer_table)
+    def _size_offer_table(self,event=None):
+        table=getattr(self,'_offer_table_frame',None)
+        if table is None or not table.winfo_exists():return
+        height=max(160,min(440,int(self._dialog_canvas.winfo_height()*.43)))
+        if int(table.cget('height'))!=height:table.configure(height=height)
     def _load(self):
         with M.db() as con:
             r=con.execute("""SELECT o.*,
@@ -125,6 +132,7 @@ class OfferDetailDialog(tk.Toplevel):
         self._offer_xscroll.grid(row=1,column=0,sticky="ew")
         sy=ttk.Scrollbar(table,orient="vertical",command=self.tree.yview);sy.grid(row=0,column=1,sticky="ns")
         self.tree.configure(xscrollcommand=self._offer_xscroll.set,yscrollcommand=sy.set)
+        self._size_offer_table()
         self.item_by_iid={}
         try:self.tree.tag_configure("discount",font=("Calibri",10,"bold"))
         except Exception:pass

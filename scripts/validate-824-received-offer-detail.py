@@ -104,6 +104,8 @@ def ui_checks(td):
         assert 0<=link.winfo_rootx()-dialog.winfo_rootx()<100
         assert link.winfo_rooty()+link.winfo_height()<dialog.winfo_rooty()+dialog.winfo_height()
         assert dialog.tree.winfo_width()<dialog.winfo_width()
+        scroll=dialog._offer_xscroll
+        assert scroll.winfo_rooty()+scroll.winfo_height()<=dialog.winfo_rooty()+dialog.winfo_height(), 'Table scrollbar must remain reachable'
 
     try:
         root.state('normal'); root.geometry('1100x800+0+0'); settle(root,4)
@@ -181,7 +183,10 @@ def ui_checks(td):
         assert 'Vazba nabídky' in opened,opened
         dialog.destroy(); settle(root)
         _,copied=service.draft_from_supplier_offer(app,oid)
-        assert copied[1]['internal_code_snapshot']=='VLASTNI-KOD'
+        assert copied[1]['internal_code_snapshot']=='VLASTNI-KOD',copied[1]
+        assert copied[1]['internal_name_snapshot']=='Samostatné interní označení'
+        assert not copied[1]['supplier_presentation_snapshot']
+        assert service.normalize_item(copied[1])['internal_name_snapshot']=='Samostatné interní označení'
         # Filtering must include the new persisted identities.
         control=root._table_searches['offers']
         control.draft.set('VLASTNI-KOD'); settle(root)

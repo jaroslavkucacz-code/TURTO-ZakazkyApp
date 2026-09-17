@@ -251,7 +251,10 @@ def main() -> None:
     assert "tree_layout_v700_" in layer
     assert "save_layout" in layer
     assert "displaycolumns" in layer
-    assert "stretch=bool(column == last" in layer
+    # Commercial tables still fill the last column by default; offer-detail
+    # tables opt out so a user can also narrow their last visible column.
+    assert 'getattr(tree, "_turto_fill_last_column", True)' in layer
+    assert "stretch=bool(fill_last and column == last" in layer
     assert "Nastavit zobrazené sloupce" in layer
     assert "Zobrazit / skrýt" in layer
     assert "is_commercial_tree" in layer

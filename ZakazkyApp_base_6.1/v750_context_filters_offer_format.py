@@ -555,6 +555,18 @@ def apply(M: Any) -> None:
                     _v740_source_name=supplier_name,
                     _v740_missing_internal_identity=False,
                 )
+                # Explicit offer-local identities win over the legacy rule
+                # that suppresses codes for unannotated supplier rows.
+                code = _text(source_row.get("internal_code"))
+                name = _text(source_row.get("internal_name"))
+                if code or name:
+                    item.update(
+                        supplier_presentation_snapshot=0,
+                        product_code=code,
+                        name=name or supplier_name,
+                        internal_code_snapshot=code,
+                        internal_name_snapshot=name or supplier_name,
+                    )
             prepared.append(normalize_item(item, index))
         from price_lists_domain.issued_offers.customer_text import sanitize_snapshot
         return sanitize_snapshot(document, prepared)

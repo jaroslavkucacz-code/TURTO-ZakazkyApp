@@ -97,6 +97,17 @@ def _patch_offer_detail(M) -> None:
                                 tree.set(iid, "Produktová skupina", row["category"] or "Nezařazeno")
                                 tree.set(iid, "Podskupina", row["subgroup"] or "")
                     refresh_labels()
+                    if not getattr(tree, "_v815_has_saved_layout", False):
+                        # Registration may see Tk's temporary 200 px defaults
+                        # before the older detail builders finish adding columns.
+                        widths = dict(zip(
+                            ("Poz.","Kód","Původní název","item_key","Množství","MJ","Pův. cena","Sleva","Cena/ks","Cena celkem",
+                             "Výrobce","Interní kód","Interní označení","Produktová skupina","Podskupina"),
+                            (55,110,260,200,80,55,100,75,100,115,180,180,280,200,200)))
+                        tree._v700_default_widths = dict(widths)
+                        tree._turto_design_widths = dict(widths)
+                        fit = getattr(_M,"schedule_persistent_tree_fit",None)
+                        if callable(fit):fit(tree,0)
 
                 photo_button = None
 
