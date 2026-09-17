@@ -35,8 +35,9 @@ def _plain(path: Path) -> None:
 
 
 def maintenance_lock(root: Path):
-    _plain(Path(root))
-    return safety.FileLock(Path(root) / "updates" / "storage-maintenance.lock")
+    path = Path(root) / "updates" / "storage-maintenance.lock"
+    _plain(path)
+    return safety.FileLock(path)
 
 
 def _fingerprint(path: Path) -> tuple:
@@ -76,7 +77,9 @@ def create_backup(source: Path, directory: Path, label: str) -> Path:
             check = data_location.validate_database(temp)
             if not check["ok"]:
                 raise ValueError("Záloha neprošla kontrolou: " + str(check["message"]))
-            with temp.open("rb") as stream:
+            # Windows _commit requires a writable descriptor; this is our copy,
+            # never the read-only live database connection.
+            with temp.open("rb+") as stream:
                 os.fsync(stream.fileno())
             if target.exists():
                 raise FileExistsError(target)
@@ -260,6 +263,7 @@ def _execute(root: Path, database: Path, selected: list[dict], *, archive: Path 
         archive_root.mkdir(exist_ok=False)
     if progress:
         progress("Ověřuji bezpečnostní zálohu…")
+    _plain(root / "logs")
     backup = verified_backup or create_backup(database, root / "backup", "before_storage_cleanup")
     if not data_location.validate_database(backup)["ok"]:
         raise ValueError("Bez ověřené zálohy nelze pokračovat.")
@@ -282,6 +286,9 @@ def _execute(root: Path, database: Path, selected: list[dict], *, archive: Path 
             sha = _archive_file(source, archive_root / e["relative"]) if archive_root else ""
             if _fingerprint(source) != tuple(e["fingerprint"]):
                 raise ValueError("Originál se během kopírování změnil; nebyl smazán.")
+            current = {v["relative"]: v for v in build_plan(root, database)}.get(e["relative"])
+            if not current or not current["eligible"]:
+                raise ValueError("Soubor během kopírování získal ochranu; originál nebyl smazán.")
             # Persist archive location/checksum before unlink, also for crash recovery.
             record["pending"] = {"relative": e["relative"], "sha256": sha}
             safety.write_json(log, record)

@@ -185,6 +185,37 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(json.loads(Path(result["log"]).read_text(encoding="utf-8"))["completed"], result["completed"])
         self.unchanged()
 
+    def test_archive_hash_mismatch_and_new_sidecars_preserve_source(self):
+        dest = Path(self.temp.name) / "external"; dest.mkdir()
+        chosen = [next(e for e in self.candidates() if e["kind"] == "záloha")]
+        real_digest = s.safety.digest
+        with patch.object(s.safety, "digest", side_effect=lambda p: "wrong" if str(p).endswith(".partial") else real_digest(p)):
+            result = s.execute(self.root, self.db, chosen, archive=dest)
+        self.assertTrue(result["error"])
+        source = self.root / chosen[0]["relative"]
+        self.assertTrue(source.exists())
+        real_archive = s._archive_file
+        def copy_then_open(src, dst):
+            sha = real_archive(src, dst)
+            src.with_name(src.name + "-shm").write_bytes(b"opened meanwhile")
+            return sha
+        with patch.object(s, "_archive_file", side_effect=copy_then_open):
+            result = s.execute(self.root, self.db, chosen, archive=dest)
+        self.assertTrue(result["error"])
+        self.assertTrue(source.exists())
+        self.unchanged()
+
+    @unittest.skipIf(os.name == "nt", "Symlink creation needs Windows privilege; junction guards are also exercised by updater tests")
+    def test_lock_directory_symlink_does_not_write_outside_root(self):
+        directory = self.root / "updates"
+        directory.rename(self.root / "updates-original")
+        external = Path(self.temp.name) / "external"; external.mkdir()
+        directory.symlink_to(external, target_is_directory=True)
+        with self.assertRaises(ValueError):
+            with s.maintenance_lock(self.root):
+                self.fail("Acquired a redirected lock")
+        self.assertEqual(list(external.iterdir()), [])
+
     def test_auto_disabled_default_and_never_deletes_legacy(self):
         old = {e["relative"] for e in self.candidates()}
         self.assertIsNone(s.run_daily(self.root, self.db))

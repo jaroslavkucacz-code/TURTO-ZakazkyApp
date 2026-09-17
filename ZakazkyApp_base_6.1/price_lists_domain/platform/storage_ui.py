@@ -35,7 +35,7 @@ def open_storage(M, app):
     ttk.Label(frame, textvariable=status, wraplength=1040).pack(anchor="w", pady=6)
     table_frame = ttk.Frame(frame); table_frame.pack(fill="both", expand=True)
     columns = ("file", "size", "decision")
-    tree = ttk.Treeview(table_frame, columns=columns, show="headings", selectmode="extended")
+    tree = ttk.Treeview(table_frame, columns=columns, show="headings", selectmode="extended", name="layout__storage_ui__open_storage__tree")
     for col, text, width in (("file", "Soubor", 550), ("size", "Velikost", 95), ("decision", "Rozhodnutí / ochrana", 350)):
         tree.heading(col, text=text); tree.column(col, width=width, minwidth=75, stretch=True)
     tree.tag_configure("keep", foreground="#64748b")
