@@ -1,8 +1,8 @@
 {
-  "version": "8.0.24",
+  "version": "8.0.25",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "01e0a65bf0fc97c11b58afd79df026bdca69ef51",
-  "validated_run_id": 35204072976,
-  "notes": "Detail přijaté nabídky se nyní drží šířky okna. Tabulka má vlastní vodorovný i svislý posuvník a tlačítko Změnit přiřazení… je vlevo nad tabulkou. Poslední sloupec lze zúžit bez automatického roztažení zpět; uložené šířky, pořadí a skrytí sloupců zůstávají zachované. Dostupná je také přímá volba Sloupce….\n\nVybrané položky přijaté nabídky lze označit přes Interní označení…. Editor umožňuje zadat interní kód a označení jednotlivě nebo hromadně převzít původní názvy s volitelným dodatkem. Předvolba Izolační nosníky uloží původní název jako interní kód a původní název s dodatkem „- izolační nosník“ jako interní označení. Pro jiné zboží lze použít libovolné vlastní údaje.\n\nInterní údaje se ukládají k položkám nabídky, zahrnují se do hledání a přenášejí se do vydané nabídky. Při opětovném zpracování PDF se zachovají u rozpoznaného stejného výrobku. Původní názvy, kódy a ceny dodavatele ani katalog produktů se tím nemění. Zavření rozepsaného editoru vyžaduje rozhodnutí o neuložených změnách.\n\nAktualizace se nadále kontrolují automaticky a instalují až po kliknutí na instalační tlačítko."
+  "source_commit": "27de16674c12c984f95781ce3b1ab4e576968a65",
+  "validated_run_id": 35219706919,
+  "notes": "Při přiřazení přijaté nabídky k poptávce se automaticky nastaví stav Obdrženo a datum podle původního e-mailu. U více nabídek k téže poptávce se použije nejstarší platné datum zdrojového e-mailu. Změna se zaznamená do historie a zruší označení Bez odezvy. Pokud datum e-mailu chybí, zachová se již zadané datum a případně se zobrazí upozornění k jeho doplnění.\n\nTabulka v detailu přijaté nabídky využívá dostupnou šířku i výšku okna. Tlačítko Zavřít je stále dostupné pod obsahem.\n\nInterní kód a interní označení lze upravit přímo v buňkách tabulky. Enter změnu uloží, Esc zruší rozepsanou úpravu a Tab přejde do další editovatelné buňky. Více řádků lze vybrat přes Ctrl/Shift nebo všechny pomocí Ctrl+A a hromadně použít Převzít od výrobce, včetně volitelného dodatku, například „izolační nosník“.\n\nAktualizace se nadále kontrolují automaticky a instalují po kliknutí na instalační tlačítko."
 }
