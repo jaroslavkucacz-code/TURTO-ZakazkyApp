@@ -6813,6 +6813,10 @@ $s.Save()
             backup=import_complete_database(path);self.refresh_all();messagebox.showinfo("Import",f"Import dokončen.\nZáloha před importem:\n{backup}",parent=self)
         except Exception as e:messagebox.showerror("Import",f"Import se nepodařil:\n{e}",parent=self)
 
+    def open_storage_maintenance(self):
+        from price_lists_domain.platform.storage_ui import open_storage
+        return open_storage(sys.modules[__name__],self)
+
     def manual_backup(self):
         p=backup_now("manual");messagebox.showinfo("Záloha",f"Záloha vytvořena:\n{p}")
     def apply_theme(self,theme=None,save=True):

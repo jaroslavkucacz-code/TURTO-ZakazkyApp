@@ -192,7 +192,6 @@ def install(M):
     App = M.App
     if getattr(App, "_storage_830", False):
         return
-    App.open_storage_maintenance = lambda self: open_storage(M, self)
     original_init = App.__init__
 
     def init(self, *args, **kwargs):
