@@ -59,6 +59,7 @@ def profile(M, name):
 def save_profile(M, name, body, expected):
     """Only the explicit profile Save calls this; reject a concurrent overwrite."""
     with M.db() as con:
+        con.execute("BEGIN IMMEDIATE")
         if name not in users(con):
             raise ValueError("Vyberte aktivního uživatele. TEST a Admin nemají text poptávky.")
         row = con.execute("SELECT value FROM user_settings WHERE user_name=? AND key=?",
