@@ -78,6 +78,202 @@ def matching_labels(previous_rows, *, original_name='', item_key='', product_cod
     return '', ''
 
 
+def copy_from_manufacturer(M, offer_id, item_ids, suffix=''):
+    originals = load_items(M, offer_id, item_ids)
+    drafts = [dict(row) for row in originals]
+    for row in drafts:
+        row['internal_code'], row['internal_name'] = from_original(row, suffix)
+    save_items(M, offer_id, drafts, originals)
+    return len(drafts)
+
+
+class InlineLabels:
+    """Cell editing and selection-based copying on the received offer itself."""
+    fields = {'Interní kód': 'internal_code', 'Interní označení': 'internal_name'}
+
+    def __init__(self, M, dialog, toolbar, on_saved):
+        self.M, self.dialog, self.tree, self.on_saved = M, dialog, dialog.tree, on_saved
+        self.entry = None
+        self.busy = False
+        self.suffix = M.tk.StringVar(master=dialog)
+        self.selection_text = M.tk.StringVar(master=dialog)
+        bulk = M.ttk.Frame(toolbar)
+        bulk.pack(fill='x', pady=(4, 0))
+        M.ttk.Label(bulk, text='Dodatek:').pack(side='left')
+        M.ttk.Combobox(bulk, textvariable=self.suffix, values=('', 'izolační nosník'), width=22).pack(side='left', padx=6)
+        self.copy_button = M.ttk.Button(bulk, text='Převzít od výrobce', command=self.copy_selected)
+        self.copy_button.pack(side='left', padx=(0, 10))
+        M.ttk.Label(bulk, textvariable=self.selection_text).pack(side='left')
+        M.ttk.Label(bulk, text='Výběr více řádků: Ctrl / Shift · Vše: Ctrl+A',
+                    style='PageSubtitle.TLabel').pack(side='right')
+        self.tree.bind('<Double-1>', self.double_click)
+        self.tree.bind('<F2>', self.begin_selected, add='+')
+        self.tree.bind('<Control-a>', self.select_all, add='+')
+        self.tree.bind('<Control-A>', self.select_all, add='+')
+        self.tree.bind('<<TreeviewSelect>>', self.selection_changed, add='+')
+        self.tree.bind('<Configure>', self.reposition, add='+')
+        # Scrollbar commands may change row/cell coordinates without a Configure.
+        for option in ('xscrollcommand', 'yscrollcommand'):
+            previous = self.tree.cget(option)
+            def scrolled(first, last, callback=previous):
+                if callback:
+                    self.tree.tk.call(*self.tree.tk.splitlist(callback), first, last)
+                if self.entry is not None:
+                    self.tree.after_idle(self.reposition)
+            self.tree.configure(**{option: scrolled})
+        self.selection_changed()
+
+    def visible_columns(self):
+        displayed = tuple(self.tree.cget('displaycolumns'))
+        return tuple(self.tree.cget('columns')) if displayed == ('#all',) else displayed
+
+    def select_all(self, _=None):
+        if self.commit():
+            self.tree.selection_set(self.tree.get_children())
+        return 'break'
+
+    def selection_changed(self, _=None):
+        count = len(self.tree.selection())
+        self.selection_text.set(f'Vybráno: {count}')
+        self.copy_button.state(['!disabled'] if count else ['disabled'])
+
+    def double_click(self, event):
+        if self.tree.identify_region(event.x, event.y) != 'cell':
+            return 'break'
+        iid = self.tree.identify_row(event.y)
+        token = self.tree.identify_column(event.x)
+        column = str(self.tree.column(token, 'id'))
+        if column in self.fields:
+            self.begin(iid, column)
+        elif self.commit():
+            self.tree.selection_set(iid); self.tree.focus(iid)
+            self.dialog.open_history()
+        return 'break'
+
+    def begin_selected(self, _=None):
+        selected = self.tree.selection()
+        if selected:
+            visible = self.visible_columns()
+            column = next((name for name in ('Interní označení', 'Interní kód') if name in visible), None)
+            if column:
+                self.begin(self.tree.focus() or selected[0], column)
+        return 'break'
+
+    def begin(self, iid, column):
+        if column not in self.fields or not self.tree.exists(iid) or not self.commit():
+            return
+        try:
+            self.original = load_items(self.M, self.dialog.oid, [int(iid[1:])])[0]
+        except Exception as exc:
+            self.M.messagebox.showerror('Interní označení', str(exc), parent=self.dialog)
+            return
+        self.tree.see(iid)
+        visible = self.visible_columns()
+        if column not in visible:
+            return
+        self.tree.update_idletasks()
+        box = self.tree.bbox(iid, column)
+        if not box or box[0] < 0 or box[0] + box[2] > self.tree.winfo_width():
+            widths = [int(self.tree.column(name, 'width')) for name in visible]
+            self.tree.xview_moveto(sum(widths[:visible.index(column)]) / max(1, sum(widths)))
+        self.iid, self.column = iid, column
+        self.variable = self.M.tk.StringVar(master=self.dialog, value=self.original[self.fields[column]])
+        self.entry = self.M.ttk.Entry(self.tree, textvariable=self.variable)
+        self.entry._turto_own_input_navigation = True
+        self.reposition()
+        if self.entry is None:
+            return
+        self.entry.focus_set(); self.entry.selection_range(0, 'end')
+        self.entry.bind('<Return>', lambda _e: self.finish())
+        self.entry.bind('<Escape>', lambda _e: self.cancel())
+        self.entry.bind('<Tab>', lambda _e: self.next_cell())
+        self.entry.bind('<Shift-Tab>', lambda _e: self.next_cell(True))
+        self.entry.bind('<ISO_Left_Tab>', lambda _e: self.next_cell(True))
+        self.entry.bind('<FocusOut>', lambda _e: self.focus_left())
+
+    def reposition(self, _=None):
+        if self.entry is None or not self.entry.winfo_exists():
+            return
+        box = self.tree.bbox(self.iid, self.column)
+        if not box or box[0]+box[2] <= 0 or box[0] >= self.tree.winfo_width():
+            self.commit()
+            return
+        x,y,width,height = box
+        left = max(1, x)
+        self.entry.place(x=left, y=y, width=max(1, min(x+width, self.tree.winfo_width()-1)-left), height=height)
+
+    def focus_left(self):
+        entry = self.entry
+        def finish():
+            if entry is not None and self.entry is entry and self.dialog.winfo_exists():
+                if self.dialog.focus_get() is not entry:
+                    self.commit()
+        self.tree.after_idle(finish)
+
+    def discard_editor(self):
+        entry, self.entry = self.entry, None
+        if entry is not None and entry.winfo_exists():
+            entry.destroy()
+
+    def commit(self):
+        if self.entry is None:
+            return True
+        if self.busy:
+            return False
+        self.busy = True
+        try:
+            draft = dict(self.original)
+            draft[self.fields[self.column]] = self.variable.get().strip()
+            if draft != self.original:
+                save_items(self.M, self.dialog.oid, [draft], [self.original])
+            self.discard_editor()
+            self.on_saved()
+            return True
+        except Exception as exc:
+            self.M.messagebox.showerror('Interní označení', str(exc), parent=self.dialog)
+            if self.entry is not None:
+                self.entry.focus_set()
+            return False
+        finally:
+            self.busy = False
+
+    def finish(self):
+        if self.commit():
+            self.tree.focus_set()
+        return 'break'
+
+    def cancel(self):
+        self.discard_editor(); self.tree.focus_set()
+        return 'break'
+
+    def next_cell(self, backwards=False):
+        current = (self.iid, self.column)
+        columns = [name for name in self.visible_columns() if name in self.fields]
+        cells = [(iid, column) for iid in self.tree.get_children() for column in columns]
+        if current in cells and self.commit():
+            position = cells.index(current) + (-1 if backwards else 1)
+            if 0 <= position < len(cells):
+                iid,column = cells[position]
+                self.tree.selection_set(iid); self.tree.focus(iid)
+                self.begin(iid,column)
+            else:
+                self.tree.focus_set()
+        return 'break'
+
+    def copy_selected(self):
+        if not self.commit():
+            return
+        ids = [int(str(iid)[1:]) for iid in self.tree.selection() if str(iid).startswith('i')]
+        if not ids:
+            return
+        try:
+            count = copy_from_manufacturer(self.M, self.dialog.oid, ids, self.suffix.get())
+            self.on_saved()
+            self.selection_text.set(f'Uloženo pro {count} položek')
+        except Exception as exc:
+            self.M.messagebox.showerror('Interní označení', str(exc), parent=self.dialog)
+
+
 def open_editor(M, parent, offer_id, item_ids, on_saved):
     from . import form_behavior_817
     originals = load_items(M, offer_id, item_ids)

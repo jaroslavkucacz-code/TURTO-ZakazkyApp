@@ -133,6 +133,8 @@ def _patch_offer_detail(M) -> None:
                     return result
 
                 def assign_taxonomy():
+                    editor=getattr(self,'_inline_labels',None)
+                    if editor is not None and not editor.commit():return
                     selection = tuple(tree.selection()) if tree is not None else ()
                     ids = [int(str(iid)[1:]) for iid in selection if str(iid).startswith("i")]
                     if not ids:
@@ -159,6 +161,8 @@ def _patch_offer_detail(M) -> None:
 
                 item_tools = _M.ttk.Frame(self.f, style="Panel.TFrame", padding=(0,0,0,8))
                 item_tools.pack(fill="x", before=self._offer_table_frame)
+                item_actions = _M.ttk.Frame(item_tools)
+                item_actions.pack(fill='x')
 
                 def after_labels_saved():
                     refresh_labels()
@@ -167,6 +171,8 @@ def _patch_offer_detail(M) -> None:
                         if callable(callback): callback()
 
                 def edit_labels():
+                    editor=getattr(self,'_inline_labels',None)
+                    if editor is not None and not editor.commit():return
                     ids = [int(str(iid)[1:]) for iid in tree.selection() if str(iid).startswith('i')]
                     if not ids:
                         return _M.messagebox.showinfo('Interní označení', 'Vyberte jednu nebo více položek nabídky.', parent=self)
@@ -175,16 +181,17 @@ def _patch_offer_detail(M) -> None:
                     except Exception as exc:
                         _M.messagebox.showerror('Interní označení',str(exc),parent=self)
 
-                _M.ttk.Button(item_tools,text="Interní označení…",command=edit_labels).pack(side="left",padx=(0,5))
+                _M.ttk.Button(item_actions,text="Interní označení…",command=edit_labels).pack(side="left",padx=(0,5))
                 _M.ttk.Button(
-                    item_tools, text="Přiřadit skupinu / podskupinu…",
+                    item_actions, text="Přiřadit skupinu / podskupinu…",
                     command=assign_taxonomy,
                 ).pack(side="left", padx=5)
                 _M.ttk.Button(
-                    item_tools, text="Katalog produktů…",
+                    item_actions, text="Katalog produktů…",
                     command=lambda: product_catalog.open_product_catalog(_M, self),
                 ).pack(side="left", padx=5)
-                _M.ttk.Button(item_tools,text="Sloupce…",command=lambda: _M.open_tree_columns_dialog(tree)).pack(side="left",padx=5)
+                _M.ttk.Button(item_actions,text="Sloupce…",command=lambda: _M.open_tree_columns_dialog(tree)).pack(side="left",padx=5)
+                self._inline_labels = received_item_labels.InlineLabels(_M,self,item_tools,after_labels_saved)
                 user = _M.get_setting("active_user", "")
                 enabled = _M.get_user_setting(user, "load_product_photos", "0") == "1"
                 self._turto_photo_enabled = _M.tk.BooleanVar(value=enabled)

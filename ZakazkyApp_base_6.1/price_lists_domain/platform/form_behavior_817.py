@@ -238,7 +238,12 @@ def apply(M):
                 return
             tags = widget.bindtags()
             if TAG not in tags:
-                widget.bindtags((TAG, *tags))
+                # Cell editors own Tab/Shift-Tab and Escape locally. Keep
+                # general form navigation available after their handlers.
+                if getattr(widget, '_turto_own_input_navigation', False):
+                    widget.bindtags((tags[0], TAG, *tags[1:]))
+                else:
+                    widget.bindtags((TAG, *tags))
             if isinstance(widget, tk.Toplevel) and not widget.overrideredirect():
                 if not getattr(widget, '_turto_form_discovery_pending', False):
                     widget._turto_form_discovery_pending = True
