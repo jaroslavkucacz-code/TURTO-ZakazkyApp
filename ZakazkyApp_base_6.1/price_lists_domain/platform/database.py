@@ -309,6 +309,8 @@ def ensure_platform_schema(M) -> None:
         _add_column(con, "supplier_offer_items", "category_id INTEGER")
         _add_column(con, "supplier_offer_items", "subgroup_id INTEGER REFERENCES product_subgroups(id)")
         _add_column(con, "supplier_offer_items", "catalog_product_id INTEGER REFERENCES catalog_products(id)")
+        from .received_item_labels import ensure_columns
+        ensure_columns(con)
         _add_column(con, "business_document_items", "subgroup_id INTEGER REFERENCES product_subgroups(id)")
         _add_column(con, "business_document_items", "catalog_product_id INTEGER REFERENCES catalog_products(id)")
         _add_column(con, "business_document_items", "internal_code_snapshot TEXT DEFAULT ''")

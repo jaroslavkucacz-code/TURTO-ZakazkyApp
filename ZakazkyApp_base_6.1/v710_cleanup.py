@@ -1205,7 +1205,8 @@ def apply(M):
             if shows_tree_column(tree):
                 target = max(1, target - int(tree.column("#0", "width")))
             preferred = sum(max(30, int(design.get(column, 80))) for column in visible)
-            filler = max(0, target - preferred)
+            fill_last = bool(getattr(tree, "_turto_fill_last_column", True))
+            filler = max(0, target - preferred) if fill_last else 0
             last = visible[-1]
             for column in visible:
                 base = max(30, int(design.get(column, 80)))
@@ -1214,7 +1215,7 @@ def apply(M):
                     column,
                     width=actual,
                     minwidth=30,
-                    stretch=bool(column == last and preferred <= target),
+                    stretch=bool(fill_last and column == last and preferred <= target),
                 )
             # A layout can redistribute widths without changing the total;
             # then Tk need not notify xscrollcommand. Redraw decorations only

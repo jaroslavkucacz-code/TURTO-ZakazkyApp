@@ -24,6 +24,7 @@ def main():
         sys.argv[1] if len(sys.argv) > 1 else 'ZakazkyApp_base_6.1'
     ).resolve()
     module_path = source / 'v767_offer_reprocess_images.py'
+    sys.path.insert(0, str(source))
     spec = importlib.util.spec_from_file_location('v767_offer_reprocess_images_test', module_path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -255,6 +256,19 @@ def main():
         assert offer['reference'] == 'RUČNĚ NAVÁZANÁ AKCE'
         assert offer['raw_text'] == 'fresh raw text'
         assert abs(float(offer['total_value']) - 300.0) < 1e-9
+
+        # 8.0.24: internal identities survive a reparse even when source order changes.
+        with db() as c:
+            c.execute("ALTER TABLE supplier_offer_items ADD COLUMN internal_code TEXT DEFAULT ''")
+            c.execute("ALTER TABLE supplier_offer_items ADD COLUMN internal_name TEXT DEFAULT ''")
+            c.execute("UPDATE supplier_offer_items SET internal_code='TURTO-A',internal_name='Pažnice – interní název' WHERE product_code='202-100-300'")
+        parsed['items'].reverse()
+        M.save_offer_import(pdf_path)
+        with db() as c:
+            saved = c.execute("SELECT internal_code,internal_name FROM supplier_offer_items WHERE product_code='202-100-300'").fetchone()
+            other = c.execute("SELECT internal_code,internal_name FROM supplier_offer_items WHERE product_code='286-250-000'").fetchone()
+        assert tuple(saved) == ('TURTO-A', 'Pažnice – interní název')
+        assert tuple(other) == ('', '')
 
         # Different content must still use the original new-offer creation path.
         new_pdf = td / 'new.pdf'

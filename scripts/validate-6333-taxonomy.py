@@ -51,9 +51,8 @@ for rel, needles in {
 
 # Execute the additive schema against an old-style minimal database and verify
 # stable group IDs and subgroup propagation.
-spec = importlib.util.spec_from_file_location("turto_database", root / "price_lists_domain/platform/database.py")
-database = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(database)
+sys.path.insert(0, str(root))
+from price_lists_domain.platform import database
 
 class M:
     sqlite3 = sqlite3

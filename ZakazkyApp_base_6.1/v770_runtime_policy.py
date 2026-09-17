@@ -1033,7 +1033,7 @@ def _install_plexus_ui(M: Any) -> None:
                     if widget_exists(panel):
                         try:
                             panel.pack_forget()
-                            tree = getattr(self, "tree", None)
+                            tree = getattr(self, "_offer_table_frame", None) or getattr(self, "tree", None)
                             if widget_exists(tree):
                                 panel.pack(fill="x", pady=(8, 0), after=tree)
                             else:
