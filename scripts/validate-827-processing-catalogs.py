@@ -42,6 +42,7 @@ def source_checks(td):
     app = prepare(td)
     app.set_setting('active_user', '827 Editor')
     with app.db() as con:
+        con.execute("INSERT INTO users(name) VALUES('827 Editor'),('827 Layout')")
         uid = con.execute("INSERT INTO users(name) VALUES('827 Alena')").lastrowid
         second = con.execute("INSERT INTO users(name) VALUES('827 Bára')").lastrowid
         inactive = con.execute("INSERT INTO users(name,active) VALUES('827 Old',0)").lastrowid
@@ -127,6 +128,7 @@ def ui_checks(td):
     app.App.report_callback_exception = lambda self, *exc: errors.append(str(exc))
     app.set_setting('active_user', '827 Editor')
     with app.db() as con:
+        con.execute("INSERT INTO users(name) VALUES('827 Editor'),('827 Layout')")
         uid = con.execute("INSERT INTO users(name) VALUES('827 Alena')").lastrowid
         second = con.execute("INSERT INTO users(name) VALUES('827 Bára')").lastrowid
         cid = con.execute("INSERT INTO companies(short_name,official_name) VALUES('827 Dodavatel','827 Dodavatel')").lastrowid
@@ -158,11 +160,16 @@ def ui_checks(td):
         tree = root.action_tree
         iid = f'a{aid}'
         assert iid in tree.get_children(), tree.get_children()
+        assert button(root.tabs['actions'], 'Řeší…').winfo_viewable()
         # Existing saved layout: new column appears, hidden old column stays hidden.
         old_columns = [c for c in tree['columns'] if c != 'Řeší']
         old_visible = [c for c in old_columns if c != 'Poznámka']
-        app.set_user_setting(app.get_setting('active_user',''), table_preferences_815.key_for(tree),
+        # Load a previously unused profile so an initial cached empty layout
+        # does not hide the fixture written directly to user_settings.
+        app.set_user_setting('827 Layout', table_preferences_815.key_for(tree),
                              json.dumps({'columns': old_columns, 'visible': old_visible, 'widths': {c: 120 for c in old_columns}}))
+        root.active_user.set('827 Layout')
+        app.set_setting('active_user', '827 Layout')
         app.install_persistent_tree_layout(tree, force=True); settle(root)
         assert 'Řeší' in tree['displaycolumns'] and 'Poznámka' not in tree['displaycolumns'], tree['displaycolumns']
         tree.selection_set(iid)
@@ -184,8 +191,12 @@ def ui_checks(td):
         tree.configure(displaycolumns=('Řeší', *columns)); settle(root)
         box = tree.bbox(iid, 'Řeší'); assert box, tree['displaycolumns']
         x, y, w, h = box
-        assert assignees.row_double_click(app, root, SimpleNamespace(x=x+w//2,y=y+h//2)) == 'break'
+        tree.focus_force()
+        for event, stamp in (('<ButtonPress-1>', 10000), ('<ButtonRelease-1>', 10010),
+                             ('<ButtonPress-1>', 10100), ('<ButtonRelease-1>', 10110)):
+            tree.event_generate(event, x=x+w//2, y=y+h//2, time=stamp)
         settle(root)
+        assert not getattr(root, '_action_status_editor', None), 'Assignee column opened the status editor'
         picker = next(w for w in root.winfo_children() if hasattr(w, 'assignee_variables'))
         assert picker.assignee_variables[uid].get() and picker.assignee_variables[second].get()
         picker.assignee_variables[uid].set(False)

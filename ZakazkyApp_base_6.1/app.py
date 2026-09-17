@@ -5412,11 +5412,12 @@ $s.Save()
                 self._action_status_editor.destroy()
                 self._action_status_editor=None
             if tree.identify_region(event.x,event.y)!="cell":return
-            if tree.identify_column(event.x)!="#1":return
+            column=tree.identify_column(event.x)
+            if not column or tree.column(column,"id")!="Stav":return
             row=tree.identify_row(event.y)
             if not row:return
             tree.selection_set(row);tree.focus(row)
-            bbox=tree.bbox(row,"#1")
+            bbox=tree.bbox(row,"Stav")
             if not bbox:return
             x,y,w,h=bbox
             current=str(tree.set(row,"Stav") or "")
