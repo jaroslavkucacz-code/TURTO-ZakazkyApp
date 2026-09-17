@@ -1028,10 +1028,8 @@ def export_selected_data(target_path,selected,include_related=False):
 
 def backup_now(prefix="manual"):
     if not DB.exists(): return None
-    BACKUP_DIR.mkdir(parents=True,exist_ok=True)
-    target=BACKUP_DIR/f"zakazky_{prefix}_{datetime.now():%Y%m%d_%H%M%S}.db"
-    shutil.copy2(DB,target)
-    return target
+    from storage_maintenance import create_backup
+    return create_backup(DB,BACKUP_DIR,prefix)
 
 def ensure_schema():
     bootstrap_db()
@@ -5382,6 +5380,7 @@ $s.Save()
         ttk.Label(f,text="Data",style="Panel.TLabel",font=("Calibri",12,"bold")).grid(row=6,column=0,sticky="w",pady=(18,0))
         ttk.Button(f,text="Vytvořit zálohu",command=self.manual_backup).grid(row=7,column=0,sticky="w",pady=6)
         ttk.Button(f,text="Zkontrolovat data",command=self.database_audit).grid(row=7,column=1,sticky="w",padx=8,pady=6)
+        ttk.Button(f,text="Zálohy a úklid úložiště…",command=self.open_storage_maintenance).grid(row=7,column=2,sticky="w",padx=8,pady=6)
         ttk.Label(f,text=f"Databáze: {DB}",style="Panel.TLabel").grid(row=8,column=0,columnspan=3,sticky="w")
 
         ttk.Label(f,text="Import / export",style="Panel.TLabel",font=("Calibri",12,"bold")).grid(row=9,column=0,sticky="w",pady=(18,0))

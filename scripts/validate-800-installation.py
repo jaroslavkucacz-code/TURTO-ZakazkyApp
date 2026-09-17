@@ -8,10 +8,13 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import sys
 import tempfile
 
 
 def load_data_location(base: Path):
+    if str(base) not in sys.path:
+        sys.path.insert(0, str(base))
     path = base / "data_location.py"
     spec = importlib.util.spec_from_file_location("data_location_800_test", path)
     module = importlib.util.module_from_spec(spec)

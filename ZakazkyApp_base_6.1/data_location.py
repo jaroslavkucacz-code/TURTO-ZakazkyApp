@@ -200,16 +200,8 @@ def backup_database(
     if not validation["ok"]:
         raise ValueError(str(validation["message"]))
     root = Path(backup_root).expanduser().resolve() if backup_root else default_data_root()
-    backup_dir = root / "backup"
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_label = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in str(label or "zaloha"))
-    target = backup_dir / f"zakazky_{safe_label}_{stamp}.db"
-    _sqlite_backup(source, target)
-    copied = validate_database(target)
-    if not copied["ok"]:
-        target.unlink(missing_ok=True)
-        raise ValueError("Záloha databáze neprošla kontrolou: " + str(copied["message"]))
-    return target
+    from storage_maintenance import create_backup
+    return create_backup(source, root / "backup", label)
 
 
 def adopt_existing_default() -> dict[str, str] | None:
