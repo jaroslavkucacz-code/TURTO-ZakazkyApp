@@ -1987,17 +1987,7 @@ def build_offers(M, app):
     ).pack(side="left", padx=(6, 0))
     M.ttk.Label(command, text="PDF a MSG lze přetáhnout do okna programu.", style="PageSubtitle.TLabel").pack(side="right")
 
-    definitions = (
-        ("Aktivních nabídek", "active", "Aktivní"),
-        ("Posledních 30 dní", "recent", "Posledních 30 dní"),
-        ("Nepřiřazených", "unassigned", "Nepřiřazené"),
-        ("Bez zařazení položek", "uncategorized", "Bez zařazení"),
-        ("Evidovaných jako Ceník", "pricelists", "Ceníky"),
-        ("Archivovaných", "archived", "Archivované"),
-    )
-    app.offer_metric_vars = _metric_cards(
-        M, page, definitions, lambda target: _offer_quick_view(M, app, target, reset_filters=True)
-    )
+    app.offer_metric_vars = {}
 
     app.offer_q = M.tk.StringVar()
     app.offer_supplier_filter = M.tk.StringVar()

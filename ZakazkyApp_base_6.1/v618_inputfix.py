@@ -14,13 +14,11 @@ def apply(M):
                 # Already committed exact value: this Enter may continue to dialog OK.
                 if widget.selected_value and current == str(widget.selected_value).strip():
                     return False
-                matches = widget._matches()
-                if matches:
-                    # Use the same _set path as mouse selection: this also sets payload/ID
-                    # and generates <<AutocompleteSelected>>.
-                    widget._set(matches[0])
-                    return True
-                return False
+                # Resolve the current query and highlighted suggestion through
+                # the same owner as the widget binding. An unmatched draft must
+                # never fall through to a form save.
+                widget._accept_first()
+                return True
             except Exception:
                 return False
 
@@ -94,7 +92,12 @@ def apply(M):
                     return None
                 matches = self._matches()
                 if matches:
-                    if self.listbox and self.listbox.curselection():
+                    # The popup refresh is delayed. A quick Enter after typing
+                    # must not accept a selection left over from an old query.
+                    fresh = (self.popup and self.popup.winfo_exists()
+                             and self.popup.winfo_viewable() and self.listbox
+                             and tuple(self.listbox.get(0, 'end')) == tuple(matches))
+                    if fresh and self.listbox.curselection():
                         value = self.listbox.get(self.listbox.curselection()[0])
                     else:
                         value = matches[0]
@@ -177,7 +180,7 @@ def apply(M):
                         row['name']
                         for row in con.execute(
                             "SELECT name FROM materials "
-                            "WHERE trim(coalesce(name,''))<>'' "
+                            "WHERE active=1 AND trim(coalesce(name,''))<>'' "
                             "ORDER BY name COLLATE CZECH"
                         )
                     ]
@@ -199,7 +202,7 @@ def apply(M):
                         row['name']
                         for row in con.execute(
                             "SELECT name FROM materials "
-                            "WHERE trim(coalesce(name,''))<>'' "
+                            "WHERE active=1 AND trim(coalesce(name,''))<>'' "
                             "ORDER BY name COLLATE CZECH"
                         )
                     ]
