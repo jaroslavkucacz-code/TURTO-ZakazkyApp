@@ -167,15 +167,12 @@ def main() -> None:
             if len(tree["columns"]) > 1 and tree.winfo_ismapped()
         ), "V žádné viditelné tabulce nebyly vykresleny oddělovací linky"
 
-        nav_parent = root.nav["people"].master
-        packed_nav = []
-        for widget in nav_parent.pack_slaves():
-            key = next((name for name, button in root.nav.items() if button is widget), None)
-            if key:
-                packed_nav.append(key)
-        assert "people" in packed_nav and "companies" in packed_nav and "tasks" in packed_nav
-        people_at = packed_nav.index("people")
-        assert packed_nav[people_at:people_at + 3] == ["people", "companies", "tasks"], packed_nav
+        def nav_keys(parent):
+            return [next(name for name, button in root.nav.items() if button is widget)
+                    for widget in parent.pack_slaves()]
+        assert nav_keys(root.main_nav) == ["dash", "technical", "pricelists", "issued_offers", "projects", "directory"]
+        assert nav_keys(root.nav_groups["directory"]) == ["companies", "people"]
+        assert nav_keys(root.nav_groups["technical"]) == ["actions", "requests", "mivo", "offers", "tasks"]
 
         for page_key in ("offers", "pricelists", "issued_offers"):
             promoted = getattr(root, f"_v760_{page_key}_title_action", None)
