@@ -9,7 +9,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
 import tkinter.font as tkfont
 from price_lists_domain.platform import universal_search as table_search
-from price_lists_domain.platform import catalog_selection, action_assignees
+from price_lists_domain.platform import catalog_selection, action_assignees, company_roles
 
 APP_NAME="Zakázky"
 APP_VERSION="6.1.0"
@@ -1176,6 +1176,7 @@ def ensure_schema():
         );
         CREATE INDEX IF NOT EXISTS idx_action_history_action ON action_history(action_id,created_at);
         """)
+        company_roles.ensure_columns(con)
         if not has_column(con,"requests","requested_for_company_id"):
             con.execute("ALTER TABLE requests ADD COLUMN requested_for_company_id INTEGER")
             # Starší poptávky záměrně nepřiřazujeme k „Odběratel“ bez jistoty.
@@ -2306,7 +2307,13 @@ class CompanyDialog(tk.Toplevel):
         self.results=tk.Listbox(f,height=4,exportselection=False);self.results.grid(row=1,column=1,columnspan=2,sticky="ew",pady=5)
         self.results.bind("<Double-Button-1>",self.take_ares);self.results.bind("<Return>",self.take_ares);self.ares_results=[]
         self.ares_raw_json=vals.get("ares_raw_json","") or ""
-        row=2
+        self.is_customer=tk.BooleanVar(value=bool(vals.get("is_customer",1)))
+        self.is_supplier=tk.BooleanVar(value=bool(vals.get("is_supplier",0)))
+        ttk.Label(f,text="Role společnosti").grid(row=2,column=0,sticky="w",pady=5)
+        roles=ttk.Frame(f);roles.grid(row=2,column=1,columnspan=2,sticky="w")
+        ttk.Checkbutton(roles,text="Odběratel",variable=self.is_customer).pack(side="left",padx=(0,20))
+        ttk.Checkbutton(roles,text="Dodavatel",variable=self.is_supplier).pack(side="left")
+        row=3
         for lab,key in [("Oficiální název","official_name"),("IČO","ico"),("DIČ","dic"),
             ("Sídlo","address"),("Právní forma","legal_form"),("Datum vzniku","date_created"),
             ("Poslední změna ARES","ares_last_change"),("CZ-NACE","cz_nace"),("Finanční úřad","financial_office"),
@@ -2370,15 +2377,15 @@ class CompanyDialog(tk.Toplevel):
         short=official;ico=self.vars["ico"].get().strip()
         with db() as con:
             self.cid=con.execute("""INSERT INTO companies(short_name,official_name,ico,dic,address,legal_form,web,note,ares_checked,
-                    date_created,ares_last_change,cz_nace,financial_office,district,municipality,ares_raw_json)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",(
+                    date_created,ares_last_change,cz_nace,financial_office,district,municipality,ares_raw_json,is_customer,is_supplier)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",(
                     short,official,ico,self.vars["dic"].get().strip(),self.vars["address"].get().strip(),
                     self.vars["legal_form"].get().strip(),self.vars["web"].get().strip(),
                     self.note.get("1.0","end").strip(),date.today().isoformat() if ico else "",
                     self.vars["date_created"].get().strip(),self.vars["ares_last_change"].get().strip(),
                     self.vars["cz_nace"].get().strip(),self.vars["financial_office"].get().strip(),
                     self.vars["district"].get().strip(),self.vars["municipality"].get().strip(),
-                    getattr(self,"ares_raw_json","")
+                    getattr(self,"ares_raw_json",""),int(self.is_customer.get()),int(self.is_supplier.get())
                 )).lastrowid
         return self.cid
     def add_person(self):
@@ -2411,13 +2418,13 @@ class CompanyDialog(tk.Toplevel):
             self.vars["date_created"].get().strip(),self.vars["ares_last_change"].get().strip(),
             self.vars["cz_nace"].get().strip(),self.vars["financial_office"].get().strip(),
             self.vars["district"].get().strip(),self.vars["municipality"].get().strip(),
-            getattr(self,"ares_raw_json",""))
+            getattr(self,"ares_raw_json",""),int(self.is_customer.get()),int(self.is_supplier.get()))
             if self.cid:con.execute("""UPDATE companies SET short_name=?,official_name=?,ico=?,dic=?,address=?,legal_form=?,web=?,note=?,ares_checked=?,
-                    date_created=?,ares_last_change=?,cz_nace=?,financial_office=?,district=?,municipality=?,ares_raw_json=? WHERE id=?""",
+                    date_created=?,ares_last_change=?,cz_nace=?,financial_office=?,district=?,municipality=?,ares_raw_json=?,is_customer=?,is_supplier=? WHERE id=?""",
                     vals+(self.cid,));cid=self.cid
             else:cid=con.execute("""INSERT INTO companies(short_name,official_name,ico,dic,address,legal_form,web,note,ares_checked,
-                    date_created,ares_last_change,cz_nace,financial_office,district,municipality,ares_raw_json)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",vals).lastrowid
+                    date_created,ares_last_change,cz_nace,financial_office,district,municipality,ares_raw_json,is_customer,is_supplier)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",vals).lastrowid
         self.result=cid;self.destroy()
 
 class PersonDialog(tk.Toplevel):
@@ -3372,10 +3379,8 @@ class RequestDialog(tk.Toplevel):
         super().__init__(parent);enable_dialog_maximize(self,980,700);self.title("Poptávka");self.transient(parent);self.grab_set();self.result=None;self.rid=rid;bind_dialog_keys(self,self.ok)
         vals={}
         with db() as con:
-            self.companies=con.execute("""SELECT MIN(id) id,official_name FROM companies
-                WHERE active=1 AND trim(coalesce(official_name,''))<>''
-                GROUP BY lower(trim(official_name))
-                ORDER BY official_name COLLATE CZECH""").fetchall()
+            self.companies=company_roles.choices(con,"supplier")
+            self.customers=company_roles.choices(con,"customer")
             self.actions=con.execute("""SELECT MIN(id) id,trim(name) name FROM actions
                 WHERE trim(coalesce(name,''))<>''
                 GROUP BY lower(trim(name))
@@ -3409,6 +3414,7 @@ class RequestDialog(tk.Toplevel):
             _cv=(vals.get("company") or "").strip().casefold()
             self.is_mivo=(_cv=="mivo" or _cv.startswith("mivo ") or _cv.startswith("mivo,") or _cv.startswith("mivo."))
 
+        self._original_companies=dict(vals) if rid else {}
         f=scrollable_dialog_frame(self,14)
         self.company=tk.StringVar(value=vals.get("company",""))
         self.selected_company_id=None
@@ -3443,8 +3449,10 @@ class RequestDialog(tk.Toplevel):
         customer_wrap=ttk.Frame(f);customer_wrap.grid(row=1,column=1,columnspan=2,sticky="ew",pady=5)
         customer_wrap.columnconfigure(0,weight=1)
         self.requested_for_box=AutocompleteEntry(customer_wrap,textvariable=self.requested_for,
-            values=[(r["official_name"],r["id"]) for r in self.companies])
+            values=[(r["official_name"],r["id"]) for r in self.customers])
         self.requested_for_box.grid(row=0,column=0,sticky="ew")
+        self.company_box.bind("<FocusIn>",self._refresh_company_choices,add="+")
+        self.requested_for_box.bind("<FocusIn>",self._refresh_company_choices,add="+")
         ttk.Button(customer_wrap,text="+ Nová společnost",
                    command=self.new_customer_company).grid(row=0,column=1,padx=(6,0))
 
@@ -3559,34 +3567,29 @@ class RequestDialog(tk.Toplevel):
         self.after(80,self._reload_contacts_from_company)
 
     def _resolve_company_id(self,name):
-        name=(name or "").strip()
-        if not name:return None
-        # Prefer exact selected payload from autocomplete; otherwise exact official name only.
         with db() as con:
-            rows=con.execute("""SELECT id FROM companies
-                                WHERE active=1 AND lower(trim(official_name))=lower(trim(?))
-                                ORDER BY id""",(name,)).fetchall()
-        return rows[0]["id"] if len(rows)==1 else None
+            return company_roles.resolve(con,name,"supplier",
+                original_id=self._original_companies.get("company_id"))
 
     def company_id(self):
-        payload=getattr(self.company_box,"selected_payload",None)
-        if payload:
-            self.selected_company_id=payload
-            return payload
-        if getattr(self,"selected_company_id",None):
-            # Verify text still matches that company so stale IDs cannot leak.
-            with db() as con:
-                r=con.execute("SELECT official_name FROM companies WHERE id=?",(self.selected_company_id,)).fetchone()
-            if r and (r["official_name"] or "").strip().lower()==self.company.get().strip().lower():
-                return self.selected_company_id
-        cid=self._resolve_company_id(self.company.get())
-        self.selected_company_id=cid
-        return cid
+        with db() as con:
+            return company_roles.resolve(con,self.company.get(),"supplier",
+                getattr(self.company_box,"selected_payload",None),
+                self._original_companies.get("company_id"))
 
     def requested_for_id(self):
-        payload=getattr(self.requested_for_box,"selected_payload",None)
-        if payload:return payload
-        return self._resolve_company_id(self.requested_for.get())
+        with db() as con:
+            return company_roles.resolve(con,self.requested_for.get(),"customer",
+                getattr(self.requested_for_box,"selected_payload",None),
+                self._original_companies.get("requested_for_company_id"))
+
+    def _refresh_company_choices(self,event=None):
+        with db() as con:
+            self.companies=company_roles.choices(con,"supplier")
+            self.customers=company_roles.choices(con,"customer")
+        self.company_box.set_values([(r["official_name"],r["id"]) for r in self.companies])
+        self.requested_for_box.set_values([(r["official_name"],r["id"]) for r in self.customers])
+        self.company_map={r["official_name"]:r["id"] for r in self.companies}
 
     def action_id(self):
         name=self.action.get().strip()
@@ -3681,21 +3684,18 @@ class RequestDialog(tk.Toplevel):
             self.load_contacts()
 
     def _new_request_company(self,target):
-        d=CompanyDialog(self);self.wait_window(d)
+        d=CompanyDialog(self)
+        d.is_customer.set(target=="customer");d.is_supplier.set(target=="supplier")
+        self.wait_window(d)
         if not d.result:return
         with db() as con:
             r=con.execute("SELECT id,official_name FROM companies WHERE id=?",(d.result,)).fetchone()
         if not r:return
-        # Refresh both company selectors from the shared database.
+        self._refresh_company_choices()
         with db() as con:
-            self.companies=con.execute("""SELECT MIN(id) id,official_name FROM companies
-                WHERE active=1 AND trim(coalesce(official_name,''))<>''
-                GROUP BY lower(trim(official_name))
-                ORDER BY official_name COLLATE CZECH""").fetchall()
-        values=[(x["official_name"],x["id"]) for x in self.companies]
-        self.company_box.set_values(values)
-        self.requested_for_box.set_values(values)
-        self.company_map={x["official_name"]:x["id"] for x in self.companies}
+            try:company_roles.require(con,r["id"],target)
+            except ValueError as exc:
+                return messagebox.showwarning("Společnost",str(exc),parent=self)
         if target=="supplier":
             self.company.set(r["official_name"])
             self.selected_company_id=r["id"]
@@ -3816,7 +3816,7 @@ class RequestDialog(tk.Toplevel):
 
     def ok(self):
         cid=self.company_id()
-        if not cid:return messagebox.showwarning("Poptávka","Vyberte Dodavatele.",parent=self)
+        if not cid:return messagebox.showwarning("Poptávka","Vyberte společnost označenou jako Dodavatel v Adresáři.",parent=self)
         # Odběratel je volitelný. Pokud je ale napsaný text, musí odpovídat existující společnosti.
         for_text=self.requested_for.get().strip()
         for_id=self.requested_for_id() if for_text else None
@@ -4996,13 +4996,13 @@ class App(tk.Tk):
         ttk.Button(bar,text="Aktualizovat všechny z ARES",command=self.batch_ares).pack(side="right")
         self.comp_q=tk.StringVar()
         filters=ttk.Frame(p,style="Panel.TFrame",padding=0);filters.pack(fill="x",pady=(0,4))
-        widths=(320,95,115,360,110,90,120,90)
+        widths=(320,95,115,360,110,90,120,90,95,95)
         for i,w in enumerate(widths):filters.columnconfigure(i,weight=w)
         ttk.Entry(filters,textvariable=self.comp_q).grid(row=0,column=0,sticky="ew",padx=2)
         for i in range(1,len(widths)):ttk.Label(filters,text="").grid(row=0,column=i,sticky="ew")
         self.comp_q.trace_add("write",lambda *a:self.refresh_companies())
         setup_clear_filter_button(filters,self.clear_company_filters,(self.comp_q,))
-        self.company_tree=self.tree(p,("Oficiální název","IČO","DIČ","Sídlo","Právní forma","Vznik","CZ-NACE","ARES"),list(widths))
+        self.company_tree=self.tree(p,("Oficiální název","IČO","DIČ","Sídlo","Právní forma","Vznik","CZ-NACE","ARES","Odběratel","Dodavatel"),list(widths))
         table_search.install_main_search(self,self.company_tree,filters,"companies","refresh_companies")
         bind_row_double_click(self.company_tree,lambda e:self.edit_company())
 
@@ -5983,7 +5983,8 @@ $s.Save()
             tag="status_cancel" if not r["active"] else "info"
             table_search.insert_matching(self.company_tree,"","end",iid=f"c{r['id']}",
                 values=(r["official_name"],r["ico"],r["dic"],r["address"],r["legal_form"],
-                        fmt_date(r["date_created"]),r["cz_nace"],fmt_date(r["ares_checked"])),tags=(tag,))
+                        fmt_date(r["date_created"]),r["cz_nace"],fmt_date(r["ares_checked"]),
+                        "Ano" if r["is_customer"] else "", "Ano" if r["is_supplier"] else ""),tags=(tag,))
 
     def new_action(self):
         d=ActionDialog(self);self.wait_window(d)
@@ -6000,6 +6001,8 @@ $s.Save()
         r=d.result
         user=get_setting("active_user","")
         with db() as con:
+            try:company_roles.validate_request(con,r)
+            except ValueError as exc:return messagebox.showwarning("Poptávka",str(exc),parent=self)
             rid=con.execute("""INSERT INTO requests(
                 company_id,requested_for_company_id,action_id,asked_date,received_date,item,note,
                 mail_subject,include_project_in_subject,recipients_snapshot,cc_snapshot,updated_by,assigned_user
@@ -6162,6 +6165,9 @@ $s.Save()
         user=get_setting("active_user","")
         with db() as con:
             before=con.execute("SELECT * FROM requests WHERE id=?",(rid,)).fetchone()
+            if not before:return
+            try:company_roles.validate_request(con,data,before)
+            except ValueError as exc:return messagebox.showwarning("Poptávka",str(exc),parent=self)
             no_response=0 if data["received"] else int(before["no_response"] or 0)
             con.execute("""UPDATE requests SET
                 company_id=?,

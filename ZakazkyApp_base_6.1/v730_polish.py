@@ -714,7 +714,9 @@ def apply(M) -> None:
         for column in columns - protected:
             source_value = source[column]
             target_value = target[column]
-            if column == "note":
+            if column in {"is_customer", "is_supplier"}:
+                value = int(bool(source_value) or bool(target_value))
+            elif column == "note":
                 value = merge_notes(target_value, source_value, source_name)
             elif column == "ares_checked":
                 value = max(_text(target_value), _text(source_value))

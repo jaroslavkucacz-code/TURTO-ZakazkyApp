@@ -2956,6 +2956,7 @@ def _install_page_workflow(
             tree = getattr(app, "issued_offer_tree", None)
             if _widget_exists(tree):
                 context = module.tk.Menu(tree, tearoff=False)
+                context.add_command(label="Překlopit do přijaté objednávky", command=app.create_received_order_from_offer)
                 context.add_command(
                     label="Otevřít nabídku",
                     command=lambda: issued_page._open_selected(module, app),

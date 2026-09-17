@@ -177,6 +177,7 @@ def build_issued_offers(M, app):
     M.ttk.Button(actions, text="Otevřít poslední PDF", command=lambda: _open_pdf(M, app)).pack(fill="x", pady=2)
     M.ttk.Button(actions, text="Outlook koncept", command=lambda: _draft_selected(M, app)).pack(fill="x", pady=2)
     M.ttk.Separator(actions).pack(fill="x", pady=7)
+    M.ttk.Button(actions, text="Překlopit do přijaté objednávky", command=app.create_received_order_from_offer).pack(fill="x", pady=2)
     M.ttk.Button(actions, text="Duplikovat nabídku", command=lambda: _duplicate_selected(M, app)).pack(fill="x", pady=2)
     M.ttk.Button(actions, text="Změnit stav…", command=lambda: _change_status(M, app)).pack(fill="x", pady=2)
     M.ttk.Button(actions, text="Archivovat / obnovit", command=lambda: _toggle_archive(M, app)).pack(fill="x", pady=2)
