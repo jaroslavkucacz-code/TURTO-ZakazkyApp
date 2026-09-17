@@ -234,22 +234,13 @@ def apply(M):
             if not selection:
                 return
             request_id = int(selection[0])
-            with M.db() as con:
-                request = con.execute(
-                    'SELECT * FROM requests WHERE id=?', (request_id,)
-                ).fetchone()
-                action_id = (
-                    request['action_id']
-                    if request and 'action_id' in request.keys() else None
-                )
-                con.execute(
-                    'UPDATE supplier_offers '
-                    'SET request_id=?,action_id=coalesce(?,action_id) WHERE id=?',
-                    (request_id, action_id, offer_id),
-                )
+            from price_lists_domain.platform.offer_request_receipt import assign_from_ui
+            if not assign_from_ui(M, app, offer_id, request_id, dialog):
+                return
             dialog.destroy()
             try:
                 app.refresh_offers()
+                app.refresh_after_request_change()
             except Exception:
                 pass
 

@@ -82,11 +82,23 @@ class OfferDetailDialog(tk.Toplevel):
         self._turto_dialog_fit_width=True
         self.f=M.scrollable_dialog_frame(self,18);self._build()
         self._dialog_canvas.bind('<Configure>',self._size_offer_table,add='+')
+        self.f.bind('<Configure>',self._size_offer_table,add='+')
+        self.protocol('WM_DELETE_WINDOW',self._close_offer_detail)
+        self._turto_form_close=self._close_offer_detail
+        self.bind('<Escape>',lambda _e:(self._close_offer_detail(),'break')[1])
         self.after_idle(self._size_offer_table)
+    def _close_offer_detail(self):
+        editor=getattr(self,'_inline_labels',None)
+        if editor is None or editor.commit():self.destroy()
     def _size_offer_table(self,event=None):
         table=getattr(self,'_offer_table_frame',None)
         if table is None or not table.winfo_exists():return
-        height=max(160,min(440,int(self._dialog_canvas.winfo_height()*.43)))
+        viewport=self._dialog_canvas.winfo_height()
+        if viewport<=1:return
+        # Let the table take all remaining height after the actual toolbars,
+        # preview and footer. Small windows retain outer scrolling as fallback.
+        chrome=max(0,self.f.winfo_reqheight()-table.winfo_reqheight())
+        height=max(160,viewport-chrome)
         if int(table.cget('height'))!=height:table.configure(height=height)
     def _load(self):
         with M.db() as con:
@@ -109,6 +121,8 @@ class OfferDetailDialog(tk.Toplevel):
             items=con.execute("SELECT * FROM supplier_offer_items WHERE offer_id=? ORDER BY position,id",(self.oid,)).fetchall()
         return r,items
     def _build(self):
+        footer=getattr(self,'_offer_footer',None)
+        if footer is not None and footer.winfo_exists():footer.destroy()
         for w in self.f.winfo_children():w.destroy()
         r,items=self._load();self.offer_row=r
         if not r:return
@@ -118,14 +132,14 @@ class OfferDetailDialog(tk.Toplevel):
         if float(r["discount_pct"] or 0)>0:ttk.Label(hdr,text=f"Souhrnná sleva: {float(r['discount_pct'] or 0):.2f} %   •   Před slevou: {float(r['gross_value'] or 0):,.2f}   •   Po slevě: {float(r['net_value'] or r['total_value'] or 0):,.2f}",style="Section.TLabel").pack(anchor="w",pady=(6,0))
         tools=ttk.Frame(self.f,style="Panel.TFrame",padding=(0,0,0,8));tools.pack(fill="x")
         ttk.Button(tools,text="Historie ceny",command=self.open_history).pack(side="left",padx=(0,5));ttk.Button(tools,text="Obrázek položky",command=self.open_image).pack(side="left",padx=5);ttk.Button(tools,text="Přiřadit k Akci…",command=self.link_action).pack(side="left",padx=5)
-        ttk.Label(tools,text="Tip: dvojklik na položku otevře historii ceny.",style="PageSubtitle.TLabel").pack(side="right")
+        ttk.Label(tools,text="Interní údaje: dvojklik nebo F2. Ostatní buňky: historie ceny.",style="PageSubtitle.TLabel").pack(side="right")
         cols=("Poz.","Kód","Původní název","item_key","Množství","MJ","Pův. cena","Sleva","Cena/ks","Cena celkem")
         table=self._offer_table_frame=ttk.Frame(self.f,width=800,height=360)
         table.pack(fill="both",expand=True)
         table.grid_propagate(False)
         table.columnconfigure(0,weight=1);table.rowconfigure(0,weight=1)
         self.tree=ttk.Treeview(table,columns=cols,show="headings",height=17, name='layout__crm_features__offerdetaildialog___build__self_tree')
-        self.tree._turto_fill_last_column=False
+        self.tree._turto_fill_last_column=True
         for c,w in (("Poz.",55),("Kód",110),("Původní název",260),("item_key",200),("Množství",80),("MJ",55),("Pův. cena",100),("Sleva",75),("Cena/ks",100),("Cena celkem",115)):self.tree.heading(c,text=c);self.tree.column(c,width=w,minwidth=30,stretch=False,anchor="w")
         self.tree.grid(row=0,column=0,sticky="nsew")
         self._offer_xscroll=ttk.Scrollbar(table,orient="horizontal",command=self.tree.xview)
@@ -140,9 +154,10 @@ class OfferDetailDialog(tk.Toplevel):
             iid=f"i{it['id']}";self.item_by_iid[iid]=dict(it);tags=("discount",) if float(it["discount_pct"] or 0)>0 else ()
             self.tree.insert("","end",iid=iid,tags=tags,values=(it["position"],it["product_code"] or "",it["original_name"],it["item_key"],it["quantity"],it["unit"],f"{float(it['original_unit_price'] or 0):.2f}",f"{float(it['discount_pct'] or 0):.2f} %",f"{float(it['unit_price'] or 0):.2f}",f"{float(it['total_price'] or 0):.2f}"))
         M.bind_row_double_click(self.tree,lambda e:self.open_history())
-        b=ttk.Frame(self.f);b.pack(fill="x",pady=(10,0))
+        b=self._offer_footer=ttk.Frame(self,padding=(18,8))
+        b.pack(side="bottom",fill="x",before=self._dialog_canvas.master)
         if r["source_pdf"] and Path(r["source_pdf"]).exists():ttk.Button(b,text="Otevřít původní PDF",style="Toolbar.TButton",command=lambda:os.startfile(r["source_pdf"]) if sys.platform.startswith("win") else None).pack(side="left")
-        ttk.Button(b,text="Zavřít",style="Accent.TButton",command=self.destroy).pack(side="right")
+        ttk.Button(b,text="Zavřít",style="Accent.TButton",command=self._close_offer_detail).pack(side="right")
     def _selected_item(self):
         s=self.tree.selection() if hasattr(self,"tree") else ();return self.item_by_iid.get(s[0]) if s else None
     def open_history(self):

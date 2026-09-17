@@ -47,9 +47,8 @@ def apply(M):
             s=rt.selection()
             if not s:return M.messagebox.showinfo('Vazba nabídky','Vyberte Poptávku.',parent=d)
             rid=int(s[0])
-            with M.db() as c:
-                r=c.execute('SELECT action_id FROM requests WHERE id=?',(rid,)).fetchone();aid=r['action_id'] if r else None
-                c.execute('UPDATE supplier_offers SET request_id=?,action_id=? WHERE id=?',(rid,aid,offer_id))
+            from price_lists_domain.platform.offer_request_receipt import assign_from_ui
+            if not assign_from_ui(M,app,offer_id,rid,d):return
             d.destroy();refresh_all()
         def save_action():
             s=at.selection()
