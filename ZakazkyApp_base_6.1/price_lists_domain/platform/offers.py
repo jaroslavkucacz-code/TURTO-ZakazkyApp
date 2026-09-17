@@ -106,6 +106,8 @@ def _patch_offer_detail(M) -> None:
                             (55,110,260,200,80,55,100,75,100,115,180,180,280,200,200)))
                         tree._v700_default_widths = dict(widths)
                         tree._turto_design_widths = dict(widths)
+                        for column,width in widths.items():
+                            tree.column(column,width=width,minwidth=30,stretch=False)
                         fit = getattr(_M,"schedule_persistent_tree_fit",None)
                         if callable(fit):fit(tree,0)
 

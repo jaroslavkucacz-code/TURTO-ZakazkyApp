@@ -119,6 +119,7 @@ def ui_checks(td):
         root.show_page('offers'); settle(root)
         dialog=crm_features.OfferDetailDialog(root,oid); settle(root,1)
         check_geometry(dialog)
+        assert dialog.tree.column('Poz.','width')==55, 'New detail must use compact defaults, not temporary Tk widths'
         capture(dialog,'detail.png')
         tree=dialog.tree
         # The table scrolls horizontally without moving its surrounding controls.
