@@ -4,16 +4,25 @@ from __future__ import annotations
 GROUPS = {
     "directory": ("companies", "people"),
     "technical": ("actions", "requests", "mivo", "offers", "tasks"),
+    "reports": ("reports_overview", "reports_revenue", "reports_sales", "reports_customers",
+                "reports_products", "reports_development", "reports_changes", "reports_projects",
+                "reports_quality", "reports_imports", "reports_settings"),
 }
 PAGE_GROUP = {page: group for group, pages in GROUPS.items() for page in pages}
 # Keep the relative order of the remaining main pages.
-TOP_ORDER = ("dash", "technical", "pricelists", "issued_offers", "received_orders", "projects", "directory", "help")
+TOP_ORDER = ("dash", "technical", "pricelists", "issued_offers", "received_orders", "projects", "reports", "directory", "help")
 LABELS = {
     "dash": "⌂  Přehled", "technical": "Technika", "directory": "Adresář",
     "actions": "Ke zpracování", "requests": "Poptávky", "mivo": "MIVO",
     "offers": "Přijaté nabídky", "tasks": "Úkoly",
     "companies": "Společnosti", "people": "Osoby", "projects": "▣  Akce",
     "help": "?  Nápověda",
+    "reports": "Přehledy",
+    "reports_overview": "Přehled", "reports_revenue": "Obrat & marže",
+    "reports_sales": "Obchodníci", "reports_customers": "Zákazníci",
+    "reports_products": "Produkty", "reports_development": "Vývoj firmy",
+    "reports_changes": "Změny zákazníků", "reports_projects": "Zakázky",
+    "reports_quality": "Kontrola dat", "reports_imports": "Importy", "reports_settings": "Nastavení",
 }
 
 
@@ -50,6 +59,9 @@ def arrange(app):
         (app.nav_groups[group], pages) for group, pages in GROUPS.items()
     )]:
         buttons = [app.nav[key] for key in keys if key in app.nav]
+        if parent is app.nav_groups.get("reports"):
+            _wrap_reports(parent, buttons)
+            continue
         if list(parent.pack_slaves()) == buttons:
             continue
         for button in buttons:
@@ -57,6 +69,19 @@ def arrange(app):
         for button in buttons:
             button.pack(side="left", padx=2, pady=(0, 2))
     activate(app, getattr(app, "_current_page", "dash"))
+
+
+def _wrap_reports(parent, buttons):
+    """Keep every report reachable at the CRM's supported narrow window width."""
+    parent._report_buttons = buttons
+    if not getattr(parent, "_reports_wrap_bound", False):
+        parent.bind("<Configure>", lambda event: _wrap_reports(parent, parent._report_buttons), add="+")
+        parent._reports_wrap_bound = True
+    available = max(300, parent.winfo_width() - 24)
+    width = max((button.winfo_reqwidth() + 8 for button in buttons), default=1)
+    columns = max(1, available // width)
+    for index, button in enumerate(buttons):
+        button.grid(row=index // columns, column=index % columns, sticky="w", padx=2, pady=(0, 2))
 
 
 def activate(app, key):

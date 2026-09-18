@@ -20,6 +20,7 @@ def install(module) -> None:
     from .project_table_stability import install as install_project_table_stability
     from .automatic_updates import install as install_automatic_updates
     from .storage_ui import install as install_storage
+    from ..monthly_reports import install as install_reports
 
     if getattr(module, "_turto_platform_v6339", False):
         return
@@ -50,6 +51,7 @@ def install(module) -> None:
     # installs its final owner only after v760 has finished composing the table.
     install_project_table_stability(module)
     install_storage(module)
+    install_reports(module)
     # The updater is installed last so no older runtime layer can restore a
     # confirmation dialog or a second competing startup check.
     install_automatic_updates(module)
