@@ -19,7 +19,7 @@ def main(argv=None):
     copy.add_argument('--target', required=True)
     ping = commands.add_parser('check', help='Ověřit spojení bez změny databáze')
     ping.add_argument('--profile', required=True)
-    for name in ('migrate', 'verify', 'backup'):
+    for name in ('migrate', 'verify', 'backup', 'directory-install', 'directory-authorize', 'directory-revoke'):
         command = commands.add_parser(name)
         command.add_argument('--profile', required=True)
         command.add_argument('--schema', required=True)
@@ -28,6 +28,11 @@ def main(argv=None):
             command.add_argument('--report', required=True)
         if name == 'backup':
             command.add_argument('--target', required=True)
+            command.add_argument('--allow-pilot-changes', action='store_true')
+        if name in ('directory-authorize', 'directory-revoke'):
+            command.add_argument('--login', required=True)
+        if name == 'directory-authorize':
+            command.add_argument('--user-id', required=True, type=int)
     args = parser.parse_args(argv)
     try:
         if args.command == 'snapshot':
@@ -43,6 +48,16 @@ def main(argv=None):
                     version = con.execute('SHOW server_version').fetchone()[0]
                 print('Připojení funguje. PostgreSQL ' + version)
                 return 0
+            if args.command.startswith('directory-'):
+                from .directory import install, authorize, revoke
+                if args.command == 'directory-install':
+                    install(profile, args.schema)
+                elif args.command == 'directory-authorize':
+                    authorize(profile, args.schema, args.login, args.user_id)
+                else:
+                    revoke(profile, args.schema, args.login)
+                print('Nastavení síťového adresáře bylo dokončeno.')
+                return 0
             from .migration import migrate, verify
             if args.command == 'migrate':
                 # Reserve the report before changing the server; never overwrite
@@ -57,7 +72,7 @@ def main(argv=None):
                 print(json.dumps(result, ensure_ascii=False, indent=2))
                 return 0 if result['ok'] else 2
             from .backup import backup
-            backup(profile, args.schema, args.target)
+            backup(profile, args.schema, args.target, allow_pilot_changes=args.allow_pilot_changes)
             print('Záloha pilotního schématu byla vytvořena. Obnovu ověřte v samostatné testovací databázi.')
             return 0
         with Path(args.report).open('x', encoding='utf-8') as output:

@@ -6,13 +6,20 @@ import tempfile
 from .migration import schema_name, verify
 
 
-def backup(profile, schema, target):
+def backup(profile, schema, target, allow_pilot_changes=False):
     schema_name(schema)
     target = Path(target).resolve()
     if target.exists():
         raise ValueError('Cílový soubor zálohy již existuje.')
     if not verify(profile, schema)['ok']:
-        raise ValueError('Pilotní data se změnila; nejprve prověřte rozdíly.')
+        if not allow_pilot_changes:
+            raise ValueError('Pilotní data se změnila; pro zálohu testovacích úprav použijte --allow-pilot-changes.')
+        from psycopg import sql
+        with profile.connect() as con:
+            marker = con.execute(sql.SQL('SELECT manifest FROM {} WHERE id=1').format(
+                sql.Identifier(schema, '_turto_pilot_manifest'))).fetchone()[0]
+            if marker.get('directory_api_version') != 1 or marker.get('application_ready') is not False:
+                raise ValueError('Záloha upraveného pilotu vyžaduje připravenou serverovou agendu.')
     target.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix='.turto_dump_', suffix='.partial', dir=target.parent)
     os.close(fd)

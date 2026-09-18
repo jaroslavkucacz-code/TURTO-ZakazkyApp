@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'ZakazkyApp_base_6.1/network_db/**'
+      - 'ZakazkyApp_base_6.1/app.py'
       - 'ZakazkyApp_base_6.1/requirements-network.txt'
       - 'tests/network/**'
       - '.github/workflows/validate-postgresql-pilot.yml'
@@ -37,7 +38,7 @@ jobs:
         run: |
           python -m pip install -r ZakazkyApp_base_6.1/requirements.txt -r ZakazkyApp_base_6.1/requirements-network.txt
           sudo apt-get update -qq
-          sudo apt-get install -y postgresql-common
+          sudo apt-get install -y postgresql-common xvfb xauth python3-tk
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get update -qq
           sudo apt-get install -y postgresql-client-${{ matrix.postgres }}
@@ -47,6 +48,23 @@ jobs:
           TURTO_TEST_POSTGRES: '1'
           TURTO_PG_PASSWORD: pilot-test-only
         run: python tests/network/test_migration.py
+      - name: Personal logins, server permissions, concurrent edits and edited backup restore
+        env:
+          TURTO_TEST_POSTGRES: '1'
+          TURTO_PG_PASSWORD: pilot-test-only
+        run: python tests/network/test_directory.py
+      - name: Real Tk login, editing, read-only access and conflict handling
+        env:
+          TURTO_TEST_POSTGRES: '1'
+          TURTO_TEST_UI: '1'
+          TURTO_PG_PASSWORD: pilot-test-only
+        run: xvfb-run -a python tests/network/test_directory.py DirectoryTests.test_real_tk_login_edit_readonly_and_conflict
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: network-ui-postgres-${{ matrix.postgres }}
+          path: artifacts/network/*.png
+          if-no-files-found: ignore
       - name: Existing SQLite access and storage regressions
         run: |
           python scripts/validate-834-user-access.py --source-only

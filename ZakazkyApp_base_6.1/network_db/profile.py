@@ -45,7 +45,7 @@ class Profile:
     def public(self):
         return asdict(self)
 
-    def connect(self):
+    def connect(self, password=None):
         try:
             import psycopg
         except ImportError:
@@ -53,7 +53,9 @@ class Profile:
         kwargs = {k: v for k, v in asdict(self).items() if k != 'password_env' and v != ''}
         kwargs['application_name'] = 'TURTO CRM migration rehearsal'
         kwargs['options'] = '-c statement_timeout=300000 -c lock_timeout=10000 -c idle_in_transaction_session_timeout=300000'
-        if self.password_env in os.environ:
+        if password is not None:
+            kwargs['password'] = password
+        elif self.password_env in os.environ:
             kwargs['password'] = os.environ[self.password_env]
         # No fallback to SQLite: a failed server connection is always an error.
         return psycopg.connect(**kwargs, autocommit=True)

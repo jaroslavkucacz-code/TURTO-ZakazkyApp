@@ -1,6 +1,6 @@
 # Přechod TURTO CRM na PostgreSQL
 
-První etapa připravuje a ověřuje kopii dat pro síťový provoz. Vychází z hlavní větve CRM 8.0.34 (commit `d060d96`). Produkční aplikace nadále používá SQLite. Nový modul `network_db` zatím není zapojený do spouštění CRM a nepřepisuje nastavení instalace ani aktualizační kanál.
+Testovací větev připravuje a ověřuje kopii dat pro síťový provoz. Vychází z hlavní větve CRM 8.0.34 (commit `d060d96`). První serverová agenda **Společnosti** má vlastní okno v Nastavení → Síťový pilot společností. Jeho přípravu, osobní přihlášení a rozsah popisuje [DIRECTORY.md](DIRECTORY.md). Běžné agendy CRM nadále používají SQLite; nastavení instalace ani aktualizační kanál se nepřepínají.
 
 ## Co je připravené
 
@@ -18,10 +18,10 @@ První etapa připravuje a ověřuje kopii dat pro síťový provoz. Vychází z
 
 1. Převést dotazy a migrace schématu jednotlivých agend. Současný klient používá `PRAGMA`, `sqlite_master`, `INSERT OR REPLACE`, `lastrowid`, `BEGIN IMMEDIATE` a další rozhraní SQLite. Pouhá záměna ovladače by nefungovala.
 2. Převést výchozí výrazy sloupců, CHECK pravidla, indexy, triggery poslední aktivity a fulltext. Původní definice jsou uchované v manifestu, ale v první etapě se automaticky nespouštějí. Odvozený fulltext `price_list_items_fts` a jeho pomocné tabulky se nekopírují, neboť vycházejí z přenesených položek ceníků. CZECH/NOCASE zatím nejsou na serveru emulované; textová unikátnost používá výchozí kolaci PostgreSQL.
-3. Zavést skutečné serverové ověřování uživatele a oprávnění. Stávající klientské kontroly a SQLite TEMP triggery nejsou serverovým zabezpečením. Změny nesmějí spoléhat na sdílený účet s neomezenými právy. Zároveň oddělit nastavení počítače a přihlášené relace od společných firemních dat.
+3. Rozšířit osobní serverové přihlášení a oprávnění z pilotních Společností na další agendy a správu uživatelů. Zároveň oddělit nastavení počítače a přihlášené relace od společných firemních dat. Stávající klientské kontroly a SQLite TEMP triggery nejsou serverovým zabezpečením.
 4. Zkontrolovat všechny souběžné změny: nabídky, položky, číslování dokladů, poptávky, více řešitelů a oprávnění. Doplnit kontroly verze záznamu a transakce; při výpadku nesmí vzniknout nezávislé lokální zápisy.
 5. Převést Přehledy z jejich samostatného úložiště a externí dokumenty/přílohy v adresářích. První převod zahrnuje jen jeden výslovně vybraný soubor CRM. Cesty k dokumentům zachová, jejich soubory tím nekopíruje. Binární hodnoty přímo v SQLite se přenášejí.
-6. Doplnit nastavení serveru v aplikaci, Windows balíček a testy skutečné práce na dvou PC, obnovu kompletního provozu a denní/týdenní zálohování na firemní infrastruktuře. Automatické plánování záloh zatím není zapnuté.
+6. Doplnit společné nastavení serveru pro celé CRM, Windows balíček a testy skutečné práce na dvou PC, obnovu kompletního provozu a denní/týdenní zálohování na firemní infrastruktuře. Automatické plánování záloh zatím není zapnuté.
 
 ## Postup zkušebního převodu
 
