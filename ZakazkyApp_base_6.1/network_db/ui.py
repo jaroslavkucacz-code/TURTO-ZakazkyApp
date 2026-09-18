@@ -8,6 +8,7 @@ from tkinter import ttk, filedialog, messagebox
 
 from .client import DirectoryClient, DirectoryError, AccessDenied, Conflict, UncertainWrite
 from .profile import Profile
+from . import settings
 
 
 class PilotWindow(tk.Toplevel):
@@ -15,7 +16,7 @@ class PilotWindow(tk.Toplevel):
         super().__init__(master)
         self.title('TURTO CRM – síťový pilot společností')
         self.geometry('1060x720'); self.minsize(780, 560)
-        self.option_add('*Font', 'Calibri 11')
+        self.option_add('*' + self.winfo_name() + '*Font', 'Calibri 11')
         self.client = None
         self.identity = None
         self.busy = False
@@ -42,13 +43,15 @@ class PilotWindow(tk.Toplevel):
             self.connection_widgets.append(entry)
         choose = ttk.Button(connect, text='Vybrat…', command=self.choose_profile)
         choose.grid(row=0, column=2, padx=(8, 0)); self.connection_widgets.append(choose)
+        configure = ttk.Button(connect, text='Nastavit…', command=self.configure_connection)
+        configure.grid(row=1, column=2, padx=(8, 0)); self.connection_widgets.append(configure)
         self.connect_button = ttk.Button(connect, text='Přihlásit', command=self.connect)
         self.connect_button.grid(row=2, column=2, padx=(8, 0))
         self.disconnect_button = ttk.Button(connect, text='Odhlásit', command=self.disconnect)
         self.disconnect_button.grid(row=3, column=2, padx=(8, 0))
         self.password_entry = self.connection_widgets[3]
         self.password_entry.bind('<Return>', lambda e=None: self.connect() if e is not None else None)
-        self.status = tk.StringVar(self, 'Vyberte profil a přihlaste se osobním serverovým účtem.')
+        self.status = tk.StringVar(self, 'Nastavte připojení a přihlaste se. Z domova nejprve zapněte firemní VPN.')
         ttk.Label(body, textvariable=self.status, wraplength=980).pack(fill='x', pady=10)
         controls = ttk.Frame(body); controls.pack(fill='x', pady=(0, 8))
         self.query = tk.StringVar(self)
@@ -79,17 +82,28 @@ class PilotWindow(tk.Toplevel):
         self.previous_button = ttk.Button(footer, text='← Předchozí', command=lambda: self.page(-1))
         self.previous_button.pack(side='right', padx=8)
         self.protocol('WM_DELETE_WINDOW', self.close)
+        try:
+            profile, schema = settings.load(settings.default_path())
+            self.profile_path.set(str(settings.default_path())); self.schema.set(schema); self.login.set(profile.user)
+        except Exception:
+            pass  # No automatic connection and no fallback to a local database.
         self._controls()
+
+    def configure_connection(self):
+        if self.busy or self.client:
+            return
+        from .connection_ui import ConnectionDialog
+        ConnectionDialog(self)
 
     def choose_profile(self):
         path = filedialog.askopenfilename(parent=self, title='Profil připojení k testovací databázi', filetypes=[('Profil JSON', '*.json')])
         if path:
             try:
-                profile = Profile.load(path)
+                profile, schema = settings.load(path)
             except Exception:
                 messagebox.showerror('Připojení', 'Profil není platný. Zkontrolujte jeho údaje.', parent=self)
                 return
-            self.profile_path.set(path); self.login.set(profile.user)
+            self.profile_path.set(path); self.login.set(profile.user); self.schema.set(schema)
 
     def _controls(self):
         level = self.identity['companies'] if self.identity else 0
@@ -141,7 +155,11 @@ class PilotWindow(tk.Toplevel):
         if self.busy or self.client:
             return
         try:
-            profile = replace(Profile.load(self.profile_path.get()), user=self.login.get().strip())
+            profile, _ = settings.load(self.profile_path.get())
+            profile = replace(profile, user=self.login.get().strip())
+            if not self.password.get():
+                messagebox.showerror('Připojení', 'Vyplňte heslo osobního serverového účtu.', parent=self)
+                return
             candidate = DirectoryClient(profile, self.schema.get().strip(), password=self.password.get())
         except Exception:
             messagebox.showerror('Připojení', 'Zkontrolujte profil, testovací schéma a serverový účet.', parent=self)
@@ -222,7 +240,7 @@ class PilotWindow(tk.Toplevel):
             if not rows:
                 text.insert('end', 'Od zapnutí síťového pilotu zatím nebyla provedena žádná změna.')
             for event in rows:
-                text.insert('end', f"{event['changed_at']}  ·  {event['user_name']}\n")
+                text.insert('end', f"{event['changed_at']}  ·  {event['user_name']}  ·  {event['db_login']}\n")
                 previous, current = event['previous'] or {}, event['current']
                 for key, label in CompanyEditor.LABELS.items():
                     if previous.get(key) != current.get(key):

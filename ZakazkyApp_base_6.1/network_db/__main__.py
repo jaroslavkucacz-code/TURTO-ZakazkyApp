@@ -3,6 +3,8 @@ import argparse
 import json
 from pathlib import Path
 import sys
+import os
+import getpass
 
 from .profile import Profile
 from .source import inspect, snapshot
@@ -10,6 +12,7 @@ from .source import inspect, snapshot
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='TURTO CRM – zkušební převod dat do PostgreSQL, bez přepnutí CRM')
+    parser.add_argument('--ask-password', action='store_true', help='Zadat heslo do skryté výzvy; neukládat do profilu')
     commands = parser.add_subparsers(dest='command', required=True)
     audit = commands.add_parser('inspect', help='Zkontrolovat kopii SQLite bez připojení k serveru')
     audit.add_argument('--source', required=True)
@@ -19,7 +22,7 @@ def main(argv=None):
     copy.add_argument('--target', required=True)
     ping = commands.add_parser('check', help='Ověřit spojení bez změny databáze')
     ping.add_argument('--profile', required=True)
-    for name in ('migrate', 'verify', 'backup', 'directory-install', 'directory-authorize', 'directory-revoke'):
+    for name in ('migrate', 'verify', 'backup', 'directory-install', 'directory-authorize', 'directory-revoke', 'directory-users', 'prepare-demo'):
         command = commands.add_parser(name)
         command.add_argument('--profile', required=True)
         command.add_argument('--schema', required=True)
@@ -34,6 +37,7 @@ def main(argv=None):
         if name == 'directory-authorize':
             command.add_argument('--user-id', required=True, type=int)
     args = parser.parse_args(argv)
+    password_key = old_password = None
     try:
         if args.command == 'snapshot':
             snapshot(args.source, args.target)
@@ -42,11 +46,24 @@ def main(argv=None):
         if args.command == 'inspect':
             result = inspect(args.source)
         else:
-            profile = Profile.load(args.profile)
+            from .settings import load
+            profile, _ = load(args.profile)
+            if args.ask_password:
+                if not sys.stdin.isatty():
+                    raise ValueError('Heslo zadejte v interaktivním terminálu.')
+                password_key = profile.password_env
+                old_password = os.environ.get(password_key)
+                os.environ[password_key] = getpass.getpass('Heslo serverového účtu: ')
             if args.command == 'check':
                 with profile.connect() as con:
                     version = con.execute('SHOW server_version').fetchone()[0]
                 print('Připojení funguje. PostgreSQL ' + version)
+                return 0
+            if args.command in ('prepare-demo', 'directory-users'):
+                from .demo import prepare, users
+                if args.command == 'prepare-demo':
+                    prepare(profile, args.schema)
+                print(json.dumps(users(profile, args.schema), ensure_ascii=False, indent=2))
                 return 0
             if args.command.startswith('directory-'):
                 from .directory import install, authorize, revoke
@@ -90,6 +107,12 @@ def main(argv=None):
         if args.command == 'migrate':
             print('Nevytvářejte místní náhradní data. Stav serverového převodu lze ověřit příkazem verify.', file=sys.stderr)
         return 1
+    finally:
+        if password_key:
+            if old_password is None:
+                os.environ.pop(password_key, None)
+            else:
+                os.environ[password_key] = old_password
 
 
 if __name__ == '__main__':

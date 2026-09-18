@@ -4,6 +4,8 @@ Testovací větev připravuje a ověřuje kopii dat pro síťový provoz. Vychá
 
 ## Co je připravené
 
+Pro první uživatelskou zkoušku je připravený postup pro samostatný [Windows pilot](TRY-PILOT.md) s umělými ukázkovými daty. [Firemní server](SERVER.md) má jednu adresu dostupnou v kanceláři i přes firemní VPN; balíček sestavuje a testuje GitHub workflow. Aktuální výsledky sestavení jsou rozhodující.
+
 - Konzistentní kopie SQLite včetně potvrzených změn ve WAL; zdroj se otevírá pouze pro čtení.
 - Kontrola integrity, cizích klíčů a skutečných datových typů ještě před zápisem na server.
 - Převod všech běžných tabulek z vybrané CRM databáze do **nového** schématu `turto_pilot_*` v PostgreSQL. Zachovává ID, texty, čísla, historii, nastavení, oprávnění uložená v datech a binární přílohy. Kontrola porovnává počet řádků i SHA-256 celého obsahu každé tabulky, včetně duplicit.

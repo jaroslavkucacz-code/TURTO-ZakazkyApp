@@ -16,6 +16,10 @@ class Conflict(DirectoryError):
     pass
 
 
+class ConnectionUnavailable(DirectoryError):
+    pass
+
+
 class UncertainWrite(DirectoryError):
     def __init__(self, request_id):
         self.request_id = str(request_id)
@@ -37,11 +41,13 @@ class DirectoryClient:
             raise AccessDenied('Přihlaste se znovu osobním serverovým účtem.')
         import psycopg
         from psycopg import sql
+        submitted = False
         try:
             with self.profile.connect(password=self._password) as con:
                 con.execute("SET statement_timeout='15000'; SET lock_timeout='5000'")
                 statement = sql.SQL('SELECT {}({})').format(sql.Identifier(self.schema, name),
                     sql.SQL(',').join(sql.Placeholder() for _ in args))
+                submitted = True
                 return con.execute(statement, args).fetchone()[0]
         except psycopg.Error as exc:
             if exc.sqlstate in ('P2001', '42501', '28000', '28P01'):
@@ -52,8 +58,10 @@ class DirectoryClient:
                 raise DirectoryError('Společnost už neexistuje.') from None
             if exc.sqlstate and exc.sqlstate.startswith(('22', '23')):
                 raise DirectoryError('Neplatné údaje společnosti. Zkontrolujte vyplněná pole.') from None
-            if writing is not None and (exc.sqlstate is None or exc.sqlstate.startswith('08')):
-                raise UncertainWrite(writing) from None
+            if exc.sqlstate is None or exc.sqlstate.startswith('08'):
+                if writing is not None and submitted:
+                    raise UncertainWrite(writing) from None
+                raise ConnectionUnavailable('Připojení k firemnímu serveru se nezdařilo. Ověřte firemní síť nebo VPN, účet, heslo a certifikát.') from None
             raise DirectoryError('Serverová operace nebyla dokončena. Ověřte spojení a přípravu pilotu.') from None
 
     def identity(self):

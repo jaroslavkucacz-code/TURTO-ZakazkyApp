@@ -2,7 +2,7 @@
 
 První agenda pracuje přímo s testovací kopií na PostgreSQL: osobní přihlášení, vyhledávání a stránkování, založení společnosti, úprava názvu, IČ, DIČ, adresy, webu, poznámky a příznaků odběratel/dodavatel/aktivní. Přehled zobrazuje oficiální název, u starých nevyplněných názvů použije krátký název. Historie ukazuje posledních 100 serverových změn. Mazání ani další agendy zde nejsou zpřístupněny.
 
-Okno otevřete v **Nastavení → Síťový pilot společností…** při spuštění zdrojů testovací větve. Samostatně jej lze spustit příkazem `python -m network_db.ui` ze složky `ZakazkyApp_base_6.1`. Potřebuje `requirements-network.txt` a Tk. Windows distribuční balíček s tímto pilotem zatím není připravený.
+Okno otevřete v **Nastavení → Síťový pilot společností…** při spuštění zdrojů testovací větve. Samostatně jej lze spustit příkazem `python -m network_db.ui` ze složky `ZakazkyApp_base_6.1`. Potřebuje `requirements-network.txt` a Tk. Samostatný Windows balíček sestavuje a ověřuje workflow; obsahuje stejné okno, formulář nastavení připojení a konzolový nástroj správce. Návod je v [TRY-PILOT.md](TRY-PILOT.md), příprava firemního serveru pro kancelář a VPN v [SERVER.md](SERVER.md).
 
 ## Příprava správcem
 
