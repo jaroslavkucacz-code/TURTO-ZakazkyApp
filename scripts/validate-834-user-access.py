@@ -147,7 +147,8 @@ def ui_checks(td):
     output.mkdir(parents=True, exist_ok=True)
     try:
         root.state('normal'); root.geometry('1220x850+0+0'); settle(root, 3)
-        assert [key for widget in root.main_nav.pack_slaves() for key, button in root.nav.items() if button is widget][:3] == ['dash', 'business', 'technical']
+        main_buttons = sorted(root.main_nav.place_slaves(), key=lambda w: (w.winfo_y(), w.winfo_x()))
+        assert [key for widget in main_buttons for key, button in root.nav.items() if button is widget][:3] == ['dash', 'business', 'technical']
         root.show_page('business'); settle(root)
         assert root._current_page == 'business' and not root.tabs['business'].winfo_children()
         # Local logged-in user wins over another client's global preference.

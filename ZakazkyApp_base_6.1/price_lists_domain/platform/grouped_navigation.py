@@ -65,6 +65,10 @@ def arrange(app):
             if key in app.nav and not visible(key):
                 app.nav[key].pack_forget()
                 app.nav[key].grid_forget()
+                app.nav[key].place_forget()
+        if parent is app.main_nav:
+            _wrap_main(parent, buttons)
+            continue
         if parent is app.nav_groups.get("reports"):
             _wrap_reports(parent, buttons)
             continue
@@ -75,6 +79,30 @@ def arrange(app):
         for button in buttons:
             button.pack(side="left", padx=2, pady=(0, 2))
     activate(app, getattr(app, "_current_page", "dash"))
+
+
+def _wrap_main(parent, buttons):
+    """Flow natural-width buttons into rows instead of clipping the last tab."""
+    buttons = [button for button in buttons if button.winfo_exists()]
+    parent._main_buttons = buttons
+    if not getattr(parent, '_main_wrap_bound', False):
+        parent.bind('<Configure>', lambda event: _wrap_main(parent, parent._main_buttons), add='+')
+        parent._main_wrap_bound = True
+    available = max(300, parent.winfo_width() - 24)
+    sizes = [(button.winfo_reqwidth(), button.winfo_reqheight()) for button in buttons]
+    signature = (available, tuple(buttons), tuple(sizes))
+    if signature == getattr(parent, '_main_wrap_signature', None) and all(button.winfo_manager() == 'place' for button in buttons):
+        return
+    parent._main_wrap_signature = signature
+    row_height = max((height for width, height in sizes), default=0) + 2
+    x, y = 0, 0
+    for button, (width, height) in zip(buttons, sizes):
+        if x and x + width > available:
+            x, y = 0, y + row_height
+        button.pack_forget()
+        button.place(x=12 + x, y=y, width=width, height=height)
+        x += width + 4
+    parent.configure(height=y + row_height if buttons else 1)
 
 
 def _wrap_reports(parent, buttons):
@@ -108,6 +136,8 @@ def activate(app, key):
         prefix = "SubNav" if rows and name in PAGE_GROUP else "TopNav"
         active = name == key or (bool(rows) and name == group)
         button.configure(style=prefix + ("Active.TButton" if active else ".TButton"))
+    if hasattr(getattr(app, 'main_nav', None), '_main_buttons'):
+        _wrap_main(app.main_nav, app.main_nav._main_buttons)
 
 
 def build(app, parent):

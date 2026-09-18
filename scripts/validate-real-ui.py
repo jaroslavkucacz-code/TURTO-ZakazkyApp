@@ -168,8 +168,9 @@ def main() -> None:
         ), "V žádné viditelné tabulce nebyly vykresleny oddělovací linky"
 
         def nav_keys(parent):
+            widgets = parent.pack_slaves() or sorted(parent.place_slaves(), key=lambda w: (w.winfo_y(), w.winfo_x()))
             return [next(name for name, button in root.nav.items() if button is widget)
-                    for widget in parent.pack_slaves()]
+                    for widget in widgets]
         assert nav_keys(root.main_nav) == ["dash", "business", "technical", "pricelists", "issued_offers", "received_orders", "projects", "reports", "directory"]
         assert nav_keys(root.nav_groups["directory"]) == ["companies", "people"]
         assert nav_keys(root.nav_groups["technical"]) == ["actions", "requests", "mivo", "offers", "tasks"]
