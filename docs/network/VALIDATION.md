@@ -1,29 +1,37 @@
-# Stav první etapy přechodu na PostgreSQL
+# Stav přechodu na PostgreSQL
 
 Datum kontroly 18. září 2026. Základ CRM 8.0.34, hlavní větev `d060d96`. Testovací větev `feature/postgresql-pilot` je dostupná jako [draft PR 108](https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/pull/108). Nebyla začleněna do hlavní větve ani vydána jako aktualizace.
 
-**První převod dat prošel na standardním PostgreSQL 16 i 18.** Výsledek potvrzuje [běh serverových testů](https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/actions/runs/35349305873) pro commit `9cc4473b9c0a878febfd2b52d7ca6a8025ccbd05`. Následující změna tohoto protokolu upravuje pouze dokumentaci, nikoli ověřovaný kód.
+**Převod dat i první serverová agenda Společnosti prošly na standardním PostgreSQL 16 a 18.** Výsledek potvrzuje [běh serverových a GUI testů](https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/actions/runs/35356801236) pro commit `c4de369d7859dcbd86ed0724ebcfd88b7c0ace1d`. Následující změna tohoto protokolu upravuje pouze dokumentaci.
 
 ## Provedené kontroly
 
-| Oblast | Výsledek |
+Na každé verzi serveru prošlo 33 testů síťového pilotu: 21 kontrol převodu, 11 scénářů serverové agendy a 1 zkouška skutečného Tk okna. GUI scénář je v prvním běhu bez obrazovky výslovně přeskočený a následně se spouští samostatně přes Xvfb; celkový výsledek zahrnuje jeho úspěšné provedení.
+
+| Oblast | Výsledek na PostgreSQL 16 i 18 |
 | --- | --- |
-| Syntaxe nových modulů | Prošla |
-| PostgreSQL 16 | 21 testů prošlo, žádný přeskočený |
-| PostgreSQL 18 | 21 testů prošlo, žádný přeskočený |
-| Bezpečnost SQLite zdroje a profilů připojení | 13 z uvedených 21 testů na každé verzi serveru |
-| Serverové integrační scénáře | 8 z uvedených 21 testů na každé verzi serveru |
-| Stávající správa souborů a záloh CRM | Dalších 14 testů prošlo na obou prostředích |
-| Stávající oprávnění CRM 8.0.34 | Databázová regresní kontrola prošla na obou prostředích |
-| Inventura schématu vytvořeného aktuálním CRM | 50 běžných tabulek, 38 triggerů, 89 explicitních indexů; běžné tabulky prošly kontrolou datových typů a obsahu |
-| Napojení GUI na server a práce na dvou PC | Dosud neimplementováno; GUI stále používá SQLite |
+| SQLite zdroj, profily, převod, souběh migrací a obnova | 21 testů prošlo |
+| Osobní účty, serverová práva, souběžné editace, historie a obnova upraveného pilotu | 11 testů prošlo |
+| Skutečné Tk okno: přihlášení, editace, konflikt, čtenář a zavírání | 1 test prošel |
+| Stávající správa souborů a záloh CRM | Dalších 14 regresních testů prošlo |
+| Stávající oprávnění CRM 8.0.34 | Databázová regresní kontrola prošla |
+| Úplné schéma aktuálního CRM použité k převodu | 50 běžných tabulek, 38 původních triggerů a 89 explicitních indexů v inventuře |
+| Windows a práce na dvou skutečných PC přes firemní síť | Síťový pilot zatím takto neověřen |
 
-Serverové testy ověřily převod celého schématu aktuálního CRM se zkušebními obchodními záznamy, české texty, binární přílohy, duplicity, číselné hodnoty a zachování čítačů po odstraněných ID. Dále ověřily opětovné porovnání dat, vynucení cizích a unikátních klíčů, odmítnutí přepsání existujícího cíle, vrácení celé transakce při chybě, souběh dvou převodů do stejného schématu a utajení hesla při chybě spojení.
+## Co serverové scénáře prokázaly
 
-Záloha přes `pg_dump` byla skutečně obnovena pomocí `pg_restore` do jiné testovací databáze. Následná kontrola všech převedených tabulek potvrdila shodné počty řádků a otisky obsahu.
+Převod ověřil všechny běžné tabulky schématu CRM se zkušebními obchodními záznamy, české texty, binární přílohy, duplicity, číselné hodnoty, zachování ID a čítačů po odstraněných řádcích. Kontroly zahrnují porovnání počtů i SHA-256 obsahu, cizí a unikátní klíče, odmítnutí přepsání existujícího cíle, rollback celého převodu, dva souběžné převody a skrytí hesla při chybě spojení.
 
-Dřívější lokální pokus použít PGlite s TCP adaptérem selhal při přenosu `COPY FROM STDIN` na úrovni protokolu. Následné úspěšné testy proběhly na standardních PostgreSQL serverech; přenos nebyl upraven kvůli omezení náhradního prostředí.
+Serverové Společnosti ověřily skutečné osobní LOGIN role a odmítnutí nesprávného hesla. Čtenář nemůže ukládat, skrytá agenda nevrací data, neaktivní osoba a chybné nastavení práv jsou odmítnuté. Přímý přístup k obchodním tabulkám a historii, volání interní autorizační funkce a podvržení uživatele klientským nastavením jsou zakázané. Odebrání přístupu funguje i v již otevřeném spojení; snížení práv platí pro následující zápis.
 
-## Rozsah následující etapy
+Dvě různé osoby otevřely stejnou verzi společnosti a zkusily ji současně uložit. Uložila se přesně jedna změna; druhá skončila konfliktem a historie obsahovala skutečný účet úspěšné osoby. Duplicitní doručení stejného požadavku založilo pouze jednu firmu. Ztracená odpověď po dokončeném zápisu byla ověřena podle ID požadavku bez opakování změny. Vyvolaná chyba zápisu historie vrátila zpět firmu i evidenci požadavku.
 
-Ověřený výsledek je datová kopie pro další vývoj a nadále má `application_ready=false`. Ještě není provozní databází pro připojení stávajícího CRM. Převod SQL dotazů, úplného schématu a triggerů, serverové přihlášení a oprávnění, souběžné editace agend, přílohy, Přehledy a napojení obrazovek zůstávají dalšími kroky popsanými v README. Vaše aktuální provozní databáze nebyla na server převáděna; testy použily izolovaný základ ze zdrojů CRM a zkušební záznamy.
+Záloha přes `pg_dump` byla skutečně obnovena přes `pg_restore` do jiné databáze. Původní převod prošel opětovným porovnáním všech tabulek. Další scénář obnovil již upravenou společnost, její historii a omezený přístup osobního účtu; standardní záloha upravené kopie vyžaduje výslovný parametr `--allow-pilot-changes`.
+
+GUI test stiskl skutečná tlačítka přihlášení a ukládání, ověřil vymazání hesla z formuláře, zobrazení konfliktu a zakázaná tlačítka čtenáře. Také ověřil, že volání klávesové obsluhy bez události při zániku Tk prvků nespustí ukládání. Snímky testovacího okna jsou uložené v artefaktech uvedeného běhu.
+
+## Rozsah hotové etapy
+
+Společnosti mají samostatné serverové okno dostupné v Nastavení testovací aplikace. Příprava serveru a účtů je popsaná v [DIRECTORY.md](DIRECTORY.md). Manifest obsahuje `directory_api_version=1` a nadále `application_ready=false`.
+
+Další agendy, společné přepnutí celého CRM, úplné serverové schéma a triggery, Přehledy, externí přílohy, distribuční Windows balíček a automatické zálohování na firemní infrastruktuře zůstávají dalšími kroky. Místní a serverová data se automaticky nesynchronizují. Vaše provozní databáze nebyla na server převáděna; testy použily izolovaný základ ze zdrojů CRM a zkušební záznamy.
