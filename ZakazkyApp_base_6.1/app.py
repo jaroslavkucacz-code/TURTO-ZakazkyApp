@@ -5405,6 +5405,9 @@ $s.Save()
         ttk.Button(f,text="Zkontrolovat data",command=self.database_audit).grid(row=7,column=1,sticky="w",padx=8,pady=6)
         ttk.Button(f,text="Zálohy a úklid úložiště…",command=self.open_storage_maintenance).grid(row=7,column=2,sticky="w",padx=8,pady=6)
         ttk.Label(f,text=f"Databáze: {DB}",style="Panel.TLabel").grid(row=8,column=0,columnspan=3,sticky="w")
+        from network_db.ui import open_pilot
+        self.network_pilot_button = ttk.Button(f,text="Síťový pilot společností…",command=lambda:open_pilot(self))
+        self.network_pilot_button.grid(row=8,column=3,sticky="w",padx=8,pady=6)
 
         ttk.Label(f,text="Import / export",style="Panel.TLabel",font=("Calibri",12,"bold")).grid(row=9,column=0,sticky="w",pady=(18,0))
         ttk.Button(f,text="Export kompletní databáze…",command=self.export_complete_data).grid(row=10,column=0,sticky="w",pady=6)

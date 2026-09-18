@@ -1,0 +1,170 @@
+name: Validate PostgreSQL migration pilot
+on:
+  pull_request:
+    paths:
+      - 'ZakazkyApp_base_6.1/network_db/**'
+      - 'ZakazkyApp_base_6.1/app.py'
+      - 'ZakazkyApp_base_6.1/requirements-network.txt'
+      - 'tests/network/**'
+      - 'build/network-pilot/**'
+      - 'scripts/network_*.py'
+      - 'docs/network/**'
+      - '.github/workflows/validate-postgresql-pilot.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        postgres: ['16', '18']
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres }}
+        env:
+          POSTGRES_DB: turto_pilot_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: pilot-test-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies and matching backup client
+        run: |
+          python -m pip install -r ZakazkyApp_base_6.1/requirements.txt -r ZakazkyApp_base_6.1/requirements-network.txt
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-common xvfb xauth python3-tk
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-${{ matrix.postgres }}
+          echo "/usr/lib/postgresql/${{ matrix.postgres }}/bin" >> "$GITHUB_PATH"
+      - name: Real source safety, migration, rollback, concurrency and restore tests
+        env:
+          TURTO_TEST_POSTGRES: '1'
+          TURTO_PG_PASSWORD: pilot-test-only
+        run: |
+          python tests/network/test_connection.py
+          python tests/network/test_diagnostics.py
+          python tests/network/test_migration.py
+      - name: Personal logins, server permissions, concurrent edits and edited backup restore
+        env:
+          TURTO_TEST_POSTGRES: '1'
+          TURTO_PG_PASSWORD: pilot-test-only
+        run: python tests/network/test_directory.py
+      - name: Real Tk login, editing, read-only access and conflict handling
+        env:
+          TURTO_TEST_POSTGRES: '1'
+          TURTO_TEST_UI: '1'
+          TURTO_PG_PASSWORD: pilot-test-only
+        run: xvfb-run -a python tests/network/test_directory.py DirectoryTests.test_real_tk_login_edit_readonly_and_conflict
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: network-ui-postgres-${{ matrix.postgres }}
+          path: artifacts/network/*.png
+          if-no-files-found: ignore
+      - name: Existing SQLite access and storage regressions
+        run: |
+          python scripts/validate-834-user-access.py --source-only
+          python scripts/validate-830-storage.py --source-only
+  windows-pilot:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      PYTHONIOENCODING: utf-8
+      TURTO_TEST_POSTGRES: '1'
+      TURTO_TEST_PG_PORT: '55432'
+      TURTO_PG_PASSWORD: pilot-test-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install client and build dependencies
+        run: |
+          python -m pip install -r ZakazkyApp_base_6.1/requirements.txt -r ZakazkyApp_base_6.1/requirements-network.txt pyinstaller==6.22.2
+      - name: Create isolated PostgreSQL cluster with verified TLS
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pgBin = $env:PGBIN
+          if (-not (Test-Path "$pgBin\initdb.exe")) { throw 'PostgreSQL binaries missing from runner' }
+          $pgBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $cluster = Join-Path $env:RUNNER_TEMP 'turto-pilot-pg'
+          $passwordFile = Join-Path $env:RUNNER_TEMP 'turto-ci-pg-password.txt'
+          [System.IO.File]::WriteAllText($passwordFile, 'pilot-test-only')
+          & "$pgBin\initdb.exe" -D $cluster -U postgres --auth=scram-sha-256 --encoding=UTF8 --locale=C --pwfile=$passwordFile
+          if ($LASTEXITCODE -ne 0) { throw 'initdb failed' }
+          Remove-Item $passwordFile
+          openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 1 -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost' -keyout "$cluster/server.key" -out "$cluster/server.crt"
+          if ($LASTEXITCODE -ne 0) { throw 'Test certificate creation failed' }
+          $posixCluster = $cluster.Replace('\', '/')
+          @"
+          listen_addresses = 'localhost'
+          port = 55432
+          ssl = on
+          ssl_cert_file = '$posixCluster/server.crt'
+          ssl_key_file = '$posixCluster/server.key'
+          "@ | Add-Content "$cluster/postgresql.conf"
+          & "$pgBin\pg_ctl.exe" -D $cluster -l "$cluster/server.log" -w start
+          if ($LASTEXITCODE -ne 0) { throw 'Test PostgreSQL did not start' }
+          $env:PGPASSWORD = 'pilot-test-only'
+          & "$pgBin\createdb.exe" -h localhost -p 55432 -U postgres turto_pilot_test
+          if ($LASTEXITCODE -ne 0) { throw 'Test database creation failed' }
+          "TURTO_TEST_CA=$cluster/server.crt" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Windows source and real Tk regressions
+        shell: pwsh
+        env:
+          TURTO_TEST_UI: '1'
+        run: |
+          python tests/network/test_connection.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/network/test_diagnostics.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/network/test_directory.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build standalone pilot with artificial sample data
+        shell: pwsh
+        run: |
+          python scripts/network_make_demo.py build/network-pilot/generated/demo.db
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m PyInstaller --noconfirm --clean build/network-pilot/pilot.spec
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/network_bundle_postgres.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test actual admin and GUI executables with two accounts over verified TLS
+        run: python scripts/network_frozen_smoke.py
+      - name: Test local demo with bundled PostgreSQL and automatic process cleanup
+        run: python scripts/network_local_smoke.py
+      - name: Package the tested pilot
+        run: python scripts/network_package.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TURTO-CRM-Pilot-s-Mistni-Ukazkou-0.3.1-Windows-x64
+          path: artifacts/network/package/*
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: network-windows-validation
+          path: |
+            artifacts/network/windows/*
+            artifacts/network/*.png
+          if-no-files-found: ignore
+      - name: Stop the isolated test cluster
+        if: always()
+        shell: pwsh
+        run: |
+          $cluster = Join-Path $env:RUNNER_TEMP 'turto-pilot-pg'
+          if (Test-Path "$cluster/postmaster.pid") {
+            & "$env:PGBIN\pg_ctl.exe" -D $cluster -m fast -w stop
+          }

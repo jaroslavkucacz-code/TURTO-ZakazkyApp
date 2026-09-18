@@ -1,0 +1,10 @@
+{
+  "host": "crm-db.turto.local",
+  "port": 5432,
+  "dbname": "turto_crm_pilot",
+  "user": "turto_migrator",
+  "sslmode": "verify-full",
+  "sslrootcert": "C:/TURTO/certificates/root.crt",
+  "password_env": "TURTO_PG_PASSWORD",
+  "connect_timeout": 10
+}
