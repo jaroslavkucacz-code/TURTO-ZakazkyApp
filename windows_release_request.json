@@ -1,8 +1,8 @@
 {
-  "version": "8.0.32",
+  "version": "8.0.33",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "e75dad076748fd55191c5de3d1f60a46c0afe614",
-  "validated_run_id": 35329466994,
-  "notes": "8.0.32 – Měsíční přehledy přímo v CRM. Nová hlavní záložka Přehledy obsahuje všech 11 částí Měsíčních přehledů 1.1.2 včetně grafů, období a rozsahů, detailů zákazníků a dokladů, kontrolovaných importů a exportů do Excelu a PDF. V Přehledy → Nastavení lze převzít dosavadní databázi; před nahrazením dat vznikne záloha a původní program zůstane zachovaný. Nastavení grafů a rozsahu se pamatuje pro jednotlivé uživatele. TEST má oddělená data. Přehledy zatím pracují s vlastními podklady; vazby na evidenci CRM doplníme později. Ověřeno na Windows včetně všech stránek v obou motivech, importů, skutečných exportů, čisté instalace, aktualizace a obnovy."
+  "source_commit": "b71951009d5b5b8045a93dd3e30258c034416185",
+  "validated_run_id": 35337249901,
+  "notes": "8.0.33 – Volba Řeší je přímo mezi hlavními parametry nové i upravované poptávky. Přehledy propojují firmy z POHODY s adresářem podle názvu: jednoznačné shody automaticky, více shod a odlišné názvy ručním výběrem a tlačítkem Uložit přiřazení. Enter pouze vybere položku z našeptávače. V Přehledy → Zákazníci je nové Párování firem s adresářem, dostupné také v Nastavení. Vazba přes ID společnosti přežije přejmenování, sloučení a další importy. Z historie zákazníka lze otevřít jeho vydané nabídky a přijaté objednávky z CRM. Původní importy a finanční výpočty zůstávají zachované; nabídky a objednávky se nepřičítají k obratu."
 }
