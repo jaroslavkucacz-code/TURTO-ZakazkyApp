@@ -1,8 +1,8 @@
 {
-  "version": "8.0.33",
+  "version": "8.0.34",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "b71951009d5b5b8045a93dd3e30258c034416185",
-  "validated_run_id": 35337249901,
-  "notes": "8.0.33 – Volba Řeší je přímo mezi hlavními parametry nové i upravované poptávky. Přehledy propojují firmy z POHODY s adresářem podle názvu: jednoznačné shody automaticky, více shod a odlišné názvy ručním výběrem a tlačítkem Uložit přiřazení. Enter pouze vybere položku z našeptávače. V Přehledy → Zákazníci je nové Párování firem s adresářem, dostupné také v Nastavení. Vazba přes ID společnosti přežije přejmenování, sloučení a další importy. Z historie zákazníka lze otevřít jeho vydané nabídky a přijaté objednávky z CRM. Původní importy a finanční výpočty zůstávají zachované; nabídky a objednávky se nepřičítají k obratu."
+  "source_commit": "b8d8f0e4eaba6f8c274d4fbc88f9ae1ee9de47aa",
+  "validated_run_id": 35345460915,
+  "notes": "8.0.34 – Ke zpracování: výběr více řešitelů přímo ve formuláři, s předvybraným přihlášeným uživatelem u nového záznamu. Nová prázdná záložka Obchod mezi Přehled a Technika. Správa uživatelů → Funkce a oprávnění umožňuje zadat pracovní funkci a nastavit přístup Skrýt / Jen číst / Číst i upravovat pro jednotlivé záložky i celou sekci. Výchozí plný přístup zůstává zachovaný. Nastavení spravuje ADMIN a zůstává navázané na uživatele i po přejmenování. Režim čtení chrání ukládání, mazání, změny stavů a importy, včetně souvisejících oken a Přehledů. Hledání a prohlížení zůstává dostupné. Navigace se přizpůsobí menšímu oknu. Ověřeno skutečnými formuláři Windows, regresními testy a čistou instalací."
 }
