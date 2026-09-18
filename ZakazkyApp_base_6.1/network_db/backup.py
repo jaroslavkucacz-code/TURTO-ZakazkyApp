@@ -32,7 +32,9 @@ def backup(profile, schema, target, allow_pilot_changes=False):
         result = subprocess.run(['pg_restore', '--list', tmp], capture_output=True, timeout=60)
         if result.returncode or not Path(tmp).stat().st_size:
             raise RuntimeError('Záloha neprošla kontrolou formátu.')
-        with open(tmp, 'rb') as handle:
+        # Windows _commit/FlushFileBuffers requires a writable descriptor.
+        # This is our completed temporary dump, never the source database.
+        with open(tmp, 'r+b') as handle:
             os.fsync(handle.fileno())
         # Hard-link publication is atomic and refuses an existing target, including
         # one created concurrently. The temporary file is in the same directory.
