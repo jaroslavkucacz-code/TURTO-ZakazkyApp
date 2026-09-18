@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import shutil
 import subprocess
 import tempfile
 import time
@@ -15,6 +16,10 @@ output = ROOT / 'artifacts/network/windows'
 output.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='turto-local-ci-') as temporary:
     work = Path(temporary)
+    # Reproduce the user's extracted path, including spaces and Czech accents.
+    moved = work / 'Prográmky' / 'TURTO CRM – zkouška' / exe.parent.name
+    shutil.copytree(exe.parent, moved)
+    exe = moved / exe.name
     config = work / 'company-settings'
     config.mkdir()
     sentinel = config / 'connection.json'
@@ -24,12 +29,19 @@ with tempfile.TemporaryDirectory(prefix='turto-local-ci-') as temporary:
                TURTO_TEST_LOCAL_DEMO='1', PGHOST='192.0.2.1', PGHOSTADDR='192.0.2.1',
                PATH=str(Path(os.environ['SystemRoot']) / 'System32'))
     report = output / 'local-demo.json'
+    check_report = output / 'network-check.json'
+    checked = subprocess.run([str(moved / 'TURTO-CRM-Kontrola-Pripojeni.exe'),
+                              '--network-smoke-test', str(check_report)], cwd=work, env=env, timeout=60)
+    checked_data = json.loads(check_report.read_text(encoding='utf-8'))
+    assert checked.returncode == 0 and checked_data['ok'] and checked_data['frozen'], checked_data
+    print('Frozen connectivity window: actual open/closed ports, copy, invalid path OK')
     result = subprocess.run([str(exe), '--demo-smoke-test', '--report', str(report)],
                             cwd=work, env=env, timeout=240)
     data = json.loads(report.read_text(encoding='utf-8'))
     assert result.returncode == 0 and data['ok'] and data['frozen'], data
     assert sentinel.read_bytes() == b'Existing company settings must stay unchanged.\n'
-    print('Frozen local demo: create, edit, conflict, reader, history, graceful cleanup OK')
+    data['accented_install_path'] = True
+    print('Frozen local demo in accented path: create, edit, conflict, reader, history, graceful cleanup OK')
     crash_report = work / 'crash-ready.json'
     process = subprocess.Popen([str(exe), '--demo-smoke-test', '--wait-for-termination',
                                 '--report', str(crash_report)], cwd=work, env=env)
@@ -68,3 +80,20 @@ with tempfile.TemporaryDirectory(prefix='turto-local-ci-') as temporary:
     finally:
         if process.poll() is None: process.kill(); process.wait(timeout=10)
         if handle: kernel.CloseHandle(handle)
+    # Exercise a REAL initdb failure, not a mocked UI exception, and preserve its
+    # details after automatic removal of only this test session's directory.
+    bki = moved / 'postgresql/share/postgres.bki'
+    unavailable = bki.with_suffix('.test-unavailable')
+    bki.rename(unavailable)
+    try:
+        failure_report = output / 'local-demo-failure.json'
+        failed = subprocess.run([str(exe), '--demo-smoke-test', '--expect-startup-failure',
+                                 '--report', str(failure_report)], cwd=work, env=env, timeout=180)
+        failure = json.loads(failure_report.read_text(encoding='utf-8'))
+        assert failed.returncode == 0 and failure['ok'] and failure['diagnostic_saved'], failure
+        assert failure['diagnostic_copy'] and failure['failed_session_removed'], failure
+        data['failure_diagnostic'] = True
+        report.write_text(json.dumps(data, indent=2), encoding='utf-8')
+        print('Real initdb failure: report survives cleanup and can be copied from the error screen')
+    finally:
+        unavailable.rename(bki)

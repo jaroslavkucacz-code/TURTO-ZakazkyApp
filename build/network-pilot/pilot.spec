@@ -18,4 +18,6 @@ admin = EXE(pyz, a.scripts, [], exclude_binaries=True, name='TURTO-CRM-Pilot-Adm
             console=True, upx=False, icon=str(base / 'turto_logo.ico'))
 demo = EXE(pyz, a.scripts, [], exclude_binaries=True, name='TURTO-CRM-Mistni-Ukazka',
            console=False, upx=False, icon=str(base / 'turto_logo.ico'))
-coll = COLLECT(gui, admin, demo, a.binaries, a.datas, name='TURTO-CRM-Sitovy-Pilot', upx=False)
+check = EXE(pyz, a.scripts, [], exclude_binaries=True, name='TURTO-CRM-Kontrola-Pripojeni',
+            console=False, upx=False, icon=str(base / 'turto_logo.ico'))
+coll = COLLECT(gui, admin, demo, check, a.binaries, a.datas, name='TURTO-CRM-Sitovy-Pilot', upx=False)

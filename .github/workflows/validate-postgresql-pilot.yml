@@ -52,6 +52,7 @@ jobs:
           TURTO_PG_PASSWORD: pilot-test-only
         run: |
           python tests/network/test_connection.py
+          python tests/network/test_diagnostics.py
           python tests/network/test_migration.py
       - name: Personal logins, server permissions, concurrent edits and edited backup restore
         env:
@@ -126,6 +127,8 @@ jobs:
         run: |
           python tests/network/test_connection.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/network/test_diagnostics.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tests/network/test_directory.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build standalone pilot with artificial sample data
@@ -145,7 +148,7 @@ jobs:
         run: python scripts/network_package.py
       - uses: actions/upload-artifact@v4
         with:
-          name: TURTO-CRM-Pilot-s-Mistni-Ukazkou-0.3.0-Windows-x64
+          name: TURTO-CRM-Pilot-s-Mistni-Ukazkou-0.3.1-Windows-x64
           path: artifacts/network/package/*
           if-no-files-found: error
           retention-days: 90

@@ -5,6 +5,12 @@ import sys
 
 
 def main():
+    if Path(sys.executable).stem == 'TURTO-CRM-Kontrola-Pripojeni':
+        if len(sys.argv) == 3 and sys.argv[1] == '--network-smoke-test':
+            from .network_check_smoke import main as smoke
+            return smoke(sys.argv[2])
+        from .network_check_ui import main as network_check
+        return network_check()
     if Path(sys.executable).stem == 'TURTO-CRM-Mistni-Ukazka':
         if '--demo-smoke-test' in sys.argv:
             from .local_demo_smoke import main as smoke

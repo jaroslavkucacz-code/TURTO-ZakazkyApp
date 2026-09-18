@@ -9,6 +9,7 @@ import ctypes
 from ctypes import wintypes
 import os
 import io
+import locale
 from pathlib import Path
 import secrets
 import shutil
@@ -19,7 +20,9 @@ import tempfile
 
 
 class LocalDemoError(ValueError):
-    pass
+    def __init__(self, message, program=None, returncode=None):
+        super().__init__(message)
+        self.program, self.returncode = program, returncode
 
 
 _job_handle = None
@@ -93,14 +96,34 @@ class LocalDemo:
 
     def __init__(self):
         self.folder = None
+        self.cluster = None
         self.server_pid = None
         self.log = None
         self.profiles = {}
         self.port = None
         self.phase = 'Připravuji místní ukázku…'
         self.failure_log = ''
+        self.failure = None
+        self.report_path = None
+        self._secrets = []
 
     def start(self, progress=lambda message: None):
+        try:
+            return self._start(progress)
+        except Exception as exc:
+            self.capture_failure(exc)
+            try:
+                self.stop()
+            except Exception as cleanup:
+                self.failure['cleanup_error_type'] = type(cleanup).__name__
+            try:
+                from .diagnostics import save_report
+                self.report_path = save_report(self.failure, 'mistni-ukazka')
+            except Exception as reporting:
+                self.failure['report_save_error_type'] = type(reporting).__name__
+            raise
+
+    def _start(self, progress):
         from psycopg import sql
         from . import demo, directory
         contain_children()
@@ -119,65 +142,82 @@ class LocalDemo:
         system = Path(os.environ['SystemRoot'])
         self.env['PATH'] = os.pathsep.join(map(str, (self.bin, system / 'System32', system)))
         self.log = (self.folder / 'startup.log').open('ab', buffering=0)
+        # Python's private temp-directory ACL can belong to Administrators
+        # when elevated. PostgreSQL drops that group. Explicitly grant only
+        # the current user SID on OUR NEW directory, inherited by its files.
+        # No company path or pre-existing user directory is reconfigured.
+        with external_libraries():
+            identity = subprocess.run([str(system / 'System32/whoami.exe'), '/user', '/fo', 'csv', '/nh'],
+                capture_output=True, check=True, timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
+            sid = next(csv.reader(io.StringIO(identity.stdout.decode(errors='replace'))))[1]
+            if not sid.startswith('S-1-') or any(c not in 'S-0123456789' for c in sid):
+                raise LocalDemoError('Nepodařilo se ověřit místního uživatele Windows.')
+            subprocess.run([str(system / 'System32/icacls.exe'), str(self.folder), '/grant:r',
+                            '*' + sid + ':(OI)(CI)F'], check=True, stdout=self.log, stderr=self.log,
+                timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
+        # Supply an existing empty directory. initdb otherwise walks every
+        # parent while creating it, including private Windows profile roots.
+        self.cluster.mkdir()
+        self.phase = 'Připravuji testovací databázi…'; progress(self.phase)
+        secret = secrets.token_urlsafe(36)
+        self._secrets.append(secret)
+        password_file = self.folder / 'initial-password.txt'
+        password_file.write_text(secret + '\n', encoding='ascii')
         try:
-            # Python's private temp-directory ACL can belong to Administrators
-            # when elevated. PostgreSQL drops that group. Explicitly grant only
-            # the current user SID on OUR NEW directory, inherited by its files.
-            # No company path or pre-existing user directory is reconfigured.
-            with external_libraries():
-                identity = subprocess.run([str(system / 'System32/whoami.exe'), '/user', '/fo', 'csv', '/nh'],
-                    capture_output=True, check=True, timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
-                sid = next(csv.reader(io.StringIO(identity.stdout.decode(errors='replace'))))[1]
-                if not sid.startswith('S-1-') or any(c not in 'S-0123456789' for c in sid):
-                    raise LocalDemoError('Nepodařilo se ověřit místního uživatele Windows.')
-                subprocess.run([str(system / 'System32/icacls.exe'), str(self.folder), '/grant:r',
-                                '*' + sid + ':(OI)(CI)F'], check=True, stdout=self.log, stderr=self.log,
-                    timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
-            # Supply an existing empty directory. initdb otherwise walks every
-            # parent while creating it, including private Windows profile roots.
-            self.cluster.mkdir()
-            self.phase = 'Připravuji testovací databázi…'; progress(self.phase)
-            secret = secrets.token_urlsafe(36)
-            password_file = self.folder / 'initial-password.txt'
-            password_file.write_text(secret + '\n', encoding='ascii')
-            try:
-                self.command('initdb.exe', '-D', str(self.cluster), '-U', 'demo_owner',
-                    '--auth=scram-sha-256', '--encoding=UTF8', '--locale=C', '--pwfile=' + str(password_file), timeout=120)
-            finally:
-                password_file.unlink(missing_ok=True)
-            with socket.socket() as listener:
-                listener.bind(('127.0.0.1', 0))
-                self.port = listener.getsockname()[1]
-            with (self.cluster / 'postgresql.conf').open('a', encoding='utf-8') as config:
-                config.write(f"\nlisten_addresses = '127.0.0.1'\nport = {self.port}\nssl = off\n"
-                             "unix_socket_directories = ''\nshared_buffers = '32MB'\nmax_connections = 20\n")
-            # No replication, trust authentication, non-loopback rules or external configuration.
-            (self.cluster / 'pg_hba.conf').write_text(
-                'host all all 127.0.0.1/32 scram-sha-256\n', encoding='ascii')
-            self.command('pg_ctl.exe', '-D', str(self.cluster), '-l', str(self.folder / 'server.log'),
-                         '-w', '-t', '40', 'start', timeout=50)
-            self.server_pid = int((self.cluster / 'postmaster.pid').read_text().splitlines()[0])
-            owner = DemoProfile(self.port, 'postgres', 'demo_owner', secret)
+            self.command('initdb.exe', '-D', str(self.cluster), '-U', 'demo_owner',
+                '--auth=scram-sha-256', '--encoding=UTF8', '--locale=C', '--pwfile=' + str(password_file), timeout=120)
+        finally:
+            password_file.unlink(missing_ok=True)
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1', 0))
+            self.port = listener.getsockname()[1]
+        with (self.cluster / 'postgresql.conf').open('a', encoding='utf-8') as config:
+            config.write(f"\nlisten_addresses = '127.0.0.1'\nport = {self.port}\nssl = off\n"
+                         "unix_socket_directories = ''\nshared_buffers = '32MB'\nmax_connections = 20\n")
+        # No replication, trust authentication, non-loopback rules or external configuration.
+        (self.cluster / 'pg_hba.conf').write_text(
+            'host all all 127.0.0.1/32 scram-sha-256\n', encoding='ascii')
+        self.command('pg_ctl.exe', '-D', str(self.cluster), '-l', str(self.folder / 'server.log'),
+                     '-w', '-t', '40', 'start', timeout=50)
+        self.server_pid = int((self.cluster / 'postmaster.pid').read_text().splitlines()[0])
+        owner = DemoProfile(self.port, 'postgres', 'demo_owner', secret)
+        with owner.connect() as con:
+            con.execute('CREATE DATABASE turto_local_demo')
+        owner = DemoProfile(self.port, 'turto_local_demo', 'demo_owner', secret)
+        self.phase = 'Načítám ukázkové společnosti a zkušební účty…'; progress(self.phase)
+        demo.prepare(owner, self.schema)
+        people = demo.users(owner, self.schema)
+        for role, title in (('editor1', 'Pilot – editor'), ('editor2', 'Pilot – editor'), ('reader', 'Pilot – čtenář')):
+            login, password = 'demo_' + role, secrets.token_urlsafe(36)
+            self._secrets.append(password)
             with owner.connect() as con:
-                con.execute('CREATE DATABASE turto_local_demo')
-            owner = DemoProfile(self.port, 'turto_local_demo', 'demo_owner', secret)
-            self.phase = 'Načítám ukázkové společnosti a zkušební účty…'; progress(self.phase)
-            demo.prepare(owner, self.schema)
-            people = demo.users(owner, self.schema)
-            for role, title in (('editor1', 'Pilot – editor'), ('editor2', 'Pilot – editor'), ('reader', 'Pilot – čtenář')):
-                login, password = 'demo_' + role, secrets.token_urlsafe(36)
-                with owner.connect() as con:
-                    con.execute(sql.SQL('CREATE ROLE {} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE '
-                        'NOREPLICATION NOBYPASSRLS PASSWORD {}').format(sql.Identifier(login), sql.Literal(password)))
-                uid = next(person['id'] for person in people if person['name'] == title)
-                directory.authorize(owner, self.schema, login, uid)
-                self.profiles[role] = DemoProfile(self.port, 'turto_local_demo', login, password)
-            return self
-        except Exception:
-            self.failure_log = '\n'.join(path.read_text(encoding='utf-8', errors='replace')[-4000:]
-                for path in (self.folder / 'startup.log', self.folder / 'server.log') if path.is_file())
-            self.stop()
-            raise
+                con.execute(sql.SQL('CREATE ROLE {} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE '
+                    'NOREPLICATION NOBYPASSRLS PASSWORD {}').format(sql.Identifier(login), sql.Literal(password)))
+            uid = next(person['id'] for person in people if person['name'] == title)
+            directory.authorize(owner, self.schema, login, uid)
+            self.profiles[role] = DemoProfile(self.port, 'turto_local_demo', login, password)
+        return self
+
+    def capture_failure(self, exc):
+        from .diagnostics import redact
+        logs = []
+        if self.folder:
+            for name in ('startup.log', 'server.log'):
+                try:
+                    raw = (self.folder / name).read_bytes()
+                    try:
+                        text = raw.decode('utf-8')
+                    except UnicodeDecodeError:
+                        text = raw.decode(locale.getpreferredencoding(False), errors='replace')
+                    # Redact BEFORE truncation so a boundary cannot expose half a password.
+                    logs.append(name + ':\n' + redact(text, self._secrets)[-6000:])
+                except OSError:
+                    pass
+        self.failure_log = '\n'.join(logs)
+        self.failure = {'format': 1, 'kind': 'local-demo-startup', 'phase': self.phase,
+                        'error_type': type(exc).__name__, 'message': redact(str(exc), self._secrets),
+                        'program': getattr(exc, 'program', None), 'returncode': getattr(exc, 'returncode', None),
+                        'startup_log': self.failure_log, 'company_data_read': False}
 
     def command(self, name, *args, timeout=30):
         with external_libraries():
@@ -187,7 +227,10 @@ class LocalDemo:
                 stdin=subprocess.DEVNULL, stdout=self.log, stderr=self.log, timeout=timeout,
                 creationflags=subprocess.CREATE_NO_WINDOW)
         if result.returncode:
-            raise LocalDemoError('Příprava místní databáze selhala: ' + name)
+            code = result.returncode & 0xffffffff
+            hint = (' Windows nenašel potřebnou knihovnu DLL.' if code == 0xc0000135 else '')
+            raise LocalDemoError(f'Příprava místní databáze selhala: {name}, kód {code:#010x}.' + hint,
+                                 program=name, returncode=code)
 
     def client(self, role):
         from .client import DirectoryClient
@@ -195,7 +238,8 @@ class LocalDemo:
 
     def stop(self):
         self.profiles.clear()
-        if self.folder and (self.cluster / 'postmaster.pid').is_file():
+        self._secrets.clear()
+        if self.cluster and (self.cluster / 'postmaster.pid').is_file():
             self.command('pg_ctl.exe', '-D', str(self.cluster), '-m', 'fast', '-w', '-t', '20', 'stop', timeout=25)
         if self.log:
             self.log.close(); self.log = None

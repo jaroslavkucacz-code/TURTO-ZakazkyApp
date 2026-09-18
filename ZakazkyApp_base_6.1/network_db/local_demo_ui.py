@@ -1,8 +1,10 @@
 """One-click demonstration: no company endpoint, profile or password entry."""
 import queue
+import json
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkinter.scrolledtext import ScrolledText
 from .local_demo import LocalDemo
 
 
@@ -50,16 +52,36 @@ class DemoApplication:
             self.root.after(50, self.poll)
         elif kind == 'error':
             self.error = value
-            messagebox.showerror('Místní ukázka', 'Ukázku se nepodařilo připravit.\n'
-                'Rozbalte celý balíček do místní složky a spusťte jej běžným způsobem.\n'
-                'Fáze: ' + self.session.phase + '\nTyp chyby: ' + value, parent=self.root)
-            self.root.quit()
+            self.show_failure()
         elif self.cancelled:
             self.root.quit()
         else:
             self.ready = True
             self.root.withdraw()
             self.open_window()
+
+    def show_failure(self):
+        self.progress.stop()
+        self.status.set('Příprava selhala. Podrobnosti jsou uvedené níže.')
+        self.root.geometry('780x560'); self.root.minsize(650, 470)
+        self.root.protocol('WM_DELETE_WINDOW', self.root.quit)
+        details = self.session.failure or {'error_type': self.error, 'phase': self.session.phase}
+        self.failure_text = json.dumps(details, ensure_ascii=False, indent=2)
+        frame = ttk.Frame(self.root, padding=(20, 0, 20, 15)); frame.pack(fill='both', expand=True)
+        text = ScrolledText(frame, height=12, wrap='word', font=('Calibri', 11))
+        text.pack(fill='both', expand=True)
+        text.insert('1.0', self.failure_text); text.configure(state='disabled')
+        saved = ('Protokol: ' + str(self.session.report_path) if self.session.report_path else
+                 'Protokol nešel uložit. Použijte Kopírovat podrobnosti.')
+        ttk.Label(frame, text=saved, wraplength=720).pack(anchor='w', pady=8)
+        buttons = ttk.Frame(frame); buttons.pack(fill='x')
+        self.copy_button = ttk.Button(buttons, text='Kopírovat podrobnosti', command=self.copy_failure)
+        self.copy_button.pack(side='left')
+        ttk.Button(buttons, text='Zavřít', command=self.root.quit).pack(side='right')
+
+    def copy_failure(self):
+        self.root.clipboard_clear(); self.root.clipboard_append(self.failure_text)
+        self.status.set('Podrobnosti jsou zkopírované. Můžete je vložit do zprávy.')
 
     def client(self, role):
         return self.session.client(role)

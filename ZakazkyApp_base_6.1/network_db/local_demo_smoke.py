@@ -14,6 +14,7 @@ def main():
     parser.add_argument('--demo-smoke-test', action='store_true')
     parser.add_argument('--report', required=True)
     parser.add_argument('--wait-for-termination', action='store_true')
+    parser.add_argument('--expect-startup-failure', action='store_true')
     args = parser.parse_args()
     if os.environ.get('TURTO_TEST_LOCAL_DEMO') != '1':
         raise ValueError('Automatická zkouška místní ukázky je určena jen pro CI.')
@@ -40,6 +41,23 @@ def main():
             time.sleep(0.02)
     report = Path(args.report)
     try:
+        if args.expect_startup_failure:
+            deadline = time.monotonic() + 150
+            while not app.error:
+                root.update()
+                if app.ready or time.monotonic() >= deadline:
+                    raise AssertionError('Broken runtime did not produce the expected error screen')
+                time.sleep(0.02)
+            assert app.session.report_path.is_file()
+            stored = json.loads(app.session.report_path.read_text(encoding='utf-8'))
+            assert stored['program'] == 'initdb.exe' and stored['returncode'] != 0, stored
+            assert stored['startup_log'] and not app.session.folder.exists(), stored
+            assert app.copy_button.winfo_exists()
+            app.copy_button.invoke(); root.update()
+            assert json.loads(root.clipboard_get()) == stored
+            assert not errors, errors
+            result.update(ok=True, diagnostic_saved=True, diagnostic_copy=True, failed_session_removed=True)
+            return 0
         settle()
         session = app.session
         assert session.profiles['editor1'].dbname == 'turto_local_demo'

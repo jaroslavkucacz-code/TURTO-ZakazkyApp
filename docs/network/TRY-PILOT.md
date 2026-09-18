@@ -1,4 +1,4 @@
-# TURTO CRM – pilot 0.3.0 s místní ukázkou pro Windows
+# TURTO CRM – pilot 0.3.1 s místní ukázkou pro Windows
 
 Tento balíček umožňuje vyzkoušet serverovou agendu Společnosti ve Windows bez instalace Pythonu. Jde o samostatný zkušební program. Běžné CRM spouštějte dál jeho stávající ikonou.
 
@@ -15,6 +15,18 @@ Tento balíček umožňuje vyzkoušet serverovou agendu Společnosti ve Windows 
 Ukázka spouští přiložený PostgreSQL pouze na tomto PC, na adrese 127.0.0.1 a volném místním portu. Neinstaluje službu Windows, nepotřebuje oprávnění správce ani nemění firewall. Nepoužívá nastavení firemního připojení. Databázové procesy se ukončí i při násilném zavření programu; po takovém přerušení může zůstat dočasná složka v `%LOCALAPPDATA%\TURTO\CRM-Local-Demo`. Nové spuštění ji nepoužije. Distribuční licence PostgreSQL a jeho součástí jsou zachované v přiložené složce `postgresql`.
 
 Tento pokus ověří Společnosti, oprávnění, historii a souběžné úpravy. Dostupnost firemního serveru, Wi-Fi a VPN se ověřuje zvlášť při následujícím zapojení.
+
+## Pokud se ukázka nespustí
+
+Od verze 0.3.1 zůstane při chybě otevřené okno s konkrétní příčinou a výpisem spuštění databáze. Klikněte na **Kopírovat podrobnosti** a vložte výsledek do zprávy. Protokol se také uloží do `%LOCALAPPDATA%\TURTO\CRM-Diagnostics`; přesná cesta je v okně. Protokol uvádí místní cesty, fázi spuštění a chybu pomocného programu. Nečte provozní CRM, nastavení firemního přihlášení ani systémový seznam hesel. Vygenerovaná hesla ukázky jsou z protokolu odstraněna. Příčina chyby místní ukázky sama o sobě nevypovídá o dostupnosti firemní VPN.
+
+## Kontrola připojení z domova bez správce
+
+1. Připojte běžnou firemní VPN a spusťte **TURTO-CRM-Kontrola-Pripojeni.exe**.
+2. Pro dohodnutý server je předvyplněná adresa `192.168.8.240` a databázový port `5432`. Do pole Server nepatří cesta `\\192.168.8.240\turto`; samotná cesta ke složce není adresou databázové služby. Pokud správce určí jinou adresu/port, upravte je.
+3. Klikněte na **Zkontrolovat** a potom **Kopírovat výsledek**. Stejný postup lze později zopakovat v kanceláři. Každá kontrola má vlastní protokol v `%LOCALAPPDATA%\TURTO\CRM-Diagnostics`.
+
+Kontrola pouze otevře a zavře TCP spojení na zadaném databázovém portu a portu 445. Nemění firewall, VPN ani server a nepotřebuje databázové heslo. Dostupný port 445 potvrzuje jen dosažitelnost tohoto portu, nikoli oprávnění ke složce `turto`. Dostupný databázový port ještě neověřuje PostgreSQL, certifikát, přihlášení ani připravenost CRM. Nedostupný port nerozliší vypnutou službu, jiný port, firewall a omezení VPN. Přesnější rozlišení vyžaduje konfiguraci serveru a porovnání kancelář/domov.
 
 ## Zapojení do firemní sítě se správcem
 
