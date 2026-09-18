@@ -241,7 +241,9 @@ def ui_checks(td):
         print('8.0.32: eleven embedded pages, two themes, responsive navigation, import preview/cancel/save, drilldowns, XLSX/PDF, user preferences, TEST separation and shutdown guard OK', flush=True)
     finally:
         root._turto_closing = True
-        for token in root.tk.splitlist(root.tk.call('after','info')):root.after_cancel(token)
+        # Cancel the timers without deleting child widgets' Tcl commands from
+        # root's registry; each widget must dispose its own commands on destroy.
+        for token in root.tk.splitlist(root.tk.call('after','info')):root.tk.call('after','cancel',token)
         root.destroy()
 
 

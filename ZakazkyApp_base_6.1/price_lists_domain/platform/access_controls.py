@@ -65,6 +65,15 @@ def refresh_controls(M, app):
         if key.startswith('reports_') or key not in restricted | previous:
             continue  # All report routes share one workspace with its own controls.
         restrict_widgets(M, page, key)
+    for key, attribute in (('settings', 'settings_button'), ('help', 'help_button')):
+        button = getattr(app, attribute, None)
+        if button is not None and button.winfo_exists():
+            if access.level(M, key) == access.HIDDEN:
+                button.grid_remove()
+                button._access_hidden = True
+            elif getattr(button, '_access_hidden', False):
+                button.grid()
+                button._access_hidden = False
 
 
 def guarded(M, function, page, write=True):
@@ -95,6 +104,10 @@ def _request_page(M, dialog=None, rid=None, company=None):
                 return 'mivo'
         elif company:
             name = str(company).strip().casefold()
+            mids = set(M.mivo_company_ids(con))
+            for row in con.execute('SELECT id,official_name,short_name FROM companies'):
+                if row['id'] in mids and name in {str(row['official_name'] or '').strip().casefold(), str(row['short_name'] or '').strip().casefold()}:
+                    return 'mivo'
             if name == 'mivo' or name.startswith(('mivo ', 'mivo,', 'mivo.')):
                 return 'mivo'
     return 'requests'

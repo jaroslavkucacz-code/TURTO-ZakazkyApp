@@ -24,7 +24,7 @@ def open_profile(M, app, parent, uid):
     header.columnconfigure(1, weight=1)
     M.ttk.Label(header, text='Funkce').grid(row=0, column=0, sticky='w', padx=(0, 12))
     title = M.tk.StringVar(master=win, value=original['job_title'])
-    M.ttk.Combobox(header, textvariable=title, values=access.JOB_TITLES).grid(row=0, column=1, sticky='ew')
+    M.safe_combobox(header, textvariable=title, values=access.JOB_TITLES).grid(row=0, column=1, sticky='ew')
     M.ttk.Label(outer, text='Funkci můžete zvolit nebo napsat vlastní. Přístup nastavte pro každou záložku zvlášť.',
                 wraplength=750).grid(row=1, column=0, sticky='w', pady=(8, 12))
     body = M.ttk.Frame(outer)
@@ -40,6 +40,13 @@ def open_profile(M, app, parent, uid):
     item = canvas.create_window((0, 0), window=fields, anchor='nw')
     fields.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox('all')))
     canvas.bind('<Configure>', lambda e: canvas.itemconfigure(item, width=e.width))
+    win._dialog_canvas = canvas
+    def wheel(event):
+        direction = -1 if getattr(event, 'delta', 0) > 0 or getattr(event, 'num', None) == 4 else 1
+        canvas.yview_scroll(direction, 'units')
+        return 'break'
+    for event in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+        win.bind(event, wheel, add='+')
     fields.columnconfigure(0, weight=1)
     variables = {}
     admin = original['name'].strip().casefold() == 'admin'
@@ -47,7 +54,7 @@ def open_profile(M, app, parent, uid):
         variable = M.tk.StringVar(master=win, value=access.MODES[access.EDIT if admin else modes.get(key, access.EDIT)])
         variables[key] = variable
         M.ttk.Label(fields, text=label).grid(row=index, column=0, sticky='w', pady=4, padx=(0, 16))
-        M.ttk.Combobox(fields, textvariable=variable, values=access.MODES,
+        M.safe_combobox(fields, textvariable=variable, values=access.MODES,
                        state='disabled' if admin else 'readonly', width=24).grid(row=index, column=1, sticky='e', pady=4)
     footer = M.ttk.Frame(outer)
     footer.grid(row=3, column=0, sticky='ew', pady=(12, 0))
@@ -57,9 +64,9 @@ def open_profile(M, app, parent, uid):
         group = M.tk.StringVar(master=win, value='Technika')
         bulk_mode = M.tk.StringVar(master=win, value=access.MODES[access.EDIT])
         M.ttk.Label(bulk, text='Celá sekce:').pack(side='left', padx=(0, 8))
-        M.ttk.Combobox(bulk, textvariable=group, values=('Technika', 'Adresář', 'Přehledy', 'Všechny záložky'),
+        M.safe_combobox(bulk, textvariable=group, values=('Technika', 'Adresář', 'Přehledy', 'Všechny záložky'),
                        state='readonly', width=18).pack(side='left')
-        M.ttk.Combobox(bulk, textvariable=bulk_mode, values=access.MODES, state='readonly', width=19).pack(side='left', padx=8)
+        M.safe_combobox(bulk, textvariable=bulk_mode, values=access.MODES, state='readonly', width=19).pack(side='left', padx=8)
         def apply_group():
             key = {'Technika': 'technical', 'Adresář': 'directory', 'Přehledy': 'reports'}.get(group.get())
             for page in access.navigation.GROUPS[key] if key else variables:

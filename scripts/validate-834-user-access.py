@@ -85,6 +85,9 @@ def source_checks(td):
         rejects(lambda q=query, a=args: sql(q, a))
     # Other permitted tabs keep their own write access.
     sql('UPDATE requests SET note=? WHERE id=?', ('allowed', data['rid']))
+    sql("UPDATE companies SET official_name='Jiný oficiální název' WHERE id=?", (data['mid'],))
+    from price_lists_domain.platform.access_controls import _request_page
+    assert _request_page(M, company='Jiný oficiální název') == 'mivo'
     sql('UPDATE business_documents SET note=? WHERE id=?', ('allowed', data['order']))
     assert sql('SELECT note FROM business_documents WHERE id=?', (data['order'],))[0][0] == 'allowed'
     def atomic_change():
@@ -153,6 +156,7 @@ def ui_checks(td):
         assert data['uids']['TEST'] not in d.assignee_variables
         d.assignee_variables[data['uids']['834 Bára']].set(True)
         d.name.set('834 Nová akce'); d.company.set('834 Firma s.r.o.')
+        settle(root)
         ImageGrab.grab().save(output / 'processing-assignees.png')
         d.ok(); settle(root)
         assert d.result

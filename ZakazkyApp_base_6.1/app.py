@@ -4345,8 +4345,9 @@ class App(tk.Tk):
         self.refresh_notes_button()
         self.bell_button=ttk.Button(top,text="🔔",style="TopAction.TButton",width=5,command=self.open_notifications)
         self.bell_button.grid(row=0,column=4,padx=(6,0))
-        ttk.Button(top,text="⚙",style="TopAction.TButton",width=4,
-                   command=lambda:self.show_page("settings")).grid(row=0,column=5,padx=(6,0))
+        self.settings_button=ttk.Button(top,text="⚙",style="TopAction.TButton",width=4,
+                   command=lambda:self.show_page("settings"))
+        self.settings_button.grid(row=0,column=5,padx=(6,0))
 
         # Hlavní horizontální navigace.
         navrow=ttk.Frame(root,style="NavBar.TFrame")
