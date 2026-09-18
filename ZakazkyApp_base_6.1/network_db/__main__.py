@@ -3,11 +3,22 @@ import argparse
 import json
 from pathlib import Path
 import sys
-import os
 import getpass
 
 from .profile import Profile
 from .source import inspect, snapshot
+
+
+class _InteractiveProfile:
+    """Keep the prompt secret in this invocation, never in global environment."""
+    def __init__(self, profile, password):
+        self._profile, self._password = profile, password
+
+    def connect(self):
+        return self._profile.connect(password=self._password)
+
+    def process_env(self):
+        return self._profile.process_env() | {'PGPASSWORD': self._password}
 
 
 def main(argv=None):
@@ -37,7 +48,6 @@ def main(argv=None):
         if name == 'directory-authorize':
             command.add_argument('--user-id', required=True, type=int)
     args = parser.parse_args(argv)
-    password_key = old_password = None
     try:
         if args.command == 'snapshot':
             snapshot(args.source, args.target)
@@ -51,9 +61,7 @@ def main(argv=None):
             if args.ask_password:
                 if not sys.stdin.isatty():
                     raise ValueError('Heslo zadejte v interaktivním terminálu.')
-                password_key = profile.password_env
-                old_password = os.environ.get(password_key)
-                os.environ[password_key] = getpass.getpass('Heslo serverového účtu: ')
+                profile = _InteractiveProfile(profile, getpass.getpass('Heslo serverového účtu: '))
             if args.command == 'check':
                 with profile.connect() as con:
                     version = con.execute('SHOW server_version').fetchone()[0]
@@ -107,12 +115,6 @@ def main(argv=None):
         if args.command == 'migrate':
             print('Nevytvářejte místní náhradní data. Stav serverového převodu lze ověřit příkazem verify.', file=sys.stderr)
         return 1
-    finally:
-        if password_key:
-            if old_password is None:
-                os.environ.pop(password_key, None)
-            else:
-                os.environ[password_key] = old_password
 
 
 if __name__ == '__main__':

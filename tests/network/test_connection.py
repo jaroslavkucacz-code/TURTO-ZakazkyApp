@@ -1,6 +1,7 @@
 """Persistent endpoint, transport failures and TLS rules for office/VPN use."""
 from dataclasses import replace
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -61,6 +62,21 @@ class ConnectionTests(unittest.TestCase):
                 settings.save(path, replace(profile, user='petr'), 'turto_pilot_prvni')
             self.assertEqual(settings.load(path)[0].user, 'jana')
             self.assertFalse(list(Path(tmp).glob('.connection-*')))
+
+    def test_windows_bom_and_interactive_password_do_not_mutate_environment(self):
+        from network_db.__main__ import _InteractiveProfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'admin.json'
+            profile = Profile('crm.example.test', 'pilot', 'admin')
+            path.write_text(json.dumps(profile.public()), encoding='utf-8-sig')
+            self.assertEqual(settings.load(path)[0], profile)
+            before = dict(os.environ)
+            prompted = _InteractiveProfile(profile, 'entered-only-in-prompt')
+            with patch.object(Profile, 'connect') as connect:
+                prompted.connect()
+                connect.assert_called_once_with(password='entered-only-in-prompt')
+            self.assertEqual(prompted.process_env()['PGPASSWORD'], 'entered-only-in-prompt')
+            self.assertEqual(dict(os.environ), before)
 
 
 if __name__ == '__main__':

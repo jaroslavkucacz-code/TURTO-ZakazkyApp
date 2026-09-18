@@ -37,7 +37,7 @@ class Profile:
 
     @classmethod
     def load(cls, path):
-        data = json.loads(Path(path).read_text(encoding='utf-8'))
+        data = json.loads(Path(path).read_text(encoding='utf-8-sig'))
         if not isinstance(data, dict) or set(data) - set(cls.__dataclass_fields__):
             raise ValueError('Profil obsahuje neznámé položky. Heslo patří do prostředí, ne do JSON.')
         return cls(**data)
