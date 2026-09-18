@@ -134,4 +134,7 @@ class ManagementUI:
                                 self.resolve_path(self.cfg['backup_dir']),replacing),finished)
         tk.Button(footer,text='Zrušit',command=cancel,bg=COLORS['panel_soft'],fg=COLORS['text'],relief='flat',padx=18,pady=9).pack(side='right',padx=6)
         tk.Button(footer,text='Uložit import',command=commit,bg=COLORS['teal'],fg='#06251D',relief='flat',padx=18,pady=9).pack(side='right')
-        win.protocol('WM_DELETE_WINDOW',cancel);win.bind('<Escape>',lambda e:cancel())
+        # This is a read-only preview with an explicit commit, not an editable
+        # CRM form. Its close owner must also release the workspace's busy flag.
+        from ..platform.form_behavior_817 import wire_close
+        wire_close(win, cancel)

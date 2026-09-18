@@ -129,7 +129,12 @@ def ui_checks(td):
     app.messagebox.showinfo = lambda *a, **k: None
     app.messagebox.showwarning = lambda *a, **k: None
     app.messagebox.showerror = lambda *a, **k: errors.append(str(a))
-    app.App.report_callback_exception = lambda self, *exc: errors.append(str(exc))
+    def callback_error(self, *exc):
+        import traceback
+        detail = ''.join(traceback.format_exception(*exc))
+        errors.append(detail)
+        print(detail, flush=True)
+    app.App.report_callback_exception = callback_error
     root = app.App()
     try:
         root.state('normal'); root.geometry('1220x850+0+0'); settle(root, 3)
