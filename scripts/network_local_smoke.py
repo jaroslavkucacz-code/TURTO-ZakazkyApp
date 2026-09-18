@@ -50,9 +50,18 @@ with tempfile.TemporaryDirectory(prefix='turto-local-ci-') as temporary:
         assert handle
         process.kill(); process.wait(timeout=10)
         assert kernel.WaitForSingleObject(handle, 10000) == 0, 'PostgreSQL survived demo process termination'
-        with socket.socket() as probe:
-            probe.settimeout(2)
-            assert probe.connect_ex(('127.0.0.1', ready['port'])) != 0
+        # Job termination is asynchronous. The postmaster can exit just before
+        # a worker releases its inherited listening socket. Await the whole
+        # endpoint closing, with a hard deadline, rather than racing one probe.
+        closed_deadline = time.monotonic() + 10
+        while True:
+            with socket.socket() as probe:
+                probe.settimeout(2)
+                if probe.connect_ex(('127.0.0.1', ready['port'])) != 0:
+                    break
+            if time.monotonic() >= closed_deadline:
+                raise AssertionError('Demo endpoint stayed open after OS job termination')
+            time.sleep(0.1)
         data.update(forced_stop=True, company_settings_unchanged=True)
         report.write_text(json.dumps(data, indent=2), encoding='utf-8')
         print('Forced termination: PostgreSQL stopped automatically; company settings untouched')
