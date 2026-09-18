@@ -60,6 +60,8 @@ def main():
             return 0
         settle()
         session = app.session
+        assert str(session.bin).isascii() and str(session.cluster).isascii()
+        assert session.bin.parent == session.folder / 'postgresql', 'Accented runtime was not staged into this session'
         assert session.profiles['editor1'].dbname == 'turto_local_demo'
         with session.profiles['editor1'].connect() as con:
             assert con.execute('SHOW listen_addresses').fetchone()[0] == '127.0.0.1'

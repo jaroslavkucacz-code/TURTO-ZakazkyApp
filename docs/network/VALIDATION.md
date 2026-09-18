@@ -1,5 +1,13 @@
 # Stav přechodu na PostgreSQL
 
+## Diagnostika a cesty s diakritikou 0.3.1
+
+Při zkoušce z cesty `Prográmky/TURTO CRM – zkouška` byl v [běhu 35381388876](https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/actions/runs/35381388876) reprodukován pád nativního `initdb` s chybou `invalid byte sequence for encoding UTF8` během dokončení inicializace. Ukázka proto při neASCII cestě distribuce připraví vlastní kopii přiloženého PostgreSQL ve své dočasné složce. Soukromá data ukázky se nemísí se serverovými daty.
+
+Windows test nyní spouští skutečné EXE z přesunuté cesty s diakritikou, ověřuje souběh úprav, oprávnění a běžné i násilné ukončení. Další scénář odebere `postgres.bki` pouze v testovací kopii balíčku, vyvolá reálnou chybu `initdb` a ověří zachování protokolu po úklidu i tlačítko jeho kopírování. Generovaná hesla se maskují před zkrácením logů; původní chyba se zachová také při chybě úklidu.
+
+Nové `TURTO-CRM-Kontrola-Pripojeni.exe` pouze ověřuje TCP spojení k databázovému a souborovému portu. Sestavené okno se zkouší proti skutečně otevřenému a zavřenému místnímu portu, ověřuje kopírování výsledku a odmítnutí cesty ke sdílené složce v poli server. Úspěšné testy kontrolního programu nedokládají dostupnost firemní VPN. Výsledek konkrétního sestavení je uveden v jeho workflow a přiložených JSON protokolech.
+
 ## Místní ukázka 0.3.0
 
 Samostatný `TURTO-CRM-Mistni-Ukazka.exe` umožňuje zkoušku Společností bez přípravy firemního serveru. Každé spuštění vytvoří nový dočasný PostgreSQL pouze na 127.0.0.1, nahraje umělá data a připraví dvě přihlášení editora a jedno čtenáře. Běžné ukončení odstraní tuto zkušební databázi. Windows Job Object ukončí pomocné procesy i při násilném ukončení aplikace; po přerušení může zůstat neaktivní dočasná složka.

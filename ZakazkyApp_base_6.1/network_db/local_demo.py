@@ -79,6 +79,22 @@ def external_libraries():
         kernel.SetDllDirectoryW(buffer.value or None)
 
 
+def native_data_path(path):
+    """Use an existing Windows alias if a user profile has non-ASCII letters.
+
+    Do not enable short names or change any system configuration. The native
+    PostgreSQL bootstrap mixes ANSI filesystem paths with UTF-8 SQL scripts.
+    """
+    if str(path).isascii():
+        return path
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.GetShortPathNameW.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+    kernel.GetShortPathNameW.restype = wintypes.DWORD
+    buffer = ctypes.create_unicode_buffer(32768)
+    length = kernel.GetShortPathNameW(str(path), buffer, len(buffer))
+    return Path(buffer.value) if 0 < length < len(buffer) else path
+
+
 class DemoProfile:
     def __init__(self, port, dbname, user, password):
         self.port, self.dbname, self.user, self._password = port, dbname, user, password
@@ -136,6 +152,10 @@ class LocalDemo:
             raise LocalDemoError('Místní ukázka potřebuje místní disk pro data uživatele Windows.')
         parent.mkdir(parents=True, exist_ok=True)
         self.folder = Path(tempfile.mkdtemp(prefix='session-', dir=parent))
+        self.folder = native_data_path(self.folder)
+        if not str(self.folder).isascii():
+            raise LocalDemoError('Cesta k místním datům uživatele obsahuje diakritiku a Windows pro ni '
+                                 'neposkytl krátký název. Přiložený PostgreSQL ji nedokáže bezpečně inicializovat.')
         self.cluster = self.folder / 'database'
         self.bin = runtime / 'bin'
         self.env = {key: value for key, value in os.environ.items() if not key.upper().startswith('PG')}
@@ -155,6 +175,15 @@ class LocalDemo:
             subprocess.run([str(system / 'System32/icacls.exe'), str(self.folder), '/grant:r',
                             '*' + sid + ':(OI)(CI)F'], check=True, stdout=self.log, stderr=self.log,
                 timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
+        if not str(runtime).isascii():
+            # Python copies Unicode paths correctly; native initdb embeds its
+            # runtime path as ANSI bytes into UTF-8 bootstrap SQL and fails.
+            # Stage only our bundled runtime inside this session. No relocation
+            # of the user's app or system-wide 8.3/locale/ACL changes are needed.
+            self.phase = 'Připravuji soubory místní databáze…'; progress(self.phase)
+            runtime = Path(shutil.copytree(runtime, self.folder / 'postgresql'))
+            self.bin = runtime / 'bin'
+            self.env['PATH'] = os.pathsep.join(map(str, (self.bin, system / 'System32', system)))
         # Supply an existing empty directory. initdb otherwise walks every
         # parent while creating it, including private Windows profile roots.
         self.cluster.mkdir()

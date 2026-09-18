@@ -18,6 +18,8 @@ Tento pokus ověří Společnosti, oprávnění, historii a souběžné úpravy.
 
 ## Pokud se ukázka nespustí
 
+Verze 0.3.1 řeší chybu inicializace PostgreSQL při rozbalení programu do cesty s diakritikou, například `Prográmky`. Databázové soubory si pro takové spuštění zkopíruje do své dočasné místní složky; při běžném ukončení je odstraní spolu s ukázkovou databází. Kvůli této kopii může příprava trvat o chvíli déle. Není potřeba přejmenovat složku programu. Pokud diakritiku obsahuje i cesta profilu Windows, využije program její existující krátký název. Pokud takový název není dostupný, zobrazí konkrétní vysvětlení; nemění kvůli tomu nastavení Windows.
+
 Od verze 0.3.1 zůstane při chybě otevřené okno s konkrétní příčinou a výpisem spuštění databáze. Klikněte na **Kopírovat podrobnosti** a vložte výsledek do zprávy. Protokol se také uloží do `%LOCALAPPDATA%\TURTO\CRM-Diagnostics`; přesná cesta je v okně. Protokol uvádí místní cesty, fázi spuštění a chybu pomocného programu. Nečte provozní CRM, nastavení firemního přihlášení ani systémový seznam hesel. Vygenerovaná hesla ukázky jsou z protokolu odstraněna. Příčina chyby místní ukázky sama o sobě nevypovídá o dostupnosti firemní VPN.
 
 ## Kontrola připojení z domova bez správce
