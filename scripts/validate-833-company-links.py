@@ -239,7 +239,10 @@ def ui_checks(td):
         print('8.0.33: visible request resolver, autocomplete Enter, explicit link saves, both themes, CRM documents, unchanged revenue and TEST isolation OK',flush=True)
     finally:
         root._turto_closing=True
-        for job in root.tk.splitlist(root.tk.call('after','info')):root.after_cancel(job)
+        # Timers belong to many widgets. Cancelling them via root.after_cancel
+        # deletes their Tcl commands from the wrong owner's registry; native
+        # cancellation lets each widget dispose its own command during destroy.
+        for job in root.tk.splitlist(root.tk.call('after','info')):root.tk.call('after','cancel',job)
         root.destroy()
 
 
