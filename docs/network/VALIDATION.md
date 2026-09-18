@@ -1,5 +1,15 @@
 # Stav přechodu na PostgreSQL
 
+## Místní ukázka 0.3.0
+
+Samostatný `TURTO-CRM-Mistni-Ukazka.exe` umožňuje zkoušku Společností bez přípravy firemního serveru. Každé spuštění vytvoří nový dočasný PostgreSQL pouze na 127.0.0.1, nahraje umělá data a připraví dvě přihlášení editora a jedno čtenáře. Běžné ukončení odstraní tuto zkušební databázi. Windows Job Object ukončí pomocné procesy i při násilném ukončení aplikace; po přerušení může zůstat neaktivní dočasná složka.
+
+Windows workflow balí přiloženou distribuci PostgreSQL včetně licencí. Před vytvořením distribučního ZIP musí uspět skutečný EXE se založením a úpravou společnosti, dvěma okny a odmítnutím zastaralého zápisu, historií, přepnutím na čtenáře a odmítnutím zápisu přímo serverem. Test také ověřuje běžné i násilné ukončení databázového procesu, odstranění dočasných dat po běžném ukončení, zachování nastavení firemního připojení a nezávislost na PostgreSQL/Pythonu v PATH. Sestavení nesplňující tyto podmínky distribuční balíček nevytvoří. Výsledek konkrétního sestavení dokládá jeho běh workflow a soubor `local-demo.json` v artefaktu `network-windows-validation`.
+
+Tato lokální zkouška neověřuje přístup přes firemní Wi-Fi ani VPN. Síťový klient nadále vyžaduje připravenou firemní databázi a při výpadku sítě na ukázku automaticky nepřechází. Návod k oběma způsobům spuštění je v [TRY-PILOT.md](TRY-PILOT.md).
+
+## Dosavadní etapy převodu a firemního připojení
+
 Datum kontroly 18. září 2026. Základ CRM 8.0.34, hlavní větev `d060d96`. Testovací větev `feature/postgresql-pilot` je dostupná jako [draft PR 108](https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/pull/108). Nebyla začleněna do hlavní větve ani vydána jako aktualizace.
 
 **Převod dat i první serverová agenda Společnosti prošly na standardním PostgreSQL 16 a 18.** Výsledek potvrzuje [běh serverových a GUI testů](https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/actions/runs/35356801236) pro commit `c4de369d7859dcbd86ed0724ebcfd88b7c0ace1d`. Následující změna tohoto protokolu upravuje pouze dokumentaci.
