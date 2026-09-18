@@ -136,7 +136,8 @@ def ui_checks(td):
             root.nav["received_orders"].invoke(); settle(root)
             assert root._current_page == "received_orders"
             assert root.tabs["received_orders"].winfo_ismapped()
-            buttons = root.main_nav.pack_slaves()
+            buttons = root.main_nav.place_slaves()
+            assert buttons, 'Main navigation must be visible'
             assert all(b.winfo_x() + b.winfo_width() <= root.main_nav.winfo_width() + 2 for b in buttons)
         dialog = M.CompanyDialog(root, company_id=customer); settle(root)
         assert dialog.is_customer.get() and not dialog.is_supplier.get()
