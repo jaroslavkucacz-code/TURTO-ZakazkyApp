@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from contextlib import closing
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 import json
 
@@ -18,6 +19,7 @@ TITLES = {
     'settings': 'Nastavení CRM', 'help': 'Nápověda',
 }
 JOB_TITLES = ('Technická podpora', 'Obchodní zástupce', 'Jednatel', 'Ředitel')
+_schema_phase = ContextVar('turto_access_schema_phase', default=False)
 
 
 class AccessDenied(ValueError):
@@ -143,11 +145,24 @@ def apply(M):
 
     def connect():
         con = M._user_access_connect()
+        if _schema_phase.get():
+            return con
         session = refresh_session(M, con=con)
         if session is not None:
             protect_connection(con, session)
         return con
     M.db = connect
+
+    previous_schema = M.ensure_schema
+    def schema():
+        # Only the synchronous schema owner performs additive startup upgrades.
+        # An ADMIN login dialog must never temporarily disable another session's guards.
+        token = _schema_phase.set(True)
+        try:
+            return previous_schema()
+        finally:
+            _schema_phase.reset(token)
+    M.ensure_schema = schema
 
     def visible(app, key):
         return level(M, key) >= READ
@@ -181,20 +196,19 @@ def apply(M):
 
     previous_select = M.App.select_user
     def select(app, *args, **kwargs):
-        # TEST selection clones/migrates its database before becoming a session.
-        old = M._user_access_session
-        M._user_access_session = None
         try:
             return previous_select(app, *args, **kwargs)
         finally:
-            M._user_access_session = old
             sync(app)
     M.App.select_user = select
 
     previous_show = M.App.show_page
     def show(app, key, *args, **kwargs):
         key = navigation.resolve_page(app, key)
-        if not allowed(M, app, key, write=False):
+        # Navigation uses the profile loaded on selection; mutation guards always
+        # read a fresh profile. Hundreds of tab clicks must not open hundreds of DBs.
+        if level(M, key) < READ:
+            M.messagebox.showwarning('Oprávnění', f'Záložka „{TITLES.get(key, key)}“ není pro tohoto uživatele dostupná.', parent=app)
             return
         result = previous_show(app, key, *args, **kwargs)
         refresh_controls(M, app)

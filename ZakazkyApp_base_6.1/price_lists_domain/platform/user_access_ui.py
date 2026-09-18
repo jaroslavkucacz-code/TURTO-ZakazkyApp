@@ -51,6 +51,20 @@ def open_profile(M, app, parent, uid):
                        state='disabled' if admin else 'readonly', width=24).grid(row=index, column=1, sticky='e', pady=4)
     footer = M.ttk.Frame(outer)
     footer.grid(row=3, column=0, sticky='ew', pady=(12, 0))
+    if not admin:
+        bulk = M.ttk.Frame(footer)
+        bulk.pack(fill='x', pady=(0, 8))
+        group = M.tk.StringVar(master=win, value='Technika')
+        bulk_mode = M.tk.StringVar(master=win, value=access.MODES[access.EDIT])
+        M.ttk.Label(bulk, text='Celá sekce:').pack(side='left', padx=(0, 8))
+        M.ttk.Combobox(bulk, textvariable=group, values=('Technika', 'Adresář', 'Přehledy', 'Všechny záložky'),
+                       state='readonly', width=18).pack(side='left')
+        M.ttk.Combobox(bulk, textvariable=bulk_mode, values=access.MODES, state='readonly', width=19).pack(side='left', padx=8)
+        def apply_group():
+            key = {'Technika': 'technical', 'Adresář': 'directory', 'Přehledy': 'reports'}.get(group.get())
+            for page in access.navigation.GROUPS[key] if key else variables:
+                variables[page].set(bulk_mode.get())
+        M.ttk.Button(bulk, text='Nastavit', command=apply_group).pack(side='left')
     M.ttk.Label(footer, text='ADMIN má plný přístup ke správě CRM.' if admin else 'Výchozí přístup: všichni mohou číst i upravovat.').pack(anchor='w', pady=(0, 8))
 
     def save():

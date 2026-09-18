@@ -30,11 +30,13 @@ def _read_button(widget, form):
 
 
 def restrict_widgets(M, parent, page, form=False):
+    if page == 'help':
+        return
     readonly = access.level(M, page) < access.EDIT
     for widget in children(parent):
         cls = widget.winfo_class()
         should_disable = (cls in {'Button', 'TButton', 'Menubutton', 'TMenubutton'} and not _read_button(widget, form))
-        should_disable |= form and cls in INPUTS and not getattr(widget, '_turto_search_input', False)
+        should_disable |= (form or page == 'settings') and cls in INPUTS and not getattr(widget, '_turto_search_input', False)
         if not should_disable:
             continue
         if readonly:
@@ -56,8 +58,11 @@ def restrict_widgets(M, parent, page, form=False):
 
 
 def refresh_controls(M, app):
+    previous = getattr(app, '_access_restricted_pages', set())
+    restricted = {key for key in getattr(app, 'tabs', {}) if access.level(M, key) < access.EDIT}
+    app._access_restricted_pages = restricted
     for key, page in getattr(app, 'tabs', {}).items():
-        if key.startswith('reports_'):
+        if key.startswith('reports_') or key not in restricted | previous:
             continue  # All report routes share one workspace with its own controls.
         restrict_widgets(M, page, key)
 
@@ -147,7 +152,7 @@ def install_controls(M):
                           'open_issued_offer_settings', 'render_issued_offer_pdf', 'draft_issued_offer_outlook'),
         'received_orders': ('create_received_order_from_offer',),
         'settings': ('manage_code_lists', 'manage_product_categories', 'manage_catalog_products', 'import_complete_data',
-                     'restore_backup', 'open_storage_maintenance'),
+                     'restore_backup', 'open_storage_maintenance', 'choose_update_source'),
     }
     def request_command(app, *args, **kwargs):
         if getattr(app, 'request_tree', None) is getattr(app, 'mivo_tree', object()):
@@ -209,6 +214,22 @@ def install_controls(M):
         else:
             previous_error(app, exception, value, traceback)
     M.App.report_callback_exception = callback_error
+
+    # Refreshes can change toolbar states after lazy navigation has completed.
+    def wrap_refresh(fn):
+        @wraps(fn)
+        def refreshed(app, *args, **kwargs):
+            result = fn(app, *args, **kwargs)
+            key = getattr(app, '_current_page', None)
+            if key in getattr(app, 'tabs', {}) and not key.startswith('reports_') and access.level(M, key) < access.EDIT:
+                restrict_widgets(M, app.tabs[key], key)
+            return result
+        return refreshed
+    for name in tuple(dir(M.App)):
+        if name.startswith('refresh_') and name != 'refresh_user_access':
+            fn = getattr(M.App, name)
+            if callable(fn):
+                setattr(M.App, name, wrap_refresh(fn))
 
     # Lazy report pages are rebuilt on each visit, and own a second database.
     from ..monthly_reports.ui import ReportWorkspace

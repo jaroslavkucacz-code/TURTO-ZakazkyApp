@@ -53,6 +53,14 @@ def protect_connection(con, session):
     if not denied:
         return
     con.create_function('turto_edit', 1, lambda page: int(page is None or session.level(page) >= EDIT))
+    if 'settings' in tables and denied.intersection({'settings', 'issued_offers'}):
+        def setting_page(key):
+            key = str(key or '')
+            if key in {'active_user', 'pending_update', 'update_source', 'theme'} or key.startswith(('last_', 'runtime_', 'ui_', 'table_', 'migration_')):
+                return None  # Session/display state and updater bookkeeping.
+            return 'issued_offers' if key.startswith('issued_offer_') else 'settings'
+        con.create_function('turto_setting_page', 1, setting_page)
+        _triggers(con, 'settings', lambda row: f'turto_edit(turto_setting_page({row}.key))')
     for table, page in TABLE_PAGES.items():
         if table in tables and page in denied:
             _triggers(con, table, lambda row: '0')
