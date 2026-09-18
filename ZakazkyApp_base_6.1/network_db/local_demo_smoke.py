@@ -134,6 +134,8 @@ def main():
             result['assertion'] = str(exc)
         if app.session.failure_log:
             result['startup_log'] = app.session.failure_log
+        if app.session.failure:
+            result['startup_failure'] = app.session.failure
         # Test-only diagnostic avoids connection strings/passwords.
         result['callback_errors'] = errors
     finally:

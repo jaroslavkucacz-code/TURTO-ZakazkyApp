@@ -1,6 +1,8 @@
 """Exercise the copied runtime with no installed PostgreSQL/Python in PATH."""
 import ctypes
 from ctypes import wintypes
+import csv
+import io
 import json
 import os
 from pathlib import Path
@@ -20,6 +22,15 @@ with tempfile.TemporaryDirectory(prefix='turto-local-ci-') as temporary:
     moved = work / 'Prográmky' / 'TURTO CRM – zkouška' / exe.parent.name
     shutil.copytree(exe.parent, moved)
     exe = moved / exe.name
+    # The elevated CI account's tempfile ACL belongs to Administrators. Native
+    # PostgreSQL deliberately drops that group. Give only THIS user read/write
+    # access to this newly created fixture, like a normal extracted user folder.
+    system = Path(os.environ['SystemRoot']) / 'System32'
+    identity = subprocess.check_output([str(system / 'whoami.exe'), '/user', '/fo', 'csv', '/nh'])
+    sid = next(csv.reader(io.StringIO(identity.decode(errors='replace'))))[1]
+    assert sid.startswith('S-1-') and all(c in 'S-0123456789' for c in sid)
+    subprocess.run([str(system / 'icacls.exe'), str(work), '/grant:r', '*' + sid + ':(OI)(CI)F', '/T'],
+                   check=True, stdout=subprocess.DEVNULL)
     config = work / 'company-settings'
     config.mkdir()
     sentinel = config / 'connection.json'
