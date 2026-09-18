@@ -1,8 +1,8 @@
 {
-  "version": "8.0.31",
+  "version": "8.0.32",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "211daad39a90c12e7bcc0fbf5c9f4dc2d1d6750a",
-  "validated_run_id": 35311193429,
-  "notes": "8.0.31 – Úklid starých záloh s doprovodnými soubory. V Nastavení → Zálohy a úklid úložiště je nová volba Zahrnout staré zálohy s doprovodnými soubory. Záloha a její WAL/SHM/journal se zobrazí jako jedna položka a posuzují podle pravidel uchování. Před úklidem se na Windows výhradně otevřou všichni členové; používané soubory zásah zastaví. Archivace ověří všechny kopie před odstraněním originálů. Zůstává zachovaná ochrana živých dat, ručních/importních záloh, odkazů obnovy a nových souborů. Volba platí pouze pro ruční potvrzený úklid; automatika se nemění. Ověřeno testy na skutečných Windows včetně obnovy z neprázdného WAL, chyb kopie a protokolu, UI, čisté instalace a aktualizace."
+  "source_commit": "e75dad076748fd55191c5de3d1f60a46c0afe614",
+  "validated_run_id": 35329466994,
+  "notes": "8.0.32 – Měsíční přehledy přímo v CRM. Nová hlavní záložka Přehledy obsahuje všech 11 částí Měsíčních přehledů 1.1.2 včetně grafů, období a rozsahů, detailů zákazníků a dokladů, kontrolovaných importů a exportů do Excelu a PDF. V Přehledy → Nastavení lze převzít dosavadní databázi; před nahrazením dat vznikne záloha a původní program zůstane zachovaný. Nastavení grafů a rozsahu se pamatuje pro jednotlivé uživatele. TEST má oddělená data. Přehledy zatím pracují s vlastními podklady; vazby na evidenci CRM doplníme později. Ověřeno na Windows včetně všech stránek v obou motivech, importů, skutečných exportů, čisté instalace, aktualizace a obnovy."
 }
