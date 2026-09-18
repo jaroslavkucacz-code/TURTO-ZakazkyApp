@@ -18,21 +18,23 @@ class CompanyLinkDialog(tk.Toplevel):
         self.transient(workspace.winfo_toplevel())
         self.grab_set()
         outer = ttk.Frame(self, padding=14); outer.pack(fill='both', expand=True)
-        ttk.Label(outer, text='Firmy z POHODY → Adresář', font=('Calibri',16,'bold')).pack(anchor='w')
+        outer.columnconfigure(0,weight=1);outer.rowconfigure(3,weight=1)
+        ttk.Label(outer, text='Firmy z POHODY → Adresář', font=('Calibri',16,'bold')).grid(row=0,column=0,sticky='w')
         ttk.Label(outer, text='Jednoznačné názvy se propojí automaticky. Více shod nebo odlišný název přiřaďte ručně.\n'
                   'Volba Nepárovat zabrání automatickému přiřazení. Změny potvrzujete tlačítkem; nové firmy se nevytvářejí.',
-                  wraplength=1000, justify='left').pack(anchor='w', pady=(6,10))
-        toolbar = ttk.Frame(outer); toolbar.pack(fill='x', pady=(0,8))
+                  wraplength=770, justify='left').grid(row=1,column=0,sticky='w',pady=(6,10))
+        toolbar = ttk.Frame(outer); toolbar.grid(row=2,column=0,sticky='ew',pady=(0,8))
         self.summary = tk.StringVar()
         ttk.Label(toolbar,textvariable=self.summary).pack(side='left')
         ttk.Button(toolbar,text='Obnovit seznam',command=self.reload).pack(side='right')
-        body = tk.Frame(outer,bg=COLORS['panel']); body.pack(fill='both', expand=True)
+        # Only the table shrinks on smaller monitors; the choice and Save stay visible.
+        body = tk.Frame(outer,bg=COLORS['panel']); body.grid(row=3,column=0,sticky='nsew')
         self.tree = workspace._tree(body, ('source','company','ico','status'),
             ('Název v importu','Společnost v CRM','IČO v CRM','Párování'), (300,300,110,200),
             height=12, anchors=('w','w','w','w'))
         self.tree.bind('<<TreeviewSelect>>',self.select_row)
         choice = ttk.LabelFrame(outer,text='Přiřazení vybraného názvu',padding=10)
-        choice.pack(fill='x',pady=(10,0))
+        choice.grid(row=4,column=0,sticky='ew',pady=(10,0))
         self.selected_text = tk.StringVar(value='Vyberte řádek v tabulce.')
         ttk.Label(choice,textvariable=self.selected_text,wraplength=970).pack(anchor='w',pady=(0,6))
         self.company_var = tk.StringVar()
@@ -43,7 +45,7 @@ class CompanyLinkDialog(tk.Toplevel):
         self.save_button.pack(side='left')
         ttk.Button(buttons,text='Nepárovat',command=lambda:self.save('ignored')).pack(side='left',padx=8)
         ttk.Button(buttons,text='Obnovit automatické párování',command=lambda:self.save('reset')).pack(side='left')
-        ttk.Button(outer,text='Zavřít',command=self.close).pack(anchor='e',pady=(10,0))
+        ttk.Button(outer,text='Zavřít',command=self.close).grid(row=5,column=0,sticky='e',pady=(10,0))
         # This is a list editor with explicit per-row commits, not a save-on-close form.
         wire_close(self,self.close)
         self.reload(selected_name)
@@ -147,6 +149,7 @@ class CompanyReportsUI:
         win = tk.Toplevel(self); win.title(c['official_name'] + ' – doklady CRM')
         win.geometry('1100x650');win.minsize(820,500);win.transient(self.winfo_toplevel())
         outer = ttk.Frame(win,padding=16);outer.pack(fill='both',expand=True)
+        footer=ttk.Frame(outer);footer.pack(side='bottom',fill='x',pady=(10,0))
         ttk.Label(outer,text=c['official_name'],font=('Calibri',18,'bold')).pack(anchor='w')
         ttk.Label(outer,text=f"IČO: {c['ico'] or '—'}   •   {c['address'] or ''}",wraplength=1000).pack(anchor='w',pady=(4,8))
         aliases = [name for name, r in self.company_links.resolve().items() if r['company_id'] == cid]
@@ -173,6 +176,6 @@ class CompanyReportsUI:
                 win.destroy()
                 callback(r['id'])
         tree.bind('<Double-1>',open_selected);tree.bind('<Return>',open_selected)
-        ttk.Button(outer,text='Otevřít vybraný doklad',command=open_selected).pack(side='left',pady=(10,0))
-        ttk.Button(outer,text='Zavřít',command=win.destroy).pack(side='right',pady=(10,0))
+        ttk.Button(footer,text='Otevřít vybraný doklad',command=open_selected).pack(side='left')
+        ttk.Button(footer,text='Zavřít',command=win.destroy).pack(side='right')
         return win

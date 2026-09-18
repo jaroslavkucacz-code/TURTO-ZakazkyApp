@@ -189,6 +189,8 @@ def ui_checks(td):
         assert len(tree.get_children())==2 and 'crm_company' in tree['columns']
         assert w.analytics.kpis(2026,8)['revenue']==3000 and w.last_error is None
         dialog=CompanyLinkDialog(w,'833 Jiné jméno');settle(root)
+        assert dialog.company_box.winfo_viewable() and dialog.save_button.winfo_viewable()
+        assert dialog.save_button.winfo_rooty()+dialog.save_button.winfo_height()<=dialog.winfo_rooty()+dialog.winfo_height()
         dialog.company_var.set('833 Al');assert not dialog.save('manual')
         assert w.company_links.resolve(['833 Jiné jméno'])['833 Jiné jméno']['company_id'] is None
         dialog.focus_force()
