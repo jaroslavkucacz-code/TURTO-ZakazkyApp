@@ -1,0 +1,53 @@
+name: Validate PostgreSQL migration pilot
+on:
+  pull_request:
+    paths:
+      - 'ZakazkyApp_base_6.1/network_db/**'
+      - 'ZakazkyApp_base_6.1/requirements-network.txt'
+      - 'tests/network/**'
+      - '.github/workflows/validate-postgresql-pilot.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        postgres: ['16', '18']
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres }}
+        env:
+          POSTGRES_DB: turto_pilot_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: pilot-test-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies and matching backup client
+        run: |
+          python -m pip install -r ZakazkyApp_base_6.1/requirements.txt -r ZakazkyApp_base_6.1/requirements-network.txt
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-${{ matrix.postgres }}
+          echo "/usr/lib/postgresql/${{ matrix.postgres }}/bin" >> "$GITHUB_PATH"
+      - name: Real source safety, migration, rollback, concurrency and restore tests
+        env:
+          TURTO_TEST_POSTGRES: '1'
+          TURTO_PG_PASSWORD: pilot-test-only
+        run: python tests/network/test_migration.py
+      - name: Existing SQLite access and storage regressions
+        run: |
+          python scripts/validate-834-user-access.py --source-only
+          python scripts/validate-830-storage.py --source-only
