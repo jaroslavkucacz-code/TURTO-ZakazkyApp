@@ -1,8 +1,8 @@
 {
-  "version": "8.0.30",
+  "version": "8.0.31",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "060b68cfacded1e22c78c9caabe31fb31744f9b3",
-  "validated_run_id": 35275258883,
-  "notes": "8.0.30 – Zálohy a úklid úložiště. Nový náhled v Nastavení umožňuje vybrat starší automatické zálohy a aktualizační ZIPy, přesunout je do ověřeného archivu nebo výslovně potvrdit trvalé smazání. Před úklidem vznikne ověřená bezpečnostní záloha. Živá databáze, přílohy, ruční/importní/migrační zálohy a odkazy pro obnovu zůstávají chráněné. Pravidla uchování: posledních 5 záloh + 7 denních, 8 týdenních a 12 měsíčních bodů. Volitelná denní údržba je standardně vypnutá a po zapnutí promazává pouze nové automatické soubory; původní soubory vyžadují ruční potvrzení. Zálohy jsou samostatné ověřené SQLite soubory včetně dat z WAL, s jedinečnými názvy a bezpečně uzavřenými soubory."
+  "source_commit": "211daad39a90c12e7bcc0fbf5c9f4dc2d1d6750a",
+  "validated_run_id": 35311193429,
+  "notes": "8.0.31 – Úklid starých záloh s doprovodnými soubory. V Nastavení → Zálohy a úklid úložiště je nová volba Zahrnout staré zálohy s doprovodnými soubory. Záloha a její WAL/SHM/journal se zobrazí jako jedna položka a posuzují podle pravidel uchování. Před úklidem se na Windows výhradně otevřou všichni členové; používané soubory zásah zastaví. Archivace ověří všechny kopie před odstraněním originálů. Zůstává zachovaná ochrana živých dat, ručních/importních záloh, odkazů obnovy a nových souborů. Volba platí pouze pro ruční potvrzený úklid; automatika se nemění. Ověřeno testy na skutečných Windows včetně obnovy z neprázdného WAL, chyb kopie a protokolu, UI, čisté instalace a aktualizace."
 }
