@@ -88,6 +88,8 @@ def main():
         run([main_exe, "--smoke-test"], env)
         result = read(result_file)
         assert result["ok"] and result["frozen"] and result["version"] == version
+        assert len(result['reports_pages']) == 11
+        checks.append('all eleven embedded report pages and Excel/HTML exports in frozen runtime')
         database = Path(result["database"])
         assert database.is_relative_to(data)
         with sqlite3.connect(database) as db:

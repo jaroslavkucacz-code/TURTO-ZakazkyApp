@@ -255,6 +255,8 @@ if SMOKE_TEST:
     if SMOKE_RESULT is None:
         raise SystemExit(2)
     branding_assets = _run_phase("branding-payload", lambda: _validate_branding_payload(app))
+    from price_lists_domain.monthly_reports.smoke import check as check_reports
+    reports_pages = _run_phase("reports-payload", lambda: check_reports(app))
     con = app.db()
     try:
         quick = con.execute("PRAGMA quick_check").fetchone()
@@ -280,6 +282,7 @@ if SMOKE_TEST:
                 "tkdnd_variants": tkdnd_variants,
                 "offer_parsers": offer_parsers,
                 "branding_assets": branding_assets,
+                "reports_pages": reports_pages,
                 "frozen": bool(getattr(sys, "frozen", False)),
             },
             ensure_ascii=False,

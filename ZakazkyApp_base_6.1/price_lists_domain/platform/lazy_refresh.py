@@ -149,6 +149,9 @@ def _raise_page(app, key: str) -> None:
     page.tkraise()
     grouped_navigation.activate(app, key)
     app._current_page = key
+    activated = getattr(app, "_turto_page_activated", None)
+    if callable(activated):
+        activated(key)
 
 
 def _schedule_chrome(M, app, delay: int = 80, methods=None) -> None:
