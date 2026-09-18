@@ -191,9 +191,16 @@ def ui_checks(td):
         dialog=CompanyLinkDialog(w,'833 Jiné jméno');settle(root)
         dialog.company_var.set('833 Al');assert not dialog.save('manual')
         assert w.company_links.resolve(['833 Jiné jméno'])['833 Jiné jméno']['company_id'] is None
-        dialog.company_box.focus_force();dialog.company_var.set('833 Alfa');settle(root)
+        dialog.focus_force()
+        dialog.company_box.event_generate('<ButtonPress-1>',x=8,y=8)
+        dialog.company_box.event_generate('<ButtonRelease-1>',x=8,y=8)
+        settle(root,.7)
+        dialog.company_var.set('833 Alfa');settle(root)
+        ImageGrab.grab().save(output/'company-before-enter.png')
+        assert root.focus_get() is dialog.company_box, ('company focus',str(root.focus_get()),str(dialog.company_box),errors)
+        assert dialog.company_box._matches(), ('company suggestions',dialog.company_var.get(),dialog.company_box.values,errors)
         dialog.company_box.event_generate('<Return>');settle(root)
-        assert dialog.company_var.get() in dialog.labels
+        assert dialog.company_var.get() in dialog.labels, ('company Enter',dialog.company_var.get(),dialog.company_box.selected_value,dialog.company_box._matches(),str(root.focus_get()),errors)
         # Enter chooses an existing company without writing a link or a company.
         assert w.company_links.resolve(['833 Jiné jméno'])['833 Jiné jméno']['company_id'] is None
         dialog.save_button.invoke();settle(root)
