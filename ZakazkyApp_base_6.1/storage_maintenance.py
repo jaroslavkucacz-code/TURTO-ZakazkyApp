@@ -19,12 +19,14 @@ import uuid
 
 import data_location
 import updater_safety as safety
+from storage_windows import LockedBackup
 
 POLICY_NAME = "storage_policy.json"
 AUTO_LABELS = {"pred_aktualizaci", "pred_navratem", "daily", "before_storage_cleanup"}
 BACKUP_RE = re.compile(r"^zakazky_(.+)_(\d{8}_\d{6})(?:_\d{6}(?:_[0-9a-f]{8})?)?\.db$")
 PACKAGE_RE = re.compile(r"^TURTO_(?:CRM|Zakazky)_(?:Update_)?[0-9][A-Za-z0-9._-]*\.zip$", re.I)
 RULES = "Posledních 5 + 7 denních + 8 týdenních + 12 měsíčních bodů obnovy (překryvy se počítají jednou)."
+SIDECARS = ("-wal", "-shm", "-journal")
 
 
 def _plain(path: Path) -> None:
@@ -156,12 +158,13 @@ def _retained(backups: list[dict], now: datetime) -> set[str]:
     return keep
 
 
-def build_plan(root: Path, database: Path, *, now: datetime | None = None) -> list[dict]:
+def build_plan(root: Path, database: Path, *, now: datetime | None = None,
+               include_legacy: bool = False) -> list[dict]:
     root, database = Path(root).absolute(), Path(database).absolute()
     _plain(root); _plain(database)
     now = now or datetime.now()
     refs = _references(root, database)
-    entries, backups = [], []
+    entries, backups, grouped = [], [], set()
     for folder in ("backup", "updates", "updates/downloads", "updates/rollback"):
         directory = root / folder
         _plain(directory)
@@ -190,9 +193,23 @@ def build_plan(root: Path, database: Path, *, now: datetime | None = None) -> li
                     dt = datetime.strptime(match[2], "%Y%m%d_%H%M%S")
                 except ValueError:
                     continue
-                if any(path.with_name(path.name + suffix).exists() for suffix in ("-wal", "-shm", "-journal")):
-                    e["reason"] = "Záloha má doprovodné SQLite soubory – ruční kontrola"
-                    continue
+                companions = [path.with_name(path.name + suffix) for suffix in SIDECARS
+                              if os.path.lexists(path.with_name(path.name + suffix))]
+                if companions:
+                    if not include_legacy:
+                        e["reason"] = "Záloha má doprovodné soubory – použijte volbu Zahrnout staré zálohy"
+                        continue
+                    if any(not p.is_file() or safety.is_link(p) for p in companions):
+                        e["reason"] = "Doprovodný soubor není běžný soubor – ponechat"
+                        continue
+                    members = [{"relative": p.relative_to(root).as_posix(), "size": p.stat().st_size,
+                                "fingerprint": _fingerprint(p)} for p in [path, *companions]]
+                    e["members"] = members
+                    e["size"] = sum(m["size"] for m in members)
+                    grouped.update(m["relative"] for m in members[1:])
+                    if any(p.resolve() in refs or p.samefile(database) or p.stat().st_nlink > 1 for p in companions):
+                        e["reason"] = "Doprovodný soubor je používán pro obnovu nebo má další odkazy"
+                        continue
                 e["timestamp"] = dt.isoformat()
                 backups.append(e)
             elif folder != "backup" and PACKAGE_RE.fullmatch(path.name):
@@ -201,7 +218,8 @@ def build_plan(root: Path, database: Path, *, now: datetime | None = None) -> li
             else:
                 continue
             dt = datetime.fromisoformat(e["timestamp"])
-            if dt > now or (now.timestamp() - path.stat().st_mtime) < 24 * 3600:
+            newest_mtime = max([path.stat().st_mtime] + [m["fingerprint"][3] / 1e9 for m in e.get("members", [])])
+            if dt > now or (now.timestamp() - newest_mtime) < 24 * 3600:
                 e["reason"] = "Nový soubor (24 hodin) nebo budoucí datum – ponechat"
             else:
                 e["eligible"] = True
@@ -216,7 +234,69 @@ def build_plan(root: Path, database: Path, *, now: datetime | None = None) -> li
         packages = [e for e in entries if e["kind"] == "aktualizace" and str(Path(e["relative"]).parent).replace("\\", "/") == folder]
         for e in sorted(packages, key=lambda e: (e["timestamp"], e["relative"]), reverse=True)[:2]:
             e.update(eligible=False, reason="Dva nejnovější balíčky / návraty verze")
-    return entries
+    return [e for e in entries if e["relative"] not in grouped]
+
+
+def _matches(old: dict, current: dict | None) -> bool:
+    if (not current or not current["eligible"] or old["size"] != current["size"]
+            or tuple(old["fingerprint"]) != current["fingerprint"]):
+        return False
+    def members(e):
+        return [(m["relative"], m["size"], tuple(m["fingerprint"])) for m in e.get("members", [])]
+    return members(old) == members(current)
+
+
+def _cleanup_group(root, database, entry, archive_root, record, log):
+    paths = [root / m["relative"] for m in entry["members"]]
+    with LockedBackup(paths) as locked:
+        current = {e["relative"]: e for e in build_plan(root, database, include_legacy=True)}.get(entry["relative"])
+        if not _matches(entry, current):
+            raise ValueError("Složení nebo ochrana zálohy se změnily. Obnovte náhled.")
+        manifest = []
+        for m, path in zip(entry["members"], paths):
+            sha = ""
+            if archive_root:
+                sha = _archive_locked(locked, path, archive_root / m["relative"])
+            manifest.append({"relative": m["relative"], "size": m["size"], "sha256": sha})
+        current = {e["relative"]: e for e in build_plan(root, database, include_legacy=True)}.get(entry["relative"])
+        if not _matches(entry, current):
+            raise ValueError("Záloha získala ochranu. Originály zůstávají zachované.")
+        record["pending_group"] = manifest
+        safety.write_json(log, record)
+        if archive_root:
+            safety.write_json(archive_root / "manifest.json", record)
+        # All originals are locked and all archive copies verified before this
+        # point. Mark main DB first: an interruption must not leave a DB with
+        # only some of its journals removed. The durable pending list survives.
+        for m, path in zip(manifest, paths):
+            locked.mark_delete(path)
+            record["completed"].append(dict(m))
+            record["bytes"] += m["size"]
+    record.pop("pending_group", None)
+
+
+def _archive_locked(locked, source, target):
+    _plain(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temp = target.with_name(target.name + ".partial")
+    reserved = False
+    try:
+        stream = locked.streams[source]
+        stream.seek(0)
+        with temp.open("xb") as dst:
+            reserved = True
+            shutil.copyfileobj(stream, dst, length=1024 * 1024)
+            dst.flush(); os.fsync(dst.fileno())
+        sha = locked.digest(source)
+        if safety.digest(temp) != sha:
+            raise ValueError("Kopie celé zálohy nebyla ověřena. Originály zůstávají zachované.")
+        if target.exists():
+            raise FileExistsError(target)
+        temp.rename(target)
+        return sha
+    finally:
+        if reserved:
+            temp.unlink(missing_ok=True)
 
 
 def _archive_file(source: Path, target: Path) -> str:
@@ -242,13 +322,13 @@ def _archive_file(source: Path, target: Path) -> str:
 
 
 def _execute(root: Path, database: Path, selected: list[dict], *, archive: Path | None = None,
-             verified_backup: Path | None = None, progress=None) -> dict:
-    fresh = {e["relative"]: e for e in build_plan(root, database)}
+             verified_backup: Path | None = None, progress=None, include_legacy: bool = False) -> dict:
+    fresh = {e["relative"]: e for e in build_plan(root, database, include_legacy=include_legacy)}
     if not selected or len({e["relative"] for e in selected}) != len(selected):
         raise ValueError("Vyberte konkrétní soubory z aktuálního náhledu.")
     for e in selected:
         current = fresh.get(e["relative"])
-        if not current or not current["eligible"] or tuple(e["fingerprint"]) != current["fingerprint"]:
+        if not _matches(e, current):
             raise ValueError("Soubory nebo ochrana se od náhledu změnily. Obnovte přehled; nic nebylo smazáno.")
     token = f"{datetime.now():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:8]}"
     archive_root = None
@@ -269,25 +349,29 @@ def _execute(root: Path, database: Path, selected: list[dict], *, archive: Path 
         raise ValueError("Bez ověřené zálohy nelze pokračovat.")
     record = {"database": str(database), "backup": str(backup), "archive": str(archive_root or ""),
               "mode": "archive" if archive_root else "delete", "planned": [e["relative"] for e in selected],
-              "completed": [], "bytes": 0, "error": ""}
+              "completed": [], "bytes": 0, "error": "", "include_legacy": include_legacy}
     log = root / "logs" / ("storage_cleanup_" + token + ".json")
     safety.write_json(log, record)  # No deletions if a durable journal cannot be created.
     try:
         for i, e in enumerate(selected, 1):
             if progress:
                 progress(f"{i}/{len(selected)}: {e['relative']}")
+            if e.get("members"):
+                _cleanup_group(root, database, e, archive_root, record, log)
+                safety.write_json(log, record)
+                continue
             source = root / e["relative"]
             if _fingerprint(source) != tuple(e["fingerprint"]):
                 raise ValueError(f"Soubor se změnil, úklid zastaven: {source.name}")
             # Recheck references and sidecars immediately before each operation.
-            current = {v["relative"]: v for v in build_plan(root, database)}.get(e["relative"])
-            if not current or not current["eligible"]:
+            current = {v["relative"]: v for v in build_plan(root, database, include_legacy=include_legacy)}.get(e["relative"])
+            if not _matches(e, current):
                 raise ValueError(f"Soubor nově vyžaduje ochranu: {source.name}")
             sha = _archive_file(source, archive_root / e["relative"]) if archive_root else ""
             if _fingerprint(source) != tuple(e["fingerprint"]):
                 raise ValueError("Originál se během kopírování změnil; nebyl smazán.")
-            current = {v["relative"]: v for v in build_plan(root, database)}.get(e["relative"])
-            if not current or not current["eligible"]:
+            current = {v["relative"]: v for v in build_plan(root, database, include_legacy=include_legacy)}.get(e["relative"])
+            if not _matches(e, current):
                 raise ValueError("Soubor během kopírování získal ochranu; originál nebyl smazán.")
             # Persist archive location/checksum before unlink, also for crash recovery.
             record["pending"] = {"relative": e["relative"], "sha256": sha}
@@ -308,10 +392,11 @@ def _execute(root: Path, database: Path, selected: list[dict], *, archive: Path 
     return record
 
 
-def execute(root: Path, database: Path, selected: list[dict], *, archive: Path | None = None, progress=None) -> dict:
+def execute(root: Path, database: Path, selected: list[dict], *, archive: Path | None = None,
+            progress=None, include_legacy: bool = False) -> dict:
     root, database = Path(root).absolute(), Path(database).absolute()
     with maintenance_lock(root):
-        return _execute(root, database, selected, archive=archive, progress=progress)
+        return _execute(root, database, selected, archive=archive, progress=progress, include_legacy=include_legacy)
 
 
 def run_daily(root: Path, database: Path) -> dict | None:

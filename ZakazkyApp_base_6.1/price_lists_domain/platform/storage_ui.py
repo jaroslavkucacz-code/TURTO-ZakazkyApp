@@ -31,6 +31,10 @@ def open_storage(M, app):
     ttk.Label(frame, text="Ruční/importní zálohy, živá databáze, přílohy a nerozpoznané soubory se nemažou.\n"
               "U aktualizací zůstávají dva nejnovější balíčky v každé složce a soubory potřebné pro návrat verze.",
               wraplength=1040).pack(anchor="w", pady=(5, 10))
+    legacy = tk.BooleanVar(value=False)
+    legacy_check = ttk.Checkbutton(frame, text="Zahrnout staré zálohy s doprovodnými soubory (pouze tento ruční úklid)",
+                                   variable=legacy, command=lambda: refresh())
+    legacy_check.pack(anchor="w")
     status = tk.StringVar(value="Načítám náhled…")
     ttk.Label(frame, textvariable=status, wraplength=1040).pack(anchor="w", pady=6)
     table_frame = ttk.Frame(frame); table_frame.pack(fill="both", expand=True)
@@ -45,8 +49,8 @@ def open_storage(M, app):
     ttk.Label(frame, text="Vyberte řádky k úklidu (Ctrl / Shift). Chráněné řádky nelze odstranit.").pack(anchor="w", pady=6)
     controls = ttk.Frame(frame); controls.pack(fill="x")
     messages = queue.Queue()
-    state = {"busy": False, "entries": {}}
-    buttons = []
+    state = {"busy": False, "entries": {}, "legacy": False}
+    buttons = [legacy_check]
 
     def context_valid():
         if getattr(M, "TEST_MODE", False) or Path(M.DB).resolve() != database.resolve():
@@ -61,9 +65,10 @@ def open_storage(M, app):
         entries = list(state["entries"].values())
         chosen = selected()
         eligible = [e for e in entries if e["eligible"]]
-        status.set(f"K úklidu: {len(eligible)} souborů / {size_text(sum(e['size'] for e in eligible))}. "
+        status.set(f"K úklidu: {len(eligible)} položek / {size_text(sum(e['size'] for e in eligible))}. "
                    f"Vybráno: {len(chosen)} / {size_text(sum(e['size'] for e in chosen))}. "
-                   f"Ponechat: {len(entries) - len(eligible)} souborů.")
+                   f"Ponechat: {len(entries) - len(eligible)} položek / "
+                   f"{size_text(sum(e['size'] for e in entries if not e['eligible']))}.")
     tree.bind("<<TreeviewSelect>>", selection_changed)
 
     def start(kind, callback):
@@ -84,7 +89,9 @@ def open_storage(M, app):
         win.after(100, poll)
 
     def refresh():
-        start("scan", lambda: storage.build_plan(root, database))
+        include_legacy = legacy.get()
+        state["legacy"] = include_legacy
+        start("scan", lambda: storage.build_plan(root, database, include_legacy=include_legacy))
 
     def poll():
         try:
@@ -107,7 +114,10 @@ def open_storage(M, app):
             state["entries"] = {}
             for index, e in enumerate(sorted(result, key=lambda e: (not e["eligible"], e["relative"]))):
                 key = str(index); state["entries"][key] = e
-                tree.insert("", "end", iid=key, values=(e["relative"], size_text(e["size"]),
+                label = e["relative"]
+                if e.get("members"):
+                    label += f" (+{len(e['members']) - 1} doprovodné soubory)"
+                tree.insert("", "end", iid=key, values=(label, size_text(e["size"]),
                             ("K úklidu: " if e["eligible"] else "Ponechat: ") + e["reason"]),
                             tags=() if e["eligible"] else ("keep",))
             selection_changed()
@@ -138,13 +148,19 @@ def open_storage(M, app):
                 return
             archive = Path(value)
         action = "Přesunout po ověření kopií do archivu" if archive else "TRVALE SMAZAT (bez koše)"
-        if not messagebox.askyesno("Potvrdit úklid", f"{action}:\n{len(chosen)} vybraných souborů / "
+        groups = sum(bool(e.get("members")) for e in chosen)
+        count = sum(len(e.get("members", [e])) for e in chosen)
+        group_note = (f"\nObsahuje {groups} starých záloh včetně všech doprovodných souborů.\n"
+                      "Před jejich úklidem se ověří, že nejsou používány.\n") if groups else ""
+        if not messagebox.askyesno("Potvrdit úklid", f"{action}:\n{len(chosen)} vybraných položek / "
                                   f"{size_text(sum(e['size'] for e in chosen))}?\n\n"
+                                  f"Celkem {count} souborů.{group_note}\n"
                                   "Nejprve se vytvoří a ověří bezpečnostní záloha živé databáze.\n"
                                   "Je pro ni potřeba další volné místo přibližně o velikosti databáze.",
                                   parent=win, default="no"):
             return
-        start("cleanup", lambda: storage.execute(root, database, chosen, archive=archive,
+        include_legacy = state["legacy"]
+        start("cleanup", lambda: storage.execute(root, database, chosen, archive=archive, include_legacy=include_legacy,
               progress=lambda text: messages.put(("progress", text, None))))
 
     def button(text, command):
@@ -183,7 +199,8 @@ def open_storage(M, app):
     win.protocol("WM_DELETE_WINDOW", close)
     # Test hooks contain widgets/state only; no alternate data or cleanup paths.
     win._storage = dict(tree=tree, state=state, refresh=refresh_button, select=select_button,
-                        archive=archive_button, delete=delete_button, auto=auto, save=save_button, status=status)
+                        archive=archive_button, delete=delete_button, auto=auto, save=save_button, status=status,
+                        legacy=legacy, legacy_check=legacy_check)
     refresh()
     return win
 

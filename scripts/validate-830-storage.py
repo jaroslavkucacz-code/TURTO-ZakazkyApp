@@ -307,6 +307,18 @@ def ui_checks(td):
             ui["delete"].invoke(); settle(win)
             assert not (Path(M.DATA_ROOT) / entry["relative"]).exists()
             assert not errors, errors
+            assert not ui["legacy"].get()
+            for p in (Path(M.DATA_ROOT) / "backup").glob("*.db"):
+                stamp = p.stat().st_mtime
+                if time.time() - stamp > 86400:
+                    side = p.with_name(p.name + "-shm"); side.write_bytes(b"legacy sidecar")
+                    os.utime(side, (stamp, stamp))
+            ui["legacy_check"].invoke(); settle(win)
+            group_key, group = next((i, e) for i, e in ui["state"]["entries"].items() if e["eligible"] and e.get("members"))
+            ui["tree"].selection_set([group_key]); root.update()
+            ui["delete"].invoke(); settle(win)
+            assert all(not (Path(M.DATA_ROOT) / m["relative"]).exists() for m in group["members"])
+            assert not errors, errors
             win.destroy()
             M.TEST_MODE = True
             assert storage_ui.open_storage(M, root) is None
