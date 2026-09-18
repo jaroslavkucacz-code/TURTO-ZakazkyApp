@@ -10,9 +10,9 @@ GROUPS = {
 }
 PAGE_GROUP = {page: group for group, pages in GROUPS.items() for page in pages}
 # Keep the relative order of the remaining main pages.
-TOP_ORDER = ("dash", "technical", "pricelists", "issued_offers", "received_orders", "projects", "reports", "directory", "help")
+TOP_ORDER = ("dash", "business", "technical", "pricelists", "issued_offers", "received_orders", "projects", "reports", "directory", "help")
 LABELS = {
-    "dash": "⌂  Přehled", "technical": "Technika", "directory": "Adresář",
+    "dash": "⌂  Přehled", "business": "Obchod", "technical": "Technika", "directory": "Adresář",
     "actions": "Ke zpracování", "requests": "Poptávky", "mivo": "MIVO",
     "offers": "Přijaté nabídky", "tasks": "Úkoly",
     "companies": "Společnosti", "people": "Osoby", "projects": "▣  Akce",
@@ -30,7 +30,8 @@ def resolve_page(app, key):
     """A group resumes its last page; direct links keep their stable leaf key."""
     if key not in GROUPS:
         return key
-    available = [page for page in GROUPS[key] if page in getattr(app, "tabs", {})]
+    visible = getattr(app, '_tab_visible', lambda key: True)
+    available = [page for page in GROUPS[key] if page in getattr(app, "tabs", {}) and visible(page)]
     previous = getattr(app, "_nav_last_pages", {}).get(key)
     return previous if previous in available else next(iter(available), key)
 
@@ -58,7 +59,12 @@ def arrange(app):
     for parent, keys in [(app.main_nav, TOP_ORDER), *(
         (app.nav_groups[group], pages) for group, pages in GROUPS.items()
     )]:
-        buttons = [app.nav[key] for key in keys if key in app.nav]
+        visible = getattr(app, '_tab_visible', lambda key: True)
+        buttons = [app.nav[key] for key in keys if key in app.nav and visible(key)]
+        for key in keys:
+            if key in app.nav and not visible(key):
+                app.nav[key].pack_forget()
+                app.nav[key].grid_forget()
         if parent is app.nav_groups.get("reports"):
             _wrap_reports(parent, buttons)
             continue

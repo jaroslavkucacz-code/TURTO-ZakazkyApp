@@ -55,8 +55,9 @@ def canonical_id(companies, cid):
 
 
 class CompanyLinks:
-    def __init__(self, connect, reports, user=''):
+    def __init__(self, connect, reports, user='', can_write=None):
         self.connect, self.reports, self.user = connect, reports, user
+        self.can_write = can_write or (lambda: True)
 
     def imported_names(self):
         # Include suppliers in overhead imports, and customers with no DL yet.
@@ -79,6 +80,7 @@ class CompanyLinks:
         manual assignments always win over automatic matching.
         """
         names = self.imported_names() if names is None else list(dict.fromkeys(names))
+        writable = self.can_write()
         companies = self.companies()
         candidates = {}
         for cid, company in companies.items():
@@ -94,7 +96,7 @@ class CompanyLinks:
                 key = name_key(name)
                 choices = sorted(candidates.get(key, ()))
                 link = saved.get(key)
-                if key and link is None and len(choices) == 1:
+                if writable and key and link is None and len(choices) == 1:
                     # Never overwrite a manual decision made by another client.
                     con.execute('''INSERT OR IGNORE INTO report_company_links
                         (source_system,source_key,source_name,company_id,mode,updated_by)
@@ -121,6 +123,8 @@ class CompanyLinks:
 
     def save(self, source_name, company_id, mode, expected):
         """Explicit manual assignment/exclusion/reset; stale forms cannot overwrite."""
+        if not self.can_write():
+            raise ValueError('Párování firem je pro tohoto uživatele jen pro čtení.')
         key = name_key(source_name)
         if not key or mode not in ('manual', 'ignored', 'reset'):
             raise ValueError('Vyberte neprázdný název z importu a platný způsob párování.')

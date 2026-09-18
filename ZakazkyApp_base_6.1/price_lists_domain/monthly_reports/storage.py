@@ -54,6 +54,8 @@ class ReportingStore:
         return path
 
     def take_over(self, source):
+        if hasattr(self, 'require_write'):
+            self.require_write()
         source = Path(source).resolve()
         if source == self.path.resolve():
             raise ValueError('Tato databáze je již otevřená v Přehledech.')
@@ -69,6 +71,8 @@ class ReportingStore:
             with closing(readonly(staged)) as incoming:
                 validate(incoming)
                 backup = self.database.backup(self.directory('backup'))
+                if hasattr(self, 'require_write'):
+                    self.require_write()
                 with closing(sqlite3.connect(self.path, timeout=20)) as target:
                     incoming.backup(target)
         return backup

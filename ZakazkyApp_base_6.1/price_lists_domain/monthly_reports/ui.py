@@ -84,7 +84,11 @@ class ReportWorkspace(CompanyReportsUI, ManagementUI, tk.Frame):
         for name in ('exports', 'imports', 'backup'):
             self.store.directory(name)
         self.db = self.store.database
-        self.company_links = CompanyLinks(module.db, self.db, identity[1])
+        from ..platform import user_access
+        self.store.require_write = lambda: user_access.require(module, 'reports_imports')
+        self.db.can_write = lambda: user_access.level(module, 'reports_imports', fresh=True) == user_access.EDIT
+        self.company_links = CompanyLinks(module.db, self.db, identity[1],
+            can_write=lambda: user_access.level(module, 'reports_customers', fresh=True) == user_access.EDIT)
         self.analytics = Analytics(self.db)
         self.pages = {}; self.nav_buttons = {}; self.current_page = 'Přehled'
         self.last_error = None

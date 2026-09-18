@@ -75,6 +75,7 @@ LATE_LAYERS = (
     "price_lists_domain.platform.operational_refresh_804",
     "price_lists_domain.platform.table_preferences_815",
     "price_lists_domain.platform.form_behavior_817",
+    "price_lists_domain.platform.user_access",
 )
 
 

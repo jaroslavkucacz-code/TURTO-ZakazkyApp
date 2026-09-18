@@ -33,6 +33,54 @@ def choices(con, original):
     return result
 
 
+def encode_selection(con, expected, selected):
+    selected = set(selected)
+    if any(type(uid) is not int for uid in selected):
+        raise ValueError('Neplatný řešitel.')
+    original = decode(expected)
+    available = choices(con, original)
+    if any(uid not in available or (not available[uid][1] and uid not in original) for uid in selected):
+        raise ValueError('Některý řešitel už není aktivní. Otevřete výběr znovu.')
+    if selected == set(original):
+        return expected
+    ordered = sorted(selected, key=lambda uid: (available[uid][0].casefold(), uid))
+    return json.dumps([{'user_id': uid, 'name': available[uid][0]} for uid in ordered], ensure_ascii=False)
+
+
+def form_field(M, dialog, parent, original, new=False):
+    """Checkboxes only edit the draft; the enclosing form owns the transaction."""
+    from .request_mail import logged_in_user
+    dialog._original_assignees = original
+    selected = decode(original)
+    with M.db() as con:
+        options = choices(con, selected)
+    if new:
+        user = logged_in_user(M, dialog)
+        selected = {uid: name for uid, (name, active) in options.items() if active and name == user}
+    frame = M.ttk.Frame(parent)
+    frame.columnconfigure(0, weight=1)
+    canvas = M.tk.Canvas(frame, height=88, highlightthickness=0)
+    canvas.grid(row=0, column=0, sticky='ew')
+    bar = M.ttk.Scrollbar(frame, orient='vertical', command=canvas.yview)
+    bar.grid(row=0, column=1, sticky='ns')
+    canvas.configure(yscrollcommand=bar.set)
+    body = M.ttk.Frame(canvas)
+    item = canvas.create_window((0, 0), window=body, anchor='nw')
+    body.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox('all')))
+    canvas.bind('<Configure>', lambda e: canvas.itemconfigure(item, width=e.width))
+    dialog.assignee_variables = {}
+    for index, (uid, (name, active)) in enumerate(options.items()):
+        variable = M.tk.BooleanVar(master=dialog, value=uid in selected)
+        dialog.assignee_variables[uid] = variable
+        M.ttk.Checkbutton(body, text=name + ('' if active else ' (neaktivní)'), variable=variable).grid(
+            row=index // 3, column=index % 3, sticky='w', padx=(0, 12), pady=2)
+    for column in range(3):
+        body.columnconfigure(column, weight=1)
+    if not options:
+        M.ttk.Label(body, text='Nejsou k dispozici aktivní uživatelé.').grid(sticky='w')
+    return frame
+
+
 def save(M, action_id, expected, selected):
     """Compare and update under one write lock; retain names of former users."""
     selected = set(selected)
@@ -45,14 +93,9 @@ def save(M, action_id, expected, selected):
             raise ValueError('Záznam už neexistuje.')
         if row['assignees_json'] != expected:
             raise ValueError('Řešitele mezitím změnil jiný uživatel. Zavřete výběr a otevřete jej znovu.')
-        original = decode(expected)
-        available = choices(con, original)
-        if any(uid not in available or (not available[uid][1] and uid not in original) for uid in selected):
-            raise ValueError('Některý řešitel už není aktivní. Otevřete výběr znovu.')
-        if selected == set(original):
+        encoded = encode_selection(con, expected, selected)
+        if encoded == expected:
             return False
-        ordered = sorted(selected, key=lambda uid: (available[uid][0].casefold(), uid))
-        encoded = json.dumps([{'user_id': uid, 'name': available[uid][0]} for uid in ordered], ensure_ascii=False)
         user = M.get_setting('active_user', '')
         con.execute('UPDATE actions SET assignees_json=?,updated_by=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
                     (encoded, user, action_id))

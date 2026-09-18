@@ -47,6 +47,8 @@ def values(win):
             continue
     if hasattr(win, 'selected_topics'):
         result['topics'] = tuple(win.selected_topics)
+    if hasattr(win, 'assignee_variables'):
+        result['assignees'] = tuple(uid for uid, var in win.assignee_variables.items() if var.get())
     return result
 
 
