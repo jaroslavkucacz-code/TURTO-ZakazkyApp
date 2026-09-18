@@ -25,11 +25,15 @@ def main():
                       sslrootcert=os.environ['TURTO_TEST_CA'])
     output = REPO / 'artifacts/network/windows'; output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
+        runtime_env = os.environ.copy()
+        pg_root = os.environ['PGROOT'].replace('\\', '/').rstrip('/').casefold()
+        runtime_env['PATH'] = os.pathsep.join(part for part in os.environ['PATH'].split(os.pathsep)
+            if not part.replace('\\', '/').rstrip('/').casefold().startswith(pg_root))
         profile_path = Path(tmp) / 'admin.json'
         profile_path.write_text(json.dumps(profile.public()), encoding='utf-8')
         def cli(*args):
             result = subprocess.run([str(admin), *args], capture_output=True, timeout=120,
-                                    env=os.environ | {'PYTHONIOENCODING': 'utf-8'})
+                                    cwd=tmp, env=runtime_env | {'PYTHONIOENCODING': 'utf-8'})
             if result.returncode:
                 raise AssertionError('Packaged admin command failed: ' + result.stderr.decode('utf-8', errors='replace'))
             return result.stdout.decode('utf-8-sig')
@@ -57,10 +61,10 @@ def main():
                 else:
                     raise AssertionError('TLS hostname mismatch was accepted')
                 report = output / (level + '.json')
-                env = os.environ | {'TURTO_PILOT_TEST_PASSWORD': 'pilot-person-test-only',
+                env = runtime_env | {'TURTO_PILOT_TEST_PASSWORD': 'pilot-person-test-only',
                                     'TURTO_PILOT_CONFIG_ROOT': str(Path(tmp) / ('config-' + level))}
                 result = subprocess.run([str(gui), '--smoke-test', '--config', str(choice), '--report', str(report)],
-                                        env=env, timeout=120)
+                                        cwd=tmp, env=env, timeout=120)
                 data = json.loads(report.read_text(encoding='utf-8'))
                 assert result.returncode == 0 and data['ok'] and data['frozen'], data
                 assert data['permission'] == level

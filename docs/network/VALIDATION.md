@@ -16,7 +16,7 @@ Na každé verzi serveru prošlo 33 testů síťového pilotu: 21 kontrol převo
 | Stávající správa souborů a záloh CRM | Dalších 14 regresních testů prošlo |
 | Stávající oprávnění CRM 8.0.34 | Databázová regresní kontrola prošla |
 | Úplné schéma aktuálního CRM použité k převodu | 50 běžných tabulek, 38 původních triggerů a 89 explicitních indexů v inventuře |
-| Windows a práce na dvou skutečných PC přes firemní síť | Síťový pilot zatím takto neověřen |
+| Práce na dvou skutečných PC přes firemní síť | Síťový pilot zatím takto neověřen |
 
 ## Co serverové scénáře prokázaly
 
@@ -34,4 +34,12 @@ GUI test stiskl skutečná tlačítka přihlášení a ukládání, ověřil vym
 
 Společnosti mají samostatné serverové okno dostupné v Nastavení testovací aplikace. Příprava serveru a účtů je popsaná v [DIRECTORY.md](DIRECTORY.md). Manifest obsahuje `directory_api_version=1` a nadále `application_ready=false`.
 
-Další agendy, společné přepnutí celého CRM, úplné serverové schéma a triggery, Přehledy, externí přílohy, distribuční Windows balíček a automatické zálohování na firemní infrastruktuře zůstávají dalšími kroky. Místní a serverová data se automaticky nesynchronizují. Vaše provozní databáze nebyla na server převáděna; testy použily izolovaný základ ze zdrojů CRM a zkušební záznamy.
+Další agendy, společné přepnutí celého CRM, úplné serverové schéma a triggery, Přehledy, externí přílohy, distribuční přepnutí celého CRM a automatické zálohování na firemní infrastruktuře zůstávají dalšími kroky. Místní a serverová data se automaticky nesynchronizují. Vaše provozní databáze nebyla na server převáděna; testy použily izolovaný základ ze zdrojů CRM a zkušební záznamy.
+
+## Samostatný Windows pilot 0.2.0
+
+Navazující změna doplňuje připojení k firemnímu serveru v kanceláři i přes VPN, formulář nastavení, uchování profilu bez hesla, ukázkovou databázi a dvojici přenositelných EXE. [Aktuální běhy workflow](https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/actions/workflows/validate-postgresql-pilot.yml) obsahují výsledky sestavení a archiv ke stažení. Původní odkazy výše dokládají předchozí serverovou etapu; konkrétní Windows sestavení potvrzuje jeho vlastní úspěšný běh.
+
+Workflow nově provádí šest kontrol nastavení a výpadků spojení, dosavadní scénáře PostgreSQL 16/18 a kontrolu přímo ve Windows proti samostatnému PostgreSQL 17 s TLS certifikátem. Sestavený nástroj správce připraví umělou databázi a přiřadí omezené účty. Následně hotové GUI EXE projde formulář připojení, přihlášení editora, založení a úpravu firmy, historii a samostatné přihlášení čtenáře. Program se při této kontrole spouští z prázdné pracovní složky a bez PostgreSQL v PATH. Archiv vznikne pouze po úspěšném výsledku obou EXE relací; obsahuje identifikaci sestaveného commitu a samostatný SHA-256 soubor.
+
+Firemní server, skutečná kancelářská Wi-Fi, firemní VPN a konkrétní počítače uživatele tímto ještě nejsou ověřené. Postup pro tuto zkoušku je v [TRY-PILOT.md](TRY-PILOT.md), požadavky správce v [SERVER.md](SERVER.md).
