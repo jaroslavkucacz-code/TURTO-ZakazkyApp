@@ -270,18 +270,21 @@ class DirectoryTests(unittest.TestCase):
             win.profile_path.set(str(profile_path)); win.schema.set(self.schema)
             win.login.set(self.roles[which]); win.password.set('pilot-person-test-only')
             win.connect_button.invoke(); settle()
+        def select_company():
+            win.tree.selection_set(str(self.company_id))
+            root.update()  # Deliver TreeviewSelect before invoking its enabled action.
+            win.open_button.invoke(); settle()
         try:
             with patch('tkinter.messagebox.showerror') as error_box:
                 login('Editor')
                 self.assertEqual(win.identity['name'], 'Network Editor')
                 self.assertEqual(win.password.get(), '')
                 win.query.set('Network fixture'); win.refresh_button.invoke(); settle()
-                win.tree.selection_set(str(self.company_id)); root.update()
-                win.open_button.invoke(); settle(); editor = win.editor
+                select_company(); editor = win.editor
                 editor.variables['official_name'].set('Network fixture upravená')
                 editor.save_button.invoke(); settle()
                 self.assertEqual(self.current()['official_name'], 'Network fixture upravená')
-                win.tree.selection_set(str(self.company_id)); win.open_button.invoke(); settle(); editor = win.editor
+                select_company(); editor = win.editor
                 self.clients['Editor'].save(self.company_id, 1, {'note': 'other workstation'})
                 editor.variables['official_name'].set('must not overwrite')
                 editor.save_button.invoke(); settle()
@@ -290,7 +293,7 @@ class DirectoryTests(unittest.TestCase):
                 editor.close(); win.disconnect_button.invoke(); login('Reader')
                 self.assertTrue(win.new_button.instate(['disabled']))
                 win.query.set('Network fixture'); win.refresh_button.invoke(); settle()
-                win.tree.selection_set(str(self.company_id)); win.open_button.invoke(); settle()
+                select_company()
                 self.assertTrue(win.editor.save_button.instate(['disabled']))
                 win.editor.close()
                 Path('artifacts/network').mkdir(parents=True, exist_ok=True)
