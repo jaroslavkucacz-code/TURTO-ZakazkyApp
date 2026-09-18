@@ -1175,6 +1175,8 @@ def ensure_schema():
         CREATE INDEX IF NOT EXISTS idx_action_history_action ON action_history(action_id,created_at);
         """)
         company_roles.ensure_columns(con)
+        from price_lists_domain.platform.user_access import ensure_columns as ensure_user_access
+        ensure_user_access(con)
         if not has_column(con,"requests","mail_body"):
             con.execute("ALTER TABLE requests ADD COLUMN mail_body TEXT DEFAULT NULL")
         if not has_column(con,"requests","urgent"):
@@ -3121,19 +3123,22 @@ class ActionDialog(tk.Toplevel):
         self.salesperson_box.grid(row=0,column=0,sticky="ew")
         ttk.Button(sales_wrap,text="⚙ Spravovat",command=self.manage_salespeople).grid(row=0,column=1,padx=(6,0))
 
-        ttk.Label(f,text="Datum přijetí").grid(row=3,column=0,sticky="w",padx=(0,10),pady=5)
-        DatePicker(f,self.received).grid(row=3,column=1,sticky="ew",pady=5)
-        ttk.Label(f,text="Deadline").grid(row=4,column=0,sticky="w",padx=(0,10),pady=5)
-        DatePicker(f,self.deadline).grid(row=4,column=1,sticky="ew",pady=5)
+        ttk.Label(f,text="Řeší").grid(row=3,column=0,sticky="nw",padx=(0,10),pady=5)
+        action_assignees.form_field(sys.modules[__name__],self,f,vals.get("assignees_json","[]"),new=aid is None).grid(
+            row=3,column=1,sticky="ew",pady=5)
+        ttk.Label(f,text="Datum přijetí").grid(row=4,column=0,sticky="w",padx=(0,10),pady=5)
+        DatePicker(f,self.received).grid(row=4,column=1,sticky="ew",pady=5)
+        ttk.Label(f,text="Deadline").grid(row=5,column=0,sticky="w",padx=(0,10),pady=5)
+        DatePicker(f,self.deadline).grid(row=5,column=1,sticky="ew",pady=5)
 
-        ttk.Label(f,text="Stav").grid(row=5,column=0,sticky="w",padx=(0,10),pady=5)
-        safe_combobox(f,textvariable=self.status,values=STATUSES,state="readonly").grid(row=5,column=1,sticky="ew",pady=5)
+        ttk.Label(f,text="Stav").grid(row=6,column=0,sticky="w",padx=(0,10),pady=5)
+        safe_combobox(f,textvariable=self.status,values=STATUSES,state="readonly").grid(row=6,column=1,sticky="ew",pady=5)
 
-        ttk.Label(f,text="Co se řeší").grid(row=6,column=0,sticky="nw",padx=(0,10),pady=5)
+        ttk.Label(f,text="Co se řeší").grid(row=7,column=0,sticky="nw",padx=(0,10),pady=5)
         with db() as con:
             self.topic_values=[r["name"] for r in con.execute(
                 "SELECT name FROM work_topics WHERE active=1 ORDER BY name COLLATE CZECH")]
-        topic_wrap=ttk.Frame(f);topic_wrap.grid(row=6,column=1,sticky="ew",pady=5);topic_wrap.columnconfigure(0,weight=1)
+        topic_wrap=ttk.Frame(f);topic_wrap.grid(row=7,column=1,sticky="ew",pady=5);topic_wrap.columnconfigure(0,weight=1)
         self.topic_entry_var=tk.StringVar()
         self.topic_entry=AutocompleteEntry(topic_wrap,textvariable=self.topic_entry_var,values=self.topic_values)
         self.topic_entry.grid(row=0,column=0,sticky="ew")
@@ -3144,12 +3149,12 @@ class ActionDialog(tk.Toplevel):
         for _topic in re.split(r"\s*[;,]\s*",self.products.get().strip()):
             if _topic:self._append_topic(_topic)
 
-        ttk.Label(f,text="Poznámka").grid(row=7,column=0,sticky="nw",padx=(0,10),pady=5)
-        self.note=tk.Text(f,wrap="word",height=4);self.note.grid(row=7,column=1,sticky="ew")
+        ttk.Label(f,text="Poznámka").grid(row=8,column=0,sticky="nw",padx=(0,10),pady=5)
+        self.note=tk.Text(f,wrap="word",height=4);self.note.grid(row=8,column=1,sticky="ew")
         self.note.insert("1.0",vals.get("note","") or "")
 
         # Čekající Poptávky jsou samostatný procesní stav.
-        row=8
+        row=9
         if aid:
             with db() as con:
                 pending=con.execute("""SELECT r.asked_date,r.item,c.official_name company
@@ -3311,10 +3316,21 @@ class ActionDialog(tk.Toplevel):
             return messagebox.showwarning("Příležitost","Zadejte Akci.",parent=self)
         if not self.add_topic():return
         self.products.set("; ".join(self.selected_topics))
-        user=get_setting("active_user","")
+        user=request_mail.logged_in_user(sys.modules[__name__],self)
 
         with db() as con:
+            con.execute('BEGIN IMMEDIATE')
             try:
+                selected=[uid for uid,var in self.assignee_variables.items() if var.get()]
+                encoded=action_assignees.encode_selection(con,self._original_assignees,selected)
+                if self.aid:
+                    current=con.execute('SELECT assignees_json FROM actions WHERE id=?',(self.aid,)).fetchone()
+                    if not current:
+                        raise ValueError('Záznam už neexistuje.')
+                    if encoded == self._original_assignees:
+                        encoded=current['assignees_json']
+                    elif current['assignees_json'] != self._original_assignees:
+                        raise ValueError('Řešitele mezitím změnil jiný uživatel. Zavřete okno a otevřete jej znovu.')
                 self.selected_topics=[catalog_selection.existing_name(con,"work_topics",part,self._original_topics)
                                       for part in self.selected_topics]
                 self.products.set("; ".join(self.selected_topics))
@@ -3346,11 +3362,11 @@ class ActionDialog(tk.Toplevel):
             vals=(action_name,c["id"] if c else None,s["id"] if s else None,project_id,
                   parse_date(self.received.get()),parse_date(self.deadline.get()),self.status.get(),
                   self.products.get().strip(),self.next.get().strip(),
-                  self.note.get("1.0","end").strip(),user)
+                    self.note.get("1.0","end").strip(),user,encoded)
             if self.aid:
                 old=con.execute("SELECT * FROM actions WHERE id=?",(self.aid,)).fetchone()
                 con.execute("""UPDATE actions SET name=?,company_id=?,salesperson_id=?,project_id=?,created_date=?,deadline=?,
-                    status=?,products=?,next_step=?,note=?,updated_by=?,updated_at=CURRENT_TIMESTAMP WHERE id=?""",
+                    status=?,products=?,next_step=?,note=?,updated_by=?,assignees_json=?,updated_at=CURRENT_TIMESTAMP WHERE id=?""",
                     vals+(self.aid,))
                 aid=self.aid
                 changes=[]
@@ -3362,9 +3378,13 @@ class ActionDialog(tk.Toplevel):
                     ov=old[k] if old[k] is not None else ""
                     vv=v if v is not None else ""
                     if str(ov)!=str(vv):changes.append(f"{labels[k]}: {ov or '—'} → {vv or '—'}")
+                if old['assignees_json'] != encoded:
+                    con.execute('''INSERT INTO action_history(action_id,user_name,event_type,summary,details)
+                        VALUES(?,?,'action_assignees','Změnil řešitele',?)''',
+                        (aid,user,f"Řeší: {action_assignees.display(old['assignees_json']) or '—'} → {action_assignees.display(encoded) or '—'}"))
             else:
                 aid=con.execute("""INSERT INTO actions(name,company_id,salesperson_id,project_id,created_date,deadline,status,
-                    products,next_step,note,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",vals).lastrowid
+                    products,next_step,note,updated_by,assignees_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",vals).lastrowid
                 changes=[]
 
         if self.aid:
@@ -4325,8 +4345,9 @@ class App(tk.Tk):
         self.refresh_notes_button()
         self.bell_button=ttk.Button(top,text="🔔",style="TopAction.TButton",width=5,command=self.open_notifications)
         self.bell_button.grid(row=0,column=4,padx=(6,0))
-        ttk.Button(top,text="⚙",style="TopAction.TButton",width=4,
-                   command=lambda:self.show_page("settings")).grid(row=0,column=5,padx=(6,0))
+        self.settings_button=ttk.Button(top,text="⚙",style="TopAction.TButton",width=4,
+                   command=lambda:self.show_page("settings"))
+        self.settings_button.grid(row=0,column=5,padx=(6,0))
 
         # Hlavní horizontální navigace.
         navrow=ttk.Frame(root,style="NavBar.TFrame")
@@ -4342,7 +4363,7 @@ class App(tk.Tk):
         self.pages.grid(row=0,column=0,sticky="nsew",padx=18,pady=(14,8))
         self.pages.rowconfigure(0,weight=1);self.pages.columnconfigure(0,weight=1)
         self.tabs={}
-        for k in ("dash","actions","requests","mivo","offers","tasks","projects","people","companies","help","settings"):
+        for k in ("dash","business","actions","requests","mivo","offers","tasks","projects","people","companies","help","settings"):
             p=ttk.Frame(self.pages,style="App.TFrame")
             p.grid(row=0,column=0,sticky="nsew")
             self.tabs[k]=p
@@ -6698,17 +6719,27 @@ $s.Save()
         ttk.Label(f,text="Správa uživatelů",font=("Calibri",15,"bold")).grid(row=0,column=0,sticky="w")
         ttk.Label(f,text="Smazání uživatele neovlivní historii. Historické záznamy uchovávají původní jméno jako text.",
                   wraplength=570).grid(row=1,column=0,sticky="ew",pady=(2,10))
-        tree=ttk.Treeview(f,columns=("Jméno","Stav"),show="headings",selectmode="browse",height=12, name='layout__app__app__manage_users__tree')
-        tree.heading("Jméno",text="Jméno");tree.heading("Stav",text="Stav")
-        tree.column("Jméno",width=360);tree.column("Stav",width=140);tree.grid(row=2,column=0,sticky="nsew")
+        tree=ttk.Treeview(f,columns=("Jméno","Funkce","Stav"),show="headings",selectmode="browse",height=12, name='layout__app__app__manage_users__tree')
+        for key,width in (("Jméno",280),("Funkce",260),("Stav",120)):
+            tree.heading(key,text=key);tree.column(key,width=width)
+        tree.grid(row=2,column=0,sticky="nsew")
 
         def refresh():
             for x in tree.get_children():tree.delete(x)
-            with db() as con:rows=con.execute("SELECT id,name,active FROM users ORDER BY active DESC,name COLLATE CZECH").fetchall()
-            for r in rows:tree.insert("","end",iid=f"u{r['id']}",values=(r["name"],"Aktivní" if r["active"] else "Neaktivní"))
+            with db() as con:rows=con.execute("SELECT id,name,active,job_title FROM users ORDER BY active DESC,name COLLATE CZECH").fetchall()
+            for r in rows:tree.insert("","end",iid=f"u{r['id']}",values=(r["name"],r["job_title"],"Aktivní" if r["active"] else "Neaktivní"))
 
         def selected():
             s=tree.selection();return int(s[0][1:]) if s else None
+
+        def permissions():
+            uid=selected()
+            if not uid:return messagebox.showinfo("Uživatel","Vyberte uživatele.",parent=d)
+            from price_lists_domain.platform.user_access_ui import open_profile
+            win=open_profile(sys.modules[__name__],self,d,uid)
+            if win is not None:
+                self.wait_window(win);refresh()
+                if tree.exists(f'u{uid}'):tree.selection_set(f'u{uid}')
 
         def add():
             name=simpledialog.askstring("Nový uživatel","Jméno uživatele:",parent=d)
@@ -6772,6 +6803,7 @@ $s.Save()
         ttk.Button(b,text="✎ Upravit uživatele",command=edit).grid(row=0,column=1,sticky="ew",padx=3,pady=3)
         ttk.Button(b,text="🗑 Smazat uživatele",command=delete).grid(row=0,column=2,sticky="ew",padx=3,pady=3)
         ttk.Button(b,text="Aktivní / neaktivní",command=toggle).grid(row=1,column=0,sticky="ew",padx=3,pady=3)
+        ttk.Button(b,text="Funkce a oprávnění…",command=permissions).grid(row=1,column=1,sticky="ew",padx=3,pady=3)
         ttk.Button(b,text="Zavřít",command=d.destroy).grid(row=1,column=2,sticky="ew",padx=3,pady=3)
         for _c in range(3):b.columnconfigure(_c,weight=1)
         bind_row_double_click(tree,lambda e:edit())

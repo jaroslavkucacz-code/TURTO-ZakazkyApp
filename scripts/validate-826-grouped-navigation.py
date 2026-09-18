@@ -127,10 +127,11 @@ def ui_checks(td):
         assert 'directory' not in root.tabs and 'technical' not in root.tabs
 
         def keys(parent):
-            return [next(k for k, b in root.nav.items() if b is widget) for widget in parent.pack_slaves()]
+            widgets = parent.pack_slaves() or sorted(parent.place_slaves(), key=lambda w: (w.winfo_y(), w.winfo_x()))
+            return [next(k for k, b in root.nav.items() if b is widget) for widget in widgets]
 
         def hierarchy():
-            assert keys(root.main_nav) == ['dash', 'technical', 'pricelists', 'issued_offers', 'received_orders', 'projects', 'reports', 'directory']
+            assert keys(root.main_nav) == ['dash', 'business', 'technical', 'pricelists', 'issued_offers', 'received_orders', 'projects', 'reports', 'directory']
             assert keys(root.nav_groups['directory']) == ['companies', 'people']
             assert keys(root.nav_groups['technical']) == ['actions', 'requests', 'mivo', 'offers', 'tasks']
             for key in navigation.PAGE_GROUP:

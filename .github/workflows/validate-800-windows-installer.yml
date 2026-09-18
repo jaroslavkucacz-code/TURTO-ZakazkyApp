@@ -3,12 +3,14 @@ name: Validate TURTO CRM 8.0 Windows installer
 on:
   workflow_dispatch:
   push:
-    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress, feature/8.0.13-remove-quick-actions, fix/8.0.14-table-initial-layout, feature/8.0.15-persistent-table-layouts, fix/8.0.16-autocomplete-focus, feature/8.0.17-form-navigation-unsaved, feature/8.0.18-large-dialogs, fix/8.0.19-dialog-first-show, feature/8.0.20-calm-theme, feature/8.0.21-universal-search, fix/8.0.22-filter-highlights-separators, feature/8.0.23-issued-delete-project-activity, feature/8.0.24-received-offer-detail, feature/8.0.25-offer-request-received, feature/8.0.26-grouped-navigation, feature/8.0.27-work-processing-catalogs, feature/8.0.28-company-roles-orders, feature/8.0.29-request-mail-profiles, feature/8.0.30-backup-retention, fix/8.0.31-legacy-backup-cleanup, feature/8.0.32-monthly-reports, feature/8.0.33-request-assignees-company-links]
+    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress, feature/8.0.13-remove-quick-actions, fix/8.0.14-table-initial-layout, feature/8.0.15-persistent-table-layouts, fix/8.0.16-autocomplete-focus, feature/8.0.17-form-navigation-unsaved, feature/8.0.18-large-dialogs, fix/8.0.19-dialog-first-show, feature/8.0.20-calm-theme, feature/8.0.21-universal-search, fix/8.0.22-filter-highlights-separators, feature/8.0.23-issued-delete-project-activity, feature/8.0.24-received-offer-detail, feature/8.0.25-offer-request-received, feature/8.0.26-grouped-navigation, feature/8.0.27-work-processing-catalogs, feature/8.0.28-company-roles-orders, feature/8.0.29-request-mail-profiles, feature/8.0.30-backup-retention, fix/8.0.31-legacy-backup-cleanup, feature/8.0.32-monthly-reports, feature/8.0.33-request-assignees-company-links, feature/8.0.34-user-permissions-assignees]
   pull_request:
     paths:
       - ZakazkyApp_base_6.1/price_lists_domain/monthly_reports/**
       - scripts/validate-832-monthly-reports.py
       - scripts/validate-833-company-links.py
+      - scripts/validate-834-user-access.py
+      - ZakazkyApp_base_6.1/price_lists_domain/platform/*access*.py
       - scripts/reporting_832_import_tests.py
       - ZakazkyApp_base_6.1/storage_maintenance.py
       - ZakazkyApp_base_6.1/price_lists_domain/platform/storage_ui.py
@@ -94,6 +96,7 @@ jobs:
       - name: Behavioral source regressions on Linux
         run: |
           python -m pip install XlsxWriter
+          python scripts/validate-834-user-access.py --source-only
           python scripts/validate-833-company-links.py --source-only
           python scripts/validate-832-monthly-reports.py --source-only
           python scripts/validate-830-storage.py --source-only
@@ -132,6 +135,8 @@ jobs:
       - name: Validate installer architecture and real Windows updater semantics
         shell: pwsh
         run: |
+          python scripts/validate-834-user-access.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-833-company-links.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-832-monthly-reports.py
@@ -186,6 +191,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-815-table-preferences-ui.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Archive user permissions previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TURTO-CRM-user-access-preview
+          path: build/validation/user-access-834/
+          if-no-files-found: ignore
       - name: Archive company matching previews
         if: always()
         uses: actions/upload-artifact@v4

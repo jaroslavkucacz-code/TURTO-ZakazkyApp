@@ -124,6 +124,9 @@ class ManagementUI:
         footer=tk.Frame(win,bg=COLORS['bg']);footer.pack(fill='x',padx=20,pady=16)
         def cancel():self._import_busy=False;win.grab_release();win.destroy()
         def commit():
+            from ..platform.user_access import allowed
+            if not allowed(self.module, win, 'reports_imports'):
+                return
             replacing=update.get();win.grab_release();win.destroy()
             def finished(result):
                 self._import_busy=False;self.refresh_company_links();self._populate_periods();self.refresh_current()

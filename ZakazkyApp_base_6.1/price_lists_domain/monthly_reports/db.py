@@ -127,6 +127,10 @@ class Database:
         con.execute('PRAGMA foreign_keys=ON')
         con.execute('PRAGMA synchronous=FULL')
         con.execute('PRAGMA busy_timeout=20000')
+        if hasattr(self, 'can_write') and not self.can_write():
+            writes = {sqlite3.SQLITE_INSERT, sqlite3.SQLITE_UPDATE, sqlite3.SQLITE_DELETE,
+                      sqlite3.SQLITE_DROP_TABLE, sqlite3.SQLITE_ALTER_TABLE, sqlite3.SQLITE_CREATE_TABLE}
+            con.set_authorizer(lambda op, *args: sqlite3.SQLITE_DENY if op in writes else sqlite3.SQLITE_OK)
         try:
             yield con
             con.commit()
