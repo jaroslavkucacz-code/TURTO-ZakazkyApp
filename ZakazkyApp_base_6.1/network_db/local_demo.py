@@ -163,7 +163,9 @@ class LocalDemo:
 
     def command(self, name, *args, timeout=30):
         with external_libraries():
-            result = subprocess.run([str(self.bin / name), *args], cwd=self.folder, env=self.env,
+            # initdb invokes postgres through cmd.exe after restricting its token.
+            # Keep its CWD in the readable runtime, not a private temporary folder.
+            result = subprocess.run([str(self.bin / name), *args], cwd=self.bin, env=self.env,
                 stdin=subprocess.DEVNULL, stdout=self.log, stderr=self.log, timeout=timeout,
                 creationflags=subprocess.CREATE_NO_WINDOW)
         if result.returncode:

@@ -50,7 +50,9 @@ def main():
         assert hba == 'host all all 127.0.0.1/32 scram-sha-256\n'
         assert not (session.folder / 'initial-password.txt').exists()
         if args.wait_for_termination:
-            report.write_text(json.dumps({'ready': True, 'port': session.port, 'pid': session.server_pid}), encoding='utf-8')
+            pending = report.with_suffix('.pending')
+            pending.write_text(json.dumps({'ready': True, 'port': session.port, 'pid': session.server_pid}), encoding='utf-8')
+            pending.replace(report)
             root.mainloop()  # Parent CI deliberately kills this process to verify OS child cleanup.
             return 1
         first = next(iter(app.windows))
