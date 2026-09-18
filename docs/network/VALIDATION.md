@@ -1,24 +1,29 @@
 # Stav první etapy přechodu na PostgreSQL
 
-Datum kontroly 18. září 2026. Základ CRM 8.0.34, hlavní větev `d060d96`. Práce je v místní větvi `feature/postgresql-pilot`; nebyla začleněna do hlavní větve ani vydána jako aktualizace.
+Datum kontroly 18. září 2026. Základ CRM 8.0.34, hlavní větev `d060d96`. Testovací větev `feature/postgresql-pilot` je dostupná jako [draft PR 108](https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/pull/108). Nebyla začleněna do hlavní větve ani vydána jako aktualizace.
+
+**První převod dat prošel na standardním PostgreSQL 16 i 18.** Výsledek potvrzuje [běh serverových testů](https://github.com/jaroslavkucacz-code/TURTO-ZakazkyApp/actions/runs/35349305873) pro commit `9cc4473b9c0a878febfd2b52d7ca6a8025ccbd05`. Následující změna tohoto protokolu upravuje pouze dokumentaci, nikoli ověřovaný kód.
 
 ## Provedené kontroly
 
 | Oblast | Výsledek |
 | --- | --- |
 | Syntaxe nových modulů | Prošla |
-| Bezpečnost SQLite zdroje a profilů připojení | 13 testů prošlo |
-| Stávající správa souborů a záloh CRM | 14 testů prošlo |
-| Stávající oprávnění CRM 8.0.34 | Databázová část regresní kontroly prošla |
-| Inventura schématu vytvořeného aktuálním CRM | 50 běžných tabulek, 38 triggerů, 89 explicitních indexů; všechny běžné tabulky prošly kontrolou datových typů a obsahu |
-| PostgreSQL 16 a 18 | Workflow připraveno, zatím nespuštěno |
-| Převod přes ovladač, rollback, souběh a skutečná obnova | 8 integračních testů připraveno, na standardním serveru zatím neověřeno |
-| Windows GUI a souběžná práce na dvou PC | V této etapě netestováno; GUI ještě není připojeno k PostgreSQL |
+| PostgreSQL 16 | 21 testů prošlo, žádný přeskočený |
+| PostgreSQL 18 | 21 testů prošlo, žádný přeskočený |
+| Bezpečnost SQLite zdroje a profilů připojení | 13 z uvedených 21 testů na každé verzi serveru |
+| Serverové integrační scénáře | 8 z uvedených 21 testů na každé verzi serveru |
+| Stávající správa souborů a záloh CRM | Dalších 14 testů prošlo na obou prostředích |
+| Stávající oprávnění CRM 8.0.34 | Databázová regresní kontrola prošla na obou prostředích |
+| Inventura schématu vytvořeného aktuálním CRM | 50 běžných tabulek, 38 triggerů, 89 explicitních indexů; běžné tabulky prošly kontrolou datových typů a obsahu |
+| Napojení GUI na server a práce na dvou PC | Dosud neimplementováno; GUI stále používá SQLite |
 
-Lokální pokus použít PGlite s TCP adaptérem selhal při přenosu `COPY FROM STDIN` na úrovni protokolu. Tento pokus se nepočítá jako úspěšný integrační test a není náhradou za testování na standardním PostgreSQL. Produkční přenos nebyl kvůli omezení tohoto náhradního prostředí měněn.
+Serverové testy ověřily převod celého schématu aktuálního CRM se zkušebními obchodními záznamy, české texty, binární přílohy, duplicity, číselné hodnoty a zachování čítačů po odstraněných ID. Dále ověřily opětovné porovnání dat, vynucení cizích a unikátních klíčů, odmítnutí přepsání existujícího cíle, vrácení celé transakce při chybě, souběh dvou převodů do stejného schématu a utajení hesla při chybě spojení.
 
-Uživatel 18. září 2026 výslovně schválil odeslání testovací větve na GitHub a spuštění ověřovacích testů. Odeslání a serverové testy právě probíhají; jejich výsledky budou doplněny po dokončení. Před úspěšným dokončením se tato etapa nesmí označit za ověřený převod na serveru.
+Záloha přes `pg_dump` byla skutečně obnovena pomocí `pg_restore` do jiné testovací databáze. Následná kontrola všech převedených tabulek potvrdila shodné počty řádků a otisky obsahu.
 
-## Rozsah následující revize
+Dřívější lokální pokus použít PGlite s TCP adaptérem selhal při přenosu `COPY FROM STDIN` na úrovni protokolu. Následné úspěšné testy proběhly na standardních PostgreSQL serverech; přenos nebyl upraven kvůli omezení náhradního prostředí.
 
-Připravený kód přidává samostatný modul pro kontrolu a převod kopie dat, profil spojení, zálohu, testy a návod. Neupravuje produkční továrnu spojení, verzi aplikace, její aktualizační manifesty ani databázi uživatele. První větev je určena pro revizi a doplnění integrace popsané v README. Serverové přihlášení, oprávnění, úplné schéma, přílohy, Přehledy a napojení obrazovek zůstávají dalšími kroky.
+## Rozsah následující etapy
+
+Ověřený výsledek je datová kopie pro další vývoj a nadále má `application_ready=false`. Ještě není provozní databází pro připojení stávajícího CRM. Převod SQL dotazů, úplného schématu a triggerů, serverové přihlášení a oprávnění, souběžné editace agend, přílohy, Přehledy a napojení obrazovek zůstávají dalšími kroky popsanými v README. Vaše aktuální provozní databáze nebyla na server převáděna; testy použily izolovaný základ ze zdrojů CRM a zkušební záznamy.
