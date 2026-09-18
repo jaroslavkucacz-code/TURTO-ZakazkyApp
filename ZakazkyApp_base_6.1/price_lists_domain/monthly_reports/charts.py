@@ -134,7 +134,7 @@ class _CanvasFrame(tk.Frame):
         tw,th=box[2]-box[0]+24,box[3]-box[1]+18
         x=max(2,min(x,w-tw-2));y=max(2,min(y,h-th-2))
         c.move(item,x+12-box[0],y+9-box[1])
-        rect=c.create_rectangle(x,y,x+tw,y+th,fill='#0D1524',outline=COLORS['border'],tags=('tooltip',))
+        rect=c.create_rectangle(x,y,x+tw,y+th,fill=COLORS['panel_soft'],outline=COLORS['border'],tags=('tooltip',))
         c.tag_lower(rect,item)
 
     def _notify(self,callback,data):
@@ -154,6 +154,7 @@ class BusinessChart(_CanvasFrame):
                  preferences=None,on_state_change=None):
         super().__init__(master)
         self._all_data=[dict(x) for x in data];self._data=self._all_data[:]
+        self.SERIES=(('revenue','Obrat',COLORS['teal']),('profit','Zisk',COLORS['amber']),('margin','Marže %',COLORS['blue']))
         for row in self._data:
             if row.get('profit_complete') is False:row['margin']=None
         if trim_trailing_empty:

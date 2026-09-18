@@ -85,7 +85,7 @@ class StorageTests(unittest.TestCase):
         config.write_text(json.dumps({'database_path': str(self.source.path)}), encoding='utf-8-sig')
         before = config.read_bytes()
         with patch.dict(os.environ, {'TURTO_REPORTING_DATA_ROOT': str(folder)}):
-            self.assertEqual(standalone_database(), self.source.path)
+            self.assertEqual(standalone_database(), self.source.path.resolve())
         self.assertEqual(config.read_bytes(), before)
 
 
