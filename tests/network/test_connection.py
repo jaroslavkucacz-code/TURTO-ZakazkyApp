@@ -32,7 +32,7 @@ class ConnectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'profile.json'
             path.write_text(json.dumps(Profile('crm.example.test', 'pilot', 'jana', sslrootcert='ca.pem').public()))
-            self.assertEqual(settings.load(path)[0].sslrootcert, str(Path(tmp) / 'ca.pem'))
+            self.assertEqual(settings.load(path)[0].sslrootcert, str((Path(tmp) / 'ca.pem').resolve()))
 
     def test_profile_secrets_unknown_fields_and_unsafe_remote_tls_are_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
