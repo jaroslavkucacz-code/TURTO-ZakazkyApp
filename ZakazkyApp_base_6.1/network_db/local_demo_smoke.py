@@ -6,6 +6,7 @@ from pathlib import Path
 import socket
 import sys
 import time
+import traceback
 
 
 def main():
@@ -44,7 +45,7 @@ def main():
         assert session.profiles['editor1'].dbname == 'turto_local_demo'
         with session.profiles['editor1'].connect() as con:
             assert con.execute('SHOW listen_addresses').fetchone()[0] == '127.0.0.1'
-            assert con.execute('SELECT inet_server_addr()::text').fetchone()[0] == '127.0.0.1'
+            assert con.execute('SELECT host(inet_server_addr())').fetchone()[0] == '127.0.0.1'
             assert con.execute('SELECT rolsuper FROM pg_roles WHERE rolname=current_user').fetchone()[0] is False
         hba = (session.cluster / 'pg_hba.conf').read_text()
         assert hba == 'host all all 127.0.0.1/32 scram-sha-256\n'
@@ -109,6 +110,8 @@ def main():
                       graceful_stop=True, temporary_data_removed=True, loopback_only=True)
     except Exception as exc:
         result.update(error_type=type(exc).__name__, phase=app.session.phase)
+        result['failure_location'] = [f'{Path(frame.filename).name}:{frame.lineno}:{frame.name}'
+            for frame in traceback.extract_tb(exc.__traceback__)]
         if isinstance(exc, AssertionError):
             result['assertion'] = str(exc)
         if app.session.failure_log:
