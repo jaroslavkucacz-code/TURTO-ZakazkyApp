@@ -1,4 +1,4 @@
-# Windows-only, two entry points sharing one portable runtime.
+# Windows-only, explicit network client and local demonstration entry points.
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_all
 
@@ -16,4 +16,6 @@ gui = EXE(pyz, a.scripts, [], exclude_binaries=True, name='TURTO-CRM-Sitovy-Pilo
           console=False, upx=False, icon=str(base / 'turto_logo.ico'))
 admin = EXE(pyz, a.scripts, [], exclude_binaries=True, name='TURTO-CRM-Pilot-Admin',
             console=True, upx=False, icon=str(base / 'turto_logo.ico'))
-coll = COLLECT(gui, admin, a.binaries, a.datas, name='TURTO-CRM-Sitovy-Pilot', upx=False)
+demo = EXE(pyz, a.scripts, [], exclude_binaries=True, name='TURTO-CRM-Mistni-Ukazka',
+           console=False, upx=False, icon=str(base / 'turto_logo.ico'))
+coll = COLLECT(gui, admin, demo, a.binaries, a.datas, name='TURTO-CRM-Sitovy-Pilot', upx=False)

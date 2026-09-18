@@ -5,6 +5,12 @@ import sys
 
 
 def main():
+    if Path(sys.executable).stem == 'TURTO-CRM-Mistni-Ukazka':
+        if '--demo-smoke-test' in sys.argv:
+            from .local_demo_smoke import main as smoke
+            return smoke()
+        from .local_demo_ui import main as demo
+        return demo()
     if Path(sys.executable).stem.endswith('-Admin'):
         for stream in (sys.stdout, sys.stderr):
             if stream is not None:

@@ -12,9 +12,13 @@ from . import settings
 
 
 class PilotWindow(tk.Toplevel):
-    def __init__(self, master):
+    def __init__(self, master, local_demo=None, demo_role='editor1'):
         super().__init__(master)
+        self.local_demo, self.demo_role = local_demo, demo_role
+        self.demo_buttons = []
         self.title('TURTO CRM – síťový pilot společností')
+        if local_demo:
+            self.title('TURTO CRM – místní ukázka')
         self.geometry('1060x720'); self.minsize(780, 560)
         self.option_add('*' + self.winfo_name() + '*Font', 'Calibri 11')
         self.client = None
@@ -26,8 +30,10 @@ class PilotWindow(tk.Toplevel):
         self.editor = None
         self._poll_id = None
         body = ttk.Frame(self, padding=14); body.pack(fill='both', expand=True)
-        ttk.Label(body, text='Společnosti na serveru – testovací provoz', font=('Calibri', 14, 'bold')).pack(anchor='w')
-        ttk.Label(body, text='Pracujete s kopií dat na serveru. Oprávnění určuje váš osobní serverový účet.').pack(anchor='w', pady=(3, 12))
+        ttk.Label(body, text='Společnosti – místní ukázka' if local_demo else 'Společnosti na serveru – testovací provoz',
+                  font=('Calibri', 14, 'bold')).pack(anchor='w')
+        ttk.Label(body, text='Jen umělá data na tomto PC. Po zavření všech oken se ukázka smaže.' if local_demo else
+                  'Pracujete s kopií dat na serveru. Oprávnění určuje váš osobní serverový účet.').pack(anchor='w', pady=(3, 12))
         connect = ttk.LabelFrame(body, text='Připojení', padding=10); connect.pack(fill='x')
         connect.columnconfigure(1, weight=1)
         self.profile_path = tk.StringVar(self)
@@ -51,6 +57,15 @@ class PilotWindow(tk.Toplevel):
         self.disconnect_button.grid(row=3, column=2, padx=(8, 0))
         self.password_entry = self.connection_widgets[3]
         self.password_entry.bind('<Return>', lambda e=None: self.connect() if e is not None else None)
+        if local_demo:
+            connect.pack_forget()
+            roles = ttk.LabelFrame(body, text='Zkušební uživatel', padding=10); roles.pack(fill='x')
+            for role, label in (('editor1', 'Editor 1'), ('editor2', 'Editor 2'), ('reader', 'Pouze čtení')):
+                button = ttk.Button(roles, text=label, command=lambda role=role: self.switch_demo_role(role))
+                button.pack(side='left', padx=(0, 8)); self.demo_buttons.append((button, role))
+            self.demo_window_button = ttk.Button(roles, text='Otevřít druhé okno',
+                command=lambda: local_demo.open_window('editor2'))
+            self.demo_window_button.pack(side='right')
         self.status = tk.StringVar(self, 'Nastavte připojení a přihlaste se. Z domova nejprve zapněte firemní VPN.')
         ttk.Label(body, textvariable=self.status, wraplength=980).pack(fill='x', pady=10)
         controls = ttk.Frame(body); controls.pack(fill='x', pady=(0, 8))
@@ -82,11 +97,12 @@ class PilotWindow(tk.Toplevel):
         self.previous_button = ttk.Button(footer, text='← Předchozí', command=lambda: self.page(-1))
         self.previous_button.pack(side='right', padx=8)
         self.protocol('WM_DELETE_WINDOW', self.close)
-        try:
-            profile, schema = settings.load(settings.default_path())
-            self.profile_path.set(str(settings.default_path())); self.schema.set(schema); self.login.set(profile.user)
-        except Exception:
-            pass  # No automatic connection and no fallback to a local database.
+        if not local_demo:
+            try:
+                profile, schema = settings.load(settings.default_path())
+                self.profile_path.set(str(settings.default_path())); self.schema.set(schema); self.login.set(profile.user)
+            except Exception:
+                pass  # No automatic connection and no fallback to a local database.
         self._controls()
 
     def configure_connection(self):
@@ -117,6 +133,15 @@ class PilotWindow(tk.Toplevel):
                   self.next_button: level >= 1 and self.offset + 100 < self.total}
         for widget, enabled in states.items():
             widget.configure(state='normal' if enabled and not self.busy else 'disabled')
+        for button, role in self.demo_buttons:
+            button.configure(state='disabled' if self.busy or (self.client and self.demo_role == role) else 'normal')
+        if self.local_demo:
+            self.demo_window_button.configure(state='disabled' if self.busy else 'normal')
+
+    def switch_demo_role(self, role):
+        if self.local_demo and self.disconnect():
+            self.demo_role = role
+            self.connect()
 
     def run(self, action, success, failure=None):
         if self.busy:
@@ -155,12 +180,15 @@ class PilotWindow(tk.Toplevel):
         if self.busy or self.client:
             return
         try:
-            profile, _ = settings.load(self.profile_path.get())
-            profile = replace(profile, user=self.login.get().strip())
-            if not self.password.get():
-                messagebox.showerror('Připojení', 'Vyplňte heslo osobního serverového účtu.', parent=self)
-                return
-            candidate = DirectoryClient(profile, self.schema.get().strip(), password=self.password.get())
+            if self.local_demo:
+                candidate = self.local_demo.client(self.demo_role)
+            else:
+                profile, _ = settings.load(self.profile_path.get())
+                profile = replace(profile, user=self.login.get().strip())
+                if not self.password.get():
+                    messagebox.showerror('Připojení', 'Vyplňte heslo osobního serverového účtu.', parent=self)
+                    return
+                candidate = DirectoryClient(profile, self.schema.get().strip(), password=self.password.get())
         except Exception:
             messagebox.showerror('Připojení', 'Zkontrolujte profil, testovací schéma a serverový účet.', parent=self)
             return
@@ -207,6 +235,9 @@ class PilotWindow(tk.Toplevel):
         self.identity, self.total = result['identity'], result['total']
         rights = 'úpravy povoleny' if self.identity['companies'] >= 2 else 'pouze čtení'
         self.status.set(f"{self.identity['name']} – {rights}. Zobrazeno {len(result['items'])} z {self.total} společností.")
+        if self.local_demo:
+            label = {'editor1': 'Editor 1', 'editor2': 'Editor 2', 'reader': 'Čtenář'}[self.demo_role]
+            self.status.set(f"Místní ukázka · {label} · {rights}. Zobrazeno {len(result['items'])} z {self.total} společností.")
         self._controls()
 
     def page(self, direction):

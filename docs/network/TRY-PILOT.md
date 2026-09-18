@@ -1,8 +1,22 @@
-# TURTO CRM – síťový pilot 0.2.0 pro Windows
+# TURTO CRM – pilot 0.3.0 s místní ukázkou pro Windows
 
 Tento balíček umožňuje vyzkoušet serverovou agendu Společnosti ve Windows bez instalace Pythonu. Jde o samostatný zkušební program. Běžné CRM spouštějte dál jeho stávající ikonou.
 
-## První spuštění
+## Vyzkoušení hned, bez firemního serveru
+
+1. Rozbalte stažený archiv a případný vnitřní ZIP do nové místní složky, například do Dokumentů. Ponechte pohromadě všechny soubory a složky, zejména `_internal` a `postgresql`.
+2. Spusťte **TURTO-CRM-Mistni-Ukazka.exe** běžným dvojklikem. Nemusíte vyplňovat server, heslo, certifikát ani zapínat VPN. Příprava při spuštění může chvíli trvat.
+3. Založte společnost tlačítkem **Nová společnost**, upravte poznámku a vyzkoušejte **Historii změn**.
+4. Přepněte na **Pouze čtení**: společnosti lze prohlížet, tlačítka úprav jsou vypnutá. Na **Editor 1** nebo **Editor 2** lze přepnout zpět.
+5. Pro souběžnou práci klikněte na **Otevřít druhé okno**. V obou oknech otevřete tutéž společnost. V prvním uložte změnu poznámky a ve druhém zkuste uložit jinou. Program oznámí, že záznam mezitím změnil jiný uživatel.
+
+**Používejte jen vymyšlené údaje. Po zavření všech oken se ukázková databáze smaže; další spuštění začne znovu.** Nejde o místní kopii vašich skutečných dat. Otevření druhého okna uvnitř ukázky sdílí stejnou databázi; druhý dvojklik na EXE založí samostatnou novou ukázku.
+
+Ukázka spouští přiložený PostgreSQL pouze na tomto PC, na adrese 127.0.0.1 a volném místním portu. Neinstaluje službu Windows, nepotřebuje oprávnění správce ani nemění firewall. Nepoužívá nastavení firemního připojení. Databázové procesy se ukončí i při násilném zavření programu; po takovém přerušení může zůstat dočasná složka v `%LOCALAPPDATA%\TURTO\CRM-Local-Demo`. Nové spuštění ji nepoužije. Distribuční licence PostgreSQL a jeho součástí jsou zachované v přiložené složce `postgresql`.
+
+Tento pokus ověří Společnosti, oprávnění, historii a souběžné úpravy. Dostupnost firemního serveru, Wi-Fi a VPN se ověřuje zvlášť při následujícím zapojení.
+
+## Zapojení do firemní sítě se správcem
 
 1. Rozbalte celý ZIP do nové místní složky, například `C:\TURTO-pilot`. Ponechte u obou EXE i složku `_internal`. Program nespouštějte přímo z okna ZIP a nekopírujte pouze samotné EXE.
 2. Správce připraví na firemním serveru PostgreSQL a zkušební databázi. Postup je ve složce `pro-spravce`, soubor `SERVER.md`. Balíček obsahuje umělá ukázková data, takže první pokus nevyžaduje převod vašich provozních dat.
@@ -27,4 +41,4 @@ Pokud se při prvním startu objeví kontrola neznámého vydavatele, balíček 
 
 Fungují Společnosti: vyhledání, založení, úprava základních údajů, aktivita, role odběratel/dodavatel a historie. Další agendy CRM zatím nejsou napojené. Změny testovací kopie se nepřenášejí do běžného CRM. Balíček nepoužívá jeho aktualizační kanál ani registraci instalace.
 
-Počítače mají lokálně jen program a nastavení spojení. PostgreSQL musí běžet jako databázová služba na firemním serveru nebo na vyhrazeném stroji v jeho síti. Pouhá sdílená složka pro tuto variantu nestačí.
+Pro firemní režim musí PostgreSQL běžet na firemním serveru nebo na vyhrazeném stroji v jeho síti. Pouhá sdílená složka pro tuto variantu nestačí. Místní ukázka nenahrazuje firemní databázi a síťový klient na ni při výpadku spojení automaticky nepřechází.

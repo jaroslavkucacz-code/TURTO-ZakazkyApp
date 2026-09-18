@@ -136,13 +136,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m PyInstaller --noconfirm --clean build/network-pilot/pilot.spec
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/network_bundle_postgres.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Test actual admin and GUI executables with two accounts over verified TLS
         run: python scripts/network_frozen_smoke.py
+      - name: Test local demo with bundled PostgreSQL and automatic process cleanup
+        run: python scripts/network_local_smoke.py
       - name: Package the tested pilot
         run: python scripts/network_package.py
       - uses: actions/upload-artifact@v4
         with:
-          name: TURTO-CRM-Sitovy-Pilot-0.2.0-Windows-x64
+          name: TURTO-CRM-Pilot-s-Mistni-Ukazkou-0.3.0-Windows-x64
           path: artifacts/network/package/*
           if-no-files-found: error
           retention-days: 90
