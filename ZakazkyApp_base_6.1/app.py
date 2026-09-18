@@ -3467,14 +3467,18 @@ class RequestDialog(tk.Toplevel):
         self.action_box.grid(row=0,column=0,sticky="ew")
         ttk.Button(action_wrap,text="+ Nová akce",command=self.new_action).grid(row=0,column=1,padx=(6,0))
 
-        ttk.Label(f,text="Poptáno").grid(row=3,column=0,sticky="w",padx=(0,10),pady=5)
-        DatePicker(f,self.asked).grid(row=3,column=1,sticky="ew",pady=5)
+        ttk.Label(f,text="Řeší").grid(row=3,column=0,sticky="nw",padx=(0,10),pady=5)
+        self.assigned_box=InlineChoice(f,textvariable=self.assigned,values=self.user_names,editable=True,max_rows=6)
+        self.assigned_box.grid(row=3,column=1,sticky="ew",pady=5)
 
-        ttk.Label(f,text="Obdrženo").grid(row=4,column=0,sticky="w",padx=(0,10),pady=5)
-        DatePicker(f,self.received).grid(row=4,column=1,sticky="ew",pady=5)
+        ttk.Label(f,text="Poptáno").grid(row=4,column=0,sticky="w",padx=(0,10),pady=5)
+        DatePicker(f,self.asked).grid(row=4,column=1,sticky="ew",pady=5)
 
-        ttk.Label(f,text="Poptáváno").grid(row=5,column=0,sticky="w",padx=(0,10),pady=5)
-        mr=ttk.Frame(f);mr.grid(row=5,column=1,sticky="ew");mr.columnconfigure(0,weight=1)
+        ttk.Label(f,text="Obdrženo").grid(row=5,column=0,sticky="w",padx=(0,10),pady=5)
+        DatePicker(f,self.received).grid(row=5,column=1,sticky="ew",pady=5)
+
+        ttk.Label(f,text="Poptáváno").grid(row=6,column=0,sticky="w",padx=(0,10),pady=5)
+        mr=ttk.Frame(f);mr.grid(row=6,column=1,sticky="ew");mr.columnconfigure(0,weight=1)
         self.item_box=AutocompleteEntry(mr,textvariable=self.item,values=[r["name"] for r in self.materials])
         self.item_box.grid(row=0,column=0,sticky="ew")
         ttk.Button(mr,text="+ Přidat",command=self.new_material).grid(row=0,column=1,padx=(6,0))
@@ -3482,7 +3486,7 @@ class RequestDialog(tk.Toplevel):
 
         self.include=tk.BooleanVar(value=request_mail.flag(vals.get("include_project_in_subject",0)))
         self.urgent=tk.BooleanVar(value=request_mail.flag(vals.get("urgent",0)))
-        subject_options=ttk.Frame(f);subject_options.grid(row=6,column=1,columnspan=2,sticky="w",pady=4)
+        subject_options=ttk.Frame(f);subject_options.grid(row=7,column=1,columnspan=2,sticky="w",pady=4)
         self.include_check=ttk.Checkbutton(subject_options,text="Uvést název akce v předmětu",variable=self.include,command=self.update_preview)
         self.include_check.pack(side="left")
         self.urgent_check=ttk.Checkbutton(subject_options,text="SPĚCHÁ!",variable=self.urgent,command=self.update_preview)
@@ -3490,9 +3494,9 @@ class RequestDialog(tk.Toplevel):
 
         self.open_after=tk.BooleanVar(value=False)
 
-        ttk.Label(f,text="Komu zaslat").grid(row=7,column=0,sticky="nw",padx=(0,10),pady=5)
+        ttk.Label(f,text="Komu zaslat").grid(row=8,column=0,sticky="nw",padx=(0,10),pady=5)
         recipient_wrap=ttk.Frame(f)
-        recipient_wrap.grid(row=7,column=1,columnspan=2,sticky="ew",pady=4)
+        recipient_wrap.grid(row=8,column=1,columnspan=2,sticky="ew",pady=4)
         recipient_wrap.columnconfigure(0,weight=1)
         self.contact_count_label=ttk.Label(recipient_wrap,text="Vyberte společnost, u které poptáváte.")
         self.contact_count_label.grid(row=0,column=0,sticky="w",pady=(0,4))
@@ -3546,16 +3550,14 @@ class RequestDialog(tk.Toplevel):
         else:
             detail_row=12
 
-        ttk.Label(f,text="Poptávající").grid(row=detail_row,column=0,sticky="nw",padx=(0,10),pady=5)
-        self.assigned_box=InlineChoice(f,textvariable=self.assigned,values=self.user_names,editable=True,max_rows=6)
-        self.assigned_box.grid(row=detail_row,column=1,sticky="ew",pady=5)
+        # Bind after the mail body exists; changing the resolver can load their profile.
         self.assigned.trace_add("write",lambda *a:self._assigned_changed())
-        ttk.Label(f,text="Poznámka").grid(row=detail_row+1,column=0,sticky="nw",padx=(0,10),pady=5)
-        self.note=tk.Text(f,wrap="word",height=3);self.note.grid(row=detail_row+1,column=1,columnspan=2,sticky="ew")
+        ttk.Label(f,text="Poznámka").grid(row=detail_row,column=0,sticky="nw",padx=(0,10),pady=5)
+        self.note=tk.Text(f,wrap="word",height=3);self.note.grid(row=detail_row,column=1,columnspan=2,sticky="ew")
         self.note.insert("1.0",vals.get("note","") or "")
 
         f.columnconfigure(1,weight=1)
-        b=ttk.Frame(f);b.grid(row=detail_row+2,column=0,columnspan=3,sticky="e",pady=10)
+        b=ttk.Frame(f);b.grid(row=detail_row+1,column=0,columnspan=3,sticky="e",pady=10)
         ttk.Button(b,text="Zrušit",command=self.destroy).pack(side="right",padx=4)
         ttk.Button(b,text="Uložit",style="Accent.TButton",command=self.ok).pack(side="right")
 
@@ -6510,6 +6512,8 @@ $s.Save()
                                           WHERE company_id=? OR requested_for_company_id=?""",(cid,cid)).fetchone()[0],
                 "historických záznamů":con.execute("SELECT COUNT(*) FROM action_history WHERE related_company_id=?",(cid,)).fetchone()[0],
             }
+            if con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='report_company_links'").fetchone():
+                deps["vazeb z přehledů"]=con.execute("SELECT COUNT(*) FROM report_company_links WHERE company_id=?",(cid,)).fetchone()[0]
         if not r:return
         total=sum(deps.values())
         if total:
