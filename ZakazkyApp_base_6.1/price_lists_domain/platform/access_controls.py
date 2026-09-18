@@ -80,7 +80,7 @@ def guarded(M, function, page, write=True):
     @wraps(function)
     def call(self, *args, **kwargs):
         target = page(self, *args, **kwargs) if callable(page) else page
-        parent = getattr(self, 'win', self)
+        parent = getattr(self, 'win', getattr(self, 'dialog', self))
         if not access.allowed(M, parent, target, write):
             return None
         return function(self, *args, **kwargs)
@@ -208,6 +208,7 @@ def install_controls(M):
     from . import action_assignees, received_item_labels
     _service(action_assignees, ('save',), 'actions')
     _service(received_item_labels, ('save_items', 'copy_from_manufacturer'), 'offers')
+    wrap_methods(M, received_item_labels.InlineLabels, ('begin', 'copy_selected'), 'offers')
     previous_picker = action_assignees.open_picker
     def picker(module, app):
         if access.allowed(M, app, 'actions', write=False):

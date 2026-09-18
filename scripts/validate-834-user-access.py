@@ -43,7 +43,9 @@ def seed(M):
         offer = con.execute("INSERT INTO business_documents(document_type,direction,company_id,document_number) VALUES('issued_offer','issued',?,'834-N1')", (cid,)).lastrowid
         order = con.execute("INSERT INTO business_documents(document_type,direction,company_id,document_number) VALUES('received_order','received',?,'834-O1')", (cid,)).lastrowid
         con.execute("INSERT INTO business_document_items(document_id,name) VALUES(?,'834 Položka')", (offer,))
-    return dict(uids=uids, cid=cid, mid=mid, pid=pid, aid=aid, rid=rid, mivo=mivo, offer=offer, order=order)
+        received = con.execute("INSERT INTO supplier_offers(supplier_company_id,offer_number) VALUES(?,'834-R1')", (cid,)).lastrowid
+        item = con.execute("INSERT INTO supplier_offer_items(offer_id,original_name,item_key) VALUES(?,'834 Nosník','834-nosnik')", (received,)).lastrowid
+    return dict(uids=uids, cid=cid, mid=mid, pid=pid, aid=aid, rid=rid, mivo=mivo, offer=offer, order=order, received=received, item=item)
 
 
 def source_checks(td):
@@ -192,6 +194,7 @@ def ui_checks(td):
         profile.permission_variables['companies'].set(access.MODES[access.HIDDEN])
         profile.permission_variables['people'].set(access.MODES[access.HIDDEN])
         profile.permission_variables['issued_offers'].set(access.MODES[access.READ])
+        profile.permission_variables['offers'].set(access.MODES[access.READ])
         profile.permission_variables['reports_imports'].set(access.MODES[access.READ])
         for theme in ('Světlý', 'Tmavý'):
             root.apply_theme(theme); settle(root)
@@ -217,6 +220,11 @@ def ui_checks(td):
         from price_lists_domain.issued_offers.editor import IssuedOfferEditor
         editor = IssuedOfferEditor(M, root, data['offer']); settle(root)
         editor.save(); assert 'čtení' in editor.win.title(); editor.win.destroy()
+        received = M.OfferDetailDialog(root, data['received']); settle(root)
+        inline = received._inline_labels
+        inline.begin(f"i{data['item']}", 'Interní označení')
+        assert inline.entry is None
+        received.destroy()
         root.show_page('reports_imports'); settle(root, .8)
         workspace = root._reports_workspace
         assert workspace.last_error is None
@@ -230,6 +238,14 @@ def ui_checks(td):
         assert d.assignee_variables[data['uids']['834 Bára']].get()
         assert not d.assignee_variables[data['uids']['834 Alena']].get()
         d.destroy()
+        # A profile with no visible page has an explicit empty state, and can be switched away from.
+        with closing(M._user_access_connect()) as con, con:
+            con.execute('UPDATE users SET tab_permissions=? WHERE id=?', (json.dumps(dict.fromkeys(access.TITLES, access.HIDDEN)), uid))
+        root.select_user('834 Čtenář'); settle(root)
+        assert root._current_page is None and root._no_access_page.winfo_viewable()
+        assert not root.help_button.winfo_viewable() and not root.settings_button.winfo_viewable()
+        root.select_user('834 Bára'); settle(root)
+        assert root._current_page == 'dash' and root.help_button.winfo_viewable() and root.settings_button.winfo_viewable()
         assert not errors, errors
         print('8.0.34: blank Obchod, local default/multiple assignees, cancel/stale form, profiles, hidden navigation, linked read-only forms and user switching OK', flush=True)
     finally:
