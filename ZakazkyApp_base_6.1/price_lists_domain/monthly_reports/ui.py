@@ -17,6 +17,8 @@ from .constants import APP_NAME, APP_VERSION, COLORS, CENTER_NAMES, center_displ
 from .db import Database
 from .exports import export_excel, export_pdf
 from .management_ui import ManagementUI
+from .company_links import CompanyLinks
+from .company_ui import CompanyReportsUI
 
 
 def fmt_money(v, decimals=0):
@@ -73,7 +75,7 @@ class Panel(tk.Frame):
         self.body=tk.Frame(self,bg=COLORS['panel']); self.body.pack(fill='both',expand=True,padx=12,pady=(4,12))
 
 
-class ReportWorkspace(ManagementUI, tk.Frame):
+class ReportWorkspace(CompanyReportsUI, ManagementUI, tk.Frame):
     def __init__(self, master, module, identity):
         super().__init__(master)
         self.module, self.identity = module, identity
@@ -82,6 +84,7 @@ class ReportWorkspace(ManagementUI, tk.Frame):
         for name in ('exports', 'imports', 'backup'):
             self.store.directory(name)
         self.db = self.store.database
+        self.company_links = CompanyLinks(module.db, self.db, identity[1])
         self.analytics = Analytics(self.db)
         self.pages = {}; self.nav_buttons = {}; self.current_page = 'Přehled'
         self.last_error = None
@@ -435,7 +438,10 @@ class ReportWorkspace(ManagementUI, tk.Frame):
         if compact:
             tree=self._tree(parent,('customer','revenue','profit'),('Zákazník','Obrat','Zisk'),(210,115,105),height=6,anchors=('w','e','e'))
         else:
-            tree=self._tree(parent,('customer','revenue','profit','margin','count'),('Zákazník','Obrat','Zisk','Marže','DL'),(360,145,135,95,75),height=18,anchors=('w','e','e','e','e'))
+            tree=self._tree(parent,('customer','revenue','profit','margin','count','crm_company','link'),
+                ('Zákazník v importu','Obrat','Zisk','Marže','DL','Společnost v CRM','Párování'),
+                (280,125,115,85,55,260,180),height=18,anchors=('w','e','e','e','e','w','w'))
+        links=self.company_links.resolve([x['customer'] for x in rows]) if not compact else {}
         item_customers={}
         for x in rows:
             rev=float(x.get('revenue') or 0); prof=float(x.get('profit') or 0); cnt=int(x.get('count') or 0); profit_docs=int(x.get('profit_docs',cnt) or 0)
@@ -444,6 +450,9 @@ class ReportWorkspace(ManagementUI, tk.Frame):
             profit_text=(fmt_money(prof)+(' *' if available and not complete else '')) if available else '—'
             margin_text=(fmt_pct(margin)+(' *' if available and not complete else '')) if margin is not None else '—'
             values=(x['customer'],fmt_money(rev),profit_text) if compact else (x['customer'],fmt_money(rev),profit_text,margin_text,cnt)
+            if not compact:
+                link=links[x['customer']]
+                values+=((link['company'] or {}).get('official_name','—'),link['status_text'])
             iid=tree.insert('', 'end', values=values); item_customers[iid]=x['customer']
         def open_selected(event=None):
             iid=tree.focus()
@@ -464,6 +473,7 @@ class ReportWorkspace(ManagementUI, tk.Frame):
         head=tk.Frame(win,bg=COLORS['bg']); head.pack(fill='x',padx=20,pady=(18,10))
         tk.Label(head,text=customer,bg=COLORS['bg'],fg=COLORS['text'],font=('Calibri',20,'bold')).pack(anchor='w')
         tk.Label(head,text='Historie podle dodacích listů z dostupných dat POHODA',bg=COLORS['bg'],fg=COLORS['muted'],font=('Calibri',9)).pack(anchor='w',pady=(2,0))
+        self.company_detail_bar(head,customer)
         total_rev=sum(x['revenue'] for x in history); total_count=sum(x['count'] for x in history)
         available=[x for x in history if x['profit_available']]; raw_profit=sum(x['profit'] for x in available)
         last=max((x.get('last_date') or '' for x in history),default='')
@@ -572,6 +582,7 @@ class ReportWorkspace(ManagementUI, tk.Frame):
 
     def page_customers(self):
         root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True); self.title_block(root,'Zákazníci','Podíly odběratelů • kliknutím na zákazníka v grafu otevřete jeho historii')
+        ttk.Button(root,text='Párování firem s adresářem…',command=self.open_company_links).pack(anchor='w',pady=(0,10))
         y,m=self.period(); mode=self.mode_key(); rows=self.analytics.top_customers(y,m,mode,-1)
         chart_rows=[]
         for x in rows:
@@ -607,13 +618,14 @@ class ReportWorkspace(ManagementUI, tk.Frame):
         root=tk.Frame(self.container,bg=COLORS['bg']);root.pack(fill='both',expand=True)
         self.title_block(root,'Nastavení přehledů','Data, převzetí dosavadních přehledů a zálohování')
         panel=Panel(root,'Data Měsíčních přehledů');panel.pack(fill='x')
-        tk.Label(panel.body,text='Přehledy zatím pracují s vlastními importovanými podklady. Propojení s evidencí CRM doplníme později.',
+        tk.Label(panel.body,text='Firmy z importů se propojují s adresářem podle názvu. Jednoznačné shody se přiřadí automaticky; ostatní můžete vybrat ručně. Vazba zůstává zachovaná i po opakovaném importu.',
                  wraplength=850,justify='left',bg=COLORS['panel'],fg=COLORS['muted']).pack(anchor='w',pady=6)
         entry=tk.Entry(panel.body,readonlybackground=COLORS['panel_soft'],fg=COLORS['text'],relief='flat')
         entry.insert(0,str(self.db.path));entry.configure(state='readonly');entry.pack(fill='x',ipady=6,pady=6)
         bar=tk.Frame(panel.body,bg=COLORS['panel']);bar.pack(fill='x',pady=8)
         ttk.Button(bar,text='Převzít data z Měsíčních přehledů…',command=self.take_over_data).pack(side='left')
         ttk.Button(bar,text='Vytvořit zálohu',command=self.make_backup).pack(side='left',padx=8)
+        ttk.Button(bar,text='Párování firem…',command=self.open_company_links).pack(side='left')
         tk.Label(panel.body,text='Převzetí načte kopii celé databáze včetně historie importů. Původní program i jeho data zůstanou zachované.\n'
                  'Aktuální data přehledů v CRM se před nahrazením zálohují. Původní soubory importů a exportů zůstávají u původního programu.',
                  wraplength=850,justify='left',bg=COLORS['panel'],fg=COLORS['muted']).pack(anchor='w',pady=6)
@@ -635,9 +647,17 @@ class ReportWorkspace(ManagementUI, tk.Frame):
         self._import_busy=True
         def finished(backup):
             self._import_busy=False
+            self.refresh_company_links()
             self._populate_periods();self.refresh_current()
             messagebox.showinfo('Převzetí dokončeno','Data jsou dostupná v Přehledech.\n\nZáloha předchozích dat:\n'+str(backup),parent=self)
         self._import_worker('Přebírám databázi přehledů',lambda:self.store.take_over(path),finished)
+
+    def refresh_company_links(self):
+        try:
+            self.company_links.resolve()
+        except Exception as exc:
+            # The import is already committed; a CRM lock must not misreport it as failed.
+            messagebox.showwarning('Párování firem','Data přehledů jsou uložená. Párování s adresářem se nepodařilo dokončit; zopakujte jej v Přehledy → Zákazníci → Párování firem.\n\n'+str(exc),parent=self)
 
     def do_import(self):
         if not self.busy:

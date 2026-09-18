@@ -126,7 +126,7 @@ class ManagementUI:
         def commit():
             replacing=update.get();win.grab_release();win.destroy()
             def finished(result):
-                self._import_busy=False;self._populate_periods();self.refresh_current()
+                self._import_busy=False;self.refresh_company_links();self._populate_periods();self.refresh_current()
                 detail=f"Uloženo záznamů: {result['changed']}\nPonecháno existujících: {result['skipped']}\nOpakované soubory: {result['duplicates']}"
                 if result['backup']:detail+='\n\nZáloha:\n'+result['backup']
                 messagebox.showinfo('Import dokončen',detail,parent=self)

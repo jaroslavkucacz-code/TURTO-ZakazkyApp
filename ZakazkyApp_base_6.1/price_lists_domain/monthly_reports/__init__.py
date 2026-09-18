@@ -10,6 +10,16 @@ def install(M):
     if getattr(App, '_monthly_reports_832', False):
         return
 
+    from .company_links import ensure_schema as ensure_links
+    previous_schema = M.ensure_schema
+    def schema():
+        previous_schema()
+        with M.db() as con:
+            ensure_links(con)
+    M.ensure_schema = schema
+    with M.db() as con:
+        ensure_links(con)
+
     def refresh(app, key):
         from .ui import ReportWorkspace
         identity = (str(Path(M.DB).resolve()), app.active_user.get().strip())
