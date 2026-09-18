@@ -75,7 +75,6 @@ jobs:
           python scripts/validate-834-user-access.py --source-only
           python scripts/validate-830-storage.py --source-only
   windows-pilot:
-    needs: postgres
     runs-on: windows-2025
     timeout-minutes: 20
     env:

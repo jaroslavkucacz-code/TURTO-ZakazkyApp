@@ -133,6 +133,9 @@ class LocalDemo:
                 subprocess.run([str(system / 'System32/icacls.exe'), str(self.folder), '/grant:r',
                                 '*' + sid + ':(OI)(CI)F'], check=True, stdout=self.log, stderr=self.log,
                     timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
+            # Supply an existing empty directory. initdb otherwise walks every
+            # parent while creating it, including private Windows profile roots.
+            self.cluster.mkdir()
             self.phase = 'Připravuji testovací databázi…'; progress(self.phase)
             secret = secrets.token_urlsafe(36)
             password_file = self.folder / 'initial-password.txt'
