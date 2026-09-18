@@ -4,9 +4,11 @@ Never reads company profiles or production data. Each invocation owns a new
 cluster; it cannot start, reuse, reconfigure or stop any installed database.
 """
 from contextlib import contextmanager
+import csv
 import ctypes
 from ctypes import wintypes
 import os
+import io
 from pathlib import Path
 import secrets
 import shutil
@@ -118,6 +120,19 @@ class LocalDemo:
         self.env['PATH'] = os.pathsep.join(map(str, (self.bin, system / 'System32', system)))
         self.log = (self.folder / 'startup.log').open('ab', buffering=0)
         try:
+            # Python's private temp-directory ACL can belong to Administrators
+            # when elevated. PostgreSQL drops that group. Explicitly grant only
+            # the current user SID on OUR NEW directory, inherited by its files.
+            # No company path or pre-existing user directory is reconfigured.
+            with external_libraries():
+                identity = subprocess.run([str(system / 'System32/whoami.exe'), '/user', '/fo', 'csv', '/nh'],
+                    capture_output=True, check=True, timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
+                sid = next(csv.reader(io.StringIO(identity.stdout.decode(errors='replace'))))[1]
+                if not sid.startswith('S-1-') or any(c not in 'S-0123456789' for c in sid):
+                    raise LocalDemoError('Nepodařilo se ověřit místního uživatele Windows.')
+                subprocess.run([str(system / 'System32/icacls.exe'), str(self.folder), '/grant:r',
+                                '*' + sid + ':(OI)(CI)F'], check=True, stdout=self.log, stderr=self.log,
+                    timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
             self.phase = 'Připravuji testovací databázi…'; progress(self.phase)
             secret = secrets.token_urlsafe(36)
             password_file = self.folder / 'initial-password.txt'
