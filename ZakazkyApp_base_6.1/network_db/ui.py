@@ -47,14 +47,14 @@ class PilotWindow(tk.Toplevel):
         self.disconnect_button = ttk.Button(connect, text='Odhlásit', command=self.disconnect)
         self.disconnect_button.grid(row=3, column=2, padx=(8, 0))
         self.password_entry = self.connection_widgets[3]
-        self.password_entry.bind('<Return>', lambda e: self.connect())
+        self.password_entry.bind('<Return>', lambda e=None: self.connect() if e is not None else None)
         self.status = tk.StringVar(self, 'Vyberte profil a přihlaste se osobním serverovým účtem.')
         ttk.Label(body, textvariable=self.status, wraplength=980).pack(fill='x', pady=10)
         controls = ttk.Frame(body); controls.pack(fill='x', pady=(0, 8))
         self.query = tk.StringVar(self)
         self.search = ttk.Entry(controls, textvariable=self.query)
         self.search.pack(side='left', fill='x', expand=True)
-        self.search.bind('<Return>', lambda e: self.refresh(reset=True))
+        self.search.bind('<Return>', lambda e=None: self.refresh(reset=True) if e is not None else None)
         self.refresh_button = ttk.Button(controls, text='Vyhledat / obnovit', command=lambda: self.refresh(reset=True))
         self.refresh_button.pack(side='left', padx=6)
         self.new_button = ttk.Button(controls, text='Nová společnost', command=self.new)
@@ -67,8 +67,8 @@ class PilotWindow(tk.Toplevel):
         bar = ttk.Scrollbar(table, orient='vertical', command=self.tree.yview)
         self.tree.configure(yscrollcommand=bar.set)
         self.tree.pack(side='left', fill='both', expand=True); bar.pack(side='right', fill='y')
-        self.tree.bind('<<TreeviewSelect>>', lambda e: self._controls())
-        self.tree.bind('<Double-1>', lambda e: self.open_selected() if self.tree.identify_region(e.x,e.y)=='cell' else None)
+        self.tree.bind('<<TreeviewSelect>>', lambda e=None: self._controls() if e is not None else None)
+        self.tree.bind('<Double-1>', lambda e=None: self.open_selected() if e is not None and self.tree.identify_region(e.x,e.y)=='cell' else None)
         footer = ttk.Frame(body); footer.pack(fill='x', pady=(10, 0))
         self.open_button = ttk.Button(footer, text='Otevřít společnost', command=self.open_selected)
         self.open_button.pack(side='left')
@@ -226,7 +226,11 @@ class PilotWindow(tk.Toplevel):
                 previous, current = event['previous'] or {}, event['current']
                 for key, label in CompanyEditor.LABELS.items():
                     if previous.get(key) != current.get(key):
-                        text.insert('end', f"{label}: {previous.get(key) or '—'} → {current.get(key) or '—'}\n")
+                        def value(row):
+                            if key in ('active', 'is_customer', 'is_supplier') and row.get(key) is not None:
+                                return 'Ano' if row[key] else 'Ne'
+                            return row.get(key) or '—'
+                        text.insert('end', f"{label}: {value(previous)} → {value(current)}\n")
                 text.insert('end', '\n')
             text.configure(state='disabled')
             self.status.set('Historie načtena ze serveru.')
@@ -260,7 +264,7 @@ class CompanyEditor(tk.Toplevel):
             value = row.get(key) or (row.get('short_name', '') if key == 'official_name' else '')
             variable = tk.StringVar(self, value)
             entry = ttk.Entry(self, textvariable=variable); entry.grid(row=index, column=1, sticky='ew', padx=12, pady=7)
-            entry.bind('<Return>', lambda e: self.save())
+            entry.bind('<Return>', self.save_key)
             self.variables[key] = variable; self.fields.append(entry)
         ttk.Label(self, text='Poznámka').grid(row=5, column=0, sticky='nw', padx=12, pady=7)
         self.note = tk.Text(self, height=6, wrap='word', font=('Calibri', 11))
@@ -279,9 +283,17 @@ class CompanyEditor(tk.Toplevel):
         self.verify_button = ttk.Button(buttons, text='Ověřit uložení', command=self.check); self.verify_button.pack(side='left', padx=8)
         self.reload_button = ttk.Button(buttons, text='Načíst aktuální údaje', command=self.reload); self.reload_button.pack(side='left')
         self.cancel_button = ttk.Button(buttons, text='Zavřít', command=self.close); self.cancel_button.pack(side='right')
-        self.protocol('WM_DELETE_WINDOW', self.close); self.bind('<Escape>', lambda e: self.close())
-        self.bind('<Control-Return>', lambda e: self.save())
+        self.protocol('WM_DELETE_WINDOW', self.close)
+        self.bind('<Escape>', lambda e=None: self.close() if e is not None else None)
+        self.bind('<Control-Return>', self.save_key)
         self.controls()
+
+    def save_key(self, event=None):
+        # Hosted Tk may call a binding without an event during teardown.
+        # Such a callback must neither raise nor initiate a database write.
+        if event is not None:
+            self.save()
+        return 'break'
 
     def controls(self, busy=False):
         enabled = self.writable and not busy and self.pending is None
@@ -365,7 +377,7 @@ def open_pilot(master):
 def main():
     root = tk.Tk(); root.withdraw()
     win = open_pilot(root)
-    win.bind('<Destroy>', lambda e: root.destroy() if e.widget is win else None)
+    win.bind('<Destroy>', lambda e=None: root.destroy() if e is not None and e.widget is win else None)
     root.mainloop()
 
 

@@ -281,6 +281,9 @@ class DirectoryTests(unittest.TestCase):
                 self.assertEqual(win.password.get(), '')
                 win.query.set('Network fixture'); win.refresh_button.invoke(); settle()
                 select_company(); editor = win.editor
+                with patch.object(editor, 'save') as save:
+                    editor.save_key()
+                    save.assert_not_called()
                 editor.variables['official_name'].set('Network fixture upravená')
                 editor.save_button.invoke(); settle()
                 self.assertEqual(self.current()['official_name'], 'Network fixture upravená')
