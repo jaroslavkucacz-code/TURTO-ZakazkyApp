@@ -173,11 +173,11 @@ def lookup(address):
         con.row_factory = sqlite3.Row
         rows = con.execute('''SELECT DISTINCT a.* FROM aliases k JOIN addresses a ON a.code=k.code
                               WHERE k.key=? ORDER BY a.code LIMIT 20''', (key(address),)).fetchall()
-    from pyproj import Transformer
-    transformer = Transformer.from_crs('EPSG:5514', 'EPSG:4326', always_xy=True)
+    from .coordinates import transformer
+    conversion = transformer()
     result = []
     for row in rows:
-        lon, lat = transformer.transform(-row['y'], -row['x'])
+        lon, lat = conversion.transform(-row['y'], -row['x'])
         if not (48 < lat < 52 and 12 < lon < 19):
             raise ValueError('Souřadnice adresního místa jsou mimo ČR.')
         result.append(dict(row, gps=f'{lat:.7f}, {lon:.7f}'))

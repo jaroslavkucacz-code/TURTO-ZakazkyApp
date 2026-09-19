@@ -4,8 +4,8 @@ from .bridge import Bridge
 
 
 def check(M):
-    from pyproj import Transformer
-    lon,lat=Transformer.from_crs('EPSG:5514','EPSG:4326',always_xy=True).transform(-742000,-1043000)
+    from .coordinates import transformer
+    lon,lat=transformer().transform(-742000,-1043000)
     if not (50<lat<50.2 and 14.3<lon<14.6):
         raise RuntimeError('Installed PROJ coordinate database is unavailable.')
     root=M.tk.Tk(); root.geometry('700x450+0+0')

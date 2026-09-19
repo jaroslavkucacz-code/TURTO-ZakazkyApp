@@ -76,6 +76,17 @@ with zipfile.ZipFile(
             archive.write(source, source.relative_to(offer_engine_root).as_posix())
 datas.append((str(offer_engine_bundle), "."))
 
+# 8.0.34's installed updater rejects loose .db files, including PROJ's immutable
+# coordinate reference database. Bundle it without weakening that safety gate.
+from pyproj import datadir
+proj_reference_root = Path(datadir.get_data_dir()).resolve()
+proj_reference_bundle = generated_dir / 'proj_reference_bundle.zip'
+with zipfile.ZipFile(proj_reference_bundle,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as archive:
+    for source in sorted(proj_reference_root.rglob('*')):
+        if source.is_file():
+            archive.write(source,source.relative_to(proj_reference_root).as_posix())
+datas.append((str(proj_reference_bundle),'.'))
+
 # tkinterdnd2 ships native payloads for many platforms and architectures. TURTO
 # CRM 8.0 is a Windows x64 build, so include only the two x64 variants required
 # by current/legacy Tcl runtimes. Python 3.14 uses Tcl/Tk 9, therefore the
@@ -104,6 +115,9 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+a.datas = [entry for entry in a.datas if not Path(entry[1]).resolve().is_relative_to(proj_reference_root)]
+if any(Path(entry[0]).suffix.lower() in {'.db','.sqlite','.sqlite3'} for entry in a.datas):
+    raise RuntimeError('Loose database in payload would be rejected by the installed safe updater')
 pyz = PYZ(a.pure)
 
 exe = EXE(

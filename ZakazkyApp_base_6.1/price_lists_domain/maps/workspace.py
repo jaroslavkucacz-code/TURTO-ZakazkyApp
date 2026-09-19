@@ -118,7 +118,7 @@ class Workspace:
         ttk.Button(footer, text='Zdroje mapy', command=lambda:webbrowser.open('https://openfreemap.org/')).grid(row=0, column=1, padx=5)
         self.runtime_button = ttk.Button(footer, text='Instalovat WebView2', command=lambda:webbrowser.open('https://developer.microsoft.com/microsoft-edge/webview2/'))
         self.runtime_button.grid(row=0,column=2); self.runtime_button.grid_remove()
-        self.poll_after = page.after(150, self.poll)
+        self.poll_after = None
         page.bind('<Destroy>', self.destroy, add='+')
 
     def destroy(self, event):
@@ -299,6 +299,7 @@ class Workspace:
         if self.job_running:
             return self.warn('Počkejte na dokončení právě běžící operace.')
         self.job_running = True
+        if self.poll_after is None: self.poll_after = self.page.after(150,self.poll)
         generation = self.generation
         def worker():
             try: result = function(lambda text:self.jobs.put(('progress',generation,text)))
@@ -327,6 +328,7 @@ class Workspace:
         self.start_job(lookup,'matches')
 
     def poll(self):
+        self.poll_after = None
         for _ in range(50):
             try: kind,generation,result = self.jobs.get_nowait()
             except queue.Empty: break
@@ -340,7 +342,8 @@ class Workspace:
                 elif self.M.messagebox.askyesno('Doplnit polohy',f'Nalezeno {len(result)} jednoznačných shod. Uložit polohy k těmto záznamům? Existující GPS se nepřepíšou.',parent=self.app):
                     self.job_running = True
                     self.apply_matches(result,generation)
-        self.poll_after = self.page.after(150,self.poll)
+        if self.job_running or not self.jobs.empty():
+            self.poll_after = self.page.after(150,self.poll)
 
     def apply_matches(self, matches, generation, offset=0, saved=0):
         self._apply_after = None
