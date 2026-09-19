@@ -195,6 +195,11 @@ def ui_checks(td):
         from PIL import ImageGrab
         ImageGrab.grab().save(output/'map-workspace.png')
         assert online_loaded, 'Online OpenFreeMap did not render: '+workspace.status.get()
+        assert workspace.tree.winfo_height() >= 100, 'Record list collapsed on a small desktop'
+        assert workspace.details_canvas.winfo_height() >= 70, 'Location controls are unreachable'
+        workspace.details_canvas.yview_moveto(1); settle(root)
+        assert workspace.details_canvas.yview()[1] > .99
+        workspace.details_canvas.yview_moveto(0)
         print('835 UI: online map rendered; switching user',flush=True)
         # User switch destroys the previous renderer and empties inaccessible data.
         old_host=workspace.bridge.process

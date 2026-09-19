@@ -8,6 +8,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk, filedialog
 import webbrowser
+from urllib.parse import urlsplit
 
 from . import model, ruian
 from .bridge import Bridge
@@ -37,6 +38,7 @@ class Workspace:
         self.selected_label = tk.StringVar(value='Vyberte záznam v seznamu nebo na mapě.')
         self.status = tk.StringVar(value='Online podklad OpenFreeMap · GPS a údaje zůstávají v CRM.')
         self._refresh_after = None
+        self._apply_after = None
         page.columnconfigure(0, weight=1); page.rowconfigure(2, weight=1)
         top = ttk.Frame(page, padding=(12, 8)); top.grid(row=0, column=0, sticky='ew')
         ttk.Label(top, text='Mapa', font=('Calibri', 18, 'bold')).pack(side='left', padx=(0, 15))
@@ -60,13 +62,13 @@ class Workspace:
         self.company_box = ttk.Combobox(filters, textvariable=self.company, state='readonly', width=40)
         self.company_box.grid(row=1, column=0, columnspan=2, sticky='ew', pady=(7,0), padx=(0,12))
         self.company_box.bind('<<ComboboxSelected>>', lambda e: self.refresh())
-        ttk.Label(filters, text='Modrá: společnost · Zlatá: akce · Zelená: dodáváme · Šedá: ukončeno',
-                  foreground='#596d77').grid(row=1, column=2, columnspan=6, sticky='w', pady=(7,0))
+        ttk.Label(filters, text='Modrá: společnost · Zlatá: akce · Zelená: dodáváme · Šedá: ukončeno').grid(row=1, column=2, columnspan=6, sticky='w', pady=(7,0))
         panes = ttk.Panedwindow(page, orient='horizontal'); panes.grid(row=2, column=0, sticky='nsew', padx=12)
         left = ttk.Frame(panes, width=360); right = ttk.Frame(panes)
         panes.add(left, weight=1); panes.add(right, weight=3)
-        left.columnconfigure(0, weight=1); left.rowconfigure(0, weight=1)
-        self.tree = ttk.Treeview(left, columns=('name','state'), show='headings', selectmode='browse', height=12,
+        left.columnconfigure(0, weight=1); left.rowconfigure(0, weight=3, minsize=105)
+        left.rowconfigure(2, weight=2, minsize=75)
+        self.tree = ttk.Treeview(left, columns=('name','state'), show='headings', selectmode='browse', height=5,
                                  name='layout__map__canonical_records')
         self.tree.heading('name', text='Záznam v CRM'); self.tree.column('name', width=240, minwidth=120)
         self.tree.heading('state', text='Poloha / stav'); self.tree.column('state', width=140, minwidth=100)
@@ -80,21 +82,33 @@ class Workspace:
         ttk.Button(tools, text='Otevřít záznam', command=self.open_record).pack(side='left')
         ttk.Button(tools, text='Zobrazit bod', command=self.focus).pack(side='left', padx=5)
         ttk.Button(tools, text='Zobrazit vše', command=lambda:self.send({'type':'fit'})).pack(side='left')
-        edit = ttk.LabelFrame(left, text='Poloha vybraného záznamu', padding=10)
-        edit.grid(row=2, column=0, columnspan=2, sticky='ew', pady=(0,8)); edit.columnconfigure(0, weight=1)
+        details = ttk.Frame(left); details.grid(row=2,column=0,columnspan=2,sticky='nsew')
+        details.columnconfigure(0,weight=1); details.rowconfigure(0,weight=1)
+        self.details_canvas = tk.Canvas(details,height=165,highlightthickness=0,
+                                       background=ttk.Style(page).lookup('TFrame','background') or '#edf2f4')
+        self.details_canvas.grid(row=0,column=0,sticky='nsew')
+        details_scroll = ttk.Scrollbar(details,orient='vertical',command=self.details_canvas.yview)
+        details_scroll.grid(row=0,column=1,sticky='ns')
+        self.details_canvas.configure(yscrollcommand=details_scroll.set)
+        details_body = ttk.Frame(self.details_canvas); details_body.columnconfigure(0,weight=1)
+        canvas_window = self.details_canvas.create_window((0,0),window=details_body,anchor='nw')
+        details_body.bind('<Configure>',lambda e:self.details_canvas.configure(scrollregion=self.details_canvas.bbox('all')))
+        self.details_canvas.bind('<Configure>',lambda e:self.details_canvas.itemconfigure(canvas_window,width=e.width))
+        edit = ttk.LabelFrame(details_body, text='Poloha vybraného záznamu', padding=10)
+        edit.grid(row=0, column=0, sticky='ew', pady=(0,8)); edit.columnconfigure(0, weight=1)
         ttk.Label(edit, textvariable=self.selected_label, wraplength=330).grid(row=0, column=0, columnspan=2, sticky='w', pady=(0,6))
         self.gps_entry = ttk.Entry(edit, textvariable=self.gps); self.gps_entry.grid(row=1, column=0, columnspan=2, sticky='ew')
-        ttk.Label(edit, text='GPS: šířka, délka (např. 49.1951, 16.6068)').grid(row=2, column=0, columnspan=2, sticky='w', pady=3)
+        ttk.Label(edit, text='GPS: šířka, délka (např. 49.1951, 16.6068)',wraplength=320).grid(row=2, column=0, columnspan=2, sticky='w', pady=3)
         self.save_button = ttk.Button(edit, text='Uložit GPS', command=self.save_gps); self.save_button.grid(row=3, column=0, sticky='ew', pady=3)
         self.pick_button = ttk.Button(edit, text='Umístit kliknutím', command=self.pick); self.pick_button.grid(row=3, column=1, padx=(5,0), pady=3)
         self.address_button = ttk.Button(edit, text='Dohledat adresu v ČR', command=self.lookup); self.address_button.grid(row=4, column=0, sticky='ew', pady=3)
         ttk.Button(edit, text='Zrušit umístění', command=self.cancel_pick).grid(row=4, column=1, padx=(5,0), pady=3)
-        cache = ttk.Frame(left); cache.grid(row=3, column=0, columnspan=2, sticky='ew')
+        cache = ttk.Frame(details_body); cache.grid(row=1, column=0, sticky='ew')
         ttk.Button(cache, text='Stáhnout adresář ČR', command=self.download).grid(row=0, column=0, sticky='ew', padx=(0,5), pady=3)
         ttk.Button(cache, text='Importovat ZIP ČÚZK', command=self.import_zip).grid(row=0, column=1, sticky='ew', pady=3)
         ttk.Button(cache, text='Doplnit polohy podle adres', command=self.batch_lookup).grid(row=1, column=0, columnspan=2, sticky='ew', pady=3)
         ttk.Label(cache, text='Adresář se stahuje jednou. Vyhledávání adres pak probíhá v tomto počítači.',
-                  wraplength=330, foreground='#596d77').grid(row=2, column=0, columnspan=2, sticky='w', pady=5)
+                  wraplength=330).grid(row=2, column=0, columnspan=2, sticky='w', pady=5)
         self.map_frame = tk.Frame(right, background='#edf2f4'); self.map_frame.pack(fill='both', expand=True)
         self.placeholder = ttk.Label(self.map_frame, text='Mapa se načte při otevření záložky.', anchor='center', wraplength=420)
         self.placeholder.pack(fill='both', expand=True, padx=15, pady=15)
@@ -102,7 +116,8 @@ class Workspace:
         footer.columnconfigure(0, weight=1)
         ttk.Label(footer, textvariable=self.status, wraplength=800).grid(row=0, column=0, sticky='w')
         ttk.Button(footer, text='Zdroje mapy', command=lambda:webbrowser.open('https://openfreemap.org/')).grid(row=0, column=1, padx=5)
-        ttk.Button(footer, text='WebView2 Runtime', command=lambda:webbrowser.open('https://developer.microsoft.com/microsoft-edge/webview2/')).grid(row=0, column=2)
+        self.runtime_button = ttk.Button(footer, text='Instalovat WebView2', command=lambda:webbrowser.open('https://developer.microsoft.com/microsoft-edge/webview2/'))
+        self.runtime_button.grid(row=0,column=2); self.runtime_button.grid_remove()
         self.poll_after = page.after(150, self.poll)
         page.bind('<Destroy>', self.destroy, add='+')
 
@@ -110,7 +125,7 @@ class Workspace:
         if event.widget is not self.page: return
         self.generation += 1
         if self.bridge: self.bridge.close()
-        for token in (self.poll_after, self._refresh_after):
+        for token in (self.poll_after, self._refresh_after, self._apply_after):
             if token:
                 try: self.page.after_cancel(token)
                 except tk.TclError: pass
@@ -125,6 +140,7 @@ class Workspace:
                 self.placeholder.pack_forget()
             except (RuntimeError, OSError) as exc:
                 self.placeholder.configure(text=str(exc))
+                self.runtime_button.grid()
         self.send({'type':'visible','value':True})
         self.refresh()
 
@@ -203,6 +219,10 @@ class Workspace:
         elif kind == 'embedded': self.embedded = True
         elif kind == 'loaded': self.loaded = True
         elif kind == 'data-applied': self.last_applied_count = event.get('count')
+        elif kind == 'attribution':
+            url = str(event.get('url','')); parsed = urlsplit(url)
+            if parsed.scheme == 'https' and parsed.hostname in {'openfreemap.org','openmaptiles.org','www.openstreetmap.org','maplibre.org'}:
+                webbrowser.open(url)
         elif kind in ('select','open'):
             key = event.get('key')
             if key in self.records:
@@ -217,7 +237,9 @@ class Workspace:
                     model.save_location(self.M,row['kind'],row['id'],gps,model.snapshot(row))
                     self.app.refresh_all(); self.refresh()
             except (ValueError,KeyError,TypeError,sqlite3.Error) as exc: self.warn(exc)
-        elif kind == 'error': self.status.set(str(event.get('message','Mapu se nepodařilo otevřít.')))
+        elif kind == 'error':
+            self.status.set(str(event.get('message','Mapu se nepodařilo otevřít.')))
+            if 'Runtime' in str(event.get('message','')): self.runtime_button.grid()
         elif kind == 'tile-error': self.status.set('Mapový podklad není dostupný. Data a seznam záznamů jsou dostupné; zkontrolujte připojení k internetu.')
 
     def warn(self, exc):
@@ -316,13 +338,29 @@ class Workspace:
             elif kind == 'matches':
                 if not result: self.warn('Žádná chybějící poloha nemá jednoznačnou shodu. Zkontrolujte úplné adresy včetně PSČ.')
                 elif self.M.messagebox.askyesno('Doplnit polohy',f'Nalezeno {len(result)} jednoznačných shod. Uložit polohy k těmto záznamům? Existující GPS se nepřepíšou.',parent=self.app):
-                    saved = 0
-                    for row,match in result:
-                        try: model.save_location(self.M,row['kind'],row['id'],match['gps'],model.snapshot(row),'ruian',match['code']); saved += 1
-                        except (ValueError,sqlite3.Error): pass  # Changed/denied records are explicitly counted below.
-                    self.app.refresh_all(); self.refresh()
-                    self.status.set(f'Uloženo {saved} poloh; {len(result)-saved} záznamů přeskočeno kvůli změně údajů nebo oprávnění.')
+                    self.job_running = True
+                    self.apply_matches(result,generation)
         self.poll_after = self.page.after(150,self.poll)
+
+    def apply_matches(self, matches, generation, offset=0, saved=0):
+        self._apply_after = None
+        if generation != self.generation:
+            self.job_running = False
+            return  # A user switch cancels the remaining writes.
+        end = min(offset+10,len(matches))
+        for row,match in matches[offset:end]:
+            try:
+                model.save_location(self.M,row['kind'],row['id'],match['gps'],model.snapshot(row),'ruian',match['code'])
+                saved += 1
+            except (ValueError,sqlite3.Error):
+                pass  # Count stale/denied rows in the completion message.
+        if end < len(matches):
+            self.status.set(f'Ukládám polohy: {end}/{len(matches)}…')
+            self._apply_after = self.page.after(10,lambda:self.apply_matches(matches,generation,end,saved))
+        else:
+            self.job_running = False
+            self.app.refresh_all(); self.refresh()
+            self.status.set(f'Uloženo {saved} poloh; {len(matches)-saved} záznamů přeskočeno kvůli změně údajů nebo oprávnění.')
 
 
 def apply(M):

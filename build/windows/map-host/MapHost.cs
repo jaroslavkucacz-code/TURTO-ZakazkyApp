@@ -68,7 +68,14 @@ class MapHost : Form {
             core.NavigationStarting += delegate(object s, CoreWebView2NavigationStartingEventArgs e) {
                 if (e.Uri != Origin + "index.html") e.Cancel = true;
             };
-            core.NewWindowRequested += delegate(object s, CoreWebView2NewWindowRequestedEventArgs e) { e.Handled = true; };
+            core.NewWindowRequested += delegate(object s, CoreWebView2NewWindowRequestedEventArgs e) {
+                e.Handled = true;
+                Uri uri;
+                if (Uri.TryCreate(e.Uri, UriKind.Absolute, out uri) && uri.Scheme == "https" &&
+                    (uri.Host == "openfreemap.org" || uri.Host == "openmaptiles.org" ||
+                     uri.Host == "www.openstreetmap.org" || uri.Host == "maplibre.org"))
+                    Emit(new { type = "attribution", url = e.Uri });
+            };
             core.PermissionRequested += delegate(object s, CoreWebView2PermissionRequestedEventArgs e) { e.State = CoreWebView2PermissionState.Deny; };
             core.DownloadStarting += delegate(object s, CoreWebView2DownloadStartingEventArgs e) { e.Cancel = true; };
             core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
