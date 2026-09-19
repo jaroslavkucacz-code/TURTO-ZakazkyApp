@@ -2638,7 +2638,8 @@ class ProjectDialog(tk.Toplevel):
         self.note.insert("1.0",vals.get("note","") or "")
 
         row=11
-        if pid:
+        from price_lists_domain.platform import user_access as access
+        if pid and access.level(sys.modules[__name__],'actions')>=access.READ:
             ttk.Separator(f).grid(row=row,column=0,columnspan=3,sticky="ew",pady=10);row+=1
             ttk.Label(f,text="Příležitosti navázané na tuto Akci",
                       font=("Calibri",11,"bold")).grid(row=row,column=0,columnspan=3,sticky="w");row+=1
@@ -2648,9 +2649,9 @@ class ProjectDialog(tk.Toplevel):
                 self.opp.heading(c,text=c);self.opp.column(c,width=w)
             self.opp.grid(row=row,column=0,columnspan=3,sticky="nsew",pady=(5,0))
             with db() as con:
-                rows=con.execute("""SELECT a.id,a.name,a.status,a.deadline,c.official_name company
+                rows=con.execute("""SELECT a.id,a.name,a.status,a.deadline,CASE WHEN ? THEN c.official_name ELSE '' END company
                                     FROM actions a LEFT JOIN companies c ON c.id=a.company_id
-                                    WHERE a.project_id=? ORDER BY c.official_name,a.name""",(pid,)).fetchall()
+                                    WHERE a.project_id=? ORDER BY c.official_name,a.name""",(access.level(sys.modules[__name__],'companies')>=access.READ,pid)).fetchall()
             for r in rows:
                 self.opp.insert("","end",iid=f"a{r['id']}",
                                 values=(r["company"],r["name"],r["status"],fmt_date(r["deadline"])))

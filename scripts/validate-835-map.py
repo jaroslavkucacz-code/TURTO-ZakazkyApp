@@ -140,6 +140,8 @@ def geocoder_checks(td):
 
 
 def ui_checks(td):
+    import faulthandler
+    faulthandler.dump_traceback_later(140,exit=True)
     M,settle=prepare(td); ids=seed(M)
     M.set_setting('active_user','835 Editor')
     M.App.maybe_show_morning_overview=lambda self:None
@@ -148,11 +150,13 @@ def ui_checks(td):
     M.messagebox.showwarning=lambda *a,**k:warnings.append(str(a))
     M.messagebox.showinfo=lambda *a,**k:None
     M.messagebox.askyesno=lambda *a,**k:True
+    print('835 UI: constructing CRM',flush=True)
     root=M.App(); root.geometry('1420x980+0+0')
     root.report_callback_exception=lambda kind,value,tb:errors.append(str(value))
     output=REPO/'build/validation/map-835'; output.mkdir(parents=True,exist_ok=True)
     try:
         root.select_user('835 Editor'); settle(root,.5)
+        print('835 UI: opening map',flush=True)
         root.show_page('map'); workspace=root.map_workspace
         deadline=time.monotonic()+70
         while time.monotonic()<deadline and workspace.last_applied_count is None:
@@ -160,12 +164,14 @@ def ui_checks(td):
         assert workspace.bridge is not None, workspace.status.get()
         assert workspace.last_applied_count is not None, workspace.status.get()
         assert workspace.embedded
+        print('835 UI: native host embedded and JSON delivered',flush=True)
         assert len(workspace.records)>=6
         workspace.tree.selection_set(f"project:{ids['project']}"); settle(root)
         workspace.gps.set('50.1, 14.5'); workspace.save_gps(); settle(root)
         assert model.point(M,model.record(M,'project',ids['project'])['gps_coordinates'])==[14.5,50.1]
         # Existing forms and map read and write exactly the same columns.
         dialog=M.ProjectDialog(root,ids['project']); settle(root)
+        print('835 UI: editing original project form',flush=True)
         assert model.point(M,dialog.vars['gps_coordinates'].get())==[14.5,50.1]
         dialog.vars['map_phase'].set('Ukončeno'); dialog.map_supplying.set(False); dialog.ok(); settle(root)
         assert not dialog.winfo_exists()
@@ -173,6 +179,7 @@ def ui_checks(td):
         assert set(workspace.records)=={f"project:{ids['project']}",f"project:{ids['completed']}"}
         workspace.reset(); workspace.layer.set('Obojí'); workspace.refresh()
         dialog=M.CompanyDialog(root,ids['cid']); settle(root)
+        print('835 UI: editing original company form',flush=True)
         dialog.vars['gps_coordinates'].set('49.21, 16.61'); dialog.ok(); settle(root)
         assert not dialog.winfo_exists()
         assert model.point(M,model.record(M,'company',ids['cid'])['gps_coordinates'])==[16.61,49.21]
@@ -182,8 +189,13 @@ def ui_checks(td):
         model.save_location(M,'project',ids['project'],'50.2,14.6',model.snapshot(project))
         dialog.ok(); assert dialog.winfo_exists(); dialog.destroy(); warnings.clear()
         root.show_page('map'); settle(root,1)
+        deadline=time.monotonic()+30
+        while not workspace.loaded and time.monotonic()<deadline: settle(root,.1)
+        online_loaded=workspace.loaded
         from PIL import ImageGrab
         ImageGrab.grab().save(output/'map-workspace.png')
+        assert online_loaded, 'Online OpenFreeMap did not render: '+workspace.status.get()
+        print('835 UI: online map rendered; switching user',flush=True)
         # User switch destroys the previous renderer and empties inaccessible data.
         old_host=workspace.bridge.process
         with closing(M._user_access_connect()) as con,con:
@@ -198,12 +210,13 @@ def ui_checks(td):
         assert not errors,errors
         assert not warnings,warnings
         print('8.0.35: real Tk tab, embedded WebView2/MapLibre bridge, original dialogs, stale save, permissions, user switch and cleanup OK',flush=True)
-        (output/'map-report.json').write_text(json.dumps({'ok':True,'online_basemap_loaded':workspace.loaded},indent=2),encoding='utf-8')
+        (output/'map-report.json').write_text(json.dumps({'ok':True,'online_basemap_loaded':online_loaded},indent=2),encoding='utf-8')
     finally:
         if root.map_workspace.bridge: root.map_workspace.bridge.close()
         root._turto_closing=True
         for job in root.tk.splitlist(root.tk.call('after','info')): root.tk.call('after','cancel',job)
         root.destroy()
+        faulthandler.cancel_dump_traceback_later()
 
 
 if __name__=='__main__':
@@ -214,4 +227,4 @@ if __name__=='__main__':
             subprocess.run([sys.executable,__file__,'--source-worker',td],check=True)
         if '--source-only' not in sys.argv:
             with tempfile.TemporaryDirectory(prefix='turto-map-ui-835-') as td:
-                subprocess.run([sys.executable,__file__,'--ui-worker',td],check=True)
+                subprocess.run([sys.executable,__file__,'--ui-worker',td],check=True,timeout=155)

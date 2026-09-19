@@ -139,11 +139,13 @@ jobs:
       - name: Build pinned embedded map host
         shell: pwsh
         run: python scripts/build-map-host.py
+      - name: Validate canonical map data and real embedded Windows map
+        shell: pwsh
+        timeout-minutes: 4
+        run: python scripts/validate-835-map.py
       - name: Validate installer architecture and real Windows updater semantics
         shell: pwsh
         run: |
-          python scripts/validate-835-map.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-834-user-access.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-833-company-links.py

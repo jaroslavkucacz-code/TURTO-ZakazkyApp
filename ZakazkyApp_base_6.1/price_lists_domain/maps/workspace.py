@@ -66,7 +66,8 @@ class Workspace:
         left = ttk.Frame(panes, width=360); right = ttk.Frame(panes)
         panes.add(left, weight=1); panes.add(right, weight=3)
         left.columnconfigure(0, weight=1); left.rowconfigure(0, weight=1)
-        self.tree = ttk.Treeview(left, columns=('name','state'), show='headings', selectmode='browse', height=12)
+        self.tree = ttk.Treeview(left, columns=('name','state'), show='headings', selectmode='browse', height=12,
+                                 name='layout__map__canonical_records')
         self.tree.heading('name', text='Záznam v CRM'); self.tree.column('name', width=240, minwidth=120)
         self.tree.heading('state', text='Poloha / stav'); self.tree.column('state', width=140, minwidth=100)
         self.tree.grid(row=0, column=0, sticky='nsew')
@@ -156,16 +157,19 @@ class Workspace:
 
     def refresh(self):
         try:
+            access.require(self.M,'map',write=False)
             current = self.selected()
-            records = model.rows(self.M, layer={'Obojí':'both','Společnosti':'company','Akce':'project'}[self.layer.get()],
-                phase='' if self.phase.get() == 'Všechny stavy' else self.phase.get(), supplying=self.supplying.get(),
-                start_from=self.start_from.get(), start_to=self.start_to.get(), query=self.query.get(),
-                company_id=self.company_ids.get(self.company.get()))
+            selected_company = self.company_ids.get(self.company.get())
             with closing(self.M.db()) as con:
                 choices = con.execute('SELECT id,official_name,short_name FROM companies WHERE active=1 AND merged_into_company_id IS NULL ORDER BY official_name').fetchall() if access.level(self.M,'companies') >= access.READ else []
             self.company_ids = {f"{r['official_name'] or r['short_name']} [ID {r['id']}]":r['id'] for r in choices}
             self.company_box.configure(values=('Všechny společnosti', *self.company_ids))
-            if self.company.get() not in self.company_ids: self.company.set('Všechny společnosti')
+            selected_label = next((label for label,cid in self.company_ids.items() if cid == selected_company),'Všechny společnosti')
+            self.company.set(selected_label)
+            records = model.rows(self.M, layer={'Obojí':'both','Společnosti':'company','Akce':'project'}[self.layer.get()],
+                phase='' if self.phase.get() == 'Všechny stavy' else self.phase.get(), supplying=self.supplying.get(),
+                start_from=self.start_from.get(), start_to=self.start_to.get(), query=self.query.get(),
+                company_id=self.company_ids.get(self.company.get()))
             self.records = {r['key']:r for r in records}
             self.tree.delete(*self.tree.get_children())
             for row in records:
