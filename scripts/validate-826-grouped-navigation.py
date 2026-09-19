@@ -131,7 +131,7 @@ def ui_checks(td):
             return [next(k for k, b in root.nav.items() if b is widget) for widget in widgets]
 
         def hierarchy():
-            assert keys(root.main_nav) == ['dash', 'business', 'technical', 'pricelists', 'issued_offers', 'received_orders', 'projects', 'reports', 'directory']
+            assert keys(root.main_nav) == ['dash', 'business', 'technical', 'pricelists', 'issued_offers', 'received_orders', 'projects', 'map', 'reports', 'directory']
             assert keys(root.nav_groups['directory']) == ['companies', 'people']
             assert keys(root.nav_groups['technical']) == ['actions', 'requests', 'mivo', 'offers', 'tasks']
             for key in navigation.PAGE_GROUP:

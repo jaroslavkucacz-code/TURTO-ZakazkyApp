@@ -89,6 +89,8 @@ def main():
         result = read(result_file)
         assert result["ok"] and result["frozen"] and result["version"] == version
         assert len(result['reports_pages']) == 11
+        assert len(result['map_checks']) == 3
+        checks.append('installed WebView2 map host, MapLibre bridge and PROJ conversion')
         checks.append('all eleven embedded report pages and Excel/HTML exports in frozen runtime')
         database = Path(result["database"])
         assert database.is_relative_to(data)

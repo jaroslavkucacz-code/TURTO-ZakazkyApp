@@ -33,6 +33,14 @@ for name in ("turto_logo.png", "turto_logo.ico", "turto_icon.png", "turto_taskba
     if path.is_file():
         datas.append((str(path), "."))
 datas += collect_data_files("price_lists_domain")
+map_host = ROOT / 'build' / 'windows' / '_generated' / 'map-host'
+for required in ('TURTO Map.exe', 'WebView2Loader.dll', 'Microsoft.Web.WebView2.Core.dll',
+                 'Microsoft.Web.WebView2.WinForms.dll', 'assets/index.html', 'assets/maplibre-gl.js'):
+    if not (map_host / required).is_file():
+        raise RuntimeError('Required embedded map payload missing: ' + required)
+for source in map_host.rglob('*'):
+    if source.is_file():
+        datas.append((str(source), str(Path('map-host') / source.parent.relative_to(map_host))))
 
 # The legacy Offer Engine needs its parser sources as real files at runtime, but
 # the updater already shipped in TURTO CRM 8.0.5 deliberately rejects loose
@@ -68,6 +76,17 @@ with zipfile.ZipFile(
             archive.write(source, source.relative_to(offer_engine_root).as_posix())
 datas.append((str(offer_engine_bundle), "."))
 
+# 8.0.34's installed updater rejects loose .db files, including PROJ's immutable
+# coordinate reference database. Bundle it without weakening that safety gate.
+from pyproj import datadir
+proj_reference_root = Path(datadir.get_data_dir()).resolve()
+proj_reference_bundle = generated_dir / 'proj_reference_bundle.zip'
+with zipfile.ZipFile(proj_reference_bundle,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as archive:
+    for source in sorted(proj_reference_root.rglob('*')):
+        if source.is_file():
+            archive.write(source,source.relative_to(proj_reference_root).as_posix())
+datas.append((str(proj_reference_bundle),'.'))
+
 # tkinterdnd2 ships native payloads for many platforms and architectures. TURTO
 # CRM 8.0 is a Windows x64 build, so include only the two x64 variants required
 # by current/legacy Tcl runtimes. Python 3.14 uses Tcl/Tk 9, therefore the
@@ -96,6 +115,9 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+a.datas = [entry for entry in a.datas if not Path(entry[1]).resolve().is_relative_to(proj_reference_root)]
+if any(Path(entry[0]).suffix.lower() in {'.db','.sqlite','.sqlite3'} for entry in a.datas):
+    raise RuntimeError('Loose database in payload would be rejected by the installed safe updater')
 pyz = PYZ(a.pure)
 
 exe = EXE(
