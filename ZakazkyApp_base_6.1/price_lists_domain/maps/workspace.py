@@ -107,7 +107,7 @@ class Workspace:
         ttk.Button(cache, text='Stáhnout adresář ČR', command=self.download).grid(row=0, column=0, sticky='ew', padx=(0,5), pady=3)
         ttk.Button(cache, text='Importovat ZIP ČÚZK', command=self.import_zip).grid(row=0, column=1, sticky='ew', pady=3)
         ttk.Button(cache, text='Doplnit polohy podle adres', command=self.batch_lookup).grid(row=1, column=0, columnspan=2, sticky='ew', pady=3)
-        ttk.Label(cache, text='Adresář se stahuje jednou. Vyhledávání adres pak probíhá v tomto počítači.',
+        ttk.Label(cache, text='Adresář se stahuje jednou. Vyhledávání adres pak probíhá v tomto počítači. ČÚZK – RÚIAN, CC BY 4.0.',
                   wraplength=330).grid(row=2, column=0, columnspan=2, sticky='w', pady=5)
         self.map_frame = tk.Frame(right, background='#edf2f4'); self.map_frame.pack(fill='both', expand=True)
         self.placeholder = ttk.Label(self.map_frame, text='Mapa se načte při otevření záložky.', anchor='center', wraplength=420)
@@ -115,7 +115,7 @@ class Workspace:
         footer = ttk.Frame(page, padding=(12,8)); footer.grid(row=3, column=0, sticky='ew')
         footer.columnconfigure(0, weight=1)
         ttk.Label(footer, textvariable=self.status, wraplength=800).grid(row=0, column=0, sticky='w')
-        ttk.Button(footer, text='Zdroje mapy', command=lambda:webbrowser.open('https://openfreemap.org/')).grid(row=0, column=1, padx=5)
+        ttk.Button(footer, text='Zobrazit zdroje', command=self.sources).grid(row=0, column=1, padx=5)
         self.runtime_button = ttk.Button(footer, text='Instalovat WebView2', command=lambda:webbrowser.open('https://developer.microsoft.com/microsoft-edge/webview2/'))
         self.runtime_button.grid(row=0,column=2); self.runtime_button.grid_remove()
         self.poll_after = None
@@ -244,6 +244,16 @@ class Workspace:
 
     def warn(self, exc):
         self.M.messagebox.showwarning('Mapa',str(exc),parent=self.app)
+
+    def sources(self):
+        self.M.messagebox.showinfo('Zdroje mapy',
+            'Mapový podklad: OpenFreeMap – https://openfreemap.org/\n'
+            '© OpenMapTiles – https://openmaptiles.org/\n'
+            '© OpenStreetMap contributors – https://www.openstreetmap.org/copyright\n\n'
+            'Adresní místa: ČÚZK – RÚIAN, licence CC BY 4.0.\n'
+            'https://nahlizenidokn.cuzk.gov.cz/StahniAdresniMistaRUIAN.aspx\n'
+            'https://creativecommons.org/licenses/by/4.0/\n'
+            'Souřadnice adres se převádějí z S-JTSK do WGS84; vyhledávání je místní.',parent=self.app)
 
     def focus(self):
         row = self.selected()
