@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+build/windows/_generated/
+build/validation/
+dist/

@@ -1175,6 +1175,8 @@ def ensure_schema():
         CREATE INDEX IF NOT EXISTS idx_action_history_action ON action_history(action_id,created_at);
         """)
         company_roles.ensure_columns(con)
+        from price_lists_domain.maps import model as map_model
+        map_model.ensure_schema(con)
         from price_lists_domain.platform.user_access import ensure_columns as ensure_user_access
         ensure_user_access(con)
         if not has_column(con,"requests","mail_body"):
@@ -2297,10 +2299,12 @@ class CompanyDialog(tk.Toplevel):
             with db() as con:
                 r=con.execute("SELECT * FROM companies WHERE id=?",(company_id,)).fetchone()
                 if r:vals=dict(r)
+        from price_lists_domain.maps import model as map_model
+        self._map_original=map_model.form_snapshot(vals)
         f=scrollable_dialog_frame(self,14)
         self.vars={k:tk.StringVar(value=vals.get(k,"") or "") for k in (
             "short_name","official_name","ico","dic","address","legal_form","web",
-            "date_created","ares_last_change","cz_nace","financial_office","district","municipality"
+            "date_created","ares_last_change","cz_nace","financial_office","district","municipality","gps_coordinates"
         )}
         ttk.Label(f,text="Hledat v ARES").grid(row=0,column=0,sticky="w",padx=(0,10),pady=5)
         self.ares_q=tk.StringVar(value=vals.get("official_name","") or vals.get("short_name","") or "")
@@ -2319,7 +2323,7 @@ class CompanyDialog(tk.Toplevel):
         ttk.Checkbutton(roles,text="Dodavatel",variable=self.is_supplier).pack(side="left")
         row=3
         for lab,key in [("Oficiální název","official_name"),("IČO","ico"),("DIČ","dic"),
-            ("Sídlo","address"),("Právní forma","legal_form"),("Datum vzniku","date_created"),
+            ("Sídlo","address"),("GPS (šířka, délka)","gps_coordinates"),("Právní forma","legal_form"),("Datum vzniku","date_created"),
             ("Poslední změna ARES","ares_last_change"),("CZ-NACE","cz_nace"),("Finanční úřad","financial_office"),
             ("Okres","district"),("Obec","municipality"),("Web","web")]:
             ttk.Label(f,text=lab).grid(row=row,column=0,sticky="w",padx=(0,10),pady=4)
@@ -2376,21 +2380,25 @@ class CompanyDialog(tk.Toplevel):
         for r in rows:self.people_tree.insert("","end",iid=f"p{r['id']}",values=(r["name"],r["email"],r["phone"],r["role"]))
     def ensure_company_saved(self):
         if self.cid:return self.cid
+        try:gps=normalize_gps(self.vars["gps_coordinates"].get())
+        except ValueError as exc:
+            messagebox.showwarning("GPS",str(exc),parent=self);return None
         official=self.vars["official_name"].get().strip();short=official
         if not short and not official:messagebox.showwarning("Společnost","Nejdřív vyplňte název společnosti.",parent=self);return None
         short=official;ico=self.vars["ico"].get().strip()
         with db() as con:
             self.cid=con.execute("""INSERT INTO companies(short_name,official_name,ico,dic,address,legal_form,web,note,ares_checked,
-                    date_created,ares_last_change,cz_nace,financial_office,district,municipality,ares_raw_json,is_customer,is_supplier)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",(
+                    date_created,ares_last_change,cz_nace,financial_office,district,municipality,ares_raw_json,is_customer,is_supplier,gps_coordinates)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",(
                     short,official,ico,self.vars["dic"].get().strip(),self.vars["address"].get().strip(),
                     self.vars["legal_form"].get().strip(),self.vars["web"].get().strip(),
                     self.note.get("1.0","end").strip(),date.today().isoformat() if ico else "",
                     self.vars["date_created"].get().strip(),self.vars["ares_last_change"].get().strip(),
                     self.vars["cz_nace"].get().strip(),self.vars["financial_office"].get().strip(),
                     self.vars["district"].get().strip(),self.vars["municipality"].get().strip(),
-                    getattr(self,"ares_raw_json",""),int(self.is_customer.get()),int(self.is_supplier.get())
+                    getattr(self,"ares_raw_json",""),int(self.is_customer.get()),int(self.is_supplier.get()),gps
                 )).lastrowid
+        self._map_original=(self.vars["address"].get().strip(),gps)
         return self.cid
     def add_person(self):
         cid=self.ensure_company_saved()
@@ -2412,7 +2420,14 @@ class CompanyDialog(tk.Toplevel):
         official=self.vars["official_name"].get().strip();short=official
         if not short and not official:return messagebox.showwarning("Společnost","Vyplňte název.",parent=self)
         short=official;ico=self.vars["ico"].get().strip()
+        from price_lists_domain.maps import model as map_model
+        try:gps=normalize_gps(self.vars["gps_coordinates"].get())
+        except ValueError as exc:return messagebox.showwarning("GPS",str(exc),parent=self)
+        gps=map_model.preserve_gps_format(sys.modules[__name__],self._map_original[1],gps)
         with db() as con:
+            if self.cid:
+                try:map_model.check_form(con,'companies',self.cid,self._map_original)
+                except ValueError as exc:return messagebox.showwarning("Společnost",str(exc),parent=self)
             if ico:
                 dup=con.execute("SELECT id FROM companies WHERE ico=? AND id<>?",(ico,self.cid or -1)).fetchone()
                 if dup:return messagebox.showwarning("Společnost","Firma s tímto IČO už v databázi existuje.",parent=self)
@@ -2422,13 +2437,14 @@ class CompanyDialog(tk.Toplevel):
             self.vars["date_created"].get().strip(),self.vars["ares_last_change"].get().strip(),
             self.vars["cz_nace"].get().strip(),self.vars["financial_office"].get().strip(),
             self.vars["district"].get().strip(),self.vars["municipality"].get().strip(),
-            getattr(self,"ares_raw_json",""),int(self.is_customer.get()),int(self.is_supplier.get()))
+            getattr(self,"ares_raw_json",""),int(self.is_customer.get()),int(self.is_supplier.get()),gps)
             if self.cid:con.execute("""UPDATE companies SET short_name=?,official_name=?,ico=?,dic=?,address=?,legal_form=?,web=?,note=?,ares_checked=?,
-                    date_created=?,ares_last_change=?,cz_nace=?,financial_office=?,district=?,municipality=?,ares_raw_json=?,is_customer=?,is_supplier=? WHERE id=?""",
+                    date_created=?,ares_last_change=?,cz_nace=?,financial_office=?,district=?,municipality=?,ares_raw_json=?,is_customer=?,is_supplier=?,gps_coordinates=? WHERE id=?""",
                     vals+(self.cid,));cid=self.cid
             else:cid=con.execute("""INSERT INTO companies(short_name,official_name,ico,dic,address,legal_form,web,note,ares_checked,
-                    date_created,ares_last_change,cz_nace,financial_office,district,municipality,ares_raw_json,is_customer,is_supplier)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",vals).lastrowid
+                    date_created,ares_last_change,cz_nace,financial_office,district,municipality,ares_raw_json,is_customer,is_supplier,gps_coordinates)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",vals).lastrowid
+            map_model.manual_form_location(con,'companies',cid,self._map_original[1],gps,self.vars['address'].get().strip())
         self.result=cid;self.destroy()
 
 class PersonDialog(tk.Toplevel):
@@ -2580,9 +2596,13 @@ class ProjectDialog(tk.Toplevel):
                 r=con.execute("SELECT * FROM projects WHERE id=?",(pid,)).fetchone()
                 if r:vals=dict(r)
 
+        from price_lists_domain.maps import model as map_model
+        self._map_original=map_model.form_snapshot(vals,True)
         f=scrollable_dialog_frame(self,14)
         self.vars={k:tk.StringVar(value=vals.get(k,"") or "") for k in
-                   ("name","address","gps_coordinates","investor","general_contractor","start_date","end_date")}
+                   ("name","address","gps_coordinates","investor","general_contractor","start_date","end_date","map_phase")}
+        self.vars['map_phase'].set(vals.get('map_phase') or 'Neurčeno')
+        self.map_supplying=tk.BooleanVar(value=bool(vals.get('map_supplying',0)))
 
         # Základní údaje
         ttk.Label(f,text="Název Akce").grid(row=0,column=0,sticky="w",padx=(0,10),pady=5)
@@ -2610,11 +2630,14 @@ class ProjectDialog(tk.Toplevel):
         ttk.Label(f,text="Dokončení").grid(row=7,column=0,sticky="w",padx=(0,10),pady=5)
         DatePicker(f,self.vars["end_date"]).grid(row=7,column=1,sticky="ew",pady=5)
 
-        ttk.Label(f,text="Poznámka").grid(row=8,column=0,sticky="nw",padx=(0,10),pady=5)
-        self.note=tk.Text(f,wrap="word",height=5);self.note.grid(row=8,column=1,columnspan=2,sticky="nsew")
+        ttk.Label(f,text="Stav Akce").grid(row=8,column=0,sticky="w",pady=5)
+        ttk.Combobox(f,textvariable=self.vars['map_phase'],values=map_model.PHASES,state='readonly').grid(row=8,column=1,sticky='ew',pady=5)
+        ttk.Checkbutton(f,text="Na tuto Akci nyní dodáváme",variable=self.map_supplying).grid(row=9,column=1,columnspan=2,sticky='w',pady=5)
+        ttk.Label(f,text="Poznámka").grid(row=10,column=0,sticky="nw",padx=(0,10),pady=5)
+        self.note=tk.Text(f,wrap="word",height=5);self.note.grid(row=10,column=1,columnspan=2,sticky="nsew")
         self.note.insert("1.0",vals.get("note","") or "")
 
-        row=9
+        row=11
         if pid:
             ttk.Separator(f).grid(row=row,column=0,columnspan=3,sticky="ew",pady=10);row+=1
             ttk.Label(f,text="Příležitosti navázané na tuto Akci",
@@ -2669,20 +2692,34 @@ class ProjectDialog(tk.Toplevel):
         except ValueError as e:
             return messagebox.showwarning("GPS",str(e),parent=self)
         self.vars["gps_coordinates"].set(gps)
+        from price_lists_domain.maps import model as map_model
+        gps=map_model.preserve_gps_format(sys.modules[__name__],self._map_original[1],gps)
+        phase=self.vars['map_phase'].get()
+        if phase not in map_model.PHASES:return messagebox.showwarning('Akce','Vyberte platný stav Akce.',parent=self)
+        supplying=int(self.map_supplying.get())
+        if supplying and phase in ('Ukončeno','Zrušeno'):
+            return messagebox.showwarning('Akce','U ukončené nebo zrušené Akce vypněte příznak „nyní dodáváme“.',parent=self)
+        try:
+            start=map_model.parse_bound(self.vars['start_date'].get())
+            end=map_model.parse_bound(self.vars['end_date'].get())
+            if start and end and start>end:raise ValueError('Dokončení nesmí předcházet zahájení.')
+        except ValueError as exc:return messagebox.showwarning('Akce',str(exc),parent=self)
 
         vals=(name,self.vars["address"].get().strip(),gps,
               self.vars["investor"].get().strip(),self.vars["general_contractor"].get().strip(),
-              parse_date(self.vars["start_date"].get()),parse_date(self.vars["end_date"].get()),
-              self.note.get("1.0","end").strip())
+              start,end,self.note.get("1.0","end").strip(),phase,supplying)
         with db() as con:
             if self.pid:
+                try:map_model.check_form(con,'projects',self.pid,self._map_original)
+                except ValueError as exc:return messagebox.showwarning('Akce',str(exc),parent=self)
                 con.execute("""UPDATE projects SET name=?,address=?,gps_coordinates=?,investor=?,general_contractor=?,
-                               start_date=?,end_date=?,note=? WHERE id=?""",vals+(self.pid,))
+                               start_date=?,end_date=?,note=?,map_phase=?,map_supplying=? WHERE id=?""",vals+(self.pid,))
                 pid=self.pid
             else:
                 pid=con.execute("""INSERT INTO projects(
-                    name,address,gps_coordinates,investor,general_contractor,start_date,end_date,note,created_by)
-                    VALUES(?,?,?,?,?,?,?,?,?)""",vals+(get_setting("active_user",""),)).lastrowid
+                    name,address,gps_coordinates,investor,general_contractor,start_date,end_date,note,map_phase,map_supplying,created_by)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?)""",vals+(get_setting("active_user",""),)).lastrowid
+            map_model.manual_form_location(con,'projects',pid,self._map_original[1],gps,self.vars['address'].get().strip())
         self.result=pid;self.destroy()
 
 
@@ -5623,11 +5660,10 @@ $s.Save()
                 f"Původní Akce bude archivována. Historické záznamy a existující Poptávky se nebudou zpětně měnit.",
                 parent=d):return
             user=get_setting("active_user","")
-            # Only current relationship of Opportunities is moved. No request row and no history row is rewritten.
-            with db() as con:
-                con.execute("UPDATE actions SET project_id=?,updated_by=?,updated_at=CURRENT_TIMESTAMP WHERE project_id=?",
-                            (target["id"],user,pid))
-                con.execute("UPDATE projects SET active=0 WHERE id=?",(pid,))
+            from price_lists_domain.maps.model import merge_projects
+            try:merge_projects(sys.modules[__name__],pid,target['id'],user)
+            except (ValueError,sqlite3.Error) as exc:
+                return messagebox.showwarning('Sloučit Akce',str(exc),parent=d)
             # Record new event only; do not alter old history.
             with db() as con:
                 moved=con.execute("SELECT id FROM actions WHERE project_id=?",(target["id"],)).fetchall()

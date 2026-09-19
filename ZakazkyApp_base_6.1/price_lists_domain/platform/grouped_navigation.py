@@ -10,13 +10,14 @@ GROUPS = {
 }
 PAGE_GROUP = {page: group for group, pages in GROUPS.items() for page in pages}
 # Keep the relative order of the remaining main pages.
-TOP_ORDER = ("dash", "business", "technical", "pricelists", "issued_offers", "received_orders", "projects", "reports", "directory", "help")
+TOP_ORDER = ("dash", "business", "technical", "pricelists", "issued_offers", "received_orders", "projects", "map", "reports", "directory", "help")
 LABELS = {
     "dash": "⌂  Přehled", "business": "Obchod", "technical": "Technika", "directory": "Adresář",
     "actions": "Ke zpracování", "requests": "Poptávky", "mivo": "MIVO",
     "offers": "Přijaté nabídky", "tasks": "Úkoly",
     "companies": "Společnosti", "people": "Osoby", "projects": "▣  Akce",
     "help": "?  Nápověda",
+    "map": "Mapa",
     "reports": "Přehledy",
     "reports_overview": "Přehled", "reports_revenue": "Obrat & marže",
     "reports_sales": "Obchodníci", "reports_customers": "Zákazníci",

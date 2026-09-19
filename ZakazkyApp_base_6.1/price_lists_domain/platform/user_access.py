@@ -14,7 +14,7 @@ TITLES = {
     'dash': 'Přehled', 'business': 'Obchod', 'actions': 'Ke zpracování',
     'requests': 'Poptávky', 'mivo': 'MIVO', 'offers': 'Přijaté nabídky', 'tasks': 'Úkoly',
     'pricelists': 'Ceníky', 'issued_offers': 'Vydané nabídky', 'received_orders': 'Přijaté objednávky',
-    'projects': 'Akce', 'companies': 'Společnosti', 'people': 'Osoby',
+    'projects': 'Akce', 'map': 'Mapa', 'companies': 'Společnosti', 'people': 'Osoby',
     **{key: 'Přehledy / ' + navigation.LABELS[key] for key in navigation.GROUPS['reports']},
     'settings': 'Nastavení CRM', 'help': 'Nápověda',
 }
@@ -170,6 +170,8 @@ def apply(M):
 
     def sync(app):
         refresh_session(M, app.active_user.get())
+        if hasattr(app, 'map_workspace'):
+            app.map_workspace.on_user_changed()
         navigation.arrange(app)
         refresh_controls(M, app)
         key = getattr(app, '_current_page', 'dash')

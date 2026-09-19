@@ -1,6 +1,8 @@
 param()
 $ErrorActionPreference = 'Stop'
 $version = (Get-Content build/windows/version.txt -Raw).Trim()
+python scripts/build-map-host.py
+if ($LASTEXITCODE -ne 0) { throw 'Embedded map host build failed' }
 pyinstaller --noconfirm --clean build/windows/TURTO_CRM.spec
 if ($LASTEXITCODE -ne 0) { throw 'Main application build failed' }
 pyinstaller --noconfirm --clean build/windows/TURTO_CRM_Updater.spec

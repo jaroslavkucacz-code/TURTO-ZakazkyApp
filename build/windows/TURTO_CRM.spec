@@ -33,6 +33,14 @@ for name in ("turto_logo.png", "turto_logo.ico", "turto_icon.png", "turto_taskba
     if path.is_file():
         datas.append((str(path), "."))
 datas += collect_data_files("price_lists_domain")
+map_host = ROOT / 'build' / 'windows' / '_generated' / 'map-host'
+for required in ('TURTO Map.exe', 'WebView2Loader.dll', 'Microsoft.Web.WebView2.Core.dll',
+                 'Microsoft.Web.WebView2.WinForms.dll', 'assets/index.html', 'assets/maplibre-gl.js'):
+    if not (map_host / required).is_file():
+        raise RuntimeError('Required embedded map payload missing: ' + required)
+for source in map_host.rglob('*'):
+    if source.is_file():
+        datas.append((str(source), str(Path('map-host') / source.parent.relative_to(map_host))))
 
 # The legacy Offer Engine needs its parser sources as real files at runtime, but
 # the updater already shipped in TURTO CRM 8.0.5 deliberately rejects loose

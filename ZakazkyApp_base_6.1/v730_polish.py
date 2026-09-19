@@ -705,7 +705,8 @@ def apply(M) -> None:
     def merge_company_fields(con, source, target):
         columns = set(table_columns(con, "companies"))
         protected = {
-            "id", "active", "merged_into_company_id", "merged_at", "merged_by"
+            "id", "active", "merged_into_company_id", "merged_at", "merged_by",
+            "gps_coordinates", "map_source", "map_address", "map_ruian_id"
         }
         updates = {}
         source_name = _text(
@@ -727,6 +728,13 @@ def apply(M) -> None:
             if value != target_value:
                 updates[column] = value
         updates["active"] = 1
+        # A pin belongs to one address. Copy the complete location only when
+        # the retained address is the source address; never mix GPS and source.
+        retained_address = updates.get('address', target['address'])
+        if ('gps_coordinates' in columns and not target['gps_coordinates']
+                and source['gps_coordinates'] and retained_address == source['address']):
+            for key in ('gps_coordinates', 'map_source', 'map_address', 'map_ruian_id'):
+                updates[key] = source[key]
         if updates:
             con.execute(
                 f"UPDATE companies SET {','.join(f'{_q(k)}=?' for k in updates)} WHERE id=?",
