@@ -1,8 +1,8 @@
 {
-  "version": "8.0.34",
+  "version": "8.0.35",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "b8d8f0e4eaba6f8c274d4fbc88f9ae1ee9de47aa",
-  "validated_run_id": 35345460915,
-  "notes": "8.0.34 – Ke zpracování: výběr více řešitelů přímo ve formuláři, s předvybraným přihlášeným uživatelem u nového záznamu. Nová prázdná záložka Obchod mezi Přehled a Technika. Správa uživatelů → Funkce a oprávnění umožňuje zadat pracovní funkci a nastavit přístup Skrýt / Jen číst / Číst i upravovat pro jednotlivé záložky i celou sekci. Výchozí plný přístup zůstává zachovaný. Nastavení spravuje ADMIN a zůstává navázané na uživatele i po přejmenování. Režim čtení chrání ukládání, mazání, změny stavů a importy, včetně souvisejících oken a Přehledů. Hledání a prohlížení zůstává dostupné. Navigace se přizpůsobí menšímu oknu. Ověřeno skutečnými formuláři Windows, regresními testy a čistou instalací."
+  "source_commit": "2955e6312015e34097ac4ab08e0443b2f4cca2db",
+  "validated_run_id": 35440048381,
+  "notes": "Nová záložka Mapa přímo v desktopovém CRM: OpenFreeMap bez API klíčů a kreditů, vrstvy Společnosti/Akce a otevření původního záznamu.\n\nGPS, adresy a termíny jsou propojené přes skutečná ID. Přibyly filtry stavu Akce, Dodáváme, data zahájení a navázané společnosti; stav a Dodáváme se nastavují v detailu Akce. Starým záznamům se obchodní stav automaticky neodhaduje.\n\nČeské adresy lze doplnit přes místní adresář ČÚZK/RÚIAN: Mapa → Stáhnout adresář ČR → Doplnit polohy podle adres. Použijí se jen jednoznačné shody, existující GPS se nepřepisují. Pro ostatní místa je možné zadat GPS nebo umístit bod kliknutím.\n\nZměna adresy vyžádá ověření polohy; souběžné změny, přístupová práva a přepnutí uživatele jsou ošetřené. Sloučení Akcí přenáší i přímé vazby nabídek a objednávek. Rozhraní je dostupné i na menších obrazovkách.\n\nMapa vyžaduje připojení k internetu a Microsoft Edge WebView2 Runtime. Pokud runtime chybí, CRM nabídne odkaz na jeho instalaci. Databáze, přílohy a původní nastavení úložiště se při aktualizaci zachovají."
 }
