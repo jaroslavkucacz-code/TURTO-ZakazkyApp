@@ -30,7 +30,8 @@ class MapHost : Form {
 
     void Emit(object data) { lock (Console.Out) { Console.WriteLine(json.Serialize(data)); } }
     static bool NetworkHost(Uri uri) {
-        return uri.Scheme == "https" && (uri.Host == "tiles.openfreemap.org" || uri.Host.EndsWith(".tiles.openfreemap.org"));
+        return uri.Scheme == "https" && (uri.Host == "tiles.openfreemap.org" || uri.Host.EndsWith(".tiles.openfreemap.org") ||
+            (uri.Host == "ags.cuzk.gov.cz" && uri.AbsolutePath.StartsWith("/arcgis1/rest/services/ORTOFOTO_WM/MapServer/tile/", StringComparison.Ordinal)));
     }
     public MapHost(IntPtr parent, string folder) {
         parentWindow = parent; assets = folder;
@@ -73,7 +74,7 @@ class MapHost : Form {
                 Uri uri;
                 if (Uri.TryCreate(e.Uri, UriKind.Absolute, out uri) && uri.Scheme == "https" &&
                     (uri.Host == "openfreemap.org" || uri.Host == "openmaptiles.org" ||
-                     uri.Host == "www.openstreetmap.org" || uri.Host == "maplibre.org"))
+                     uri.Host == "www.openstreetmap.org" || uri.Host == "maplibre.org" || uri.Host == "geoportal.cuzk.gov.cz"))
                     Emit(new { type = "attribution", url = e.Uri });
             };
             core.PermissionRequested += delegate(object s, CoreWebView2PermissionRequestedEventArgs e) { e.State = CoreWebView2PermissionState.Deny; };
