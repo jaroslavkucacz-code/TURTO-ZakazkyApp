@@ -195,12 +195,15 @@ def ui_checks(td):
             w.find_parcel(); wait_job(w)
         assert w.preview['source']=='ruian-parcel'
         assert not model.record(M,'project',ids['target'])['gps_coordinates'], 'Preview wrote CRM data'
+        button,canvas=w.save_found_button,w.details_canvas
+        assert button.winfo_rooty() >= canvas.winfo_rooty(), 'Save button hidden above viewport'
+        assert button.winfo_rooty()+button.winfo_height() <= canvas.winfo_rooty()+canvas.winfo_height(), 'Save button hidden below viewport'
         deadline=time.monotonic()+60
         while w.last_preview_point != PARCEL['coordinates'] and time.monotonic()<deadline:
             settle(root,.1)
         output=REPO/'build/validation/online-map-836'; output.mkdir(parents=True,exist_ok=True)
         from PIL import ImageGrab
-        settle(root,.6)
+        settle(root,3)
         ImageGrab.grab(bbox=(root.winfo_rootx(),root.winfo_rooty(),root.winfo_rootx()+root.winfo_width(),root.winfo_rooty()+root.winfo_height())).save(output/'parcel-preview.png')
         assert w.last_preview_point == PARCEL['coordinates'], f'Parcel preview missing: loaded={w.loaded}, embedded={w.embedded}, status={w.status.get()}, errors={errors}'
         w.save_found(); settle(root)

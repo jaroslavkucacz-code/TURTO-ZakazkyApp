@@ -102,6 +102,7 @@ class Workspace:
         details_scroll.grid(row=0,column=1,sticky='ns')
         self.details_canvas.configure(yscrollcommand=details_scroll.set)
         details_body = ttk.Frame(self.details_canvas); details_body.columnconfigure(0,weight=1)
+        self.details_body = details_body
         canvas_window = self.details_canvas.create_window((0,0),window=details_body,anchor='nw')
         details_body.bind('<Configure>',lambda e:self.details_canvas.configure(scrollregion=self.details_canvas.bbox('all')))
         self.details_canvas.bind('<Configure>',lambda e:self.details_canvas.itemconfigure(canvas_window,width=e.width))
@@ -148,6 +149,10 @@ class Workspace:
         self.cadastre_query.trace_add('write',self.cadastre_edited)
         for variable in (self.cadastre_choice,self.parcel_number,self.parcel_kind):
             variable.trace_add('write',lambda *_:self.clear_preview())
+        def bind_details(widget):
+            widget.bind('<FocusIn>',lambda e:self.reveal_control(e.widget),add='+')
+            for child in widget.winfo_children(): bind_details(child)
+        bind_details(details_body)
         self.map_frame = tk.Frame(right, background='#edf2f4'); self.map_frame.pack(fill='both', expand=True)
         self.placeholder = ttk.Label(self.map_frame, text='Mapa se načte při otevření záložky.', anchor='center', wraplength=420)
         self.placeholder.pack(fill='both', expand=True, padx=15, pady=15)
@@ -420,7 +425,20 @@ class Workspace:
         self.send({'type':'preview','point':chosen['coordinates'],'label':chosen['label']})
         self.select()
         self.status.set('Nalezený bod je pouze náhled. Pro uložení použijte „Uložit bod k vybranému záznamu“.')
-        self.details_canvas.yview_moveto(1)
+        self.page.after_idle(lambda:self.reveal_control(self.save_found_button))
+
+    def reveal_control(self, widget):
+        """Keep focused controls and the save action reachable on small screens."""
+        self.details_body.update_idletasks()
+        height = self.details_body.winfo_height()
+        top = widget.winfo_rooty()-self.details_body.winfo_rooty()
+        bottom = top+widget.winfo_height()
+        start = self.details_canvas.yview()[0]*height
+        visible = self.details_canvas.winfo_height()
+        if top < start:
+            self.details_canvas.yview_moveto(max(0,top-4)/max(1,height))
+        elif bottom > start+visible:
+            self.details_canvas.yview_moveto(max(0,bottom-visible+4)/max(1,height))
 
     def save_found(self):
         row = self.selected(); match = self.preview
