@@ -458,7 +458,7 @@ def main() -> None:
         offer_tree = getattr(root, "offer_tree", None)
         assert offer_tree is not None and offer_tree.winfo_exists()
         assert bool(getattr(offer_tree, "_turto_configurable_columns", False))
-        assert getattr(root, "_v730_offer_table_tools", None) is not None
+        assert getattr(root, "_v730_offer_table_tools", None) is None, "Removed offer legend was restored"
         assert bool(getattr(offer_tree, "_v740_context_owner", False))
         assert "Sloupce…" not in button_labels(root.tabs["offers"])
         company_tree = getattr(root, "company_tree", None)

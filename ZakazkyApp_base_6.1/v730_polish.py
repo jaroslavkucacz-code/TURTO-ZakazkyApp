@@ -1275,7 +1275,7 @@ def apply(M) -> None:
         M.App.refresh_companies = refresh_companies
 
     # ------------------------------------------------------------------
-    # Received offers: explicit column manager and visible colour legend.
+    # Received offers: configurable columns remain available from the table header.
     # ------------------------------------------------------------------
     old_build_offers = getattr(M.App, "build_offers", None)
     if callable(old_build_offers):
@@ -1293,57 +1293,6 @@ def apply(M) -> None:
                     installer(tree, force=True)
             except Exception:
                 pass
-            if not _widget_exists(getattr(self, "_v730_offer_table_tools", None)):
-                body = tree.master
-                while body is not None:
-                    try:
-                        if "Panedwindow" in body.winfo_class():
-                            break
-                    except Exception:
-                        pass
-                    body = getattr(body, "master", None)
-                tools = M.ttk.Frame(page, style="Panel.TFrame", padding=(10, 6))
-                if body is not None:
-                    tools.pack(fill="x", pady=(0, 6), before=body)
-                else:
-                    tools.pack(fill="x", pady=(0, 6))
-                M.ttk.Label(
-                    tools,
-                    text="Barvy jsou upozornění:",
-                    style="PageSubtitle.TLabel",
-                ).pack(side="left", padx=(0, 6))
-                badges = (
-                    (" bez vazby ", "#f7e7b2", "#5b4308"),
-                    (" nezařazené položky ", "#f4d8b8", "#65350a"),
-                    (" také Ceník ", "#dce9f4", "#203d55"),
-                    (" archiv ", "#dfe3e6", "#515960"),
-                )
-                for label, background, foreground in badges:
-                    M.tk.Label(
-                        tools,
-                        text=label,
-                        background=background,
-                        foreground=foreground,
-                        font=("Calibri", 9),
-                        padx=4,
-                        pady=2,
-                    ).pack(side="left", padx=(0, 5))
-                M.ttk.Button(
-                    tools,
-                    text="Sloupce…",
-                    takefocus=False,
-                    command=lambda: getattr(
-                        M, "open_tree_columns_dialog", lambda _tree: None
-                    )(tree),
-                ).pack(side="right")
-                self._v730_offer_table_tools = tools
-                for widget in page.winfo_children():
-                    try:
-                        for child in widget.winfo_children():
-                            if _text(child.cget("text")) == "Sloupce:":
-                                child.configure(text="Předvolba:")
-                    except Exception:
-                        pass
             return result
         M.App.build_offers = build_offers
 

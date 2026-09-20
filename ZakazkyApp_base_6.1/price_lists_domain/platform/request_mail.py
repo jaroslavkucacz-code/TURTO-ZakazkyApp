@@ -5,6 +5,7 @@ from tkinter import ttk, messagebox
 
 DEFAULT_BODY = "Dobrý den,\n\n\n\nPředem velice děkuji,"
 PROFILE_KEY = "request_mail_body"
+MIVO_PROFILE_KEY = "mivo_mail_body"
 URGENT_PREFIX = "SPĚCHÁ! "
 
 
@@ -19,6 +20,25 @@ def with_urgency(subject, urgent):
 
 def flag(value):
     return str(value).strip().casefold() in ("1", "true")
+
+
+def mivo_name(value):
+    return bool(re.match(r"^mivo(?:$|[\s,.])", (value or "").strip(), re.IGNORECASE))
+
+
+def is_mivo_request(M, row):
+    row = dict(row)
+    ids = {row.get("company_id"), row.get("supplier_id")} - {None}
+    if not ids:
+        return False
+    with M.db() as con:
+        return bool(ids.intersection(M.mivo_company_ids(con)))
+
+
+def mivo_subject(subject):
+    """Normalize the old automatic prefix, retaining urgency and custom subjects."""
+    return re.sub(r"^((?:SPĚCHÁ!\s*)*)Poptávka\s+TURTO(?=\s*[-–—])",
+                  r"\1TURTO", subject or "", flags=re.IGNORECASE)
 
 
 def technical_user(name):
@@ -49,47 +69,51 @@ def validate_user(con, name, original=""):
     return name
 
 
-def profile(M, name):
+def profile(M, name, is_mivo=False):
     if not name or technical_user(name):
         return DEFAULT_BODY
-    value = M.get_user_setting(name, PROFILE_KEY, DEFAULT_BODY)
+    value = M.get_user_setting(name, MIVO_PROFILE_KEY if is_mivo else PROFILE_KEY, DEFAULT_BODY)
     return text_lf(value if value is not None else DEFAULT_BODY)
 
 
-def save_profile(M, name, body, expected):
+def save_profile(M, name, body, expected, is_mivo=False):
     """Only the explicit profile Save calls this; reject a concurrent overwrite."""
     with M.db() as con:
         con.execute("BEGIN IMMEDIATE")
         if name not in users(con):
             raise ValueError("Vyberte aktivního uživatele. TEST a Admin nemají text poptávky.")
+        key = MIVO_PROFILE_KEY if is_mivo else PROFILE_KEY
         row = con.execute("SELECT value FROM user_settings WHERE user_name=? AND key=?",
-                          (name, PROFILE_KEY)).fetchone()
+                          (name, key)).fetchone()
         current = text_lf(row[0]) if row and row[0] is not None else DEFAULT_BODY
         if current != expected:
             raise ValueError("Výchozí text mezitím změnil jiný uživatel. Zavřete okno a načtěte jej znovu.")
         con.execute("INSERT OR REPLACE INTO user_settings(user_name,key,value) VALUES(?,?,?)",
-                    (name, PROFILE_KEY, text_lf(body)))
+                    (name, key, text_lf(body)))
 
 
 def body_for_request(M, row):
     row = dict(row)
     body = row.get("mail_body")
-    return profile(M, row.get("assigned_user", "")) if body is None else text_lf(body)
+    return profile(M, row.get("assigned_user", ""), is_mivo_request(M, row)) if body is None else text_lf(body)
 
 
 class ProfileDialog(tk.Toplevel):
-    def __init__(self, parent, M, user_name):
+    def __init__(self, parent, M, user_name, is_mivo=False):
         super().__init__(parent)
         self.M, self.user_name, self.result = M, user_name, None
-        self.title("Výchozí text poptávky")
+        self.is_mivo = is_mivo
+        self.title("Výchozí text MIVO" if is_mivo else "Výchozí text poptávky")
         M.enable_dialog_maximize(self, 720, 420)
         self.transient(parent)
         self.grab_set()
-        self.original = profile(M, user_name)
+        self.original = profile(M, user_name, is_mivo)
         frame = ttk.Frame(self, padding=14)
         frame.pack(fill="both", expand=True)
         ttk.Label(frame, text=f"Poptávající: {user_name}").pack(anchor="w")
-        ttk.Label(frame, text="Tento text se nabídne v nových poptávkách uživatele.").pack(anchor="w", pady=(4, 10))
+        description = ("Tento text se nabídne pouze v nových poptávkách MIVO tohoto uživatele."
+                       if is_mivo else "Tento text se nabídne v nových běžných poptávkách uživatele.")
+        ttk.Label(frame, text=description).pack(anchor="w", pady=(4, 10))
         self.body = tk.Text(frame, wrap="word", height=10, undo=True)
         self.body.pack(fill="both", expand=True)
         self.body.insert("1.0", self.original)
@@ -104,7 +128,7 @@ class ProfileDialog(tk.Toplevel):
     def save(self):
         body = self.body.get("1.0", "end-1c")
         try:
-            save_profile(self.M, self.user_name, body, self.original)
+            save_profile(self.M, self.user_name, body, self.original, self.is_mivo)
         except ValueError as exc:
             return messagebox.showwarning("Výchozí text poptávky", str(exc), parent=self)
         self.result = body

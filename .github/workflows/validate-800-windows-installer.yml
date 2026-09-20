@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     # Complete branch validation is also required before promoting Windows releases.
-    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress, feature/8.0.13-remove-quick-actions, fix/8.0.14-table-initial-layout, feature/8.0.15-persistent-table-layouts, fix/8.0.16-autocomplete-focus, feature/8.0.17-form-navigation-unsaved, feature/8.0.18-large-dialogs, fix/8.0.19-dialog-first-show, feature/8.0.20-calm-theme, feature/8.0.21-universal-search, fix/8.0.22-filter-highlights-separators, feature/8.0.23-issued-delete-project-activity, feature/8.0.24-received-offer-detail, feature/8.0.25-offer-request-received, feature/8.0.26-grouped-navigation, feature/8.0.27-work-processing-catalogs, feature/8.0.28-company-roles-orders, feature/8.0.29-request-mail-profiles, feature/8.0.30-backup-retention, fix/8.0.31-legacy-backup-cleanup, feature/8.0.32-monthly-reports, feature/8.0.33-request-assignees-company-links, feature/8.0.34-user-permissions-assignees, feature/crm-map, codex/online-gps-parcels, codex/map-orthophoto, codex/map-company-layout]
+    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress, feature/8.0.13-remove-quick-actions, fix/8.0.14-table-initial-layout, feature/8.0.15-persistent-table-layouts, fix/8.0.16-autocomplete-focus, feature/8.0.17-form-navigation-unsaved, feature/8.0.18-large-dialogs, fix/8.0.19-dialog-first-show, feature/8.0.20-calm-theme, feature/8.0.21-universal-search, fix/8.0.22-filter-highlights-separators, feature/8.0.23-issued-delete-project-activity, feature/8.0.24-received-offer-detail, feature/8.0.25-offer-request-received, feature/8.0.26-grouped-navigation, feature/8.0.27-work-processing-catalogs, feature/8.0.28-company-roles-orders, feature/8.0.29-request-mail-profiles, feature/8.0.30-backup-retention, fix/8.0.31-legacy-backup-cleanup, feature/8.0.32-monthly-reports, feature/8.0.33-request-assignees-company-links, feature/8.0.34-user-permissions-assignees, feature/crm-map, codex/online-gps-parcels, codex/map-orthophoto, codex/map-company-layout, codex/mivo-offers-layout]
   pull_request:
     paths:
       - ZakazkyApp_base_6.1/price_lists_domain/maps/**
@@ -13,6 +13,7 @@ on:
       - scripts/validate-837-basemaps.py
       - scripts/validate-837-map-renderer.js
       - scripts/validate-838-company-layout.py
+      - scripts/validate-839-mail-offers.py
       - scripts/build-map-host.py
       - ZakazkyApp_base_6.1/price_lists_domain/monthly_reports/**
       - scripts/validate-832-monthly-reports.py
@@ -162,6 +163,17 @@ jobs:
         shell: pwsh
         timeout-minutes: 3
         run: python scripts/validate-838-company-layout.py
+      - name: Validate MIVO mail and received offer controls
+        shell: pwsh
+        timeout-minutes: 3
+        run: python scripts/validate-839-mail-offers.py
+      - name: Archive MIVO mail and received offer previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TURTO-CRM-mail-offers-preview
+          path: build/validation/mail-offers-839/
+          if-no-files-found: ignore
       - name: Validate installer architecture and real Windows updater semantics
         shell: pwsh
         run: |

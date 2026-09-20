@@ -323,8 +323,6 @@ def main() -> None:
         assert "fontbuffer=regular_bytes" in module_source
         assert "Poslední platný náhled zůstal zobrazen" in module_source
         assert "Do not remove the last valid preview" in module_source
-        assert "Sloupce…" in module_source
-        assert "Barvy jsou upozornění" in module_source
         assert "company_merge_history" in module_source
         assert "⇄ Sloučit společnosti…" in module_source
 

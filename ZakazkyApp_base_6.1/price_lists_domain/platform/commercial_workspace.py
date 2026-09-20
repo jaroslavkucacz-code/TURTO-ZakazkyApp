@@ -1963,6 +1963,11 @@ def build_offers(M, app):
                 app, offer_import, offers=True
             ),
         ).pack(side="right", anchor="n", pady=(2, 0))
+    if callable(getattr(app, "import_selected_outlook_offer", None)):
+        M.ttk.Button(
+            title_row, text="✉ Načíst z Outlooku",
+            command=lambda: _run_after_invalidation(app, app.import_selected_outlook_offer, offers=True),
+        ).pack(side="right", anchor="n", padx=(0, 8), pady=(2, 0))
     M.ttk.Label(
         page,
         text=("Přijaté cenové nabídky zůstávají samostatné. Vybranou nabídku lze překlopit "
@@ -1972,11 +1977,6 @@ def build_offers(M, app):
 
     command = M.ttk.Frame(page, style="Panel.TFrame", padding=(10, 8))
     command.pack(fill="x", pady=(0, 7))
-    if callable(getattr(app, "import_selected_outlook_offer", None)):
-        M.ttk.Button(
-            command, text="✉ Načíst z Outlooku",
-            command=lambda: _run_after_invalidation(app, app.import_selected_outlook_offer, offers=True),
-        ).pack(side="left", padx=(6, 0))
     if callable(getattr(app, "open_product_prices", None)):
         M.ttk.Button(command, text="💰 Produkty / ceny", command=app.open_product_prices).pack(side="left", padx=(6, 0))
     _separator(M, command)
@@ -2032,7 +2032,7 @@ def build_offers(M, app):
     views = M.ttk.Frame(page, style="Panel.TFrame", padding=(10, 7))
     views.pack(fill="x", pady=(0, 6))
     M.ttk.Label(views, text="Pracovní pohled:", style="PageSubtitle.TLabel").pack(side="left")
-    for label in ("Aktivní", "Posledních 30 dní", "Nepřiřazené", "Bez zařazení", "Ceníky", "Archivované", "Vše"):
+    for label in ("Posledních 30 dní", "Nepřiřazeno k akci", "Ceníky", "Archivované"):
         M.ttk.Button(views, text=label, command=lambda value=label: _offer_quick_view(M, app, value)).pack(side="left", padx=(5, 0))
     mode_frame = M.ttk.Frame(views, style="Panel.TFrame")
     mode_frame.pack(side="right")
@@ -2197,7 +2197,7 @@ def refresh_offers(M, app):
     elif view == "Posledních 30 dní":
         where += ["coalesce(o.archived,0)=0", "o.offer_date>=?"]
         params.append(since)
-    elif view == "Nepřiřazené":
+    elif view == "Nepřiřazeno k akci":
         where += ["coalesce(o.archived,0)=0", "o.request_id IS NULL", "NOT (o.project_id IS NOT NULL AND o.action_id IS NULL)"]
     elif view == "Bez zařazení":
         where += ["coalesce(o.archived,0)=0", uncategorized_exists]
