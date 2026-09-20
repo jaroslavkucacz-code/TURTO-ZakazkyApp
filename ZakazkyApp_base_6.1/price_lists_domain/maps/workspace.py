@@ -394,7 +394,8 @@ class Workspace:
             dialog.transient(self.app); dialog.geometry('760x350'); dialog.minsize(520,260)
             dialog.columnconfigure(0,weight=1); dialog.rowconfigure(1,weight=1)
             ttk.Label(dialog,text='Nalezeno více možností. Vyberte správnou adresu nebo parcelu.').grid(row=0,column=0,sticky='w',padx=12,pady=12)
-            tree=ttk.Treeview(dialog,columns=('label',),show='headings',selectmode='browse')
+            tree=ttk.Treeview(dialog,columns=('label',),show='headings',selectmode='browse',
+                              name='layout__map__lookup_candidates')
             tree.heading('label',text='Nalezená poloha'); tree.column('label',width=680)
             tree.grid(row=1,column=0,sticky='nsew',padx=12)
             scroll=ttk.Scrollbar(dialog,orient='vertical',command=tree.yview); scroll.grid(row=1,column=1,sticky='ns')
