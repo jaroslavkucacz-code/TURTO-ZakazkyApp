@@ -1,8 +1,8 @@
 {
-  "version": "8.0.37",
+  "version": "8.0.38",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "07c8ba95be598090e54ba693b02d01504513d75d",
-  "validated_run_id": 35514783673,
-  "notes": "V Mapě přibyl přepínač Podklad: Mapa / Ortofoto ČR. Jedním kliknutím lze přepnout mezi dosavadní mapou OpenFreeMap a leteckými snímky ČÚZK. Zachová se aktuální místo, přiblížení, špendlíky, vybrané záznamy, náhled parcely i rozpracované umístění bodu. Obnovení zobrazení zachová zvolený podklad.\n\nOdstraněno je nadbytečné výběrové pole Všechny společnosti. Textové hledání a ostatní filtry zůstávají dostupné.\n\nOrtofoto pokrývá Českou republiku; mimo jeho pokrytí zůstává původní mapa. Snímky se načítají online pouze pro prohlíženou oblast a až po zapnutí ortofota. Při výpadku se zobrazí zpráva a lze se vrátit na běžnou mapu.\n\nAktualizace zachová databázi, GPS, přílohy a nastavení úložiště."
+  "source_commit": "f08191f09af0c1b07090b6f12b3e662d2dd38301",
+  "validated_run_id": 35524209004,
+  "notes": "Přepínání podkladu Mapa / Ortofoto ČR je nově pod ikonou vrstev v pravém horním rohu nad mapou. Po najetí na ikonu se ukáže aktuální podklad. Přepnutí zachová zobrazené místo i špendlíky.\n\nMapa se při spuštění CRM otevře s výběrem Akce. Původní volba Obojí se jmenuje Vybráno vše.\n\nV detailu společnosti se právní forma, datum vzniku, poslední změna ARES, CZ-NACE, finanční úřad a obec skrývají pod rozbalovací částí Další údaje společnosti. Okres zůstává viditelný. Sbalení údaje nemaže a doplňování z ARES i ukládání dál fungují se všemi poli. Část lze rozbalit také při oprávnění pouze ke čtení.\n\nAktualizace zachová databázi, GPS, přílohy a nastavení úložiště."
 }
