@@ -9,7 +9,7 @@ from ..platform import user_access as access
 
 PHASES = ('Neurčeno', 'Plánováno', 'Probíhá', 'Ukončeno', 'Zrušeno')
 TABLES = {'company': 'companies', 'project': 'projects'}
-LOCATION_FIELDS = ('address', 'gps_coordinates', 'map_source', 'map_address', 'map_ruian_id')
+LOCATION_FIELDS = ('address', 'gps_coordinates', 'map_source', 'map_address', 'map_ruian_id', 'map_label')
 
 
 def ensure_schema(con):
@@ -18,7 +18,8 @@ def ensure_schema(con):
         additions = {'gps_coordinates': "TEXT NOT NULL DEFAULT ''",
                      'map_source': "TEXT NOT NULL DEFAULT ''",
                      'map_address': "TEXT NOT NULL DEFAULT ''",
-                     'map_ruian_id': "TEXT NOT NULL DEFAULT ''"}
+                     'map_ruian_id': "TEXT NOT NULL DEFAULT ''",
+                     'map_label': "TEXT NOT NULL DEFAULT ''"}
         if table == 'projects':
             additions.update(map_phase="TEXT NOT NULL DEFAULT 'Neurčeno'",
                              map_supplying='INTEGER NOT NULL DEFAULT 0',
@@ -83,8 +84,8 @@ def check_form(con, table, rid, expected):
 
 def manual_form_location(con, table, rid, old_gps, gps, address):
     if old_gps != gps:
-        con.execute(f'UPDATE {table} SET map_source=?,map_address=?,map_ruian_id=? WHERE id=?',
-                    ('manual' if gps else '', address if gps else '', '', rid))
+        con.execute(f'UPDATE {table} SET map_source=?,map_address=?,map_ruian_id=?,map_label=? WHERE id=?',
+                    ('manual' if gps else '', address if gps else '', '', '', rid))
 
 
 def preserve_gps_format(M, old, gps):
@@ -105,22 +106,23 @@ def record(M, kind, rid):
     return dict(row)
 
 
-def save_location(M, kind, rid, gps, expected, source='manual', ruian_id=''):
+def save_location(M, kind, rid, gps, expected, source='manual', ruian_id='', label=''):
     access.require(M, 'map')
     table = TABLES[kind]
     access.require(M, table)
     coordinates = point(M, gps)
     normalized = f'{coordinates[1]:.7f}, {coordinates[0]:.7f}' if coordinates else ''
-    if source not in ('manual', 'ruian'):
+    if source not in ('manual', 'ruian', 'ruian-parcel'):
         raise ValueError('Neplatný zdroj polohy.')
     with closing(M.db()) as con, con:
         con.execute('BEGIN IMMEDIATE')
         row = con.execute(f'SELECT * FROM {table} WHERE id=? AND active=1', (int(rid),)).fetchone()
         if row is None or snapshot(dict(row)) != tuple(expected):
             raise ValueError('Poloha nebo adresa se mezitím změnila. Obnovte mapu a zkuste to znovu.')
-        con.execute(f'''UPDATE {table} SET gps_coordinates=?,map_source=?,map_address=?,map_ruian_id=? WHERE id=?''',
+        con.execute(f'''UPDATE {table} SET gps_coordinates=?,map_source=?,map_address=?,map_ruian_id=?,map_label=? WHERE id=?''',
                     (normalized, source if normalized else '', row['address'] if normalized else '',
-                     str(ruian_id) if normalized and source == 'ruian' else '', int(rid)))
+                     str(ruian_id) if normalized and source != 'manual' else '',
+                     str(label)[:300] if normalized and source != 'manual' else '', int(rid)))
 
 
 def parse_bound(value):
