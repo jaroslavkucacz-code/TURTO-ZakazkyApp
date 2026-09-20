@@ -1,8 +1,8 @@
 {
-  "version": "8.0.35",
+  "version": "8.0.36",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "2955e6312015e34097ac4ab08e0443b2f4cca2db",
-  "validated_run_id": 35440048381,
-  "notes": "Nová záložka Mapa přímo v desktopovém CRM: OpenFreeMap bez API klíčů a kreditů, vrstvy Společnosti/Akce a otevření původního záznamu.\n\nGPS, adresy a termíny jsou propojené přes skutečná ID. Přibyly filtry stavu Akce, Dodáváme, data zahájení a navázané společnosti; stav a Dodáváme se nastavují v detailu Akce. Starým záznamům se obchodní stav automaticky neodhaduje.\n\nČeské adresy lze doplnit přes místní adresář ČÚZK/RÚIAN: Mapa → Stáhnout adresář ČR → Doplnit polohy podle adres. Použijí se jen jednoznačné shody, existující GPS se nepřepisují. Pro ostatní místa je možné zadat GPS nebo umístit bod kliknutím.\n\nZměna adresy vyžádá ověření polohy; souběžné změny, přístupová práva a přepnutí uživatele jsou ošetřené. Sloučení Akcí přenáší i přímé vazby nabídek a objednávek. Rozhraní je dostupné i na menších obrazovkách.\n\nMapa vyžaduje připojení k internetu a Microsoft Edge WebView2 Runtime. Pokud runtime chybí, CRM nabídne odkaz na jeho instalaci. Databáze, přílohy a původní nastavení úložiště se při aktualizaci zachovají."
+  "source_commit": "64def2f64d3246398eb280a6d28d58866ca88c3b",
+  "validated_run_id": 35497342256,
+  "notes": "GPS lze nově dohledat online přímo v Mapě přes ČÚZK, bez stahování celého adresáře ČR. Hromadné doplnění funguje pro řádky označené pomocí Ctrl/Shift i pro všechny záznamy ve filtru. Doplní pouze chybějící GPS z jednoznačných úplných adres včetně PSČ.\n\nPro stavby bez adresního čísla je možné vyhledat katastrální území názvem nebo kódem a zadat parcelní číslo, například 123/4 nebo st. 123. Nalezený bod se nejprve zobrazí jako fialový špendlík; tlačítkem Uložit bod k vybranému záznamu se GPS a označení parcely uloží k vybrané Akci. Definiční bod parcely lze následně posunout na přesné místo stavby kliknutím do mapy.\n\nHledání vyžaduje internet. Službě se odesílá pouze hledaná adresa nebo parcela. Dávku lze zastavit, nejednoznačné shody zůstávají ke kontrole a souběžné změny se nepřepisují. Ovládání je dostupné i na menších obrazovkách.\n\nDosavadní GPS, databáze, přílohy a nastavení úložiště zůstávají zachované. Smazaný místní adresář se znovu nestahuje."
 }
