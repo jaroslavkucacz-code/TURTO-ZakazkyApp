@@ -3,13 +3,15 @@ name: Validate TURTO CRM 8.0 Windows installer
 on:
   workflow_dispatch:
   push:
-    # Complete branch validation is also required before promoting 8.0.36.
-    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress, feature/8.0.13-remove-quick-actions, fix/8.0.14-table-initial-layout, feature/8.0.15-persistent-table-layouts, fix/8.0.16-autocomplete-focus, feature/8.0.17-form-navigation-unsaved, feature/8.0.18-large-dialogs, fix/8.0.19-dialog-first-show, feature/8.0.20-calm-theme, feature/8.0.21-universal-search, fix/8.0.22-filter-highlights-separators, feature/8.0.23-issued-delete-project-activity, feature/8.0.24-received-offer-detail, feature/8.0.25-offer-request-received, feature/8.0.26-grouped-navigation, feature/8.0.27-work-processing-catalogs, feature/8.0.28-company-roles-orders, feature/8.0.29-request-mail-profiles, feature/8.0.30-backup-retention, fix/8.0.31-legacy-backup-cleanup, feature/8.0.32-monthly-reports, feature/8.0.33-request-assignees-company-links, feature/8.0.34-user-permissions-assignees, feature/crm-map, codex/online-gps-parcels]
+    # Complete branch validation is also required before promoting Windows releases.
+    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress, feature/8.0.13-remove-quick-actions, fix/8.0.14-table-initial-layout, feature/8.0.15-persistent-table-layouts, fix/8.0.16-autocomplete-focus, feature/8.0.17-form-navigation-unsaved, feature/8.0.18-large-dialogs, fix/8.0.19-dialog-first-show, feature/8.0.20-calm-theme, feature/8.0.21-universal-search, fix/8.0.22-filter-highlights-separators, feature/8.0.23-issued-delete-project-activity, feature/8.0.24-received-offer-detail, feature/8.0.25-offer-request-received, feature/8.0.26-grouped-navigation, feature/8.0.27-work-processing-catalogs, feature/8.0.28-company-roles-orders, feature/8.0.29-request-mail-profiles, feature/8.0.30-backup-retention, fix/8.0.31-legacy-backup-cleanup, feature/8.0.32-monthly-reports, feature/8.0.33-request-assignees-company-links, feature/8.0.34-user-permissions-assignees, feature/crm-map, codex/online-gps-parcels, codex/map-orthophoto]
   pull_request:
     paths:
       - ZakazkyApp_base_6.1/price_lists_domain/maps/**
       - scripts/validate-835-map.py
       - scripts/validate-836-online-map.py
+      - scripts/validate-837-basemaps.py
+      - scripts/validate-837-map-renderer.js
       - scripts/build-map-host.py
       - ZakazkyApp_base_6.1/price_lists_domain/monthly_reports/**
       - scripts/validate-832-monthly-reports.py
@@ -101,6 +103,7 @@ jobs:
       - name: Behavioral source regressions on Linux
         run: |
           python -m pip install XlsxWriter 'pyproj>=3.7,<4'
+          python scripts/validate-837-basemaps.py --source-only
           python scripts/validate-836-online-map.py --source-only
           python scripts/validate-835-map.py --source-only
           python scripts/validate-834-user-access.py --source-only
@@ -150,6 +153,10 @@ jobs:
         shell: pwsh
         timeout-minutes: 4
         run: python scripts/validate-836-online-map.py
+      - name: Validate map and live orthophoto switching
+        shell: pwsh
+        timeout-minutes: 5
+        run: python scripts/validate-837-basemaps.py
       - name: Validate installer architecture and real Windows updater semantics
         shell: pwsh
         run: |
@@ -217,6 +224,7 @@ jobs:
           path: |
             build/validation/map-835/
             build/validation/online-map-836/
+            build/validation/basemaps-837/
           if-no-files-found: ignore
       - name: Archive user permissions previews
         if: always()

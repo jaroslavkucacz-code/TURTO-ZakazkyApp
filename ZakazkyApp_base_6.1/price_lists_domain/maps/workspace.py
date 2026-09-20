@@ -32,13 +32,14 @@ class Workspace:
         self.embedded = False
         self.last_applied_count = None
         self.last_preview_point = None
+        self.basemap = tk.StringVar(value='map')
+        self.last_basemap_state = None
+        self.basemap_ready = None
         self.layer = tk.StringVar(value='Obojí')
         self.phase = tk.StringVar(value='Všechny stavy')
         self.supplying = tk.BooleanVar(value=False)
         self.query = tk.StringVar()
         self.start_from, self.start_to = tk.StringVar(), tk.StringVar()
-        self.company = tk.StringVar(value='Všechny společnosti')
-        self.company_ids = {}
         self.gps = tk.StringVar()
         self.selected_label = tk.StringVar(value='Vyberte záznam v seznamu nebo na mapě.')
         self.status = tk.StringVar(value='OpenFreeMap · adresy a parcely online z ČÚZK · GPS se ukládají v CRM.')
@@ -70,9 +71,13 @@ class Workspace:
         M.DatePicker(filters, self.start_to).grid(row=0, column=5, padx=5)
         ttk.Button(filters, text='Filtrovat', command=self.refresh).grid(row=0, column=6, padx=5)
         ttk.Button(filters, text='Reset filtrů', command=self.reset).grid(row=0, column=7)
-        self.company_box = ttk.Combobox(filters, textvariable=self.company, state='readonly', width=40)
-        self.company_box.grid(row=1, column=0, columnspan=2, sticky='ew', pady=(7,0), padx=(0,12))
-        self.company_box.bind('<<ComboboxSelected>>', lambda e: self.refresh())
+        backgrounds = ttk.Frame(filters)
+        backgrounds.grid(row=1,column=0,columnspan=2,sticky='w',pady=(7,0))
+        ttk.Label(backgrounds,text='Podklad:').pack(side='left',padx=(0,10))
+        self.basemap_buttons = {}
+        for label,value in (('Mapa','map'),('Ortofoto ČR','orthophoto')):
+            button=ttk.Radiobutton(backgrounds,text=label,variable=self.basemap,value=value,command=self.change_basemap)
+            button.pack(side='left',padx=(0,14)); self.basemap_buttons[value]=button
         ttk.Label(filters, text='Modrá: společnost · Zlatá: akce · Zelená: dodáváme · Šedá: ukončeno').grid(row=1, column=2, columnspan=6, sticky='w', pady=(7,0))
         panes = ttk.Panedwindow(page, orient='horizontal'); panes.grid(row=2, column=0, sticky='nsew', padx=12)
         left = ttk.Frame(panes, width=360); right = ttk.Frame(panes)
@@ -201,8 +206,7 @@ class Workspace:
         self.bridge = None; self.loaded = False
         self.tree.delete(*self.tree.get_children())
         self.gps.set(''); self.selected_label.set('Vyberte záznam v seznamu nebo na mapě.')
-        self.company.set('Všechny společnosti'); self.company_ids.clear()
-        self.company_box.configure(values=('Všechny společnosti',))
+        self.last_basemap_state = self.basemap_ready = None
         if getattr(self.app,'_current_page',None) == 'map' and access.level(self.M,'map') >= access.READ:
             self.activate()
         else: self.send({'type':'visible','value':False})
@@ -227,17 +231,9 @@ class Workspace:
         try:
             access.require(self.M,'map',write=False)
             current = self.tree.selection()
-            selected_company = self.company_ids.get(self.company.get())
-            with closing(self.M.db()) as con:
-                choices = con.execute('SELECT id,official_name,short_name FROM companies WHERE active=1 AND merged_into_company_id IS NULL ORDER BY official_name').fetchall() if access.level(self.M,'companies') >= access.READ else []
-            self.company_ids = {f"{r['official_name'] or r['short_name']} [ID {r['id']}]":r['id'] for r in choices}
-            self.company_box.configure(values=('Všechny společnosti', *self.company_ids))
-            selected_label = next((label for label,cid in self.company_ids.items() if cid == selected_company),'Všechny společnosti')
-            self.company.set(selected_label)
             records = model.rows(self.M, layer={'Obojí':'both','Společnosti':'company','Akce':'project'}[self.layer.get()],
                 phase='' if self.phase.get() == 'Všechny stavy' else self.phase.get(), supplying=self.supplying.get(),
-                start_from=self.start_from.get(), start_to=self.start_to.get(), query=self.query.get(),
-                company_id=self.company_ids.get(self.company.get()))
+                start_from=self.start_from.get(), start_to=self.start_to.get(), query=self.query.get())
             self.records = {r['key']:r for r in records}
             self.tree.delete(*self.tree.get_children())
             for row in records:
@@ -255,18 +251,26 @@ class Workspace:
                 self.send({'type':'data','data':model.features([])})
 
     def reload(self):
+        self.loaded = False
+        self.last_preview_point = None
+        self.last_basemap_state = self.basemap_ready = None
         self.send({'type':'reload'})
         if not self.bridge: self.activate()
         else: self.refresh()
 
     def reset(self):
         self.query.set(''); self.phase.set('Všechny stavy'); self.supplying.set(False)
-        self.start_from.set(''); self.start_to.set(''); self.company.set('Všechny společnosti')
+        self.start_from.set(''); self.start_to.set('')
         self.refresh(); self.send({'type':'fit'})
+
+    def change_basemap(self):
+        self.basemap_ready = None
+        self.send({'type':'basemap','value':self.basemap.get()})
 
     def message(self, event):
         kind = event.get('type')
-        if kind == 'ready': self.refresh()
+        if kind == 'ready':
+            self.change_basemap(); self.refresh()
         elif kind == 'embedded': self.embedded = True
         elif kind == 'loaded':
             self.loaded = True
@@ -274,9 +278,12 @@ class Workspace:
                 self.send({'type':'preview','point':self.preview['coordinates'],'label':self.preview['label']})
         elif kind == 'data-applied': self.last_applied_count = event.get('count')
         elif kind == 'preview-applied': self.last_preview_point = event.get('point')
+        elif kind == 'basemap-applied': self.last_basemap_state = event
+        elif kind == 'basemap-ready': self.basemap_ready = event.get('value')
+        elif kind == 'basemap-error': self.status.set(str(event.get('message','Ortofoto není dostupné.')))
         elif kind == 'attribution':
             url = str(event.get('url','')); parsed = urlsplit(url)
-            if parsed.scheme == 'https' and parsed.hostname in {'openfreemap.org','openmaptiles.org','www.openstreetmap.org','maplibre.org'}:
+            if parsed.scheme == 'https' and parsed.hostname in {'openfreemap.org','openmaptiles.org','www.openstreetmap.org','maplibre.org','geoportal.cuzk.gov.cz'}:
                 webbrowser.open(url)
         elif kind in ('select','open'):
             key = event.get('key')
@@ -305,6 +312,9 @@ class Workspace:
             'Mapový podklad: OpenFreeMap – https://openfreemap.org/\n'
             '© OpenMapTiles – https://openmaptiles.org/\n'
             '© OpenStreetMap contributors – https://www.openstreetmap.org/copyright\n\n'
+            'Ortofoto ČR: © ČÚZK – https://geoportal.cuzk.gov.cz/\n'
+            'https://ags.cuzk.gov.cz/arcgis1/rest/services/ORTOFOTO_WM/MapServer\n'
+            'Ortofoto pokrývá Českou republiku. Mimo pokrytí zůstává běžná mapa.\n\n'
             'Adresní místa a parcely: ČÚZK – RÚIAN, licence CC BY 4.0.\n'
             'https://ags.cuzk.gov.cz/arcgis/rest/services/RUIAN/MapServer\n'
             'https://creativecommons.org/licenses/by/4.0/\n'

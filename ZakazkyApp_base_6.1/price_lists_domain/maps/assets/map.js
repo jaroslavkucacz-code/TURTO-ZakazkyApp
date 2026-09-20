@@ -3,11 +3,45 @@
 const empty = () => ({type:'FeatureCollection',features:[]});
 let dataset=empty(), picking=false, popup=null, loaded=false;
 let previewPoint=null, previewLabel='', previewMarker=null;
+let basemap='map', basemapNotice='', orthoContent=false, orthoError=false, readyBasemap=null;
+const ORTHO='cuzk-orthophoto';
 const notice=document.getElementById('notice');
 const send = data => window.chrome.webview.postMessage(data);
 const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',
   center:[15.4,49.8],zoom:6,attributionControl:true});
 map.addControl(new maplibregl.NavigationControl(),'top-right');
+function updateNotice(){
+  notice.textContent=picking?'Klikněte na místo pro vybraný záznam. Uložení ještě potvrdíte v CRM.':basemapNotice;
+}
+function applyBasemap(){
+  if(!loaded)return;
+  if(basemap==='orthophoto'&&!map.getSource(ORTHO)){
+    map.addSource(ORTHO,{type:'raster',tileSize:256,minzoom:6,maxzoom:20,
+      bounds:[11.87,48.20,19.14,51.45],
+      tiles:['https://ags.cuzk.gov.cz/arcgis1/rest/services/ORTOFOTO_WM/MapServer/tile/{z}/{y}/{x}'],
+      attribution:'Ortofoto ČR © <a href="https://geoportal.cuzk.gov.cz/" target="_blank" rel="noopener">ČÚZK</a>'});
+    // Keep the original map beneath the imagery outside Czech coverage, and
+    // every CRM layer above it. Never replace the style or change the camera.
+    map.addLayer({id:ORTHO,type:'raster',source:ORTHO,layout:{visibility:'none'},
+      paint:{'raster-fade-duration':0}},'clusters');
+  }
+  if(map.getLayer(ORTHO))map.setLayoutProperty(ORTHO,'visibility',basemap==='orthophoto'?'visible':'none');
+  readyBasemap=null;orthoError=false;
+  basemapNotice=basemap==='orthophoto'?'Načítám ortofoto ČR… Mimo jeho pokrytí zůstává běžná mapa.':'';
+  updateNotice();
+  const center=map.getCenter();
+  send({type:'basemap-applied',value:basemap,center:[center.lng,center.lat],zoom:map.getZoom(),
+    count:dataset.features.length,preview:previewPoint,picking});
+}
+map.on('sourcedata',e=>{
+  if(e.sourceId===ORTHO&&e.sourceDataType==='content')orthoContent=true;
+});
+map.on('idle',()=>{
+  if(!loaded||readyBasemap===basemap)return;
+  if(basemap==='orthophoto'&&(!orthoContent||orthoError||!map.isSourceLoaded(ORTHO)))return;
+  readyBasemap=basemap;basemapNotice='';updateNotice();
+  send({type:'basemap-ready',value:basemap});
+});
 function preview(fly=true){
   if(previewMarker){previewMarker.remove();previewMarker=null;}
   if(!previewPoint){send({type:'preview-applied',point:null});return;}
@@ -57,16 +91,28 @@ map.on('load',()=>{
     map.on('mouseenter',id,()=>{if(!picking)map.getCanvas().style.cursor='pointer';});
     map.on('mouseleave',id,()=>{map.getCanvas().style.cursor=picking?'crosshair':'';});
   });
-  notice.textContent='';if(previewPoint)preview();else fit();send({type:'loaded'});
+  applyBasemap();if(previewPoint)preview();else fit();send({type:'loaded'});
 });
-map.on('click',e=>{if(picking){picking=false;map.getCanvas().style.cursor='';notice.textContent='';send({type:'picked',lat:e.lngLat.lat,lon:e.lngLat.lng});}});
-map.on('error',()=>{notice.textContent='Mapový podklad není dostupný. Zkontrolujte internet a klikněte na Obnovit zobrazení.';send({type:'tile-error'});});
+map.on('click',e=>{if(picking){picking=false;map.getCanvas().style.cursor='';updateNotice();send({type:'picked',lat:e.lngLat.lat,lon:e.lngLat.lng});}});
+map.on('error',e=>{
+  if(e.sourceId===ORTHO){
+    if(basemap!=='orthophoto')return;
+    orthoError=true;
+    basemapNotice='Ortofoto ČR není dostupné. Zvolte Mapu nebo klikněte na Obnovit zobrazení.';
+    updateNotice();send({type:'basemap-error',message:basemapNotice});
+  }else{
+    basemapNotice='Mapový podklad není dostupný. Zkontrolujte internet a klikněte na Obnovit zobrazení.';
+    updateNotice();send({type:'tile-error'});
+  }
+});
 window.chrome.webview.addEventListener('message',event=>{
   const d=event.data;
   if(d.type==='data'){
     dataset=d.data;if(popup)popup.remove();picking=false;map.getCanvas().style.cursor='';
-    if(loaded){map.getSource('crm').setData(dataset);notice.textContent='';}
+    if(loaded){map.getSource('crm').setData(dataset);updateNotice();}
     send({type:'data-applied',count:dataset.features.length});
+  }else if(d.type==='basemap'){
+    if(d.value==='map'||d.value==='orthophoto'){basemap=d.value;applyBasemap();}
   }else if(d.type==='preview'){
     const p=d.point;
     previewPoint=Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)&&Math.abs(p[0])<=180&&Math.abs(p[1])<=90?p:null;
@@ -75,7 +121,7 @@ window.chrome.webview.addEventListener('message',event=>{
   else if(d.type==='focus'){
     const f=dataset.features.find(f=>f.properties.key===d.key);if(f){map.flyTo({center:f.geometry.coordinates,zoom:Math.max(map.getZoom(),15)});info(f);}
   }else if(d.type==='pick'){
-    picking=!!d.value;notice.textContent=picking?'Klikněte na místo pro vybraný záznam. Uložení ještě potvrdíte v CRM.':'';
+    picking=!!d.value;updateNotice();
     map.getCanvas().style.cursor=picking?'crosshair':'';
   }else if(d.type==='reload'){location.reload();}
 });
