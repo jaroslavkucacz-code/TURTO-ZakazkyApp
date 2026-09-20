@@ -1,8 +1,8 @@
 {
-  "version": "8.0.36",
+  "version": "8.0.37",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "64def2f64d3246398eb280a6d28d58866ca88c3b",
-  "validated_run_id": 35497342256,
-  "notes": "GPS lze nově dohledat online přímo v Mapě přes ČÚZK, bez stahování celého adresáře ČR. Hromadné doplnění funguje pro řádky označené pomocí Ctrl/Shift i pro všechny záznamy ve filtru. Doplní pouze chybějící GPS z jednoznačných úplných adres včetně PSČ.\n\nPro stavby bez adresního čísla je možné vyhledat katastrální území názvem nebo kódem a zadat parcelní číslo, například 123/4 nebo st. 123. Nalezený bod se nejprve zobrazí jako fialový špendlík; tlačítkem Uložit bod k vybranému záznamu se GPS a označení parcely uloží k vybrané Akci. Definiční bod parcely lze následně posunout na přesné místo stavby kliknutím do mapy.\n\nHledání vyžaduje internet. Službě se odesílá pouze hledaná adresa nebo parcela. Dávku lze zastavit, nejednoznačné shody zůstávají ke kontrole a souběžné změny se nepřepisují. Ovládání je dostupné i na menších obrazovkách.\n\nDosavadní GPS, databáze, přílohy a nastavení úložiště zůstávají zachované. Smazaný místní adresář se znovu nestahuje."
+  "source_commit": "07c8ba95be598090e54ba693b02d01504513d75d",
+  "validated_run_id": 35514783673,
+  "notes": "V Mapě přibyl přepínač Podklad: Mapa / Ortofoto ČR. Jedním kliknutím lze přepnout mezi dosavadní mapou OpenFreeMap a leteckými snímky ČÚZK. Zachová se aktuální místo, přiblížení, špendlíky, vybrané záznamy, náhled parcely i rozpracované umístění bodu. Obnovení zobrazení zachová zvolený podklad.\n\nOdstraněno je nadbytečné výběrové pole Všechny společnosti. Textové hledání a ostatní filtry zůstávají dostupné.\n\nOrtofoto pokrývá Českou republiku; mimo jeho pokrytí zůstává původní mapa. Snímky se načítají online pouze pro prohlíženou oblast a až po zapnutí ortofota. Při výpadku se zobrazí zpráva a lze se vrátit na běžnou mapu.\n\nAktualizace zachová databázi, GPS, přílohy a nastavení úložiště."
 }
