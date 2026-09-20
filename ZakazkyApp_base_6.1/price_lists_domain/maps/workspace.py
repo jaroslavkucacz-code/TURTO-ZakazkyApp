@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 
 from . import model, online
 from .bridge import Bridge
+from .controls import BasemapMenu
 from ..platform import user_access as access, grouped_navigation as navigation
 
 
@@ -35,7 +36,7 @@ class Workspace:
         self.basemap = tk.StringVar(value='map')
         self.last_basemap_state = None
         self.basemap_ready = None
-        self.layer = tk.StringVar(value='Obojí')
+        self.layer = tk.StringVar(value='Akce')
         self.phase = tk.StringVar(value='Všechny stavy')
         self.supplying = tk.BooleanVar(value=False)
         self.query = tk.StringVar()
@@ -54,10 +55,11 @@ class Workspace:
         page.columnconfigure(0, weight=1); page.rowconfigure(2, weight=1)
         top = ttk.Frame(page, padding=(12, 8)); top.grid(row=0, column=0, sticky='ew')
         ttk.Label(top, text='Mapa', font=('Calibri', 18, 'bold')).pack(side='left', padx=(0, 15))
-        for var, values, width in ((self.layer, ('Obojí', 'Společnosti', 'Akce'), 14),
+        for var, values, width in ((self.layer, ('Vybráno vše', 'Společnosti', 'Akce'), 14),
                                     (self.phase, ('Všechny stavy', *model.PHASES), 18)):
             box = ttk.Combobox(top, textvariable=var, values=values, state='readonly', width=width)
             box.pack(side='left', padx=4); box.bind('<<ComboboxSelected>>', lambda e: self.refresh())
+            if var is self.layer: self.layer_box = box
         ttk.Checkbutton(top, text='Dodáváme', variable=self.supplying, command=self.refresh).pack(side='left', padx=8)
         ttk.Button(top, text='Obnovit zobrazení', command=self.reload).pack(side='right')
         filters = ttk.Frame(page, padding=(12, 0, 12, 8)); filters.grid(row=1, column=0, sticky='ew')
@@ -71,17 +73,15 @@ class Workspace:
         M.DatePicker(filters, self.start_to).grid(row=0, column=5, padx=5)
         ttk.Button(filters, text='Filtrovat', command=self.refresh).grid(row=0, column=6, padx=5)
         ttk.Button(filters, text='Reset filtrů', command=self.reset).grid(row=0, column=7)
-        backgrounds = ttk.Frame(filters)
-        backgrounds.grid(row=1,column=0,columnspan=2,sticky='w',pady=(7,0))
-        ttk.Label(backgrounds,text='Podklad:').pack(side='left',padx=(0,10))
-        self.basemap_buttons = {}
-        for label,value in (('Mapa','map'),('Ortofoto ČR','orthophoto')):
-            button=ttk.Radiobutton(backgrounds,text=label,variable=self.basemap,value=value,command=self.change_basemap)
-            button.pack(side='left',padx=(0,14)); self.basemap_buttons[value]=button
-        ttk.Label(filters, text='Modrá: společnost · Zlatá: akce · Zelená: dodáváme · Šedá: ukončeno').grid(row=1, column=2, columnspan=6, sticky='w', pady=(7,0))
         panes = ttk.Panedwindow(page, orient='horizontal'); panes.grid(row=2, column=0, sticky='nsew', padx=12)
         left = ttk.Frame(panes, width=360); right = ttk.Frame(panes)
         panes.add(left, weight=1); panes.add(right, weight=3)
+        map_toolbar=ttk.Frame(right,padding=(8,0,0,5));map_toolbar.pack(fill='x')
+        self.basemap_button=BasemapMenu(map_toolbar,self.basemap,self.change_basemap)
+        self.basemap_button.pack(side='right')
+        legend=ttk.Label(map_toolbar,text='Modrá: společnost · Zlatá: akce · Zelená: dodáváme · Šedá: ukončeno')
+        legend.pack(side='left',fill='x',expand=True,padx=(0,8))
+        legend.bind('<Configure>',lambda e:legend.configure(wraplength=max(120,e.width)))
         left.columnconfigure(0, weight=1); left.rowconfigure(0, weight=3, minsize=105)
         left.rowconfigure(2, weight=2, minsize=75)
         self.tree = ttk.Treeview(left, columns=('name','state'), show='headings', selectmode='extended', height=5,
@@ -231,7 +231,7 @@ class Workspace:
         try:
             access.require(self.M,'map',write=False)
             current = self.tree.selection()
-            records = model.rows(self.M, layer={'Obojí':'both','Společnosti':'company','Akce':'project'}[self.layer.get()],
+            records = model.rows(self.M, layer={'Vybráno vše':'both','Společnosti':'company','Akce':'project'}[self.layer.get()],
                 phase='' if self.phase.get() == 'Všechny stavy' else self.phase.get(), supplying=self.supplying.get(),
                 start_from=self.start_from.get(), start_to=self.start_to.get(), query=self.query.get())
             self.records = {r['key']:r for r in records}

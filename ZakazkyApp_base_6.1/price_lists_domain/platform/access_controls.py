@@ -22,6 +22,9 @@ def _text(widget):
 
 
 def _read_button(widget, form):
+    # Explicit view controls only expand a section or change the map backdrop.
+    if getattr(widget, '_turto_view_only', False):
+        return True
     text = _text(widget)
     if form:
         return text.startswith(('zavřít', 'zrušit', 'historie', 'zobrazit', 'otevřít poslední pdf',

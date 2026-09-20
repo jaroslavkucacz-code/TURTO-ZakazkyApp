@@ -176,6 +176,7 @@ def ui_checks(td):
     try:
         root.select_user('835 Editor'); root.show_page('map'); settle(root,.3)
         w=root.map_workspace
+        w.layer.set('Vybráno vše')
         with closing(M.db()) as con,con:
             for cid in (ids['cid'],ids['cid2']):
                 con.execute("UPDATE companies SET address=?,gps_coordinates='',map_source='',map_label='' WHERE id=?",(ADDRESS,cid))
