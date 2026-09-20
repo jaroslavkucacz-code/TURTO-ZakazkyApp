@@ -165,7 +165,8 @@ def ui_checks(td):
         assert workspace.last_applied_count is not None, workspace.status.get()
         assert workspace.embedded
         print('835 UI: native host embedded and JSON delivered',flush=True)
-        assert len(workspace.records)>=6
+        assert workspace.layer.get()=='Akce'
+        assert set(workspace.records)=={r['key'] for r in model.rows(M,layer='project')}
         workspace.tree.selection_set(f"project:{ids['project']}"); settle(root)
         workspace.gps.set('50.1, 14.5'); workspace.save_gps(); settle(root)
         assert model.point(M,model.record(M,'project',ids['project'])['gps_coordinates'])==[14.5,50.1]
@@ -177,7 +178,7 @@ def ui_checks(td):
         assert not dialog.winfo_exists()
         workspace.phase.set('Ukončeno'); workspace.layer.set('Akce'); workspace.refresh(); settle(root)
         assert set(workspace.records)=={f"project:{ids['project']}",f"project:{ids['completed']}"}
-        workspace.reset(); workspace.layer.set('Obojí'); workspace.refresh()
+        workspace.reset(); workspace.layer.set('Vybráno vše'); workspace.refresh()
         dialog=M.CompanyDialog(root,ids['cid']); settle(root)
         print('835 UI: editing original company form',flush=True)
         dialog.vars['gps_coordinates'].set('49.21, 16.61'); dialog.ok(); settle(root)

@@ -2323,11 +2323,21 @@ class CompanyDialog(tk.Toplevel):
         ttk.Checkbutton(roles,text="Dodavatel",variable=self.is_supplier).pack(side="left")
         row=3
         for lab,key in [("Oficiální název","official_name"),("IČO","ico"),("DIČ","dic"),
-            ("Sídlo","address"),("GPS (šířka, délka)","gps_coordinates"),("Právní forma","legal_form"),("Datum vzniku","date_created"),
-            ("Poslední změna ARES","ares_last_change"),("CZ-NACE","cz_nace"),("Finanční úřad","financial_office"),
-            ("Okres","district"),("Obec","municipality"),("Web","web")]:
+            ("Sídlo","address"),("GPS (šířka, délka)","gps_coordinates"),("Okres","district"),("Web","web")]:
             ttk.Label(f,text=lab).grid(row=row,column=0,sticky="w",padx=(0,10),pady=4)
             ttk.Entry(f,textvariable=self.vars[key],width=62).grid(row=row,column=1,columnspan=2,sticky="ew",pady=4);row+=1
+        self.extra_details_open=False
+        self.extra_details_button=ttk.Button(f,text="▸ Další údaje společnosti",command=self.toggle_extra_details)
+        self.extra_details_button._turto_view_only=True
+        self.extra_details_button.grid(row=row,column=0,columnspan=3,sticky="w",pady=(8,4));row+=1
+        self.extra_company_details=ttk.Frame(f,padding=(12,0,0,6))
+        self.extra_company_details.grid(row=row,column=0,columnspan=3,sticky="ew");row+=1
+        self.extra_company_details.columnconfigure(1,weight=1)
+        for detail_row,(lab,key) in enumerate([("Právní forma","legal_form"),("Datum vzniku","date_created"),
+            ("Poslední změna ARES","ares_last_change"),("CZ-NACE","cz_nace"),("Finanční úřad","financial_office"),("Obec","municipality")]):
+            ttk.Label(self.extra_company_details,text=lab).grid(row=detail_row,column=0,sticky="w",padx=(0,10),pady=4)
+            ttk.Entry(self.extra_company_details,textvariable=self.vars[key],width=62).grid(row=detail_row,column=1,sticky="ew",pady=4)
+        self.extra_company_details.grid_remove()
         ttk.Label(f,text="Poznámka").grid(row=row,column=0,sticky="nw",padx=(0,10),pady=4)
         self.note=tk.Text(f,wrap="word",height=3,width=62);self.note.grid(row=row,column=1,columnspan=2,sticky="ew");self.note.insert("1.0",vals.get("note","") or "");row+=1
         ttk.Label(f,text="Osoby ve společnosti").grid(row=row,column=0,sticky="nw",padx=(0,10),pady=(10,4))
@@ -2344,6 +2354,16 @@ class CompanyDialog(tk.Toplevel):
         b=ttk.Frame(f);b.grid(row=row,column=0,columnspan=3,sticky="e",pady=(12,0))
         ttk.Button(b,text="Zrušit",command=self.destroy).pack(side="right",padx=4);ttk.Button(b,text="Uložit",style="Accent.TButton",command=self.ok).pack(side="right",padx=4)
         self.refresh_people()
+    def toggle_extra_details(self):
+        self.extra_details_open=not self.extra_details_open
+        if self.extra_details_open:
+            self.extra_company_details.grid()
+        else:
+            focus=self.focus_get()
+            if focus is not None and str(focus).startswith(str(self.extra_company_details)+"."):
+                self.extra_details_button.focus_set()
+            self.extra_company_details.grid_remove()
+        self.extra_details_button.configure(text=("▾" if self.extra_details_open else "▸")+" Další údaje společnosti")
     def schedule_ares(self,*a):
         if self.search_after:
             try:self.after_cancel(self.search_after)

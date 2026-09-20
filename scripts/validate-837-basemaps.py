@@ -38,7 +38,11 @@ def ui_checks(td):
         root.select_user('835 Editor'); root.show_page('map'); w=root.map_workspace
         wait(lambda:w.loaded and w.basemap_ready=='map','Original map did not load')
         assert not hasattr(w,'company_box') and not hasattr(w,'company_ids')
+        assert w.layer.get()=='Akce'
+        assert set(w.records)=={r['key'] for r in model.rows(M,layer='project')}
+        w.layer.set('Vybráno vše');w.layer_box.event_generate('<<ComboboxSelected>>');settle(root,.3)
         assert set(w.records)=={r['key'] for r in model.rows(M)}
+        w.layer.set('Akce');w.layer_box.event_generate('<<ComboboxSelected>>');settle(root,.3)
         w.tree.selection_set(f"project:{ids['project']}"); settle(root,.2)
         before=model.record(M,'project',ids['project'])
         point=[14.42,50.08]
@@ -47,11 +51,11 @@ def ui_checks(td):
         wait(lambda:w.last_preview_point==point,'Preview missing')
         settle(root,3)
         w.pick(); settle(root,.2)
-        w.basemap_buttons['map'].invoke(); settle(root,.4)
+        w.basemap_button.menu.invoke(0); settle(root,.4)
         baseline=w.last_basemap_state
         assert baseline['picking'] and baseline['preview']==point
         selection=w.tree.selection()
-        w.basemap_buttons['orthophoto'].invoke()
+        w.basemap_button.menu.invoke(1)
         wait(lambda:w.basemap_ready=='orthophoto','Live CUZK imagery did not load')
         state=w.last_basemap_state
         assert state['value']=='orthophoto'
@@ -60,12 +64,12 @@ def ui_checks(td):
         assert w.tree.selection()==selection and w.pending_pick
         assert model.snapshot(model.record(M,'project',ids['project']))==model.snapshot(before)
         screenshot('orthophoto.png')
-        w.basemap_buttons['map'].invoke()
+        w.basemap_button.menu.invoke(0)
         wait(lambda:w.basemap_ready=='map','Return to normal map failed')
         assert w.last_basemap_state['center']==baseline['center']
         assert w.last_basemap_state['preview']==point and w.pending_pick
         screenshot('standard-map.png')
-        w.basemap_buttons['orthophoto'].invoke()
+        w.basemap_button.menu.invoke(1)
         wait(lambda:w.basemap_ready=='orthophoto','Second switch failed')
         w.cancel_pick(); w.reload()
         wait(lambda:w.loaded and w.basemap_ready=='orthophoto','Reload forgot selected background')
