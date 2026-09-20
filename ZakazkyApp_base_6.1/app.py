@@ -1732,8 +1732,9 @@ def subject_date(s):
         return f"{d.day}.{d.month}.{d.year}"
     except:return s
 
-def build_subject(company_short,action,item,asked,include_action):
-    parts=["Poptávka TURTO",company_short]
+def build_subject(company_short,action,item,asked,include_action,is_mivo=None):
+    if is_mivo is None:is_mivo=request_mail.mivo_name(company_short)
+    parts=["TURTO" if is_mivo else "Poptávka TURTO",company_short]
     if include_action and action:parts.append(action)
     if item:parts.append(item)
     parts.append(subject_date(asked))
@@ -3489,7 +3490,8 @@ class RequestDialog(tk.Toplevel):
 
         with db() as con:
             _mivo_ids=set(mivo_company_ids(con))
-        self.is_mivo=bool(vals.get("company_id") in _mivo_ids)
+        self.is_mivo=bool(vals.get("company_id") in _mivo_ids or any(
+            r["id"] in _mivo_ids and r["official_name"]==vals.get("company") for r in self.companies))
         if not self.is_mivo and vals.get("company"):
             _cv=(vals.get("company") or "").strip().casefold()
             self.is_mivo=(_cv=="mivo" or _cv.startswith("mivo ") or _cv.startswith("mivo,") or _cv.startswith("mivo."))
@@ -3593,8 +3595,9 @@ class RequestDialog(tk.Toplevel):
         _default_subject=vals.get("mail_subject","") or build_subject(
             vals.get("company",""),vals.get("action_name",""),vals.get("item",""),
             vals.get("asked_date",date.today().isoformat()),
-            self.include.get()
+            self.include.get(),self.is_mivo
         )
+        if self.is_mivo:_default_subject=request_mail.mivo_subject(_default_subject)
         self.subject=tk.StringVar(value=_default_subject)
         self._mivo_generated_subject=None if rid else _default_subject
         ttk.Entry(f,textvariable=self.subject,state=("normal" if self.is_mivo else "readonly")).grid(
@@ -3604,11 +3607,14 @@ class RequestDialog(tk.Toplevel):
         body_wrap=ttk.Frame(f);body_wrap.grid(row=11,column=1,columnspan=2,sticky="ew")
         self.mail_body=tk.Text(body_wrap,wrap="word",height=5,undo=True)
         self.mail_body.pack(fill="x")
-        self._loaded_mail_profile=request_mail.profile(sys.modules[__name__],self.assigned.get())
+        self._loaded_mail_profile=request_mail.profile(sys.modules[__name__],self.assigned.get(),self.is_mivo)
         self.mail_body.insert("1.0",request_mail.text_lf(vals["mail_body"]) if vals.get("mail_body") is not None else self._loaded_mail_profile)
         body_buttons=ttk.Frame(body_wrap);body_buttons.pack(fill="x",pady=(4,0))
-        ttk.Button(body_buttons,text="Výchozí text uživatele…",command=self.edit_mail_profile).pack(side="left")
-        ttk.Button(body_buttons,text="Načíst text uživatele",command=self.load_mail_profile).pack(side="left",padx=(6,0))
+        self.mail_profile_button=ttk.Button(body_buttons,text="Výchozí text MIVO…" if self.is_mivo else "Výchozí text uživatele…",command=self.edit_mail_profile)
+        self.mail_profile_button.pack(side="left")
+        self.mail_load_button=ttk.Button(body_buttons,text="Načíst text MIVO" if self.is_mivo else "Načíst text uživatele",command=self.load_mail_profile)
+        self.mail_load_button.pack(side="left",padx=(6,0))
+        self._mail_profile_mivo=self.is_mivo
 
         # Similar history panel is useful for normal Poptávky, but deliberately omitted in MIVO.
         if not self.is_mivo:
@@ -3667,12 +3673,27 @@ class RequestDialog(tk.Toplevel):
         self.mail_body.delete("1.0","end")
         self.mail_body.insert("1.0",body)
 
+    def _mail_is_mivo(self):
+        name=self.company.get().strip()
+        if request_mail.mivo_name(name):return True
+        cid=self.company_map.get(name)
+        return request_mail.is_mivo_request(sys.modules[__name__],{"company_id":cid})
+
+    def _sync_mail_kind(self):
+        if not hasattr(self,"_mail_profile_mivo"):return
+        is_mivo=self._mail_is_mivo()
+        if is_mivo==self._mail_profile_mivo:return
+        self._mail_profile_mivo=is_mivo
+        self.mail_profile_button.configure(text="Výchozí text MIVO…" if is_mivo else "Výchozí text uživatele…")
+        self.mail_load_button.configure(text="Načíst text MIVO" if is_mivo else "Načíst text uživatele")
+        self._assigned_changed()
+
     def _assigned_changed(self):
         name=self.assigned.get().strip()
         with db() as con:self.user_names=request_mail.users(con)
         # Partial typing is not a user selection and must not replace text.
         if name not in self.user_names:return
-        body=request_mail.profile(sys.modules[__name__],name)
+        body=request_mail.profile(sys.modules[__name__],name,self._mail_is_mivo())
         if self.mail_body.get("1.0","end-1c")==self._loaded_mail_profile:
             self._set_mail_body(body)
         self._loaded_mail_profile=body
@@ -3688,7 +3709,7 @@ class RequestDialog(tk.Toplevel):
     def load_mail_profile(self):
         name=self._mail_profile_user()
         if name is None:return
-        body=request_mail.profile(sys.modules[__name__],name)
+        body=request_mail.profile(sys.modules[__name__],name,self._mail_is_mivo())
         if self.mail_body.get("1.0","end-1c") not in (body,self._loaded_mail_profile):
             if not messagebox.askyesno("Načíst výchozí text","Nahradit rozepsaný text této poptávky výchozím textem uživatele?",parent=self):return
         self._loaded_mail_profile=body
@@ -3697,8 +3718,9 @@ class RequestDialog(tk.Toplevel):
     def edit_mail_profile(self):
         name=self._mail_profile_user()
         if name is None:return
-        previous=request_mail.profile(sys.modules[__name__],name)
-        editor=request_mail.ProfileDialog(self,sys.modules[__name__],name)
+        is_mivo=self._mail_is_mivo()
+        previous=request_mail.profile(sys.modules[__name__],name,is_mivo)
+        editor=request_mail.ProfileDialog(self,sys.modules[__name__],name,is_mivo)
         self.wait_window(editor)
         self.grab_set()
         if editor.result is not None:
@@ -3761,6 +3783,8 @@ class RequestDialog(tk.Toplevel):
         self._hist_after=self.after(180,self.refresh_similar)
 
     def _company_text_changed(self,*_):
+        self._sync_mail_kind()
+        self.update_preview()
         payload=getattr(self.company_box,"selected_payload",None)
         if payload:
             self.selected_company_id=payload
@@ -3898,7 +3922,7 @@ class RequestDialog(tk.Toplevel):
 
     def update_preview(self):
         if not hasattr(self,"subject"):return
-        generated=build_subject(self.company.get().strip(),self.action.get().strip(),self.item.get().strip(),self.asked.get(),self.include.get())
+        generated=build_subject(self.company.get().strip(),self.action.get().strip(),self.item.get().strip(),self.asked.get(),self.include.get(),self._mail_is_mivo())
         if self.is_mivo:
             current=request_mail.with_urgency(self.subject.get(),False)
             if current==self._mivo_generated_subject:
@@ -6402,9 +6426,10 @@ $s.Save()
     def mail_selected(self):
         rid=self.selected_id(self.request_tree,"r")
         if not rid:return
-        with db() as con:r=con.execute("SELECT recipients_snapshot,mail_subject,cc_snapshot,mail_body,assigned_user,urgent FROM requests WHERE id=?",(rid,)).fetchone()
+        with db() as con:r=con.execute("SELECT recipients_snapshot,mail_subject,cc_snapshot,mail_body,assigned_user,urgent,company_id FROM requests WHERE id=?",(rid,)).fetchone()
         if not r:return
         subject=r["mail_subject"] or ""
+        if request_mail.is_mivo_request(sys.modules[__name__],r):subject=request_mail.mivo_subject(subject)
         if request_mail.flag(r["urgent"]):subject=request_mail.with_urgency(subject,True)
         open_mail_draft((r["recipients_snapshot"] or "").split(";"),subject,r["cc_snapshot"] or CC_ALWAYS,
                         body=request_mail.body_for_request(sys.modules[__name__],r))

@@ -314,7 +314,7 @@ def main() -> None:
             offer_supplier_box=Box(), offer_action_box=Box(), offer_status_box=Box(),
             offer_tree=Tree(offer_columns), offer_rows={}, offer_q=Var(""), offer_supplier_filter=Var(""),
             offer_action_filter=Var(""), offer_status_filter=Var("Všechny"), offer_type_filter=Var("Vše"),
-            offer_view=Var("Nepřiřazené"), offer_page=0, offer_page_size=Var("250"), offer_status_text=Var(""),
+            offer_view=Var("Nepřiřazeno k akci"), offer_page=0, offer_page_size=Var("250"), offer_status_text=Var(""),
             offer_prev_button=Button(), offer_next_button=Button(), offer_show_archived=Var(False),
             offer_selection_label=Label(), offer_detail_title=Var(""), offer_detail_subtitle=Var(""),
             offer_detail_vars={key: Var("—") for key in (

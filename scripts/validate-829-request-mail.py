@@ -21,10 +21,12 @@ def seed(M):
     with M.db() as con:
         con.execute("INSERT OR IGNORE INTO users(name,active) VALUES('829 Alena',1),('829 Bára',1),('829 Old',0),('Admin',1),(' tEsT ',1),('Testovací technik',1)")
         supplier = con.execute("INSERT INTO companies(short_name,official_name,is_supplier) VALUES('829 Dodavatel','829 Dodavatel',1)").lastrowid
+        con.execute("INSERT INTO companies(short_name,official_name,is_supplier) VALUES('MIVO 839','MIVO 839',1)")
         con.execute("INSERT INTO materials(name) VALUES('829 Nosník')")
         con.execute("INSERT INTO actions(name) VALUES('829 Akce')")
     mail.save_profile(M, '829 Alena', 'Dobrý den,\n\nProsím o nabídku.\nAlena', mail.DEFAULT_BODY)
     mail.save_profile(M, '829 Bára', 'Dobrý den,\nBára', mail.DEFAULT_BODY)
+    mail.save_profile(M, '829 Alena', 'Samostatný text MIVO\nAlena', mail.DEFAULT_BODY, True)
     M.set_setting('active_user', '829 Bára')
     M.set_setting('include_project_default', '1')
     return supplier
@@ -53,6 +55,12 @@ def source_checks(td):
         assert mail.validate_user(con, '829 Old', '829 Old') == '829 Old'
     assert mail.body_for_request(M, row) == mail.profile(M, '829 Alena')
     assert mail.body_for_request(M, {'mail_body': '', 'assigned_user': '829 Alena'}) == ''
+    with M.db() as con:
+        mid = con.execute("SELECT id FROM companies WHERE official_name='MIVO 839'").fetchone()[0]
+    mivo_row = {'company_id': mid, 'assigned_user': '829 Alena'}
+    assert mail.body_for_request(M, mivo_row) == 'Samostatný text MIVO\nAlena'
+    assert mail.body_for_request(M, dict(mivo_row, mail_body='Uložený text')) == 'Uložený text'
+    assert mail.body_for_request(M, dict(mivo_row, mail_body='')) == ''
     local = SimpleNamespace(manage_code_lists=lambda: None, active_user=SimpleNamespace(get=lambda: '829 Alena'))
     assert mail.default_user(M, local, names) == '829 Alena'
     local.active_user.get = lambda: 'TEST'
@@ -60,6 +68,11 @@ def source_checks(td):
     old = mail.profile(M, '829 Alena')
     mail.save_profile(M, '829 Alena', '', old)
     assert mail.profile(M, '829 Alena') == '' and mail.profile(M, '829 Bára') == 'Dobrý den,\nBára'
+    assert mail.profile(M, '829 Alena', True) == 'Samostatný text MIVO\nAlena'
+    mail.save_profile(M, '829 Alena', 'Nový MIVO text', 'Samostatný text MIVO\nAlena', True)
+    previous.rejects(lambda: mail.save_profile(M, '829 Alena', 'stale MIVO', 'Samostatný text MIVO\nAlena', True))
+    assert mail.profile(M, '829 Alena') == ''
+    assert mail.profile(M, '829 Bára', True) == mail.DEFAULT_BODY
     previous.rejects(lambda: mail.save_profile(M, '829 Alena', 'stale', old))
     previous.rejects(lambda: mail.save_profile(M, 'Admin', 'invalid', mail.DEFAULT_BODY))
     M.ensure_schema()
@@ -72,6 +85,11 @@ def source_checks(td):
         assert mail.with_urgency(urgent, True) == urgent
         assert mail.with_urgency(urgent, False) == base
     assert not mail.flag(0) and not mail.flag('0') and mail.flag(1)
+    for company in ('MIVO', 'MIVO, spol. s r.o.', 'MIVO 839'):
+        assert M.build_subject(company, 'Akce', 'Nosník', '2026-09-20', True).startswith('TURTO - '+company)
+    assert M.build_subject('Mivother', '', '', '2026-09-20', False).startswith('Poptávka TURTO')
+    assert mail.mivo_subject('SPĚCHÁ! Poptávka TURTO - MIVO - 20.9.2026') == 'SPĚCHÁ! TURTO - MIVO - 20.9.2026'
+    assert mail.mivo_subject('Vlastní předmět MIVO') == 'Vlastní předmět MIVO'
     body = 'Dobrý den,\n\nCenová nabídka „A&B“ <text>\nDěkuji,\nAlena'
     # Exercise both transports without opening Outlook or sending a message.
     with patch.object(M.sys, 'platform', 'win32'), patch.object(M.subprocess, 'run') as run:
@@ -98,6 +116,14 @@ def source_checks(td):
         assert draft.call_args.args[1] == 'SPĚCHÁ! Původní předmět'
     with M.db() as con:
         assert tuple(con.execute('SELECT mail_body,urgent FROM requests WHERE id=?', (rid,)).fetchone()) == (body, 1)
+        mrid = con.execute("INSERT INTO requests(company_id,assigned_user,mail_subject,urgent) VALUES(?, '829 Alena', 'Poptávka TURTO - MIVO - 20.9.2026', 1)", (mid,)).lastrowid
+    fake.selected_id = lambda *a: mrid
+    with patch.object(M, 'open_mail_draft') as draft:
+        M.App.mail_selected(fake)
+        assert draft.call_args.args[1] == 'SPĚCHÁ! TURTO - MIVO - 20.9.2026'
+        assert draft.call_args.kwargs['body'] == 'Nový MIVO text'
+    with M.db() as con:
+        assert con.execute('SELECT mail_body FROM requests WHERE id=?', (mrid,)).fetchone()[0] is None
     print('8.0.29: additive migration, isolated profiles, explicit/stale saves, user validation, subject flags, snapshots and both draft transports OK', flush=True)
 
 
@@ -177,14 +203,39 @@ def ui_checks(td):
         assert new.mail_body.get('1.0', 'end-1c') == 'Nový výchozí text'
         new.destroy(); settle(root)
         assert M.get_setting('include_project_default') == '1', 'Dialog still writes global defaults'
-        mivo = M.RequestDialog(root, pre_company='MIVO'); settle(root)
+        mivo = M.RequestDialog(root, pre_company='MIVO 839'); settle(root)
         assert mivo.is_mivo and not mivo.include.get() and not mivo.urgent.get()
+        assert mivo.subject.get().startswith('TURTO - MIVO 839 -')
+        assert mivo.mail_body.get('1.0', 'end-1c') == 'Samostatný text MIVO\nAlena'
+        editor = mail.ProfileDialog(mivo, M, '829 Alena', True); settle(root)
+        editor.body.delete('1.0', 'end'); editor.body.insert('1.0', 'Nový výchozí MIVO')
+        editor.save(); settle(root)
+        assert mail.profile(M, '829 Alena') == 'Nový výchozí text'
+        mivo.load_mail_profile()
+        assert mivo.mail_body.get('1.0', 'end-1c') == 'Nový výchozí MIVO'
+        mivo._set_mail_body('Vlastní text této MIVO poptávky')
         mivo.subject.set('Vlastní předmět MIVO')
         mivo.urgent_check.invoke(); settle(root)
         assert mivo.subject.get() == 'SPĚCHÁ! Vlastní předmět MIVO'
         mivo.update_preview(); assert mivo.subject.get() == 'SPĚCHÁ! Vlastní předmět MIVO'
         mivo.urgent_check.invoke(); assert mivo.subject.get() == 'Vlastní předmět MIVO'
-        mivo.destroy(); settle(root)
+        mivo.item.set('829 Nosník'); mivo.ok(); settle(root)
+        assert mivo.result['mail_body'] == 'Vlastní text této MIVO poptávky'
+        root.save_request(mivo); settle(root)
+        with M.db() as con:
+            mrid = con.execute("SELECT id FROM requests WHERE mail_subject='Vlastní předmět MIVO' ORDER BY id DESC").fetchone()[0]
+        reopened = M.RequestDialog(root, rid=mrid); settle(root)
+        assert reopened.subject.get() == 'Vlastní předmět MIVO'
+        assert reopened.mail_body.get('1.0', 'end-1c') == 'Vlastní text této MIVO poptávky'
+        reopened.destroy()
+        switching = M.RequestDialog(root); settle(root)
+        switching.company.set('MIVO 839'); settle(root)
+        assert switching.mail_body.get('1.0', 'end-1c') == 'Nový výchozí MIVO'
+        assert switching.subject.get().startswith('TURTO - MIVO 839 -')
+        switching._set_mail_body('Rozepsaný vlastní text')
+        switching.company.set('829 Dodavatel'); settle(root)
+        assert switching.mail_body.get('1.0', 'end-1c') == 'Rozepsaný vlastní text'
+        switching.destroy()
         root.active_user.set('TEST')
         technical = M.RequestDialog(root); settle(root)
         assert technical.assigned.get() == '' and not any(mail.technical_user(name) for name in technical.user_names)
