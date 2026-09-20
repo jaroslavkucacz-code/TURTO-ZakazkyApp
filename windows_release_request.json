@@ -1,8 +1,8 @@
 {
-  "version": "8.0.38",
+  "version": "8.0.39",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "f08191f09af0c1b07090b6f12b3e662d2dd38301",
-  "validated_run_id": 35524209004,
-  "notes": "Přepínání podkladu Mapa / Ortofoto ČR je nově pod ikonou vrstev v pravém horním rohu nad mapou. Po najetí na ikonu se ukáže aktuální podklad. Přepnutí zachová zobrazené místo i špendlíky.\n\nMapa se při spuštění CRM otevře s výběrem Akce. Původní volba Obojí se jmenuje Vybráno vše.\n\nV detailu společnosti se právní forma, datum vzniku, poslední změna ARES, CZ-NACE, finanční úřad a obec skrývají pod rozbalovací částí Další údaje společnosti. Okres zůstává viditelný. Sbalení údaje nemaže a doplňování z ARES i ukládání dál fungují se všemi poli. Část lze rozbalit také při oprávnění pouze ke čtení.\n\nAktualizace zachová databázi, GPS, přílohy a nastavení úložiště."
+  "source_commit": "abaf562497dab7a269a42ba09627dd32600608bf",
+  "validated_run_id": 35529605608,
+  "notes": "Poptávky MIVO mají automatický předmět TURTO - MIVO… bez úvodního slova Poptávka. SPĚCHÁ! a vlastní předměty zůstávají funkční; starší automatické předměty MIVO se upraví při otevření nebo přípravě e-mailu.\n\nVýchozí text MIVO je oddělený od běžných poptávek pro každého uživatele. V poptávce MIVO jej lze upravit přes Výchozí text MIVO… a načíst přes Načíst text MIVO. Uložené texty konkrétních poptávek zůstávají zachované.\n\nV Přijatých nabídkách je Načíst z Outlooku vedle Zpracovat nabídku. Odstraněna je legenda Barvy jsou upozornění a tlačítka Aktivní, Bez zařazení a Vše. Nepřiřazené se nyní jmenuje Nepřiřazeno k akci. Zrušit filtrování vrátí základní nearchivovaný přehled.\n\nAktualizace zachová databázi, přílohy a uživatelská nastavení."
 }
