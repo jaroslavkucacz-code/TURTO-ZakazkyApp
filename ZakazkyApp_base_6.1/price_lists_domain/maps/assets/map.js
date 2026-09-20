@@ -2,11 +2,25 @@
 'use strict';
 const empty = () => ({type:'FeatureCollection',features:[]});
 let dataset=empty(), picking=false, popup=null, loaded=false;
+let previewPoint=null, previewLabel='', previewMarker=null;
 const notice=document.getElementById('notice');
 const send = data => window.chrome.webview.postMessage(data);
 const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',
   center:[15.4,49.8],zoom:6,attributionControl:true});
 map.addControl(new maplibregl.NavigationControl(),'top-right');
+function preview(fly=true){
+  if(previewMarker){previewMarker.remove();previewMarker=null;}
+  if(!previewPoint){send({type:'preview-applied',point:null});return;}
+  if(!loaded)return;
+  const content=document.createElement('div');
+  const title=document.createElement('strong');title.textContent=previewLabel;content.append(title);
+  const hint=document.createElement('p');hint.textContent='Náhled – uložení potvrďte v CRM.';content.append(hint);
+  previewMarker=new maplibregl.Marker({color:'#ad42bc'}).setLngLat(previewPoint)
+    .setPopup(new maplibregl.Popup().setDOMContent(content)).addTo(map);
+  previewMarker.togglePopup();
+  if(fly)map.flyTo({center:previewPoint,zoom:Math.max(map.getZoom(),17)});
+  send({type:'preview-applied',point:previewPoint});
+}
 function fit(){
   if(!dataset.features.length)return;
   const bounds=new maplibregl.LngLatBounds();
@@ -43,7 +57,7 @@ map.on('load',()=>{
     map.on('mouseenter',id,()=>{if(!picking)map.getCanvas().style.cursor='pointer';});
     map.on('mouseleave',id,()=>{map.getCanvas().style.cursor=picking?'crosshair':'';});
   });
-  notice.textContent='';fit();send({type:'loaded'});
+  notice.textContent='';if(previewPoint)preview();else fit();send({type:'loaded'});
 });
 map.on('click',e=>{if(picking){picking=false;map.getCanvas().style.cursor='';notice.textContent='';send({type:'picked',lat:e.lngLat.lat,lon:e.lngLat.lng});}});
 map.on('error',()=>{notice.textContent='Mapový podklad není dostupný. Zkontrolujte internet a klikněte na Obnovit zobrazení.';send({type:'tile-error'});});
@@ -53,6 +67,10 @@ window.chrome.webview.addEventListener('message',event=>{
     dataset=d.data;if(popup)popup.remove();picking=false;map.getCanvas().style.cursor='';
     if(loaded){map.getSource('crm').setData(dataset);notice.textContent='';}
     send({type:'data-applied',count:dataset.features.length});
+  }else if(d.type==='preview'){
+    const p=d.point;
+    previewPoint=Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)&&Math.abs(p[0])<=180&&Math.abs(p[1])<=90?p:null;
+    previewLabel=String(d.label||'');preview();
   }else if(d.type==='fit'){fit();}
   else if(d.type==='focus'){
     const f=dataset.features.find(f=>f.properties.key===d.key);if(f){map.flyTo({center:f.geometry.coordinates,zoom:Math.max(map.getZoom(),15)});info(f);}
