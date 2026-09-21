@@ -12,9 +12,9 @@ def open_dialog(M, app, parent=None):
     body=M.scrollable_dialog_frame(win,18)
     M.ttk.Label(body,text='Obchodníci a střediska Pohody',style='Title.TLabel').pack(anchor='w')
     M.ttk.Label(body,text='Kód patří středisku v importu Pohody. Přiřazení obchodníkovi platí od zvoleného data; starší doklady se nepřepisují.',wraplength=930).pack(anchor='w',pady=(6,12))
-    representatives=M.ttk.Treeview(body,columns=('name','state','centers'),show='headings',height=6,selectmode='browse')
+    representatives=M.ttk.Treeview(body,name='layout__sales_center_representatives',columns=('name','state','centers'),show='headings',height=6,selectmode='browse')
     for col,label,width in [('name','Obchodní zástupce',380),('state','Stav',120),('centers','Střediska nyní',230)]:
-        representatives.heading(col,text=label);representatives.column(col,width=width,anchor='w')
+        representatives.heading(col,text=label,anchor='w');representatives.column(col,width=width,anchor='w')
     representatives.pack(fill='x')
     records={}
     def refresh():
@@ -56,9 +56,9 @@ def open_dialog(M, app, parent=None):
     M.ttk.Button(buttons,text='+ Nový obchodník',command=person).pack(side='left')
     M.ttk.Button(buttons,text='Upravit obchodníka',command=lambda:person(True)).pack(side='left',padx=8)
     M.ttk.Label(body,text='Historie přiřazení středisek',style='Section.TLabel').pack(anchor='w',pady=(12,6))
-    timeline=M.ttk.Treeview(body,columns=('center','name','start','end'),show='headings',height=8,selectmode='browse')
+    timeline=M.ttk.Treeview(body,name='layout__sales_center_history',columns=('center','name','start','end'),show='headings',height=8,selectmode='browse')
     for col,label,width in [('center','Kód Pohody',110),('name','Obchodní zástupce',350),('start','Platí od',160),('end','Platí do (včetně)',170)]:
-        timeline.heading(col,text=label);timeline.column(col,width=width,anchor='w')
+        timeline.heading(col,text=label,anchor='w');timeline.column(col,width=width,anchor='w')
     timeline.pack(fill='both',expand=True)
 
     def assignment():
