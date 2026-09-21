@@ -48,7 +48,7 @@ def trend(rows,w=1000,h=275):
     return svg(out,w,h)
 
 
-SPECIAL_COLORS={'Milan':TEAL,'Honza':BLUE,'Jirka':AMBER,'Nezařazené':'#8291A6'}
+SPECIAL_COLORS={'Milan Soukup':TEAL,'Jan Mayer':BLUE,'Jiří Cír':AMBER,'Nezařazené':'#8291A6'}
 
 def colors_for_labels(labels):
     result={};used=set();palette_index=0

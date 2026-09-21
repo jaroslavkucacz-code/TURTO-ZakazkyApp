@@ -4,6 +4,7 @@ import sqlite3
 from .user_access import EDIT, TITLES
 
 TABLE_PAGES = {
+    'company_salespeople': 'portfolio',
     'actions': 'actions', 'companies': 'companies', 'people': 'people',
     'projects': 'projects', 'tasks': 'tasks', 'company_merge_history': 'companies',
     'customer_product_discounts': 'companies',
@@ -40,10 +41,21 @@ def protect_connection(con, session):
     if admin:
         return
     tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    con.create_function('turto_edit', 1, lambda page: int(page is None or session.level(page) >= EDIT))
+    if 'request_mail_attempts' in tables:
+        # Tracking is request metadata; it obeys the same MIVO/regular permission.
+        def mail_page(row):
+            return f"""turto_edit((SELECT CASE WHEN
+                lower(trim(coalesce(c.short_name,'')))='mivo' OR lower(trim(coalesce(c.official_name,'')))='mivo'
+                OR lower(trim(c.official_name)) LIKE 'mivo %' OR lower(trim(c.official_name)) LIKE 'mivo,%'
+                OR lower(trim(c.official_name)) LIKE 'mivo.%' THEN 'mivo' ELSE 'requests' END
+                FROM requests r LEFT JOIN companies c ON c.id=r.company_id WHERE r.id={row}.request_id))"""
+        _triggers(con, 'request_mail_attempts', mail_page)
     # An ordinary user can never give themselves a role or edit permission JSON.
     if 'users' in tables:
         con.execute('''CREATE TEMP TRIGGER access_user_profile BEFORE UPDATE ON main.users
             WHEN NEW.job_title IS NOT OLD.job_title OR NEW.tab_permissions IS NOT OLD.tab_permissions
+                 OR NEW.salesperson_id IS NOT OLD.salesperson_id OR NEW.person_id IS NOT OLD.person_id
                  OR NEW.name IS NOT OLD.name OR NEW.active IS NOT OLD.active OR NEW.id IS NOT OLD.id
             BEGIN SELECT RAISE(ABORT, 'Oprávnění uživatelů může měnit pouze ADMIN.'); END''')
         for operation in ('INSERT', 'DELETE'):
@@ -52,7 +64,6 @@ def protect_connection(con, session):
     denied = {page for page in TITLES if session.level(page) < EDIT}
     if not denied:
         return
-    con.create_function('turto_edit', 1, lambda page: int(page is None or session.level(page) >= EDIT))
     if 'settings' in tables and denied.intersection({'settings', 'issued_offers'}):
         def setting_page(key):
             key = str(key or '')

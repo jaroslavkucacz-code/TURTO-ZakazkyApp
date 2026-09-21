@@ -195,12 +195,13 @@ def workspace_capabilities(
         return result
 
     marks = ",".join("?" for _ in ids)
+    source = 'visible_tasks' if table == 'tasks' else table
     try:
         with M.db() as con:
             row = con.execute(
                 f'SELECT COUNT(*) AS valid_count, '
                 f'SUM(CASE WHEN COALESCE("{state_column}",?)=? THEN 1 ELSE 0 END) AS archived_count '
-                f'FROM "{table}" WHERE id IN ({marks})',
+                f'FROM "{source}" WHERE id IN ({marks})',
                 tuple([int(state_default), int(archived_value), *ids]),
             ).fetchone()
         valid_count = int(row["valid_count"] if row else 0)

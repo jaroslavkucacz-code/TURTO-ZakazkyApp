@@ -185,6 +185,8 @@ def _request_where(M, app, mivo: bool):
 
 
 def refresh_requests(M, app, mivo: bool = False):
+    from . import mail_tracking
+    mail_status = mail_tracking.status_rows(M)
     tree = app.mivo_tree if mivo else app.request_tree
     selected = set(tree.selection())
     for iid in tree.get_children(""):
@@ -270,6 +272,8 @@ def refresh_requests(M, app, mivo: bool = False):
             tags.append(REQUEST_ATTENTION_TAG)
         if urgent:
             tags.append(URGENT_REQUEST_TAG)
+        if 'E-mail' in tree.cget('columns'):
+            values = (*values, mail_tracking.label(mail_status.get(row['id'])))
         tree.insert("", "end", iid=iid, values=values, tags=tuple(tags))
         if iid in selected:tree.selection_add(iid)
     try:app.reapply_tree_sort(tree)
@@ -296,7 +300,7 @@ def refresh_tasks(M, app):
     with M.db() as con:
         rows = con.execute(
             f"""SELECT t.id,t.due_date,t.text,t.created_by,t.done_by,t.assigned_user,t.done,t.archived,a.name action_name
-                FROM tasks t JOIN actions a ON a.id=t.action_id
+                FROM visible_tasks t JOIN actions a ON a.id=t.action_id
                 WHERE {' AND '.join(where)} ORDER BY t.archived,t.done,t.due_date,t.id LIMIT 5000""",
             params,
         ).fetchall()

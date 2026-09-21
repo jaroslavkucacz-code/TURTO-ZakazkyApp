@@ -2,11 +2,7 @@ APP_NAME = 'TURTO – Měsíční přehledy'
 APP_VERSION = '1.1.2'
 DB_SCHEMA_VERSION = 2
 
-CENTER_NAMES = {
-    'J': 'Jirka',
-    'H': 'Honza',
-    'M': 'Milan',
-}
+from ..platform.sales_identity import CENTER_NAMES
 PRIMARY_CENTERS = ('J', 'H', 'M')
 
 COLORS = {

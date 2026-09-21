@@ -145,7 +145,12 @@ def apply(M):
         # Poptávky keep their offer count.
         rt=getattr(app,'request_tree',None)
         if rt is not None:
-            _heading_contract(app,rt,REQUEST_COLS)
+            # Preserve the current mail-status schema during delayed legacy
+            # stabilization. Removing a displayed column corrupts Tk 9 geometry.
+            cols=REQUEST_COLS
+            if 'E-mail' in rt.cget('columns'):
+                cols=(*REQUEST_COLS[:-1],'E-mail',REQUEST_COLS[-1])
+            _heading_contract(app,rt,cols)
             try:
                 rt.column('Nabídky',width=getattr(rt, '_turto_design_widths', {}).get('Nabídky', 82),minwidth=30,anchor='center',stretch=False)
                 counts=_request_offer_counts(count_cache)

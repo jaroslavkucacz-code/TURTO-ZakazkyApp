@@ -152,7 +152,7 @@ def apply(M):
             self._price_img=M.ttk.Label(image_box,text='',anchor='center')
             self._price_img.pack(fill='both',expand=True)
             M.ttk.Button(left,text='Exportovat zobrazené do Excelu',style='Accent.TButton',command=self.export_excel).pack(anchor='w',pady=(8,0))
-            self.t.bind('<<TreeviewSelect>>',lambda e:self.show_image(),add='+')
+            self.t.bind('<<TreeviewSelect>>',lambda e=None:self.show_image(),add='+')
         def show_image(self):
             try:
                 s=self.t.selection()

@@ -44,7 +44,7 @@ def _candidate_ids(M, kind: str, cutoff: str):
             ).fetchall()
         elif kind == "tasks":
             rows = con.execute(
-                """SELECT id FROM tasks
+                """SELECT id FROM visible_tasks
                    WHERE coalesce(archived,0)=0 AND done=1
                      AND substr(coalesce(nullif(done_at,''),nullif(due_date,''),'9999-12-31'),1,10)<?""",
                 (cutoff,),
@@ -361,7 +361,7 @@ def _patch_refreshes(M, App) -> None:
             marks = ",".join("?" for _ in ids)
             with M.db() as con:
                 archived = {int(row[0]) for row in con.execute(
-                    f"SELECT id FROM tasks WHERE archived=1 AND id IN ({marks})", tuple(ids)
+                    f"SELECT id FROM visible_tasks WHERE archived=1 AND id IN ({marks})", tuple(ids)
                 ).fetchall()}
         show = bool(self.task_show_archived.get()) if hasattr(self, "task_show_archived") else False
         for iid in list(tree.get_children("")):
@@ -430,7 +430,7 @@ def _patch_notifications(M, App) -> None:
         horizon = today.toordinal() + 3
         count = 0
         with M.db() as con:
-            for row in con.execute("SELECT due_date FROM tasks WHERE done=0 AND coalesce(archived,0)=0"):
+            for row in con.execute("SELECT due_date FROM visible_tasks WHERE done=0 AND coalesce(archived,0)=0"):
                 try:due = M.datetime.strptime(row["due_date"], "%Y-%m-%d").date()
                 except Exception:continue
                 if due.toordinal() <= horizon:

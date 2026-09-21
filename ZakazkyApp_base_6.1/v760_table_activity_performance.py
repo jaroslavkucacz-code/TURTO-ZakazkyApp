@@ -1407,7 +1407,7 @@ def apply(M: Any) -> None:
         with M.db() as con:
             rows = con.execute(
                 """SELECT t.*,a.name action_name
-                   FROM tasks t JOIN actions a ON a.id=t.action_id
+                   FROM visible_tasks t JOIN actions a ON a.id=t.action_id
                    WHERE (?=1 OR COALESCE(t.archived,0)=0)
                      AND (?=1 OR t.done=0 OR COALESCE(t.archived,0)=1)
                    ORDER BY COALESCE(t.archived,0),t.done,t.due_date,t.id""",
@@ -1479,7 +1479,7 @@ def apply(M: Any) -> None:
         with M.db() as con:
             marks = ",".join("?" for _ in ids)
             rows = con.execute(
-                f"SELECT id,action_id,text,archived FROM tasks WHERE id IN ({marks})",
+                f"SELECT id,action_id,text,archived FROM visible_tasks WHERE id IN ({marks})",
                 ids,
             ).fetchall()
         candidates = [
@@ -1524,7 +1524,7 @@ def apply(M: Any) -> None:
                     "task_archive" if archived else "task_restore",
                     "Archivoval připomínku" if archived else "Obnovil připomínku",
                     _text(_row_value(row, "text")),
-                    user_name=user,
+                    user_name=user, related_task_id=int(_row_value(row,"id",0)),
                 )
             except Exception:
                 pass
@@ -1535,7 +1535,7 @@ def apply(M: Any) -> None:
         if len(ids) != 1:
             return False
         with M.db() as con:
-            row = con.execute("SELECT archived FROM tasks WHERE id=?", (ids[0],)).fetchone()
+            row = con.execute("SELECT archived FROM visible_tasks WHERE id=?", (ids[0],)).fetchone()
         return bool(row and int(_row_value(row, "archived", 0) or 0) == 1)
 
     def install_task_context(app: Any) -> None:
@@ -1675,7 +1675,7 @@ def apply(M: Any) -> None:
     if callable(previous_complete_task_by_id):
         def complete_task_by_id(self: Any, task_id: int, *args: Any, **kwargs: Any):
             with M.db() as con:
-                row = con.execute("SELECT archived FROM tasks WHERE id=?", (task_id,)).fetchone()
+                row = con.execute("SELECT archived FROM visible_tasks WHERE id=?", (task_id,)).fetchone()
             if row and int(_row_value(row, "archived", 0) or 0) == 1:
                 return M.messagebox.showinfo(
                     "Úkol",
@@ -1826,7 +1826,7 @@ def apply(M: Any) -> None:
         today = date.today().isoformat()
         with M.db() as con:
             tasks = con.execute(
-                """SELECT COUNT(*) FROM tasks
+                """SELECT COUNT(*) FROM visible_tasks
                    WHERE done=0 AND COALESCE(archived,0)=0
                      AND trim(coalesce(due_date,''))<>'' AND due_date<=?""",
                 (horizon_date,),
@@ -1864,10 +1864,10 @@ def apply(M: Any) -> None:
             horizon = date.fromordinal(today.toordinal() + 3)
             with M.db() as con:
                 tasks = con.execute(
-                    """SELECT t.*,a.name action_name FROM tasks t
+                    """SELECT t.*,a.name action_name FROM visible_tasks t
                        JOIN actions a ON a.id=t.action_id
                        WHERE t.done=0 AND COALESCE(t.archived,0)=0
-                         AND (trim(coalesce(t.assigned_user,''))='' OR t.assigned_user=?)
+                         AND (? IS NOT NULL)
                          AND t.due_date<=?
                        ORDER BY t.due_date,t.id""",
                     (M.get_setting("active_user", ""), horizon.isoformat()),
@@ -1964,9 +1964,9 @@ def apply(M: Any) -> None:
                     with M.db() as con:
                         tasks = con.execute(
                             """SELECT t.id,t.due_date,t.text,a.name action_name
-                               FROM tasks t LEFT JOIN actions a ON a.id=t.action_id
+                               FROM visible_tasks t LEFT JOIN actions a ON a.id=t.action_id
                                WHERE t.done=0 AND COALESCE(t.archived,0)=0
-                                 AND (trim(coalesce(t.assigned_user,''))='' OR t.assigned_user=?)
+                                 AND (? IS NOT NULL)
                                ORDER BY t.due_date,t.id LIMIT 7""",
                             (user,),
                         ).fetchall()
@@ -1997,7 +1997,7 @@ def apply(M: Any) -> None:
                                      AND coalesce(archived,0)=0
                                      AND trim(coalesce(asked_date,''))<>''
                                      AND julianday(?) - julianday(asked_date) >= 7),
-                                 (SELECT COUNT(*) FROM tasks
+                                 (SELECT COUNT(*) FROM visible_tasks
                                    WHERE done=0 AND COALESCE(archived,0)=0 AND due_date<=?)""",
                             (date.today().isoformat(), date.today().isoformat()),
                         ).fetchone()
@@ -2036,7 +2036,7 @@ def apply(M: Any) -> None:
                                WHERE trim(coalesce(received_date,''))=''
                                  AND coalesce(no_response,0)=0
                                  AND coalesce(archived,0)=0),
-                             (SELECT COUNT(*) FROM tasks
+                             (SELECT COUNT(*) FROM visible_tasks
                                WHERE done=0 AND COALESCE(archived,0)=0 AND due_date<=?)""",
                         (date.today().isoformat(),),
                     ).fetchone()

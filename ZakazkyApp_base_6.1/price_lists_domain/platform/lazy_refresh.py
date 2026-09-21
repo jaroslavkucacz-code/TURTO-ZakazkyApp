@@ -11,6 +11,7 @@ from pathlib import Path
 from . import grouped_navigation
 
 PAGE_REFRESH = {
+    "portfolio": "refresh_portfolio",
     "dash": "refresh_dash",
     "actions": "refresh_actions",
     "requests": "refresh_requests",
@@ -23,6 +24,7 @@ PAGE_REFRESH = {
     "companies": "refresh_companies",
 }
 PAGE_TREES = {
+    "portfolio": ("portfolio_tree",),
     "dash": ("dash_tree", "dash_tasks_tree", "dash_requests_tree"),
     "actions": ("action_tree",),
     "requests": ("request_tree",),

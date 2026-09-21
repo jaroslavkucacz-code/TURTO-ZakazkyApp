@@ -79,7 +79,7 @@ def apply(M):
             t.pack(fill='both',expand=True)
             def refresh_hist():
                 for iid in t.get_children():t.delete(iid)
-                with M.db() as c:rows=c.execute('SELECT * FROM audit_history ORDER BY id DESC LIMIT 1000').fetchall()
+                with M.db() as c:rows=c.execute('SELECT * FROM visible_audit_history ORDER BY id DESC LIMIT 1000').fetchall()
                 for x in rows:
                     state='VRÁCENO' if x['undone'] else ('LZE VRÁTIT' if (x['undo_sql'] or '').strip() else '')
                     t.insert('', 'end',iid=str(x['id']),values=(x['created_at'],x['user_name'],x['computer_name'],f"{x['entity_type']} {x['entity_id']}",x['action'],x['field_name'],x['old_value'],x['new_value'],state))
@@ -87,7 +87,7 @@ def apply(M):
                 sel=t.selection()
                 if not sel:return messagebox.showinfo('Vrátit změnu','Nejdřív vyberte konkrétní záznam historie.',parent=d)
                 iid=int(sel[0])
-                with M.db() as c:r=c.execute('SELECT * FROM audit_history WHERE id=?',(iid,)).fetchone()
+                with M.db() as c:r=c.execute('SELECT * FROM visible_audit_history WHERE id=?',(iid,)).fetchone()
                 if not r:return
                 if r['undone']:return messagebox.showinfo('Vrátit změnu','Tato změna už byla vrácena.',parent=d)
                 if not (r['undo_sql'] or '').strip():return messagebox.showinfo('Vrátit změnu','Tuto operaci zatím nelze bezpečně vrátit.',parent=d)

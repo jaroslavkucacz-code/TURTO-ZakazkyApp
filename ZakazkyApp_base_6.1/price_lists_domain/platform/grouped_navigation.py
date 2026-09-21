@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 GROUPS = {
+    "business": ("portfolio",),
     "directory": ("companies", "people"),
     "technical": ("actions", "requests", "mivo", "offers", "tasks"),
     "reports": ("reports_overview", "reports_revenue", "reports_sales", "reports_customers",
@@ -12,7 +13,7 @@ PAGE_GROUP = {page: group for group, pages in GROUPS.items() for page in pages}
 # Keep the relative order of the remaining main pages.
 TOP_ORDER = ("dash", "business", "technical", "pricelists", "issued_offers", "received_orders", "projects", "map", "reports", "directory", "help")
 LABELS = {
-    "dash": "⌂  Přehled", "business": "Obchod", "technical": "Technika", "directory": "Adresář",
+    "portfolio": "Portfolio", "dash": "⌂  Přehled", "business": "Obchod", "technical": "Technika", "directory": "Adresář",
     "actions": "Ke zpracování", "requests": "Poptávky", "mivo": "MIVO",
     "offers": "Přijaté nabídky", "tasks": "Úkoly",
     "companies": "Společnosti", "people": "Osoby", "projects": "▣  Akce",

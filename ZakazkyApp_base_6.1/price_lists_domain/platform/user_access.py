@@ -11,7 +11,7 @@ from . import grouped_navigation as navigation
 HIDDEN, READ, EDIT = 0, 1, 2
 MODES = ('Skrýt', 'Jen číst', 'Číst i upravovat')
 TITLES = {
-    'dash': 'Přehled', 'business': 'Obchod', 'actions': 'Ke zpracování',
+    'dash': 'Přehled', 'portfolio': 'Obchod / Portfolio', 'actions': 'Ke zpracování',
     'requests': 'Poptávky', 'mivo': 'MIVO', 'offers': 'Přijaté nabídky', 'tasks': 'Úkoly',
     'pricelists': 'Ceníky', 'issued_offers': 'Vydané nabídky', 'received_orders': 'Přijaté objednávky',
     'projects': 'Akce', 'map': 'Mapa', 'companies': 'Společnosti', 'people': 'Osoby',
@@ -29,7 +29,8 @@ class AccessDenied(ValueError):
 def ensure_columns(con):
     columns = {r[1] for r in con.execute('PRAGMA table_info(users)')}
     for name, declaration in (('job_title', "TEXT NOT NULL DEFAULT ''"),
-                              ('tab_permissions', "TEXT NOT NULL DEFAULT '{}'")):
+                              ('tab_permissions', "TEXT NOT NULL DEFAULT '{}'"),
+                              ('salesperson_id', 'INTEGER'), ('person_id', 'INTEGER')):
         if name not in columns:
             con.execute(f'ALTER TABLE users ADD COLUMN {name} {declaration}')
 
@@ -56,7 +57,7 @@ class Session:
             return EDIT
         if page in navigation.GROUPS:
             return max(self.level(p) for p in navigation.GROUPS[page])
-        return self.permissions.get(page, EDIT)
+        return self.permissions.get(page, self.permissions.get('business', EDIT) if page == 'portfolio' else EDIT)
 
 
 def session_from_row(row):
@@ -113,15 +114,17 @@ def require_admin(M):
 
 def profile(M, uid):
     with closing(M.db()) as con:
-        row = con.execute('SELECT id,name,job_title,tab_permissions FROM users WHERE id=?', (uid,)).fetchone()
+        row = con.execute('SELECT id,name,job_title,tab_permissions,salesperson_id,person_id FROM users WHERE id=?', (uid,)).fetchone()
         if row is None:
             raise ValueError('Uživatel už neexistuje.')
         return dict(row)
 
 
-def save_profile(M, uid, job_title, permissions, expected):
+def save_profile(M, uid, job_title, permissions, expected, *, salesperson_id=..., expected_identity=None):
     require_admin(M)
     data = decode(json.dumps(permissions, ensure_ascii=False))
+    if 'business' in data:
+        data.setdefault('portfolio', data.pop('business'))
     # Preserve unknown future keys when editing an older client.
     encoded = json.dumps({k: v for k, v in data.items() if v != EDIT}, ensure_ascii=False, sort_keys=True)
     with closing(M.db()) as con, con:
@@ -131,6 +134,16 @@ def save_profile(M, uid, job_title, permissions, expected):
             raise ValueError('Uživatel už neexistuje.')
         if tuple(current) != tuple(expected):
             raise ValueError('Nastavení mezitím změnil jiný uživatel. Otevřete okno znovu.')
+        if salesperson_id is not ...:
+            identity = con.execute('SELECT salesperson_id,person_id FROM users WHERE id=?', (uid,)).fetchone()
+            if tuple(identity) != tuple(expected_identity or (None,None)):
+                raise ValueError('Přiřazení mezitím změnil jiný uživatel. Otevřete okno znovu.')
+            person_id = None
+            if salesperson_id is not None:
+                person = con.execute('SELECT person_id FROM salespeople WHERE id=? AND active=1 AND canonical_id IS NULL', (salesperson_id,)).fetchone()
+                if not person:raise ValueError('Vyberte aktivního obchodního zástupce.')
+                person_id = person[0]
+            con.execute('UPDATE users SET salesperson_id=?,person_id=? WHERE id=?', (salesperson_id,person_id,uid))
         con.execute('UPDATE users SET job_title=?,tab_permissions=? WHERE id=?', (job_title.strip(), encoded, uid))
 
 
@@ -145,10 +158,13 @@ def apply(M):
 
     def connect():
         con = M._user_access_connect()
+        from . import task_scope
+        task_scope.connect(con)
         if _schema_phase.get():
             return con
         session = refresh_session(M, con=con)
         if session is not None:
+            task_scope.connect(con, session)
             protect_connection(con, session)
         return con
     M.db = connect
@@ -170,6 +186,13 @@ def apply(M):
 
     def sync(app):
         refresh_session(M, app.active_user.get())
+        if hasattr(app, 'portfolio_workspace'):
+            app.portfolio_workspace.on_user_changed()
+        if hasattr(app, 'task_tree'):
+            app.task_user_filter.set('Všichni')
+            app.refresh_tasks()
+            app.refresh_dash()
+            app.refresh_notifications()
         if hasattr(app, 'map_workspace'):
             app.map_workspace.on_user_changed()
         navigation.arrange(app)

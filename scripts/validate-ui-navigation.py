@@ -49,7 +49,7 @@ class FakeMessagebox:
 class FakeApp:
     def __init__(self):
         self.tabs = {key: FakeWidget() for key in (
-            "dash", "actions", "requests", "mivo", "offers", "pricelists",
+            "dash", "portfolio", "actions", "requests", "mivo", "offers", "pricelists",
             "tasks", "projects", "people", "companies", "settings", "help",
         )}
         self.nav = {key: FakeWidget() for key in self.tabs if key != "settings"}
@@ -64,6 +64,7 @@ class FakeApp:
         self.project_tree = FakeTree()
         self.people_tree = FakeTree()
         self.company_tree = FakeTree()
+        self.portfolio_tree = FakeTree()
         self.dash_tree = FakeTree()
         self.dash_tasks_tree = FakeTree()
         self.dash_requests_tree = FakeTree()
@@ -146,6 +147,7 @@ def _make_refresh(page_key):
 
 
 for _page, _method in {
+    "portfolio": "refresh_portfolio",
     "dash": "refresh_dash",
     "actions": "refresh_actions",
     "requests": "refresh_requests",

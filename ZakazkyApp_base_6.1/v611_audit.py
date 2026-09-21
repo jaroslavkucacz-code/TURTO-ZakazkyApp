@@ -48,7 +48,7 @@ def apply(M):
         def tasks(self,*a,**k):
             before=getattr(self,'_v611_task_snapshot',{});r=old_tasks(self,*a,**k)
             try:
-                with M.db() as c:now={x['id']:dict(x) for x in c.execute("SELECT * FROM tasks")}
+                with M.db() as c:now={x['id']:dict(x) for x in c.execute("SELECT * FROM visible_tasks")}
                 if before:
                     for tid,nv in now.items():
                         ov=before.get(tid)
@@ -99,13 +99,13 @@ def apply(M):
         cols=('Čas','Uživatel','Objekt','Pole','Původní','Nová','Stav');t=ttk.Treeview(d,columns=cols,show='headings', name='layout__v611_audit__apply__open_undo__t');[t.heading(x,text=x) for x in cols];t.pack(fill='both',expand=True,padx=14,pady=8)
         def load():
             for i in t.get_children():t.delete(i)
-            with M.db() as c:rows=c.execute("SELECT * FROM audit_history WHERE trim(coalesce(undo_sql,''))<>'' ORDER BY id DESC LIMIT 1000").fetchall()
+            with M.db() as c:rows=c.execute("SELECT * FROM visible_audit_history WHERE trim(coalesce(undo_sql,''))<>'' ORDER BY id DESC LIMIT 1000").fetchall()
             for x in rows:t.insert('', 'end', iid=str(x['id']),values=(x['created_at'],x['user_name'],f"{x['entity_type']} {x['entity_id']}",x['field_name'],x['old_value'],x['new_value'],'VRÁCENO' if x['undone'] else ''))
         def undo():
             s=t.selection()
             if not s:return messagebox.showinfo('Vrátit změnu','Vyberte změnu.',parent=d)
             iid=int(s[0])
-            with M.db() as c:row=c.execute('SELECT * FROM audit_history WHERE id=?',(iid,)).fetchone()
+            with M.db() as c:row=c.execute('SELECT * FROM visible_audit_history WHERE id=?',(iid,)).fetchone()
             if not row or row['undone']:return messagebox.showinfo('Vrátit změnu','Tato změna už byla vrácena.',parent=d)
             if not row['undo_sql']:return messagebox.showinfo('Vrátit změnu','Tuto změnu nelze bezpečně vrátit.',parent=d)
             if not messagebox.askyesno('Vrátit změnu',f"Opravdu vrátit:\n{row['field_name']}: {row['new_value']} → {row['old_value']}?",parent=d):return

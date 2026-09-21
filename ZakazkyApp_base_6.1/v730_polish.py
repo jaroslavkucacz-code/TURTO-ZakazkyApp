@@ -885,6 +885,10 @@ def apply(M) -> None:
 
             merge_company_fields(con, source, target)
             report["discounts"] = merge_customer_discounts(con, source_id, target_id)
+            if "company_salespeople" in tables:
+                con.execute('''INSERT OR IGNORE INTO company_salespeople(company_id,salesperson_id,assigned_at,assigned_by)
+                    SELECT ?,salesperson_id,assigned_at,assigned_by FROM company_salespeople WHERE company_id=?''', (target_id,source_id))
+                con.execute('DELETE FROM company_salespeople WHERE company_id=?',(source_id,))
             if "people" in tables:
                 report["contacts_moved"] = int(
                     con.execute(
@@ -907,6 +911,7 @@ def apply(M) -> None:
                     "people",
                     "companies",
                     "customer_product_discounts",
+                    "company_salespeople",
                     "company_merge_history",
                 },
             )

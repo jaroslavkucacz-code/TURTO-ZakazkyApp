@@ -47,6 +47,7 @@ class Module:
     def db(self):
         con = sqlite3.connect(self.path)
         con.row_factory = sqlite3.Row
+        con.execute('CREATE TEMP VIEW visible_tasks AS SELECT * FROM tasks')
         return con
 
 

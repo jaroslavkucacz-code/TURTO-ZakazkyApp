@@ -7,7 +7,7 @@ from .constants import COLORS
 from .chart_geometry import axis, grouped, series_value, number, money as fmt_money, percent as fmt_pct, count
 
 PALETTE=(COLORS['teal'],COLORS['amber'],COLORS['blue'],'#AB96DF','#D693B3','#96C5A4','#8193A9','#BF9780')
-SPECIAL_COLORS={'Milan':COLORS['teal'],'Honza':COLORS['blue'],'Jirka':COLORS['amber'],'Nezařazené':'#8193A9'}
+SPECIAL_COLORS={'Milan Soukup':COLORS['teal'],'Jan Mayer':COLORS['blue'],'Jiří Cír':COLORS['amber'],'Nezařazené':'#8193A9'}
 MIN_DONUT_DEGREES=0.5
 
 def _metric_color(key):
