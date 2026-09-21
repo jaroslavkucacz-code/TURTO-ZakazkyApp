@@ -7,15 +7,22 @@ def apply(M):
     def prepare_page(app, key, tree_name):
         tree = getattr(app, tree_name, None)
         if tree is None:return
-        columns = list(tree.cget('columns'))
+        columns = list(map(str, tree.cget('columns')))
         if 'E-mail' not in columns:
+            headings = {name: dict(tree.heading(name)) for name in columns}
+            sizes = {name: dict(tree.column(name)) for name in columns}
             tree.configure(columns=(*columns, 'E-mail'))
+            for name in columns:
+                sizes[name].pop('id', None)
+                tree.column(name, **sizes[name])
+                tree.heading(name, **headings[name])
             tree.heading('E-mail', text='E-mail')
-            tree.column('E-mail', width=245, minwidth=150, stretch=True)
-            display = tree.cget('displaycolumns')
-            if not display or '#all' in display:display = columns
-            tree.configure(displaycolumns=(display[0], 'E-mail', *display[1:]))
+            tree.column('E-mail', width=245, minwidth=150, stretch=True, anchor='w')
         if getattr(tree, '_mail_tracking_controls', False):return
+        display = list(map(str, tree.cget('displaycolumns')))
+        if not display or '#all' in display:display = list(map(str,tree.cget('columns')))
+        display = [name for name in display if name != 'E-mail']
+        tree.configure(displaycolumns=(display[0], 'E-mail', *display[1:]))
         page = app.tabs[key]
         bar = M.ttk.Frame(page, style='Panel.TFrame', padding=(10, 6))
         first = next(iter(page.pack_slaves()), None)
@@ -52,7 +59,10 @@ def apply(M):
             prepare_page(app, key, tree_name)
             for iid in tree.get_children():
                 if iid.startswith('r'):
-                    tree.set(iid, 'E-mail', tracking.label(status.get(int(iid[1:]))))
+                    # Numeric data-column IDs avoid Tk 9's cached name/index
+                    # representation crossing the two different request schemas.
+                    column = list(map(str,tree.cget('columns'))).index('E-mail')
+                    tree.set(iid, str(column), tracking.label(status.get(int(iid[1:]))))
     for name in ('refresh_requests', 'refresh_mivo_requests'):
         previous = getattr(M.App, name, None)
         if previous is None:continue

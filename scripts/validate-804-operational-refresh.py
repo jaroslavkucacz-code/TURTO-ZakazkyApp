@@ -264,6 +264,8 @@ def main() -> None:
         task_rows,
     )
     task_db.commit()
+    from price_lists_domain.platform import task_scope
+    task_scope.connect(task_db)
 
     task_app = SimpleNamespace(
         task_tree=FakeTree(),

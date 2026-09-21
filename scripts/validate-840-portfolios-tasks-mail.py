@@ -184,6 +184,8 @@ def ui_checks(td):
         root.show_page('requests');root.refresh_requests();settle(root)
         assert root.request_tree.set(f"r{data['rid']}",'E-mail')=='Koncept vytvořen'
         shot('request-mail-status.png')
+        root.show_page('mivo');settle(root)
+        assert 'E-mail' in root.mivo_tree.cget('columns'), root.mivo_tree.cget('columns')
         root.geometry('1220x720');root.show_page('business');settle(root);shot('portfolio-narrow.png')
         assert not errors,errors
         print('8.0.40: real Windows portfolio navigation, user defaults, shared assignment UI, private task switching and mail status OK',flush=True)

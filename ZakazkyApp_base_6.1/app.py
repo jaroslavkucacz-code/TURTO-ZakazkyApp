@@ -1021,7 +1021,8 @@ def export_selected_data(target_path,selected,include_related=False):
             for table in tables:
                 exists=con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?",(table,)).fetchone()
                 if not exists:continue
-                rows=[dict(r) for r in con.execute(f"SELECT * FROM {table}").fetchall()]
+                source = {'tasks':'visible_tasks','action_history':'visible_action_history'}.get(table,table)
+                rows=[dict(r) for r in con.execute(f"SELECT * FROM {source}").fetchall()]
                 (td/f"{table}.json").write_text(json.dumps(rows,ensure_ascii=False,indent=2,default=str),encoding="utf-8")
         (td/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8")
         with zipfile.ZipFile(target,"w",zipfile.ZIP_DEFLATED) as z:
@@ -4885,8 +4886,8 @@ class App(tk.Tk):
         setup_clear_filter_button(filters,self.clear_request_filters,_rfv,
             {id(self.req_date_mode):"Do data"})
 
-        self.request_tree=self.tree(p,("Stav","Řeší","Poptáno","Obdrženo","Odběratel","Dodavatel","Akce","Poptáváno","Příjemci"),
-                                    list(widths))
+        self.request_tree=self.tree(p,("Stav","Řeší","Poptáno","Obdrženo","Odběratel","Dodavatel","Akce","Poptáváno","Příjemci","E-mail"),
+                                    [*widths,245])
         table_search.install_main_search(self,self.request_tree,filters,"requests","refresh_requests")
         bind_row_double_click(self.request_tree,lambda e:self.edit_request())
         self.request_tree.bind("<Configure>",lambda e:self.after_idle(self.refresh_requests),add="+")
@@ -4981,8 +4982,8 @@ class App(tk.Tk):
         setup_clear_filter_button(filters,self.clear_mivo_filters,_mfv,
             {id(self.mivo_date_mode):"Do data"})
 
-        self.mivo_tree=self.tree(p,("Stav","Řeší","Poptáno","Obdrženo","Odběratel","Akce","Poptáváno","Příjemci"),
-                                 list(widths))
+        self.mivo_tree=self.tree(p,("Stav","Řeší","Poptáno","Obdrženo","Odběratel","Akce","Poptáváno","Příjemci","E-mail"),
+                                 [*widths,245])
         table_search.install_main_search(self,self.mivo_tree,filters,"mivo","refresh_mivo_requests")
         bind_row_double_click(self.mivo_tree,
             lambda e:self._run_on_request_tree(self.mivo_tree,self.edit_request))
