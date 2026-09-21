@@ -1,8 +1,8 @@
 {
-  "version": "8.0.41",
+  "version": "8.0.42",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "3761ef2c33818ae97011aee8da61f43c1e73012e",
-  "validated_run_id": 35573008872,
-  "notes": "V Obchod → Portfolio je nové tlačítko Obchodníci a střediska… Stejná správa je dostupná v číselníku Obchodníci. Kódy J/H/M označují střediska Pohody, lze přidat další kódy a změnit jejich přiřazení od zvoleného data. Obchodníky lze přidávat, upravovat a deaktivovat; jednoho obchodníka lze propojit s více středisky.\n\nPřehledy i exporty přiřazují doklady podle obchodníka platného v den dokladu. Historie zůstává zachovaná i po předání střediska nebo deaktivaci původního obchodníka. Budoucí předání lze naplánovat. Pokud starý import obsahuje pouze měsíční souhrn zisku a středisko změní obchodníka uprostřed měsíce, zisk tohoto střediska zůstane pro daný měsíc mezi nezařazenými do doplnění zisku po dokladech; obrat se rozděluje přesně podle dokladů.\n\nSpolečnosti v Portfoliu lze rozbalit šipkou a zobrazit jejich aktivní kontaktní osoby z adresáře. Dvojklikem lze upravit jméno, telefon, e-mail a funkci přímo v řádku. Enter uloží, Esc zruší úpravu buňky, Tab přejde na další pole. Tlačítko + Kontakt otevře formulář s předvybranou společností. Změny se ukládají do stejného adresáře a respektují oprávnění i souběžné úpravy.\n\nAktualizace zachová databázi, přílohy a uživatelská nastavení."
+  "source_commit": "30f3c8e3a096b34a64b675e76fc26365b2479dc3",
+  "validated_run_id": 35585860267,
+  "notes": "Portfolio přehledněji rozlišuje společnosti a kontaktní osoby. Společnosti mají tučné písmo a jemně podbarvený řádek, kontakty jsou odsazené a mají odlišné pozadí. Rozlišení funguje ve světlém i tmavém vzhledu.\n\nKontakty se rozbalují šipkou u společnosti. Dvojklik na společnost i osobu nyní otevírá detail a editaci stejného záznamu ze společného adresáře. Stejně funguje Enter a tlačítko Otevřít detail. Dvojklik do údajů společnosti nemění rozbalení kontaktů.\n\nPravé tlačítko nabídne možnosti podle řádku: detail společnosti, přidání osoby, přiřazení obchodníků, nebo detail osoby a rychlé úpravy jména, telefonu, e-mailu a funkce. Rychlá úprava přes F2 zůstává zachovaná. Nabídka funguje i přes Shift+F10 a respektuje oprávnění uživatele.\n\nAktualizace zachová databázi, přílohy, přiřazení středisek i uživatelská nastavení."
 }
