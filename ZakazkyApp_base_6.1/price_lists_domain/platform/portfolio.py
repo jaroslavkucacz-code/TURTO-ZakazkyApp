@@ -1,5 +1,6 @@
 """Customer portfolios with shared ownership by multiple salespeople."""
 from contextlib import closing
+from tkinter import font as tkfont
 from . import sales_identity, user_access as access, grouped_navigation as navigation
 from . import sales_centers, portfolio_contacts
 
@@ -64,19 +65,93 @@ class Workspace:
         actions = M.ttk.Frame(page, style='Panel.TFrame', padding=10)
         actions.pack(fill='x', pady=(0, 8))
         M.ttk.Button(actions, text='Přiřadit obchodníky…', style='Accent.TButton', command=self.assign).pack(side='left')
-        M.ttk.Button(actions, text='Otevřít společnost', command=self.open_company).pack(side='left', padx=8)
+        M.ttk.Button(actions, text='Otevřít detail', command=self.open_detail).pack(side='left', padx=8)
         M.ttk.Button(actions, text='+ Kontakt', command=self.new_contact).pack(side='left', padx=4)
         M.ttk.Button(actions, text='Obchodníci a střediska…', command=self.manage_salespeople).pack(side='left', padx=4)
         M.ttk.Button(actions, text='Obnovit přehled', command=self.refresh).pack(side='right')
         self.summary = M.tk.StringVar(master=page)
         M.ttk.Label(page, textvariable=self.summary, style='Panel.TLabel', wraplength=1100).pack(fill='x', pady=(0, 8))
-        M.ttk.Label(page,text='Rozbalte společnost šipkou. Kontakt upravíte dvojklikem do jména, telefonu, e-mailu nebo funkce; Enter uloží, Esc zruší.',wraplength=1100).pack(fill='x',pady=(0,6))
+        M.ttk.Label(page,text='Šipka rozbalí kontakty · Dvojklik otevře detail společnosti nebo osoby · Pravé tlačítko nabídne další možnosti · F2 upraví kontakt v řádku',wraplength=1100).pack(fill='x',pady=(0,6))
         self.tree = app.tree(page, ('Společnost / kontakt','Telefon','E-mail','Funkce','Obchodní zástupci','IČO','Sídlo','Okres'), (300,145,245,170,300,95,300,140))
         self.tree.configure(show='tree headings')
         self.tree.heading('#0',text='');self.tree.column('#0',width=35,minwidth=28,stretch=False)
         app.portfolio_tree = self.tree
         self.options = {}
         self.editor=portfolio_contacts.Editor(self)
+        self.row_menu=None
+        self.tree.bind('<Return>',lambda e:(self.open_detail(),'break')[1])
+        # Row menus run before shared bindings; column-header menus stay intact.
+        tag='PortfolioRows842_'+str(self.tree)
+        self.tree.bindtags((tag,*self.tree.bindtags()))
+        self.tree.bind_class(tag,'<Button-3>',self.context_menu)
+        self.tree.bind_class(tag,'<Shift-F10>',self.context_menu)
+        self.tree.bind_class(tag,'<Menu>',self.context_menu)
+        self.tree.bind('<<ThemeChanged>>',lambda e:self.configure_rows(),add='+')
+        self.configure_rows()
+
+    def configure_rows(self):
+        from .calm_theme_820 import palette
+        p=palette(self.tree)
+        if not hasattr(self,'company_font'):
+            self.company_font=tkfont.Font(root=self.tree,font=self.M.ttk.Style(self.tree).lookup('Treeview','font') or 'TkDefaultFont')
+            self.company_font.configure(weight='bold')
+        self.tree.tag_configure('portfolio_company',font=self.company_font,background=p['head'],foreground=p['fg'])
+        self.tree.tag_configure('portfolio_person',font='',background=p['field'],foreground=p['fg'])
+
+    def select_row(self,iid=None):
+        if iid is None:
+            chosen=self.tree.selection();iid=chosen[0] if chosen else None
+        if not iid or not self.tree.exists(iid):return None
+        self.tree.selection_set(iid);self.tree.focus(iid)
+        return iid
+
+    def open_detail(self,iid=None):
+        if not self.editor.commit():return
+        iid=self.select_row(iid)
+        if not iid:return
+        if iid.startswith('c'):return self.open_company()
+        if not access.allowed(self.M,self.app,'people',write=False):return
+        pid=int(iid[1:])
+        with closing(self.M.db()) as con:
+            exists=con.execute('SELECT 1 FROM people WHERE id=? AND active=1',(pid,)).fetchone()
+        if not exists:self.refresh();return
+        win=self.M.PersonDialog(self.app,pid)
+        self.app.wait_window(win);self.app.refresh_people();self.refresh()
+
+    def context_menu(self,event):
+        keyboard=getattr(event,'keysym','') in ('F10','Menu')
+        if keyboard:
+            iid=self.select_row()
+            if not iid:return 'break'
+            self.tree.see(iid);box=self.tree.bbox(iid)
+            if not box:return 'break'
+            x,y=self.tree.winfo_rootx()+70,self.tree.winfo_rooty()+box[1]+box[3]
+        else:
+            region=self.tree.identify_region(event.x,event.y)
+            if region in ('heading','separator'):return
+            iid=self.tree.identify_row(event.y)
+            if not iid:return 'break'
+            x,y=event.x_root,event.y_root
+        if not self.editor.commit():return 'break'
+        self.select_row(iid);self.tree.focus_set()
+        if self.row_menu:self.row_menu.destroy()
+        menu=self.M.tk.Menu(self.tree,tearoff=False);self.row_menu=menu
+        state=lambda page,write=True:'normal' if access.level(self.M,page,fresh=True)>=(access.EDIT if write else access.READ) else 'disabled'
+        if iid.startswith('c'):
+            menu.add_command(label='Otevřít detail společnosti',state=state('companies',False),command=lambda:self.open_detail(iid))
+            menu.add_separator()
+            menu.add_command(label='Přidat kontaktní osobu…',state=state('people'),command=self.new_contact)
+            menu.add_command(label='Přiřadit obchodníky…',state=state('portfolio'),command=self.assign)
+        else:
+            menu.add_command(label='Otevřít detail osoby',state=state('people',False),command=lambda:self.open_detail(iid))
+            menu.add_separator()
+            for column,label in [('Společnost / kontakt','jméno'),('Telefon','telefon'),('E-mail','e-mail'),('Funkce','funkci')]:
+                menu.add_command(label='Upravit '+label+' v řádku',state=state('people'),command=lambda c=column:self.editor.begin(iid,c))
+            menu.add_separator()
+            menu.add_command(label='Otevřít společnost',state=state('companies',False),command=self.open_company)
+        try:menu.tk_popup(x,y)
+        finally:menu.grab_release()
+        return 'break'
 
     def on_user_changed(self):
         session = getattr(self.M, '_user_access_session', None)
@@ -112,9 +187,9 @@ class Workspace:
             self.tree.delete(*children)
         for row in result:
             iid=f"c{row['id']}"
-            self.tree.insert('', 'end', iid=iid,open=iid in opened, values=(row['official_name'],'','','',row['representatives'] or '—',row['ico'],row['address'],row['district']))
+            self.tree.insert('', 'end', iid=iid,open=iid in opened,tags=('portfolio_company',), values=(row['official_name'],'','','',row['representatives'] or '—',row['ico'],row['address'],row['district']))
             for person in contacts.get(row['id'],[]):
-                self.tree.insert(iid,'end',iid=f"p{person['id']}",values=(person['name'],person['phone'],person['email'],person['role'],'','','',''))
+                self.tree.insert(iid,'end',iid=f"p{person['id']}",tags=('portfolio_person',),values=(portfolio_contacts.display_value('Společnost / kontakt',person['name']),person['phone'],person['email'],person['role'],'','','',''))
         for iid in selected:
             if self.tree.exists(iid):self.tree.selection_add(iid)
         self.summary.set('U vašeho uživatele chybí obchodní zástupce. Přiřazení nastaví ADMIN ve správě uživatelů.'
@@ -143,10 +218,15 @@ class Workspace:
         if self.tree.exists(f'c{cid}'):self.tree.item(f'c{cid}',open=True)
 
     def open_company(self):
+        if not self.editor.commit() or not access.allowed(self.M,self.app,'companies',write=False):return
         cid = self.company_id()
         if cid is None:return
+        with closing(self.M.db()) as con:
+            exists=con.execute('SELECT 1 FROM companies WHERE id=? AND active=1',(cid,)).fetchone()
+        if not exists:self.refresh();return
         win = self.M.CompanyDialog(self.app, cid)
         self.app.wait_window(win)
+        self.app.refresh_people()
         self.refresh()
 
     def assign(self):
