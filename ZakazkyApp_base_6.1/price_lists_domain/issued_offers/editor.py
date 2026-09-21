@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from . import service
+from . import service, offer_parties
 
 
 def _fmt(value, decimals=2) -> str:
@@ -288,7 +288,8 @@ class IssuedOfferEditor:
         self.currency = M.tk.StringVar(value=str(document.get("currency") or "CZK"))
         self.subject = M.tk.StringVar(value=str(document.get("offer_subject") or ""))
         self.reference = M.tk.StringVar(value=str(document.get("customer_reference") or ""))
-        self.salesperson = M.tk.StringVar(value=str(document.get("salesperson_snapshot") or service.active_user(M)))
+        self.salesperson = M.tk.StringVar(value=str(document.get("salesperson_snapshot") or ""))
+        self.salesperson_map = {}
         self.global_discount = M.tk.StringVar(value=_fmt(document.get("global_discount_pct")))
 
         companies = service.list_companies(M)
@@ -303,7 +304,7 @@ class IssuedOfferEditor:
         actions = service.list_actions(M)
         self.action_map = {name: (aid, pid) for aid, name, pid in actions}
         self.action = M.tk.StringVar(value=str(document.get("action_name") or ""))
-        templates = service.list_templates(M)
+        templates = offer_parties.standard_templates(M)
         self.template_map = {str(row["name"]): int(row["id"]) for row in templates}
         current_template = next((name for name, tid in self.template_map.items() if tid == document.get("template_id")), next(iter(self.template_map), "Standardní nabídka TURTO"))
         self.template = M.tk.StringVar(value=current_template)
@@ -315,11 +316,10 @@ class IssuedOfferEditor:
             ("Měna", self.currency, "currency"),
             ("Odběratel", self.company, "company"),
             ("Kontaktní osoba", self.contact, "contact"),
-            ("Příležitost", self.action, "action"),
             ("Akce", self.project, "project"),
             ("Předmět nabídky", self.subject, "entry"),
             ("Reference zákazníka", self.reference, "entry"),
-            ("Obchodník", self.salesperson, "entry"),
+            ("Obchodní zástupce", self.salesperson, "salesperson"),
             ("PDF šablona", self.template, "template"),
         )
         self.widgets = []
@@ -341,6 +341,17 @@ class IssuedOfferEditor:
             elif kind == "contact":
                 widget = M.AutocompleteEntry(header, textvariable=variable, values=[])
                 self.contact_box = widget
+                actions = M.ttk.Frame(header)
+                actions.grid(row=row*2+1, column=col+1, sticky='w')
+                for text, new in (('+ Osoba', True), ('Upravit', False)):
+                    button = M.ttk.Button(actions, text=text, command=lambda n=new: offer_parties.edit_contact(self, n))
+                    button.pack(side='left', padx=2); self.widgets.append(button)
+            elif kind == "salesperson":
+                widget = M.safe_combobox(header, textvariable=variable, values=(), state='readonly')
+                self.salesperson_box = widget
+                button = M.ttk.Button(header, text='Přiřazení…', command=lambda: offer_parties.assign_salespeople(self))
+                button.grid(row=row*2+1, column=col+1, sticky='w', padx=(0, 10))
+                self.widgets.append(button)
             elif kind == "action":
                 widget = M.AutocompleteEntry(header, textvariable=variable, values=list(self.action_map))
             elif kind == "project":
@@ -348,9 +359,6 @@ class IssuedOfferEditor:
             elif kind == "template":
                 widget = M.safe_combobox(header, textvariable=variable, values=list(self.template_map), state="readonly")
                 self.template_box = widget
-                self.template_settings_button = M.ttk.Button(header, text="Upravit šablony…", command=self.edit_pdf_template)
-                self.template_settings_button.grid(row=row*2, column=col+1, sticky="e", padx=(0,12))
-                self.widgets.append(self.template_settings_button)
             else:
                 widget = M.ttk.Entry(header, textvariable=variable)
             widget.grid(row=row * 2 + 1, column=col, sticky="ew", padx=(0, 12), pady=(0, 6))
@@ -438,12 +446,12 @@ class IssuedOfferEditor:
         self.pdf_button.pack(side="right", padx=5)
         self.draft_button = M.ttk.Button(footer, text="Outlook koncept", command=self.outlook_draft)
         self.draft_button.pack(side="right", padx=5)
-        M.ttk.Button(footer, text="Nastavení šablony…", command=lambda: getattr(self.app, "manage_issued_offer_templates")()).pack(side="left")
 
         self.company.trace_add("write", self.company_changed)
         self.global_discount.trace_add("write", lambda *_: self.refresh_totals())
         self.status.trace_add("write", lambda *_: self.refresh_status())
         self.refresh_contacts()
+        offer_parties.refresh_salespeople(self, preserve=True)
         self.refresh_items()
         self.refresh_status()
         self.set_readonly(self.locked)
@@ -479,7 +487,7 @@ class IssuedOfferEditor:
         if not self.win.winfo_exists():
             return
         self.win.grab_set()
-        templates = service.list_templates(self.M)
+        templates = offer_parties.standard_templates(self.M)
         self.template_map = {str(t["name"]):int(t["id"]) for t in templates}
         self.template_box.configure(values=list(self.template_map))
         selected = getattr(dialog,"selected",None)
@@ -497,11 +505,16 @@ class IssuedOfferEditor:
 
     def company_changed(self, *_):
         self.refresh_contacts()
+        offer_parties.refresh_salespeople(self)
 
     def refresh_contacts(self):
         company_id = self.company_map.get(self.company.get().strip())
-        rows = service.list_people(self.M, company_id)
-        self.contact_map = {name: pid for pid, name in rows}
+        previous = self.contact_map.get(self.contact.get().strip())
+        if not self.contact_map and company_id == self.document.get('company_id'):
+            previous = self.document.get('customer_contact_id')
+        self.contact_map = offer_parties.contact_choices(self.M, company_id)
+        selected = next((name for name,pid in self.contact_map.items() if pid == previous), None)
+        if selected is not None: self.contact.set(selected)
         try:
             self.contact_box.set_values(list(self.contact_map))
         except Exception:
@@ -519,6 +532,8 @@ class IssuedOfferEditor:
             self.status_hint.set("Rozpracovaný dokument lze průběžně ukládat.")
 
     def refresh_items(self):
+        from .group_pricing import adopt_defaults
+        adopt_defaults(self.items)
         selected_indices = []
         for iid in self.tree.selection():
             try:
@@ -616,7 +631,8 @@ class IssuedOfferEditor:
         index = indices[0]
         dialog = ItemDialog(self.M, self.win, self.items[index], service.number(self.items[index].get("vat_rate"), 21))
         if dialog.result:
-            self.items[index] = dialog.result
+            from .group_pricing import mark_individual
+            self.items[index] = mark_individual(self.items[index], dialog.result)
             self.refresh_items()
             self.tree.selection_set(f"r{index}")
 
@@ -663,6 +679,7 @@ class IssuedOfferEditor:
             issue_date=self.issue_date.get(), valid_to=self.valid_to.get(), status=self.status.get(),
             currency=self.currency.get(), offer_subject=self.subject.get().strip(),
             customer_reference=self.reference.get().strip(), salesperson_snapshot=self.salesperson.get().strip(),
+            salesperson_id=self.salesperson_map.get(self.salesperson.get().strip()),
             global_discount_pct=_parse(self.global_discount.get()), company_id=company_id,
             customer_contact_id=contact_id, project_id=project_id, action_id=action_id,
             template_id=self.template_map.get(self.template.get().strip()),
@@ -674,6 +691,7 @@ class IssuedOfferEditor:
         )
         values.update(service.company_snapshot(self.M, company_id))
         values.update(service.contact_snapshot(self.M, contact_id))
+        offer_parties.salesperson_snapshot(self, values)
         if not company_id:
             values["customer_name_snapshot"] = self.company.get().strip()
             values["customer_contact_snapshot"] = self.contact.get().strip()

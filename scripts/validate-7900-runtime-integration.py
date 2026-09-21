@@ -89,11 +89,13 @@ def main():
             assert preview.images,preview.status.get()
             assert len(preview.canvas_regions)==len(items),preview.status.get()
             assert sorted({r['index'] for r in preview.canvas_regions})==list(range(len(items)))
-            assert view.template_settings_button.winfo_exists()
+            assert not hasattr(view,'template_settings_button')
+            assert list(view.template_map.values())==[default['id']]
             def visit_child():
                 for child in view.win.winfo_children():
                     controller=getattr(child,'_turto_template_editor',None)
                     if controller is not None:
+                        controller.refresh_list(tid);controller.load(service.load_template(M,tid))
                         assert controller.preview_document["document_number"] == "INTEGRAČNÍ NÁHLED"
                         assert controller.preview_document["customer_note"] == "Skutečný neuložený obsah nabídky"
                         assert len(controller.preview_items) == len(items)
@@ -118,7 +120,7 @@ def main():
             view.edit_pdf_template();pump()
             assert template_layout.normalize(service.load_template(M,tid)['layout_json'])['font_size']==10
             assert view.win.grab_current()==view.win
-            assert view.template_map[view.template.get()]==tid
+            assert view.template_map[view.template.get()]==default['id']
             preview.refresh();pump()
             assert preview.images and preview.canvas_regions
             view.win.destroy();pump()

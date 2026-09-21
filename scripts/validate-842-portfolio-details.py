@@ -41,6 +41,8 @@ def ui_checks(td):
         root.state('normal');root.geometry('1450x850+0+0');root.apply_theme('Světlý');root.show_page('portfolio');settle(root,1)
         w=root.portfolio_workspace;t=w.tree;cid=f"c{d['cid']}";pid=f"p{d['pid']}"
         w.query.set('842');w.selection.set('Všichni obchodníci');w.refresh();settle(root)
+        # Search now expands matches; start collapsed to exercise the arrow gesture.
+        t.item(cid,open=False);settle(root)
         print('842: portfolio ready',flush=True)
         def coords(iid,column='Společnost / kontakt'):
             t.see(iid);settle(root,.05);x,y,width,height=t.bbox(iid,column)

@@ -355,64 +355,10 @@ def choose_taxonomy(
     M, parent, title: str = "Přiřadit produktovou skupinu a podskupinu",
     current_category_id=None, current_subgroup_id=None,
 ):
+    from .taxonomy_tree import choose
     if current_subgroup_id:
         current_category_id = subgroup_parent_id(M, current_subgroup_id) or current_category_id
-    groups = list_categories(M)
-    group_mapping = {UNASSIGNED: None, **{str(row["name"]): int(row["id"]) for row in groups}}
-    dialog = M.tk.Toplevel(parent)
-    dialog.title(title)
-    dialog.transient(parent)
-    dialog.grab_set()
-    dialog.resizable(False, False)
-    frame = M.ttk.Frame(dialog, padding=16)
-    frame.pack(fill="both", expand=True)
-    frame.columnconfigure(1, weight=1)
-    M.ttk.Label(frame, text=title, font=("Calibri", 13, "bold")).grid(
-        row=0, column=0, columnspan=2, sticky="w", pady=(0, 10)
-    )
-    group_var = M.tk.StringVar(value=category_name(M, current_category_id) or UNASSIGNED)
-    subgroup_var = M.tk.StringVar(value=subgroup_name(M, current_subgroup_id) or NO_SUBGROUP)
-    M.ttk.Label(frame, text="Produktová skupina").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=5)
-    M.safe_combobox(frame, textvariable=group_var, values=list(group_mapping), state="readonly", width=74).grid(
-        row=1, column=1, sticky="ew", pady=5
-    )
-    M.ttk.Label(frame, text="Podskupina").grid(row=2, column=0, sticky="w", padx=(0, 10), pady=5)
-    subgroup_box = M.safe_combobox(frame, textvariable=subgroup_var, values=[NO_SUBGROUP], state="readonly", width=74)
-    subgroup_box.grid(row=2, column=1, sticky="ew", pady=5)
-    subgroup_mapping = {NO_SUBGROUP: None}
-
-    def update_subgroups(*_):
-        nonlocal subgroup_mapping
-        category_id = group_mapping.get(group_var.get())
-        subgroup_mapping = {
-            NO_SUBGROUP: None,
-            **{str(row["name"]): int(row["id"]) for row in list_subgroups(M, category_id) if category_id},
-        }
-        subgroup_box.configure(values=list(subgroup_mapping))
-        if subgroup_var.get() not in subgroup_mapping:
-            subgroup_var.set(NO_SUBGROUP)
-
-    group_var.trace_add("write", update_subgroups)
-    update_subgroups()
-    current = subgroup_name(M, current_subgroup_id)
-    if current in subgroup_mapping:
-        subgroup_var.set(current)
-    result = {"value": "cancel"}
-
-    def finish():
-        result["value"] = (group_mapping.get(group_var.get()), subgroup_mapping.get(subgroup_var.get()))
-        dialog.destroy()
-
-    buttons = M.ttk.Frame(frame)
-    buttons.grid(row=3, column=0, columnspan=2, sticky="e", pady=(14, 0))
-    M.ttk.Button(buttons, text="Zrušit", command=dialog.destroy).pack(side="right")
-    M.ttk.Button(buttons, text="Přiřadit", style="Accent.TButton", command=finish).pack(side="right", padx=(0, 6))
-    try:
-        M.center_dialog(dialog, parent)
-    except Exception:
-        pass
-    dialog.wait_window()
-    return result["value"]
+    return choose(M, parent, title, current_category_id, current_subgroup_id)
 
 
 def _invalidate(M, app=None):

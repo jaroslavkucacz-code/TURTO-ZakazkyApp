@@ -376,6 +376,8 @@ def normalize_item(raw: dict[str, Any], position: int | None = None, recalculate
     item["margin_pct"] = number(item.get("margin_pct"))
     item["recommended_unit_price"] = number(item.get("recommended_unit_price"))
     item["discount_pct"] = number(item.get("discount_pct"))
+    for field in ('margin_override', 'discount_override'):
+        item[field] = int(bool(item.get(field)))
     item["unit_price"] = number(item.get("unit_price"))
     item["vat_rate"] = max(0.0, number(item.get("vat_rate"), 21))
     item["show_recommended_price"] = 1 if item.get("show_recommended_price", 1) else 0
@@ -667,7 +669,7 @@ def save_document(M, values: dict[str, Any], items: Iterable[dict[str, Any]], do
         "customer_email_snapshot", "customer_phone_snapshot", "issuer_name_snapshot",
         "issuer_address_snapshot", "issuer_ico_snapshot", "issuer_dic_snapshot",
         "issuer_contact_snapshot", "issuer_email_snapshot", "issuer_phone_snapshot",
-        "issuer_bank_snapshot", "salesperson_snapshot", "customer_reference", "delivery_address",
+        "issuer_bank_snapshot", "salesperson_snapshot", "salesperson_id", "customer_reference", "delivery_address",
         "payment_terms", "delivery_terms", "delivery_time", "customer_note", "internal_note",
         "vat_mode", "global_discount_pct", "items_subtotal", "subtotal_net", "vat_total",
         "total_gross", "total_value", "template_id", "locked", "sent_at", "accepted_at",
@@ -677,6 +679,15 @@ def save_document(M, values: dict[str, Any], items: Iterable[dict[str, Any]], do
     with M.db() as con:
         from ..platform import company_roles
         old_status = ""
+        sid = data.get('salesperson_id')
+        if sid is not None:
+            assigned = con.execute('''SELECT 1 FROM company_salespeople c JOIN salespeople s ON s.id=c.salesperson_id
+                WHERE c.company_id=? AND s.id=? AND s.active=1 AND s.canonical_id IS NULL''',
+                (data.get('company_id'),sid)).fetchone()
+            historical = con.execute('SELECT company_id,salesperson_id FROM business_documents WHERE id=?',
+                (document_id,)).fetchone() if document_id else None
+            if not assigned and not (historical and tuple(historical)==(data.get('company_id'),sid)):
+                raise ValueError('Obchodní zástupce už není přiřazen k odběrateli. Obnovte přiřazení v nabídce.')
         if document_id:
             old = con.execute("SELECT status,document_number,created_by,company_id,customer_name_snapshot FROM business_documents WHERE id=? AND document_type=? AND direction=?", (document_id,DOCUMENT_TYPE,DOCUMENT_DIRECTION)).fetchone()
             if not old:
@@ -711,6 +722,7 @@ def save_document(M, values: dict[str, Any], items: Iterable[dict[str, Any]], do
             "internal_code_snapshot", "internal_name_snapshot", "price_source_label",
             "source_price_list_item_id", "source_supplier_offer_item_id", "line_note",
             "image_asset_key_snapshot", "image_file_snapshot",
+            "margin_override", "discount_override", "group_margin_pct", "group_discount_pct",
         )
         placeholders = ",".join("?" for _ in item_fields)
         for item in normalized_items:

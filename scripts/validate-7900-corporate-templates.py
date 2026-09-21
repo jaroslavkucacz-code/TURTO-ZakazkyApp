@@ -5,6 +5,7 @@ import copy
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import sqlite3
 import sys
@@ -61,6 +62,47 @@ def expect_error(call):
     try:call()
     except (ValueError,TypeError):return
     raise AssertionError("Invalid input was accepted")
+
+
+def check_subgroup_continuations(M, document, template, root):
+    """Every page fragment of a product retains its subgroup above the row."""
+    import fitz
+    from price_lists_domain.issued_offers import pdf_renderer, service, template_layout
+    subgroup_a = 'TEPELNĚ IZOLAČNÍ NOSNÍKY'
+    subgroup_b = 'KOTEVNÍ PRVKY'
+    items = [dict(row_type='product', name=f'Nosník {i + 1:03d}', quantity=2,
+                  unit='ks', unit_price=1250, vat_rate=21,
+                  category_name_snapshot='STAVEBNÍ PRVKY',
+                  subgroup_name_snapshot=subgroup_a if i < 30 else subgroup_b)
+             for i in range(60)]
+    # A single product can also continue across pages, not only a whole group.
+    items[8]['description'] = '\n'.join(f'Technický údaj {n:03d}' for n in range(100))
+    doc = dict(document, customer_note='ZÁVĚREČNÁ POZNÁMKA\n' * 80)
+    custom = dict(template)
+    style = template_layout.normalize(custom['layout_json'])
+    style.update(show_images=False, show_group_subtotals=True)
+    custom['layout_json'] = json.dumps(style)
+    target = Path(os.environ.get('TURTO_PAGINATION_QA', root)) / 'subgroup-continuations.pdf'
+    result = pdf_renderer.render_offer_snapshot(M, doc, items, custom, target)
+    assert result['pages'] >= 4
+    assert set(r['index'] for r in result['regions']) == set(range(len(items)))
+    assert len({r['page'] for r in result['regions'] if r['index'] == 8}) > 1
+    assert result['totals'] == service.calculate_totals(items, doc.get('global_discount_pct'))
+    with fitz.open(target) as pdf:
+        for region in result['regions']:
+            subgroup = items[region['index']]['subgroup_name_snapshot']
+            blocks = pdf[region['page']].get_text('blocks')
+            headings = [b for b in blocks if subgroup in ' '.join(b[4].split())]
+            assert any(b[3] <= region['y0'] + 1 for b in headings), (
+                'Missing subgroup above product on this page', region, subgroup)
+        for page in pdf:
+            text = ' '.join(page.get_text().split())
+            assert text.count(subgroup_a) <= 1 and text.count(subgroup_b) <= 1
+            for x0, y0, x1, y1, *_ in page.get_text('blocks'):
+                assert 0 <= x0 < x1 <= 596 and 0 <= y0 < y1 <= 843
+        last = ' '.join(pdf[-1].get_text().split())
+        assert 'ZÁVĚREČNÁ POZNÁMKA' in last
+        assert subgroup_a not in last and subgroup_b not in last
 
 
 def main():
@@ -170,6 +212,7 @@ def main():
             for page in pdf:
                 for x0,y0,x1,y1,text,*_ in page.get_text('blocks'):
                     assert x0>=0 and x1<=596 and y0>=0 and y1<=843
+        check_subgroup_continuations(M, document, changed, root)
         # Snapshot fallback works even when the source offer row is unavailable.
         assert offer_images.resolve(M,dict(stored[0],source_supplier_offer_item_id=None))==blob
         # Geometry matches source indices after grouping, not row order in the table.

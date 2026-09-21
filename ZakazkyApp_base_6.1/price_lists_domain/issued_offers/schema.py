@@ -108,6 +108,7 @@ def ensure_business_documents_schema(M) -> None:
             "issuer_phone_snapshot TEXT DEFAULT ''",
             "issuer_bank_snapshot TEXT DEFAULT ''",
             "salesperson_snapshot TEXT DEFAULT ''",
+            "salesperson_id INTEGER",
             "customer_reference TEXT DEFAULT ''",
             "delivery_address TEXT DEFAULT ''",
             "payment_terms TEXT DEFAULT ''",
@@ -145,6 +146,10 @@ def ensure_business_documents_schema(M) -> None:
             "source_price_list_item_id INTEGER REFERENCES price_list_items(id)",
             "source_supplier_offer_item_id INTEGER REFERENCES supplier_offer_items(id)",
             "line_note TEXT DEFAULT ''",
+            "margin_override INTEGER NOT NULL DEFAULT 0",
+            "discount_override INTEGER NOT NULL DEFAULT 0",
+            "group_margin_pct REAL",
+            "group_discount_pct REAL",
         ):
             _add_column(con, "business_document_items", declaration)
 
