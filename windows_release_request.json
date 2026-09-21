@@ -1,8 +1,8 @@
 {
-  "version": "8.0.39",
+  "version": "8.0.40",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "abaf562497dab7a269a42ba09627dd32600608bf",
-  "validated_run_id": 35529605608,
-  "notes": "Poptávky MIVO mají automatický předmět TURTO - MIVO… bez úvodního slova Poptávka. SPĚCHÁ! a vlastní předměty zůstávají funkční; starší automatické předměty MIVO se upraví při otevření nebo přípravě e-mailu.\n\nVýchozí text MIVO je oddělený od běžných poptávek pro každého uživatele. V poptávce MIVO jej lze upravit přes Výchozí text MIVO… a načíst přes Načíst text MIVO. Uložené texty konkrétních poptávek zůstávají zachované.\n\nV Přijatých nabídkách je Načíst z Outlooku vedle Zpracovat nabídku. Odstraněna je legenda Barvy jsou upozornění a tlačítka Aktivní, Bez zařazení a Vše. Nepřiřazené se nyní jmenuje Nepřiřazeno k akci. Zrušit filtrování vrátí základní nearchivovaný přehled.\n\nAktualizace zachová databázi, přílohy a uživatelská nastavení."
+  "source_commit": "5702389892774ab8f7538ec4a44292ebbcf3ba8f",
+  "validated_run_id": 35562316545,
+  "notes": "Nová první podzáložka Obchod → Portfolio zobrazuje vlastní odběratele přihlášeného obchodníka. Lze přepnout na ostatní obchodníky, všechny odběratele nebo firmy bez přiřazení. Jedné společnosti lze přiřadit více obchodních zástupců.\n\nObchodní zástupci jsou sjednoceni v CRM i přehledech: J / Jiří Cír, H / Jan Mayer, M / Milan Soukup. Vazbu uživatele na obchodníka a středisko Pohody lze nastavit ve správě uživatelů.\n\nÚkoly a připomínky vidí zadavatel a aktuální řešitel. Soukromí platí i pro přehled, oznámení, archiv a historii; zadání úkolu sobě nevytváří duplicitu.\n\nNové e-maily z Poptávek a MIVO mají evidenci Koncept vytvořen, Odesláno s časem nebo Odeslání neověřeno. Ověření používá otevřený klasický Outlook a funguje i po změně předmětu. Běží na pozadí nebo tlačítkem Ověřit odeslání v Outlooku. Evidence potvrzuje odeslání, nikoli doručení či přečtení. Starší koncepty bez identifikátoru nelze automaticky přiřadit.\n\nSoučástí verze zůstávají předchozí úpravy online GPS a vyhledání parcel, přepínání mapy a ortofota ČÚZK, zjednodušené údaje společností i samostatné texty MIVO a upravené Přijaté nabídky.\n\nAktualizace zachová databázi, přílohy a uživatelská nastavení."
 }
