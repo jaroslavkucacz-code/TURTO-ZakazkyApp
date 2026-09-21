@@ -30,17 +30,23 @@ def _next_month(d: date) -> date:
 
 
 class Analytics:
-    def __init__(self, db):
+    def __init__(self, db, center_provider=None):
         self.db = db
+        self.center_provider = center_provider
+
+    def center_mapping(self):
+        from .center_reporting import Mapping
+        return Mapping(self.center_provider() if self.center_provider else None)
+
+    def center_display(self,code,day):
+        return self.center_mapping().display(code,day)
 
     def _where(self, year, month, mode='month'):
         start, end = period_bounds(year, month, mode)
         return start.isoformat(), end.isoformat()
 
-    @staticmethod
-    def _other_sql(alias=''):
-        p = f'{alias}.' if alias else ''
-        return f"(COALESCE(TRIM({p}center),'')='' OR {p}center NOT IN ('J','H','M'))"
+    def _other_sql(self,alias=''):
+        return self.center_mapping().other_sql(alias)
 
     def _raw_profit_exists(self, year: int, month: int) -> bool:
         start, end = period_bounds(year, month, 'month')
@@ -56,7 +62,7 @@ class Analytics:
         start, end = period_bounds(year, month, 'month')
         params = [start.isoformat(), end.isoformat()]
         extra = ''
-        if center in PRIMARY_CENTERS:
+        if center and center != 'OTHER':
             extra = ' AND d.center=?'
             params.append(center)
         elif center == 'OTHER':
@@ -68,6 +74,9 @@ class Analytics:
         ) or 0)
 
     def _legacy_profit_month(self, year: int, month: int, center: str | None = None) -> float:
+        if center == 'OTHER':
+            from .center_reporting import legacy_allocation
+            return sum(value for owner,value in legacy_allocation(self,self.center_mapping(),year,month) if owner is None)
         period = f'{year:04d}-{month:02d}'
         row = self.db.query(
             '''SELECT profit_total,profit_m,profit_j,profit_h,profit_other
@@ -162,34 +171,8 @@ class Analytics:
         return out
 
     def salespeople(self, year, month, mode='month'):
-        start, end = self._where(year, month, mode)
-        rows = []
-        from .constants import CENTER_NAMES
-        groups = [(code,CENTER_NAMES[code]) for code in ('M','J','H')] + [('OTHER','Nezařazené')]
-        for code, name in groups:
-            if code == 'OTHER':
-                sql = f'''SELECT COALESCE(SUM(base_amount),0) revenue, COUNT(*) cnt
-                          FROM delivery_notes WHERE doc_date BETWEEN ? AND ? AND {self._other_sql()}'''
-                params = (start, end)
-            else:
-                sql = '''SELECT COALESCE(SUM(base_amount),0) revenue, COUNT(*) cnt
-                         FROM delivery_notes WHERE doc_date BETWEEN ? AND ? AND center=?'''
-                params = (start, end, code)
-            r = self.db.query(sql, params)[0]
-            revenue, cnt = float(r['revenue'] or 0), int(r['cnt'] or 0)
-            profit = float(self._profit_for_period(year, month, mode, code))
-            rows.append({
-                'code': code, 'name': name, 'revenue': revenue, 'profit': profit,
-                'margin': profit / revenue * 100 if revenue else 0, 'count': cnt,
-                'avg_order': revenue / cnt if cnt else 0,
-            })
-        rows.sort(key=lambda x: x['revenue'], reverse=True)
-        total = sum(x['revenue'] for x in rows)
-        total_profit = sum(x['profit'] for x in rows)
-        for x in rows:
-            x['share'] = x['revenue'] / total * 100 if total else 0
-            x['profit_share'] = x['profit'] / total_profit * 100 if total_profit else 0
-        return rows
+        from .center_reporting import salespeople
+        return salespeople(self,year,month,mode)
 
     def top_customers(self, year, month, mode='month', limit=10):
         start, end = self._where(year, month, mode)
@@ -257,7 +240,7 @@ class Analytics:
         start, end = self._where(year, month, mode)
         params = [start, end]
         extra = ''
-        if center in PRIMARY_CENTERS:
+        if center and center != 'OTHER':
             extra = ' AND d.center=?'
             params.append(center)
         elif center == 'OTHER':
@@ -332,10 +315,13 @@ class Analytics:
 
     def overheads(self, year, month, mode='month'):
         start, end = self._where(year, month, mode)
-        return [dict(r) for r in self.db.query(
-            '''SELECT center, SUM(total_amount) amount, COUNT(*) count FROM overhead_docs
-               WHERE doc_date BETWEEN ? AND ? GROUP BY center ORDER BY amount DESC''', (start, end)
-        )]
+        mapping=self.center_mapping();groups={}
+        for row in self.db.query('''SELECT center,doc_date,SUM(total_amount) amount,COUNT(*) count FROM overhead_docs
+                WHERE doc_date BETWEEN ? AND ? GROUP BY center,doc_date''',(start,end)):
+            name=mapping.display(row['center'],row['doc_date']);key=(row['center'],name)
+            item=groups.setdefault(key,dict(center=row['center'],name=name,amount=0.,count=0))
+            item['amount']+=float(row['amount'] or 0);item['count']+=row['count']
+        return sorted(groups.values(),key=lambda r:r['amount'],reverse=True)
 
     def available_periods(self):
         rows = self.db.query("SELECT DISTINCT substr(doc_date,1,7) period FROM delivery_notes WHERE doc_date>='2000-01-01' ORDER BY period DESC")

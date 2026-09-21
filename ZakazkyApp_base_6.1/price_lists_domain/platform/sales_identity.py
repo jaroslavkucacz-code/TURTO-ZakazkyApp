@@ -73,12 +73,16 @@ def migrate(con):
 
 
 def choices(con):
-    return [dict(r) for r in con.execute('''SELECT s.id,s.name,s.pohoda_center,s.person_id
+    rows = [dict(r) for r in con.execute('''SELECT s.id,s.name,s.pohoda_center,s.person_id
         FROM salespeople s WHERE s.active=1 AND s.canonical_id IS NULL ORDER BY s.name COLLATE CZECH''')]
+    from .sales_centers import current
+    centers=current(con)
+    for row in rows:row['pohoda_center']=centers.get(row['id'],'')
+    return rows
 
 
 def label(row):
-    return row['name'] + (f" · {row['pohoda_center']}" if row['pohoda_center'] else '')
+    return row['name'] + (f" · středisko {row['pohoda_center']}" if row['pohoda_center'] else '')
 
 
 def default_salesperson(M):
