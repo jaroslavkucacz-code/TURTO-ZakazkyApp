@@ -1,8 +1,8 @@
 {
-  "version": "8.0.42",
+  "version": "8.0.43",
   "channel": "windows",
   "bridge_legacy_preview": false,
-  "source_commit": "30f3c8e3a096b34a64b675e76fc26365b2479dc3",
-  "validated_run_id": 35585860267,
-  "notes": "Portfolio přehledněji rozlišuje společnosti a kontaktní osoby. Společnosti mají tučné písmo a jemně podbarvený řádek, kontakty jsou odsazené a mají odlišné pozadí. Rozlišení funguje ve světlém i tmavém vzhledu.\n\nKontakty se rozbalují šipkou u společnosti. Dvojklik na společnost i osobu nyní otevírá detail a editaci stejného záznamu ze společného adresáře. Stejně funguje Enter a tlačítko Otevřít detail. Dvojklik do údajů společnosti nemění rozbalení kontaktů.\n\nPravé tlačítko nabídne možnosti podle řádku: detail společnosti, přidání osoby, přiřazení obchodníků, nebo detail osoby a rychlé úpravy jména, telefonu, e-mailu a funkce. Rychlá úprava přes F2 zůstává zachovaná. Nabídka funguje i přes Shift+F10 a respektuje oprávnění uživatele.\n\nAktualizace zachová databázi, přílohy, přiřazení středisek i uživatelská nastavení."
+  "source_commit": "d7e65314ce5978de0d5615f53f57f3815b812a1e",
+  "validated_run_id": 35617874777,
+  "notes": "Opraveno rozpoznání odeslaných poptávek v klasickém Outlooku, včetně kontroly více zpráv současně. CRM nově ověří i odeslané zprávy, které původní vyhledávání přehlédlo. U dříve vytvořených poptávek se zachovaným identifikátorem se správný stav doplní bez nového odesílání.\n\nOvěřit odeslání v Outlooku je v Poptávkách i MIVO dostupné po kliknutí pravým tlačítkem na řádek. Funguje pro jeden i více vybraných řádků; kontrola se omezí na výběr a větší počet zpracuje postupně na pozadí. Původní horní tlačítko a vysvětlující text jsou odstraněny. Automatické ověřování zůstává zapnuté.\n\nV Portfoliu jsou odstraněna samostatná tlačítka Přiřadit obchodníky…, Otevřít detail a + Kontakt. Jejich funkce zůstávají v tabulce. Obchodníci a střediska… je červené tlačítko v pravém horním rohu. Obnovit přehled je u filtrů.\n\nAktualizace zachová databázi, přílohy, přiřazení středisek i uživatelská nastavení."
 }
