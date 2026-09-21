@@ -8,6 +8,7 @@ of the rendered offer.
 from __future__ import annotations
 
 from typing import Any
+from . import group_pricing
 
 
 PRICED_ROW_TYPES = {"product", "service", "delivery"}
@@ -61,6 +62,9 @@ class PricingPanel:
         self.edit_widget = None
         self.edit_iid = None
         self.edit_column = None
+        self.group_members = {}
+        self._committing = False
+        self._syncing = self._refreshing = False
         self.frame = M.ttk.Frame(host, style="Panel.TFrame", padding=(6, 4))
         self.frame.grid(row=1, column=0, sticky="nsew")
         self.frame.columnconfigure(0, weight=1)
@@ -99,16 +103,17 @@ class PricingPanel:
         xs = M.ttk.Scrollbar(wrap, orient="horizontal", command=self.tree.xview)
         ys.grid(row=0, column=1, sticky="ns")
         xs.grid(row=1, column=0, sticky="ew")
-        self.tree.configure(yscrollcommand=ys.set, xscrollcommand=xs.set)
+        self.tree.configure(yscrollcommand=lambda first,last: (ys.set(first,last), self.sync_from_prices()), xscrollcommand=xs.set)
         self.tree.tag_configure("heading", font=("Calibri", 10, "bold"))
         self.tree.tag_configure("loss", foreground="#b42318")
         self.tree.bind("<Double-1>", self.begin_edit, add="+")
         self.tree.bind("<F2>", self.begin_margin_edit, add="+")
         self.tree.bind("<<TreeviewSelect>>", self.sync_selection, add="+")
+        self.tree.bind('<Button-3>', self.context_menu)
 
         hint = (
-            "Dvojklik: NC, marže nebo sleva. Zisk vychází z nákupní a skutečné "
-            "prodejní ceny po slevách. Tyto interní údaje se do PDF nikdy nepřenášejí."
+            "Dvojklik upraví marži nebo slevu podskupiny i položky. * označuje individuální hodnotu; "
+            "pravé tlačítko ji vrátí k podskupině. Zisk je po slevách. Interní údaje se do PDF nepřenášejí."
         )
         M.ttk.Label(
             self.frame,
@@ -120,9 +125,10 @@ class PricingPanel:
         self.refresh()
 
     def destroy_editor(self) -> None:
-        if self.edit_widget is not None:
+        widget, self.edit_widget = self.edit_widget, None
+        if widget is not None:
             try:
-                self.edit_widget.destroy()
+                widget.destroy()
             except Exception:
                 pass
         self.edit_widget = None
@@ -130,6 +136,7 @@ class PricingPanel:
         self.edit_column = None
 
     def refresh(self) -> None:
+        self._refreshing = True
         self.destroy_editor()
         selected = self.tree.selection()
         selected_iid = selected[0] if selected else None
@@ -137,7 +144,21 @@ class PricingPanel:
             self.tree.delete(iid)
         discount = self.editor.global_discount.get()
         service = self.editor._v791_service
-        for index, raw in enumerate(self.editor.items):
+        from v710_cleanup import group_offer_items
+        tokens = list(group_offer_items(self.editor.items))
+        self.group_members = {}
+        active_group = None
+        for token in tokens:
+            if token['kind'] == 'group':
+                active_group = None
+                if token.get('subgroup') not in (None, '', 'Bez podskupiny'):
+                    active_group = 'g'+str(len(self.group_members))
+                    self.group_members[active_group] = []
+                    self.tree.insert('', 'end', iid=active_group, values=(token['subgroup'],'','','',''), tags=('heading',))
+                continue
+            index, raw = token['index'], token['item']
+            if active_group is not None and raw.get('row_type','product') == 'product':
+                self.group_members[active_group].append(index)
             item = service.normalize_item(dict(raw), index + 1)
             row_type = _text(item.get("row_type")).casefold()
             name = _text(
@@ -160,12 +181,17 @@ class PricingPanel:
                 values=(
                     name,
                     _fmt(service, item.get("purchase_unit_price")),
-                    _fmt(service, item.get("margin_pct")),
-                    _fmt(service, item.get("discount_pct")),
+                    _fmt(service, item.get("margin_pct")) + (' *' if item.get('margin_override') else ''),
+                    _fmt(service, item.get("discount_pct")) + (' *' if item.get('discount_override') else ''),
                     _fmt(service, profit),
                 ),
                 tags=tags,
             )
+        for iid, indices in self.group_members.items():
+            for column, field in (('Marže %','margin_pct'),('Sleva %','discount_pct')):
+                values = {self.editor.items[i].get('group_'+field) if self.editor.items[i].get('group_'+field) is not None
+                          else service.number(self.editor.items[i].get(field)) for i in indices}
+                self.tree.set(iid, column, _fmt(service, next(iter(values))) if len(values)==1 else 'Různé')
         if selected_iid and self.tree.exists(selected_iid):
             self.tree.selection_set(selected_iid)
             self.tree.see(selected_iid)
@@ -176,6 +202,69 @@ class PricingPanel:
             f"Prodej {_fmt(service, sale)} {currency}  ·  "
             f"Zisk {_fmt(service, profit)} {currency}"
         )
+        self._refreshing = False
+        self.tree.after_idle(self.sync_from_preview)
+
+    def _unlock_scroll(self):
+        self._syncing = False
+
+    def sync_from_preview(self):
+        preview = getattr(self.editor, '_v720_preview', None)
+        if self._syncing or self._refreshing or preview is None or not preview.canvas_regions: return
+        top = preview.canvas.canvasy(0)
+        region = next((r for r in preview.canvas_regions if r['y1'] > top), preview.canvas_regions[-1])
+        iid = 'p'+str(region['index'])
+        rows = self.tree.get_children()
+        if iid not in rows: return
+        self._syncing = True
+        at = rows.index(iid)
+        if at and rows[at-1].startswith('g'): at -= 1
+        self.tree.yview_moveto(at/max(1,len(rows)))
+        self.tree.after_idle(self._unlock_scroll)
+
+    def scroll_preview_to(self, index):
+        preview = getattr(self.editor, '_v720_preview', None)
+        if preview is None: return
+        regions = [r for r in preview.canvas_regions if r['index']==index]
+        if not regions: return
+        top = preview.canvas.canvasy(0)
+        # A very long item may have multiple fragments. Keep its visible fragment.
+        if any(r['y0']-15 <= top < r['y1'] for r in regions): return
+        region = min(regions, key=lambda r: abs(r['y0']-top))
+        bounds = tuple(float(x) for x in preview.canvas.cget('scrollregion').split())
+        if len(bounds)==4 and bounds[3]>0:
+            preview.canvas.yview_moveto(max(0, region['y0']-12)/bounds[3])
+
+    def sync_from_prices(self):
+        if self._syncing or self._refreshing: return
+        iid = next((self.tree.identify_row(y) for y in range(1,65) if self.tree.identify_row(y)), '')
+        if not iid: return
+        members = self.group_members.get(iid, [])
+        index = members[0] if members else int(iid[1:]) if iid.startswith('p') else None
+        if index is None: return
+        self._syncing = True
+        self.scroll_preview_to(index)
+        self.tree.after_idle(self._unlock_scroll)
+
+    def select_from_preview(self, index):
+        iid = f'p{index}'
+        if not self.tree.exists(iid): return
+        self._syncing = True
+        self.tree.selection_set(iid); self.tree.focus(iid); self.tree.see(iid)
+        self.tree.after_idle(self._unlock_scroll)
+
+    def context_menu(self, event):
+        iid = self.tree.identify_row(event.y)
+        if not iid or not iid.startswith('p') or self.editor.locked: return
+        self.tree.selection_set(iid)
+        index = int(iid[1:]); menu = self.M.tk.Menu(self.tree, tearoff=False)
+        def inherit(field):
+            if group_pricing.inherit(self.editor.items,index,field): self.editor.refresh_items()
+        for field, title in (('margin_pct','Marže'),('discount_pct','Sleva')):
+            menu.add_command(label=title+' podle podskupiny', command=lambda f=field: inherit(f),
+                state='normal' if self.editor.items[index].get('group_'+field) is not None else 'disabled')
+        try: menu.tk_popup(event.x_root,event.y_root)
+        finally: menu.grab_release()
 
     def sync_selection(self, _event: Any = None) -> None:
         selection = self.tree.selection()
@@ -193,6 +282,10 @@ class PricingPanel:
             try:
                 preview.selected_index = index
                 preview.draw_selection()
+                if not self._syncing and not self._refreshing:
+                    self._syncing = True
+                    self.scroll_preview_to(index)
+                    self.tree.after_idle(self._unlock_scroll)
             except Exception:
                 pass
         try:
@@ -223,11 +316,12 @@ class PricingPanel:
     def _open_editor(self, iid: str, column: str) -> None:
         if getattr(self.editor, "locked", False):
             return
-        if not iid.startswith("p"):
-            return
-        try:
+        if iid in self.group_members:
+            if column not in {'#3','#4'} or not self.group_members[iid]: return
+            index = self.group_members[iid][0]
+        elif iid.startswith('p'):
             index = int(iid[1:])
-        except Exception:
+        else:
             return
         if not 0 <= index < len(self.editor.items):
             return
@@ -244,6 +338,9 @@ class PricingPanel:
             "#3": item.get("margin_pct"),
             "#4": item.get("discount_pct"),
         }
+        if iid in self.group_members:
+            field = 'margin_pct' if column == '#3' else 'discount_pct'
+            value_map[column] = item.get('group_'+field) if item.get('group_'+field) is not None else item.get(field)
         x, y, width, height = bbox
         variable = self.M.tk.StringVar(value=_fmt(service, value_map[column]))
         entry = self.M.ttk.Entry(self.tree, textvariable=variable, justify="right")
@@ -268,24 +365,20 @@ class PricingPanel:
         column = self.edit_column
         if entry is None or iid is None or column is None:
             return "break"
+        if self._committing: return 'break'
+        self._committing = True
         try:
-            index = int(iid[1:])
-            service = self.editor._v791_service
-            value = service.number(self.edit_variable.get())
-            current = service.normalize_item(dict(self.editor.items[index]), index + 1)
-            if column == "#2":
-                current["purchase_unit_price"] = max(0.0, value)
-                current = service.normalize_item(current, index + 1, recalculate_sale=True)
-            elif column == "#3":
-                current["margin_pct"] = value
-                current = service.normalize_item(current, index + 1, recalculate_sale=True)
-            elif column == "#4":
-                current["discount_pct"] = min(100.0, max(-100.0, value))
-                current = service.normalize_item(current, index + 1, recalculate_sale=True)
-            self.editor.items[index] = current
-        except Exception:
-            self.destroy_editor()
+            if self.editor.locked: return self.cancel_edit()
+            field = {'#2':'purchase_unit_price','#3':'margin_pct','#4':'discount_pct'}[column]
+            group = iid in self.group_members
+            indices = self.group_members[iid] if group else [int(iid[1:])]
+            group_pricing.apply(self.editor.items,indices,field,self.edit_variable.get(),group)
+        except ValueError as exc:
+            self.M.messagebox.showwarning('Cenotvorba',str(exc),parent=self.editor.win)
+            if self.edit_widget: self.edit_widget.focus_set()
             return "break"
+        finally:
+            self._committing = False
         self.destroy_editor()
         self.editor.refresh_items()
         try:

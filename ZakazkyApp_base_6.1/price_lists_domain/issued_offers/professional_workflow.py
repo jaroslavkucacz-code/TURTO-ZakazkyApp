@@ -267,6 +267,16 @@ def commercial_fingerprint(
 _ASSET_DIGEST_CACHE: dict[tuple[str, int, int], str] = {}
 
 
+def editor_fingerprint(document, items):
+    """Internal pricing/identity edits must prompt saving without invalidating a PDF."""
+    items = list(items)
+    internal = {'salesperson_id': document.get('salesperson_id'), 'rows': [
+        {key: item.get(key) or 0 for key in ('margin_override','discount_override')}
+        | {key: item.get(key) for key in ('group_margin_pct','group_discount_pct')}
+        for item in items]}
+    return commercial_fingerprint(document, items) + json.dumps(internal, sort_keys=True)
+
+
 def _asset_digest(value: Any) -> str:
     path = Path(_text(value)) if _text(value) else None
     if path is None or not path.is_file():
@@ -2100,7 +2110,7 @@ class OfferReleaseDialog:
                     )
                     self.editor.refresh_items()
                     self.editor.refresh_status()
-                    self.editor._v780_saved_fingerprint = commercial_fingerprint(
+                    self.editor._v780_saved_fingerprint = editor_fingerprint(
                         self.editor.document, self.editor.items
                     )
                     self.editor._v780_update_readiness()
@@ -2345,7 +2355,7 @@ def _install_editor_workflow(
             document["action_name"] = _text(self.action.get())
         except Exception:
             document = dict(getattr(self, "document", {}) or {})
-        return commercial_fingerprint(
+        return editor_fingerprint(
             document, list(getattr(self, "items", []) or [])
         )
 
@@ -2478,7 +2488,7 @@ def _install_editor_workflow(
             self.set_readonly(True)
             self.refresh_items()
             self.refresh_status()
-            self._v780_saved_fingerprint = commercial_fingerprint(
+            self._v780_saved_fingerprint = editor_fingerprint(
                 self.document, self.items
             )
             update_readiness(self)
@@ -2602,7 +2612,7 @@ def _install_editor_workflow(
                 )
 
             self._v780_saved_fingerprint = (
-                commercial_fingerprint(self.document, self.items)
+                editor_fingerprint(self.document, self.items)
                 if self.document_id
                 else current_fingerprint(self)
             )
@@ -2729,7 +2739,7 @@ def _install_editor_workflow(
         result = previous_save(self, *args, **kwargs)
         if result:
             try:
-                self._v780_saved_fingerprint = commercial_fingerprint(
+                self._v780_saved_fingerprint = editor_fingerprint(
                     self.document, self.items
                 )
             except Exception:

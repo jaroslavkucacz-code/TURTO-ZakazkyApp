@@ -423,6 +423,11 @@ def apply(M):
         subgroup_label = taxonomy_categories.subgroup_name(M, subgroup_id) or "Bez podskupiny"
         for index in product_indices:
             item = dict(items[index] or {})
+            if (item.get('category_id'),item.get('subgroup_id')) != (category_id,subgroup_id):
+                item.update(group_margin_pct=None,group_discount_pct=None)
+                if not recalculate:
+                    # "Change classification only" explicitly preserves this line's prices.
+                    item.update(margin_override=1,discount_override=1)
             item.update(
                 category_id=category_id,
                 subgroup_id=subgroup_id,
@@ -441,6 +446,8 @@ def apply(M):
                 item.update(
                     margin_pct=policy.get("margin_pct", 0),
                     discount_pct=policy.get("discount_pct", 0),
+                    margin_override=1, discount_override=1,
+                    group_margin_pct=None, group_discount_pct=None,
                     show_recommended_price=1 if policy.get("show_recommended_price", True) else 0,
                     recommended_unit_price=recommended,
                     unit_price=sale,

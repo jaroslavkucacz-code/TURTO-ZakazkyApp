@@ -3,6 +3,7 @@ from contextlib import closing
 from tkinter import font as tkfont
 from . import sales_identity, user_access as access, grouped_navigation as navigation
 from . import sales_centers, portfolio_contacts
+from . import universal_search as search
 
 
 def assignments(con, company_id):
@@ -57,12 +58,11 @@ class Workspace:
         self.combo = M.safe_combobox(bar, textvariable=self.selection, values=('Všichni obchodníci',), state='readonly', width=28)
         self.combo.grid(row=0, column=1, sticky='w')
         self.combo.bind('<<ComboboxSelected>>', lambda e: self.refresh())
-        M.ttk.Label(bar, text='Hledat společnost').grid(row=0, column=2, sticky='w', padx=(24, 10))
-        self.query = M.tk.StringVar(master=page)
-        M.ttk.Entry(bar, textvariable=self.query).grid(row=0, column=3, sticky='ew')
         M.ttk.Button(bar, text='Obnovit přehled', command=self.refresh).grid(row=0, column=4, padx=(12, 0))
         bar.columnconfigure(3, weight=1)
-        self.query.trace_add('write', lambda *a: self.refresh())
+        self.search = search.SearchBar(page, self.refresh)
+        self.search.pack(fill='x', pady=(0, 8))
+        self.query = self.search.draft
         self.summary = M.tk.StringVar(master=page)
         M.ttk.Label(page, textvariable=self.summary, style='Panel.TLabel', wraplength=1100).pack(fill='x', pady=(0, 8))
         M.ttk.Label(page,text='Šipka rozbalí kontakty · Dvojklik otevře detail společnosti nebo osoby · Pravé tlačítko nabídne další možnosti · F2 upraví kontakt v řádku',wraplength=1100).pack(fill='x',pady=(0,6))
@@ -70,6 +70,7 @@ class Workspace:
         self.tree.configure(show='tree headings')
         self.tree.heading('#0',text='');self.tree.column('#0',width=35,minwidth=28,stretch=False)
         app.portfolio_tree = self.tree
+        search.attach_tree(self.tree, self.search)
         self.options = {}
         self.editor=portfolio_contacts.Editor(self)
         self.row_menu=None
@@ -154,7 +155,7 @@ class Workspace:
             self.editor.cancel()
             self.user_id = identity
             self.selection.set('Moje portfolio' if sales_identity.default_salesperson(self.M) else 'Všichni obchodníci')
-            self.query.set('')
+            self.search.reset()
         self.refresh()
 
     def refresh(self):
@@ -172,8 +173,21 @@ class Workspace:
             chosen=next((label for label,sid in self.options.items() if sid==previous_choice),'Moje portfolio')
             self.selection.set(chosen)
         sid = sales_identity.default_salesperson(self.M) if chosen == 'Moje portfolio' else self.options.get(chosen)
-        result = [] if chosen == 'Moje portfolio' and sid is None else rows(self.M, sid, chosen == 'Bez obchodníka', self.query.get())
+        result = [] if chosen == 'Moje portfolio' and sid is None else rows(self.M, sid, chosen == 'Bez obchodníka')
         contacts=portfolio_contacts.grouped(self.M,[r['id'] for r in result]) if access.level(self.M,'people')>=access.READ else {}
+        terms = self.search.terms
+        if terms:
+            filtered = []
+            for row in result:
+                company_text = search.searchable_text(*(row[k] for k in ('official_name','representatives','ico','address','district')))
+                company_matches = all(term in company_text for term in terms)
+                matches = [p for p in contacts.get(row['id'], []) if all(
+                    term in company_text + ' ' + search.searchable_text(p['name'], p['phone'], p['email'], p['role'])
+                    for term in terms)]
+                if company_matches or matches:
+                    filtered.append(row)
+                    if not company_matches: contacts[row['id']] = matches
+            result = filtered
         selected = self.tree.selection()
         opened={iid for iid in self.tree.get_children() if self.tree.item(iid,'open')}
         children = self.tree.get_children()
@@ -181,7 +195,7 @@ class Workspace:
             self.tree.delete(*children)
         for row in result:
             iid=f"c{row['id']}"
-            self.tree.insert('', 'end', iid=iid,open=iid in opened,tags=('portfolio_company',), values=(row['official_name'],'','','',row['representatives'] or '—',row['ico'],row['address'],row['district']))
+            self.tree.insert('', 'end', iid=iid,open=bool(terms) or iid in opened,tags=('portfolio_company',), values=(row['official_name'],'','','',row['representatives'] or '—',row['ico'],row['address'],row['district']))
             for person in contacts.get(row['id'],[]):
                 self.tree.insert(iid,'end',iid=f"p{person['id']}",tags=('portfolio_person',),values=(portfolio_contacts.display_value('Společnost / kontakt',person['name']),person['phone'],person['email'],person['role'],'','','',''))
         for iid in selected:
@@ -224,42 +238,46 @@ class Workspace:
         self.refresh()
 
     def assign(self):
-        M = self.M
-        if not access.allowed(M, self.app, 'portfolio'):return
         cid = self.company_id()
-        if cid is None:return
-        with closing(M.db()) as con:
-            original = assignments(con, cid)
-            centers=sales_centers.current(con)
-            options = [dict(r) for r in con.execute('SELECT * FROM salespeople WHERE canonical_id IS NULL ORDER BY name COLLATE CZECH')
-                       if r['active'] or r['id'] in original]
-            for row in options:row['pohoda_center']=centers.get(row['id'],'')
-            name = con.execute('SELECT official_name FROM companies WHERE id=?', (cid,)).fetchone()[0]
-        win = M.tk.Toplevel(self.app)
-        win.title('Obchodní zástupci – ' + name)
-        win.transient(self.app);win.grab_set()
-        M.enable_dialog_maximize(win, 630, 430)
-        body = M.scrollable_dialog_frame(win, 18)
-        M.ttk.Label(body, text=name, font=('Calibri', 14, 'bold'), wraplength=560).pack(anchor='w', pady=(0, 10))
-        M.ttk.Label(body, text='Vyberte všechny obchodníky, kteří se o společnost starají.', wraplength=560).pack(anchor='w', pady=(0, 10))
-        variables = {}
-        for row in options:
-            var = M.tk.BooleanVar(master=win, value=row['id'] in original)
-            variables[row['id']] = var
-            M.ttk.Checkbutton(body, text=sales_identity.label(row) + ('' if row['active'] else ' (neaktivní)'), variable=var).pack(anchor='w', pady=5)
-        def commit():
-            try:
-                save(M, cid, {sid for sid, var in variables.items() if var.get()}, original)
-            except (ValueError, M.sqlite3.Error) as exc:
-                return M.messagebox.showwarning('Portfolio', str(exc), parent=win)
-            win.destroy();self.refresh()
-        footer = M.ttk.Frame(body);footer.pack(fill='x', pady=(20, 0))
-        M.ttk.Button(footer, text='Zrušit', command=win.destroy).pack(side='right', padx=(8, 0))
-        M.ttk.Button(footer, text='Uložit', style='Accent.TButton', command=commit).pack(side='right')
-        win.portfolio_variables = variables
-        from .form_behavior_817 import register
-        register(M, win, commit)
-        return win
+        if cid is not None:
+            return assign_dialog(self.M, self.app, cid, self.refresh)
+
+
+def assign_dialog(M, parent, cid, on_saved=None):
+    if not access.allowed(M, parent, 'portfolio'): return
+    with closing(M.db()) as con:
+        original = assignments(con, cid)
+        centers=sales_centers.current(con)
+        options = [dict(r) for r in con.execute('SELECT * FROM salespeople WHERE canonical_id IS NULL ORDER BY name COLLATE CZECH')
+                   if r['active'] or r['id'] in original]
+        for row in options:row['pohoda_center']=centers.get(row['id'],'')
+        name = con.execute('SELECT official_name FROM companies WHERE id=?', (cid,)).fetchone()[0]
+    win = M.tk.Toplevel(parent)
+    win.title('Obchodní zástupci – ' + name)
+    win.transient(parent);win.grab_set()
+    M.enable_dialog_maximize(win, 630, 430)
+    body = M.scrollable_dialog_frame(win, 18)
+    M.ttk.Label(body, text=name, font=('Calibri', 14, 'bold'), wraplength=560).pack(anchor='w', pady=(0, 10))
+    M.ttk.Label(body, text='Vyberte všechny obchodníky, kteří se o společnost starají.', wraplength=560).pack(anchor='w', pady=(0, 10))
+    variables = {}
+    for row in options:
+        var = M.tk.BooleanVar(master=win, value=row['id'] in original)
+        variables[row['id']] = var
+        M.ttk.Checkbutton(body, text=sales_identity.label(row) + ('' if row['active'] else ' (neaktivní)'), variable=var).pack(anchor='w', pady=5)
+    def commit():
+        try:
+            save(M, cid, {sid for sid, var in variables.items() if var.get()}, original)
+        except (ValueError, M.sqlite3.Error) as exc:
+            return M.messagebox.showwarning('Portfolio', str(exc), parent=win)
+        win.destroy()
+        if on_saved: on_saved()
+    footer = M.ttk.Frame(body);footer.pack(fill='x', pady=(20, 0))
+    M.ttk.Button(footer, text='Zrušit', command=win.destroy).pack(side='right', padx=(8, 0))
+    M.ttk.Button(footer, text='Uložit', style='Accent.TButton', command=commit).pack(side='right')
+    win.portfolio_variables = variables
+    from .form_behavior_817 import register
+    register(M, win, commit)
+    return win
 
 
 def apply(M):

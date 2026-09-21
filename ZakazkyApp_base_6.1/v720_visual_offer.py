@@ -323,6 +323,7 @@ def apply(M) -> None:
             if not 0 <= index < len(self.instance.items):
                 return
             item = dict(self.instance.items[index] or {})
+            previous = dict(item)
             if item.get("row_type") in {"heading", "text"}:
                 return
             purchase = _number(self.purchase.get())
@@ -345,7 +346,8 @@ def apply(M) -> None:
                 vat_rate=max(0.0, _number(self.vat.get(), 21)),
                 total_price=_number(item.get("quantity"), 1) * sale,
             )
-            self.instance.items[index] = service.normalize_item(item, index + 1)
+            from price_lists_domain.issued_offers.group_pricing import mark_individual
+            self.instance.items[index] = service.normalize_item(mark_individual(previous, item), index + 1)
             self.instance.refresh_items()
             try:
                 self.instance.tree.selection_set(f"r{index}")
@@ -426,7 +428,7 @@ def apply(M) -> None:
             ys.grid(row=0, column=1, sticky="ns")
             xs.grid(row=1, column=0, sticky="ew")
             self.canvas.configure(
-                yscrollcommand=ys.set, xscrollcommand=xs.set
+                yscrollcommand=lambda first, last: (ys.set(first, last), self.scrolled()), xscrollcommand=xs.set
             )
             self.canvas.bind("<Button-1>", self.on_click)
             self.canvas.bind("<Double-1>", self.on_double_click)
@@ -439,6 +441,10 @@ def apply(M) -> None:
             except Exception:
                 pass
             self.schedule(120)
+
+        def scrolled(self):
+            panel = getattr(self.instance, '_v791_pricing_panel', None)
+            if panel is not None: panel.sync_from_preview()
 
         def destroy(self):
             if self.after_id is not None:
@@ -620,6 +626,8 @@ def apply(M) -> None:
 
         def select(self, index):
             self.selected_index = int(index)
+            pricing = getattr(self.instance, '_v791_pricing_panel', None)
+            if pricing is not None: pricing.select_from_preview(self.selected_index)
             try:
                 iid = f"r{self.selected_index}"
                 if self.instance.tree.exists(iid):

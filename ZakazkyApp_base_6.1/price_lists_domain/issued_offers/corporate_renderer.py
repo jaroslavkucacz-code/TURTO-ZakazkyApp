@@ -62,6 +62,7 @@ class Layout:
         self.page = None
         self.y = self.top
         self.regions = []
+        self.continuation_subgroup = ""
         self.image_cache = {}
         self.currency = str(document.get("currency") or "CZK")
         self.header_lines = [self.wrap(c["label"], c["width_pt"]-8, True, self.size-.5) for c in self.columns]
@@ -204,6 +205,27 @@ class Layout:
             self.y += self.leading + 7
         if table:
             self.table_header()
+            self.repeat_subgroup()
+
+    def repeat_subgroup(self):
+        """Repeat the current subgroup without recursively creating pages."""
+        if not self.continuation_subgroup:
+            return
+        width = self.width - 12
+        lines = self.wrap(self.continuation_subgroup, width, True, self.size-.3)
+        # The complete heading is printed at the group's start. An unusually
+        # long name must still leave space for product text/images on repeats.
+        limit = max(1, int(((self.bottom-self.y)/3-7)/self.leading))
+        if len(lines) > limit:
+            lines = lines[:limit]
+            tail = lines[-1].rstrip()
+            while tail and self.fonts[1].text_length(tail+"…", fontsize=self.size-.3) > width:
+                tail = tail[:-1]
+            lines[-1] = tail+"…"
+        height = len(lines)*self.leading+7
+        self.page.draw_rect(fitz.Rect(self.left,self.y,self.right,self.y+height),color=None,fill=self.grey)
+        self.lines(self.left+6,self.y+3.5,lines,True,self.size-.3,self.navy)
+        self.y += height
 
     def ensure(self, height, table=False):
         if self.page is None or self.y+height > self.bottom:
@@ -242,7 +264,7 @@ class Layout:
                     lines.extend((s,bold) for s in self.wrap(value,w,bold))
             ids="   ".join(label+str(d.get(prefix+key)) for label,key in (("IČ: ","_ico_snapshot"),("DIČ: ","_dic_snapshot")) if d.get(prefix+key))
             if ids: lines.extend((s,False) for s in self.wrap(ids,w))
-            for key,label in (("contact","Obchodník: " if prefix=="issuer" else "Kontakt: "),("phone","Telefon: "),("email","E-mail: ")):
+            for key,label in (("contact","Obchodní zástupce: " if prefix=="issuer" else "Kontakt: "),("phone","Telefon: "),("email","E-mail: ")):
                 value=d.get(prefix+"_"+key+"_snapshot")
                 if value: lines.extend((s,False) for s in self.wrap(label+str(value),w))
             if prefix=="issuer" and d.get("issuer_bank_snapshot"):
@@ -399,6 +421,7 @@ class Layout:
         for at,token in enumerate(tokens):
             if token["kind"]=="group":
                 subtotal(); group_total=0; in_group=True
+                self.continuation_subgroup = ""
                 category=str(token.get("category") or "")
                 subgroup=str(token.get("subgroup") or "")
                 # At least a header plus the first product row must fit together.
@@ -409,12 +432,14 @@ class Layout:
                     self.band(category,self.red,(1,1,1),True,True)
                 if subgroup and subgroup != "Bez podskupiny":
                     self.band(subgroup,self.grey,self.navy,True,True)
+                    self.continuation_subgroup = subgroup
                 last_category=category
                 continue
             item=dict(token["item"]);index=int(token.get("index",0))
             typ=item.get("row_type","product")
             if typ=="heading":
                 subtotal();group_total=0;in_group=False
+                self.continuation_subgroup = ""
                 heading=item.get("name") or item.get("description") or ""
                 h=len(self.wrap(heading,self.width-12,True,self.size-.3))*self.leading+7
                 self.ensure(min(h+next_row_height(at),self.bottom-self.top-self.header_height-30),True)
@@ -427,6 +452,7 @@ class Layout:
                 self.row(item,index,position)
                 group_total += service.normalize_item(item)["total_price"]
         subtotal()
+        self.continuation_subgroup = ""
 
     def closing(self):
         totals=service.calculate_totals(self.items,self.document.get("global_discount_pct"))
