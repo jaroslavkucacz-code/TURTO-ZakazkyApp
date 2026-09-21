@@ -499,12 +499,6 @@ def apply(M: Any) -> None:
         def _original_heading_call(
             tree: Any, column: Any, option: Any = None, **kwargs: Any
         ):
-            # Tk 9 returns cached Tcl index objects from cget('columns').
-            # Resolve names to data indices so reordered display columns and
-            # differently shaped trees cannot reuse an incompatible index.
-            columns = _all_columns(tree)
-            target = str(column)
-            column = str(columns.index(target)) if target in columns else target
             try:
                 return original_heading(tree, column, option, **kwargs)
             except Exception:
@@ -517,9 +511,6 @@ def apply(M: Any) -> None:
         def _original_column_call(
             tree: Any, column: Any, option: Any = None, **kwargs: Any
         ):
-            columns = _all_columns(tree)
-            target = str(column)
-            column = str(columns.index(target)) if target in columns else target
             try:
                 return original_column(tree, column, option, **kwargs)
             except Exception:

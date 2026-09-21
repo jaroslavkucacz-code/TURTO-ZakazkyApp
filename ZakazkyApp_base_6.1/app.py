@@ -4886,8 +4886,8 @@ class App(tk.Tk):
         setup_clear_filter_button(filters,self.clear_request_filters,_rfv,
             {id(self.req_date_mode):"Do data"})
 
-        self.request_tree=self.tree(p,("Stav","Řeší","Poptáno","Obdrženo","Odběratel","Dodavatel","Akce","Poptáváno","Příjemci","E-mail"),
-                                    [*widths,245])
+        self.request_tree=self.tree(p,("Stav","Řeší","Poptáno","Obdrženo","Odběratel","Dodavatel","Akce","Poptáváno","Příjemci","E-mail","Nabídky"),
+                                    [*widths,240,245,82])
         table_search.install_main_search(self,self.request_tree,filters,"requests","refresh_requests")
         bind_row_double_click(self.request_tree,lambda e:self.edit_request())
         self.request_tree.bind("<Configure>",lambda e:self.after_idle(self.refresh_requests),add="+")
@@ -4983,7 +4983,7 @@ class App(tk.Tk):
             {id(self.mivo_date_mode):"Do data"})
 
         self.mivo_tree=self.tree(p,("Stav","Řeší","Poptáno","Obdrženo","Odběratel","Akce","Poptáváno","Příjemci","E-mail"),
-                                 [*widths,245])
+                                 [*widths[:8],245])
         table_search.install_main_search(self,self.mivo_tree,filters,"mivo","refresh_mivo_requests")
         bind_row_double_click(self.mivo_tree,
             lambda e:self._run_on_request_tree(self.mivo_tree,self.edit_request))
