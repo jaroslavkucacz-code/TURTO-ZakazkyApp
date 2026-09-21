@@ -4,12 +4,12 @@ from .analytics import period_bounds, _next_month
 
 def coverage_rows(analytics, year, month, mode='month'):
     start, end = period_bounds(year, month, mode)
-    rows = {r['period']: dict(r) for r in analytics.db.query('''
+    rows = {r['period']: dict(r) for r in analytics.db.query(f'''
         SELECT substr(d.doc_date,1,7) period, COUNT(*) documents,
           SUM(CASE WHEN src.import_type='ZISK_ZASOBY' THEN 1 ELSE 0 END) missing_delivery,
           COUNT(p.doc_no) profit_documents,
           SUM(CASE WHEN TRIM(COALESCE(d.customer,''))='' THEN 1 ELSE 0 END) no_customer,
-          SUM(CASE WHEN COALESCE(d.center,'') NOT IN ('M','J','H') THEN 1 ELSE 0 END) unassigned,
+          SUM(CASE WHEN {analytics._other_sql('d')} THEN 1 ELSE 0 END) unassigned,
           MAX(d.doc_date) latest_date
         FROM delivery_notes d LEFT JOIN profit_documents p ON p.doc_no=d.doc_no
         LEFT JOIN imports src ON src.id=d.source_import_id

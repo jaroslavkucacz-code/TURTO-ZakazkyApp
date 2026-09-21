@@ -97,7 +97,7 @@ def render_report(d):
     for x in trend:
         rows.append((x['period'],money(x['revenue']),profit(x),percent(x['margin']),count(x['count']),
                      {'raw':'Zisk podle DL','legacy':'Historický souhrn','partial':'Částečný zisk','empty':'Bez dat','missing':'Zisk chybí'}[x['source']]))
-    body='<div class="grid">'+card('Počet dodacích listů',charts.month_bars(trend,'count',fmt='count',h=120),context)+card('Režijní listy podle středisek',charts.bars([dict(x,label=center_display(x['center'])) for x in d['overheads']],'amount','label',h=120),'Částka podle exportu, samostatně od hrubého zisku.')+'</div>'
+    body='<div class="grid">'+card('Počet dodacích listů',charts.month_bars(trend,'count',fmt='count',h=120),context)+card('Režijní listy podle středisek',charts.bars([dict(x,label=x.get('name',center_display(x['center']))) for x in d['overheads']],'amount','label',h=120),'Částka podle exportu, samostatně od hrubého zisku.')+'</div>'
     body+='<div class="break">'+table(('Období','Obrat bez DPH','Dostupný zisk','Marže','DL','Zdroj zisku'),rows,(12,22,22,12,8,24),(1,2,3,4),True)+'</div>'
     body+=notice('Pomlčka znamená chybějící údaj, nikoli nulový výkon. Nulové částky se zobrazí jako 0 Kč. Měsíce po posledním dostupném záznamu nejsou vykreslené.')
     pages.append(('Měsíční vývoj',context+'. Ukazatele odpovídají tabulce pod grafy.',body))
@@ -106,7 +106,7 @@ def render_report(d):
     body='<div class="grid">'+card('Podíl na obratu',charts.shares(sales,'revenue','name'),share_caption(sales,'revenue'))+card('Zisk obchodníků',charts.bars(sales,'profit','name'),'Částkové srovnání; zisk může obsahovat historické souhrny.')+'</div>'
     rows=[(x['name'],money(x['revenue']),profit(x),percent(x['margin']),count(x['count']),money(x['avg_order']),percent(x.get('profit_share')) if k['profit_available'] and k['profit'] else '—') for x in sorted(sales,key=lambda x:x.get('profit') or 0,reverse=True)]
     body+='<div class="break">'+table(('Obchodník','Obrat','Zisk','Marže','DL','Ø hodnota DL','Podíl na zisku'),rows,(16,18,18,11,7,17,13),(1,2,3,4,5,6))+'</div>'
-    body+=notice('J = Jiří Cír · H = Jan Mayer · M = Milan Soukup. Neznámé a prázdné kódy středisek jsou zahrnuté jako Nezařazené. '+legacy_note(d))
+    body+=notice('Střediska se přiřazují obchodníkům podle data dokladu. Historický měsíční zisk bez jednotlivých dokladů nelze rozdělit při změně obchodníka uprostřed měsíce; zůstává v Nezařazených. '+legacy_note(d))
     pages.append(('Výkon obchodníků','Obrat, zisk, marže i objem dokladů ve společném období.',body))
 
     # Page 4: customer charts draw from the full customer set, not the top table.
@@ -135,7 +135,7 @@ def render_report(d):
     chunks=[docs[i:i+12] for i in range(0,len(docs),12)] or [[]]
     for index,part in enumerate(chunks):
         head=f'Největší dodací listy · {index*12+1}–{index*12+len(part)}' if part else 'Dodací listy'
-        rows=[(x['doc_no'],x['doc_date'],center_display(x['center']),x['customer'],x['project'] or '—',money(x['base_amount']),money(x['profit']),percent(x['margin'])) for x in part]
+        rows=[(x['doc_no'],x['doc_date'],x.get('center_name',center_display(x['center'])),x['customer'],x['project'] or '—',money(x['base_amount']),money(x['profit']),percent(x['margin'])) for x in part]
         body=table(('Doklad','Datum','Obchodník','Zákazník','Zakázka','Částka bez DPH','Zisk','Marže'),rows,(12,10,10,22,12,14,12,8),(5,6,7),True)
         body+=notice('Pořadí je podle hodnoty DL bez DPH. Zisk a marže jednotlivých dokladů se uvádí pouze při dostupném spárovaném ziskovém reportu. Částky vycházejí z databáze; historický souhrn se na DL nerozpočítává.')
         body+='<div class="break">'+card('Zisk vybraných velkých dokladů',charts.bars(part,'profit','doc_no',w=1000,h=80,limit=4),'Srovnání pouze mezi doklady uvedenými na této stránce.')+'</div>'

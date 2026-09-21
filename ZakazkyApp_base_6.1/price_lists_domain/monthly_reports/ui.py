@@ -89,7 +89,8 @@ class ReportWorkspace(CompanyReportsUI, ManagementUI, tk.Frame):
         self.db.can_write = lambda: user_access.level(module, 'reports_imports', fresh=True) == user_access.EDIT
         self.company_links = CompanyLinks(module.db, self.db, identity[1],
             can_write=lambda: user_access.level(module, 'reports_customers', fresh=True) == user_access.EDIT)
-        self.analytics = Analytics(self.db)
+        from ..platform.sales_centers import snapshot
+        self.analytics = Analytics(self.db,center_provider=lambda:snapshot(module,identity[0]))
         self.pages = {}; self.nav_buttons = {}; self.current_page = 'Přehled'
         self.last_error = None
         self._theme_signature = None
@@ -525,17 +526,17 @@ class ReportWorkspace(CompanyReportsUI, ManagementUI, tk.Frame):
         for x in selected_trend(self.analytics,y,m,self.mode_key()): tree.insert('', 'end', values=(x.get('full_label',MONTH_NAMES[x['month']-1]),fmt_money(x['revenue']),fmt_money(x['profit']),fmt_pct(x['margin'])))
 
     def page_sales(self):
-        root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True); self.title_block(root,'Obchodníci','Výkon středisek M / J / H včetně nezařazených dokladů')
+        root=tk.Frame(self.container,bg=COLORS['bg']); root.pack(fill='both',expand=True); self.title_block(root,'Obchodníci','Přiřazení středisek podle data dokladu, včetně bývalých obchodníků a nezařazených dokladů')
         y,m=self.period(); mode=self.mode_key(); rows=self.analytics.salespeople(y,m,mode); ranked=sorted(rows,key=lambda x:x['profit'],reverse=True)
         chartp=Panel(root,'Podíly obchodníků a srovnání výkonu'); chartp.pack(fill='x')
-        ShareChart(chartp.body,rows,metrics=(('profit','Zisk','money'),('revenue','Obrat','money'),('count','Počet DL','count')),initial_metric='profit',title_note='Zisk lze na úrovni obchodníků využít i ze starších měsíčních souhrnů.',max_items=6,height=245,**self._chart_options('sales')).pack(fill='both',expand=True)
+        ShareChart(chartp.body,rows,metrics=(('profit','Zisk','money'),('revenue','Obrat','money'),('count','Počet DL','count')),initial_metric='profit',title_note='Měsíční souhrn zisku při změně obchodníka uprostřed měsíce zůstává mezi nezařazenými; přesné rozdělení vyžaduje zisk po dokladech.',max_items=6,height=245,**self._chart_options('sales')).pack(fill='both',expand=True)
         sp=Panel(root,'Souhrn výkonu obchodníků'); sp.pack(fill='x',pady=(12,0))
         tree=self._tree(sp.body,('name','revenue','profit','margin','count','avg','pshare'),('Obchodník','Obrat','Zisk','Marže','DL','Ø DL','Podíl na zisku'),(145,145,140,90,60,130,120),height=4,anchors=('w','e','e','e','e','e','e'))
         for x in ranked: tree.insert('', 'end',values=(x['name'],fmt_money(x['revenue']),((fmt_money(x['profit'])+(' *' if not x.get('profit_complete',True) else '')) if x.get('profit_available',True) else '—'),fmt_pct(x['margin']),x['count'],fmt_money(x['avg_order']),fmt_pct(x.get('profit_share',0))))
         p=Panel(root,'Největší doklady'); p.pack(fill='both',expand=True,pady=(12,0)); tree=self._tree(p.body,('center','doc','customer','project','amount','profit','margin'),('Středisko','DL','Zákazník','Projekt','Částka','Zisk','Marže'),(120,105,220,220,130,120,85),12,anchors=('w','w','w','w','e','e','e'))
         doc_map={}
         for x in self.analytics.top_documents(y,m,mode,limit=50):
-            iid=tree.insert('', 'end',values=(center_display(x['center']),x['doc_no'],x['customer'],x['project'],fmt_money(x['base_amount']),fmt_money(x['profit']),fmt_pct(x['margin']))); doc_map[iid]=x['doc_no']
+            iid=tree.insert('', 'end',values=(self.analytics.center_display(x['center'],x['doc_date']),x['doc_no'],x['customer'],x['project'],fmt_money(x['base_amount']),fmt_money(x['profit']),fmt_pct(x['margin']))); doc_map[iid]=x['doc_no']
         def open_doc(event=None):
             if event is not None and getattr(event,'keysym','') != 'Return' and tree.identify_region(event.x,event.y) != 'cell':return
             iid=tree.identify_row(event.y) if event is not None and getattr(event,'keysym','') != 'Return' else tree.focus()
@@ -555,7 +556,7 @@ class ReportWorkspace(CompanyReportsUI, ManagementUI, tk.Frame):
         except Exception: pass
         head=tk.Frame(win,bg=COLORS['bg']); head.pack(fill='x',padx=20,pady=(18,8))
         tk.Label(head,text=f"Dodací list {doc_no}",bg=COLORS['bg'],fg=COLORS['text'],font=('Calibri',20,'bold')).pack(anchor='w')
-        subtitle=f"{data.get('customer') or '—'} · {data.get('doc_date') or '—'} · {center_display(data.get('center'))}"
+        subtitle=f"{data.get('customer') or '—'} · {data.get('doc_date') or '—'} · {self.analytics.center_display(data.get('center'),data.get('doc_date'))}"
         tk.Label(head,text=subtitle,bg=COLORS['bg'],fg=COLORS['muted'],font=('Calibri',10)).pack(anchor='w',pady=(2,0))
         if data.get('description'):
             tk.Label(head,text=data.get('description'),bg=COLORS['bg'],fg=COLORS['text'],font=('Calibri',10),anchor='w').pack(anchor='w',pady=(5,0))

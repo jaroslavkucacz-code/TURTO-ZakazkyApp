@@ -93,7 +93,7 @@ def export_excel(path: str | Path, analytics, year, month, mode='month'):
     d = wb.add_worksheet('Největší DL'); d.hide_gridlines(2); d.set_column('A:A',14); d.set_column('B:B',10); d.set_column('C:D',35); d.set_column('E:G',18)
     [d.write(0,col,h,hdr) for col,h in enumerate(['DL','Středisko','Zákazník','Projekt'])]; [d.write(0,col,h,hdr_num) for col,h in enumerate(['Částka','Zisk','Marže'],4)]
     for r,x in enumerate(analytics.top_documents(year,month,mode,limit=200),1):
-        d.write(r,0,x['doc_no']); d.write(r,1,center_display(x['center'])); d.write(r,2,x['customer']); d.write(r,3,x['project']); d.write(r,4,x['base_amount'],money_fmt); d.write(r,5,x['profit'],money_fmt); d.write(r,6,(x['margin']/100 if x.get('margin') is not None else None),pct_fmt)
+        d.write(r,0,x['doc_no']); d.write(r,1,analytics.center_display(x['center'],x['doc_date'])); d.write(r,2,x['customer']); d.write(r,3,x['project']); d.write(r,4,x['base_amount'],money_fmt); d.write(r,5,x['profit'],money_fmt); d.write(r,6,(x['margin']/100 if x.get('margin') is not None else None),pct_fmt)
 
     from .management_exports import add_excel
     add_excel(wb,analytics,year,month,mode)

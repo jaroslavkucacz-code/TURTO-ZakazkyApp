@@ -4,6 +4,7 @@ import sqlite3
 from .user_access import EDIT, TITLES
 
 TABLE_PAGES = {
+    'sales_center_assignments': 'settings',
     'company_salespeople': 'portfolio',
     'actions': 'actions', 'companies': 'companies', 'people': 'people',
     'projects': 'projects', 'tasks': 'tasks', 'company_merge_history': 'companies',

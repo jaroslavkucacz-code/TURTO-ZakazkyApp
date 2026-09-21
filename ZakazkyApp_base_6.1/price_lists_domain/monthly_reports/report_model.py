@@ -116,7 +116,8 @@ def collect_report(analytics,year,month,mode='month'):
     mem=sqlite3.connect(':memory:');mem.row_factory=sqlite3.Row
     try:
         with closing(sqlite3.connect(analytics.db.path)) as source:source.backup(mem)
-        a=Analytics(_Snapshot(mem));start,end=period_bounds(year,month,mode)
+        mapping=analytics.center_mapping().rows
+        a=Analytics(_Snapshot(mem),center_provider=lambda:mapping);start,end=period_bounds(year,month,mode)
         data={'year':year,'month':month,'mode':mode,'start':start.isoformat(),'end':end.isoformat(),
               'generated':datetime.now().strftime('%d.%m.%Y %H:%M'),
               'kpis':a.kpis(year,month,mode),'trend':selected_trend(a,year,month,mode),
@@ -131,9 +132,10 @@ def collect_report(analytics,year,month,mode='month'):
           UNION SELECT p.source_import_id FROM profit_documents p JOIN delivery_notes d ON d.doc_no=p.doc_no WHERE d.doc_date BETWEEN ? AND ?
           UNION SELECT source_import_id FROM overhead_docs WHERE doc_date BETWEEN ? AND ?)
           OR import_type='HISTORICKY_SOUHRN' ORDER BY id DESC LIMIT 12''',(start.isoformat(),end.isoformat())*3)]
-        data['unassigned']=[dict(x) for x in mem.execute('''SELECT COALESCE(NULLIF(TRIM(center),''),'(prázdné)') center,
+        for item in data['documents']:item['center_name']=a.center_display(item['center'],item['doc_date'])
+        data['unassigned']=[dict(x) for x in mem.execute(f'''SELECT COALESCE(NULLIF(TRIM(center),''),'(prázdné)') center,
             COUNT(*) count, SUM(base_amount) revenue FROM delivery_notes WHERE doc_date BETWEEN ? AND ?
-            AND (COALESCE(TRIM(center),'')='' OR center NOT IN ('J','H','M')) GROUP BY center''',(start.isoformat(),end.isoformat()))]
+            AND {a._other_sql()} GROUP BY center''',(start.isoformat(),end.isoformat()))]
         data['no_customer']=dict(mem.execute('''SELECT COUNT(*) count, COALESCE(SUM(base_amount),0) revenue
              FROM delivery_notes WHERE doc_date BETWEEN ? AND ? AND COALESCE(TRIM(customer),'')='' ''',(start.isoformat(),end.isoformat())).fetchone())
         return data

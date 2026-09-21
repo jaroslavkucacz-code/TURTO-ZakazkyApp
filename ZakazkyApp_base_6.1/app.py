@@ -5338,6 +5338,11 @@ $s.Save()
 
     def manage_code_lists(self,initial_kind="Funkce osob",parent=None):
         owner=parent or self
+        if initial_kind=="Obchodníci":
+            from price_lists_domain.platform.sales_center_ui import open_dialog
+            window=open_dialog(sys.modules[__name__],self,owner)
+            if window:self.wait_window(window)
+            return
         d=tk.Toplevel(owner);d.title("Číselníky");d.transient(owner);d.grab_set()
         enable_dialog_maximize(d,760,560);d.geometry("820x600");center_dialog(d,owner)
 
@@ -5388,6 +5393,8 @@ $s.Save()
             return 0
 
         def refresh(*_):
+            if kind.get()=="Obchodníci":
+                d.destroy();self.manage_code_lists("Obchodníci",owner);return
             for x in tree.get_children():tree.delete(x)
             table,_=kinds[kind.get()]
             with db() as con:
