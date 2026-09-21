@@ -23,13 +23,7 @@ def apply(M):
         if not display or '#all' in display:display = list(map(str,tree.cget('columns')))
         display = [name for name in display if name != 'E-mail']
         tree.configure(displaycolumns=(display[0], 'E-mail', *display[1:]))
-        page = app.tabs[key]
-        bar = M.ttk.Frame(page, style='Panel.TFrame', padding=(10, 6))
-        first = next(iter(page.pack_slaves()), None)
-        bar.pack(fill='x', **({'after': first} if first else {}))
-        M.ttk.Button(bar, text='Ověřit odeslání v Outlooku', command=lambda: start_check(app, manual=True)).pack(side='left')
-        M.ttk.Label(bar, text='Odeslání se ověřuje v klasickém Outlooku. Doručení a přečtení se nesleduje.',
-                    wraplength=750).pack(side='left', padx=12)
+        tree.configure(selectmode='extended')
         tree._mail_tracking_controls = True
     for method, key, tree in (('build_requests','requests','request_tree'),('build_mivo','mivo','mivo_tree')):
         previous = getattr(M.App, method)
@@ -75,33 +69,58 @@ def apply(M):
         setattr(M.App, name, wrap(previous))
     M.App.refresh_mail_status = paint
 
-    def start_check(app, manual=False):
-        if app._mail_checks is not None:return
+    def editable_attempts(attempts):
+        from .access_controls import _request_page
+        return [r for r in attempts if access.level(M, _request_page(M, rid=r['request_id'])) >= access.EDIT]
+
+    def submit_check(app, attempts, uid, db, manual):
+        # Small batches keep the Windows environment payload bounded and let
+        # the UI stop between batches after closing, changing login or database.
+        batch, remaining = attempts[:25], attempts[25:]
+        app._mail_checks = (app._mail_executor.submit(tracking.check_outlook, batch), batch, uid, db, manual, remaining)
+        app.after(150, lambda: finish_check(app))
+
+    def start_check(app, manual=False, request_ids=None):
+        if app._mail_checks is not None:
+            if manual:M.messagebox.showinfo('E-mail', 'Kontrola odeslání právě probíhá. Po jejím dokončení můžete ověřit další výběr.', parent=app)
+            return
         session = access.refresh_session(M)
         if session is None or not session.active:return
-        attempts = tracking.pending(M, session.user_id)
-        from .access_controls import _request_page
-        attempts = [r for r in attempts if access.level(M, _request_page(M, rid=r['request_id'])) >= access.EDIT]
+        attempts = editable_attempts(tracking.pending(M, session.user_id, request_ids))
         if not attempts:
-            if manual:M.messagebox.showinfo('E-mail', 'Nemáte žádný neověřený koncept vytvořený v této verzi CRM. Již ověřené odeslání zůstává evidované.', parent=app)
+            if manual:
+                message = ('U vybraných poptávek nemáte žádný neověřený e-mail vytvořený z CRM.' if request_ids is not None
+                           else 'Nemáte žádný neověřený e-mail vytvořený z CRM.')
+                M.messagebox.showinfo('E-mail', message + ' Již ověřené odeslání zůstává evidované.', parent=app)
             return
-        app._mail_checks = (app._mail_executor.submit(tracking.check_outlook, attempts), attempts, session.user_id, str(M.DB), manual)
-        app.after(150, lambda: finish_check(app))
+        submit_check(app, attempts, session.user_id, str(M.DB), manual)
+
+    def check_selected(app, tree):
+        request_ids = [int(iid[1:]) for iid in tree.selection() if iid.startswith('r') and iid[1:].isdigit()]
+        if not request_ids:
+            M.messagebox.showinfo('E-mail', 'Vyberte alespoň jednu poptávku.', parent=app)
+            return
+        start_check(app, manual=True, request_ids=request_ids)
+    M.App.check_selected_request_mail = check_selected
 
     def finish_check(app):
         if getattr(app, '_turto_closing', False):return
         pending = app._mail_checks
         if pending is None:return
-        future, attempts, uid, db, manual = pending
+        future, attempts, uid, db, manual, remaining = pending
         if not future.done():
             app.after(150, lambda: finish_check(app));return
         app._mail_checks = None
         session = access.refresh_session(M)
         # A result from another login or database must never write through the new session.
-        if session is None or session.user_id != uid or str(M.DB) != db:return
+        if session is None or not session.active or session.user_id != uid or str(M.DB) != db:return
         try:
-            tracking.record_checks(M, attempts, future.result())
+            tracking.record_checks(M, editable_attempts(attempts), future.result())
             paint(app)
+            remaining = editable_attempts(remaining)
+            if remaining:
+                submit_check(app, remaining, uid, db, manual)
+                return
             if manual:
                 M.messagebox.showinfo('E-mail', 'Kontrola dokončena. Stav najdete ve sloupci E-mail. Nenalezená zpráva zůstává „Odeslání neověřeno“.', parent=app)
         except Exception:

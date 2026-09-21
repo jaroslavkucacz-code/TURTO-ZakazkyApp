@@ -374,6 +374,11 @@ def sync_menu_state(M: Any, app: Any, key: str) -> dict[str, Any]:
         )
     _set_menu_enabled(menu, "Archivovat vybrané", bool(caps["can_archive"]))
     _set_menu_enabled(menu, "Obnovit vybrané", bool(caps["can_restore"]))
+    if key in ('requests', 'mivo'):
+        from . import user_access as access
+        _set_menu_enabled(menu, 'Ověřit odeslání v Outlooku',
+                          bool(caps['ids']) and access.level(M, key, fresh=True) >= access.EDIT
+                          and getattr(app, '_mail_checks', None) is None)
     return caps
 
 

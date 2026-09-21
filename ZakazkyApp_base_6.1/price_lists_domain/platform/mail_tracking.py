@@ -45,10 +45,19 @@ def draft_created(M, token, metadata):
              '' if metadata.get('saved') else 'Koncept nelze propojit s klasickým Outlookem.', token))
 
 
-def pending(M, user_id):
+def pending(M, user_id, request_ids=None):
+    """Background checks rotate 100 attempts; an explicit selection includes all of its attempts."""
+    parameters = [user_id]
+    scope, limit = '', ' LIMIT 100'
+    if request_ids is not None:
+        ids = sorted(set(map(int, request_ids)))
+        if not ids:return []
+        scope = ' AND request_id IN (SELECT value FROM json_each(?))'
+        parameters.append(json.dumps(ids))
+        limit = ''
     with closing(M.db()) as con:
         return [dict(r) for r in con.execute('''SELECT * FROM request_mail_attempts WHERE created_by_user_id=?
-            AND state<>'sent' ORDER BY checked_at,created_at LIMIT 100''', (user_id,))]
+            AND state<>'sent' ''' + scope + ' ORDER BY checked_at,created_at' + limit, parameters)]
 
 
 def check_outlook(attempts):
@@ -66,7 +75,7 @@ def check_outlook(attempts):
             creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         if result.returncode == 0:
             data = json.loads(result.stdout.lstrip('\ufeff'))
-            if isinstance(data, list):return data
+            if isinstance(data, list) and all(isinstance(row, dict) for row in data):return data
     except (OSError, subprocess.SubprocessError, ValueError):
         pass
     return unknown

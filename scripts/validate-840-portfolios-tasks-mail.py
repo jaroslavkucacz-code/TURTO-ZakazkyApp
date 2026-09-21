@@ -126,6 +126,13 @@ def source_checks(td):
         assert mail_tracking.check_outlook(mail_tracking.pending(M,row['id']))[0]['state']=='unknown'
         assert run.call_args.kwargs['timeout']==40
         assert run.call_args.kwargs['env']['TURTO_MAIL_PROPERTY']==mail_tracking.PROPERTY
+    # Windows PowerShell's former nested-array bug returned [null, null].
+    # Invalid transport data must not crash reconciliation or confirm sending.
+    for malformed in ('[null,null]', '[null]', '{"state":"sent"}', 'invalid'):
+        with patch.object(mail_tracking.sys,'platform','win32'),patch.object(mail_tracking.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=malformed)):
+            result=mail_tracking.check_outlook(mail_tracking.pending(M,row['id']))
+            assert len(result)==1 and result[0]['token']==token2 and result[0]['state']=='unknown'
+            mail_tracking.record_checks(M,mail_tracking.pending(M,row['id']),result)
     # Complete rollback if a mixed bulk mutation contains somebody else's task.
     access.refresh_session(M,'840 Cizí')
     before=sql(M,'SELECT text FROM tasks WHERE id=?',(shared,))[0][0]
