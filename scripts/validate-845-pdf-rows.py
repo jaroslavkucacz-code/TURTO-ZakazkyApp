@@ -56,6 +56,12 @@ def checks(td):
     assert values['issuer_email_snapshot']=='845-rep@example.test' and values['issuer_contact_snapshot']=='845 Jméno z adresáře'
     editor.locked=True; historical={'salesperson_id':sid,'issuer_email_snapshot':'HISTORIC'}
     offer_parties.salesperson_snapshot(editor,historical);assert historical['issuer_email_snapshot']=='HISTORIC'
+    editor.document['salesperson_snapshot']='HISTORIC NAME'
+    class Variable:
+        def set(self,value):self.value=value
+    editor.salesperson=Variable();editor.salesperson_box=SimpleNamespace(configure=lambda **kwargs:None)
+    offer_parties.refresh_salespeople(editor)
+    assert editor.salesperson.value=='HISTORIC NAME' and editor.salesperson_map=={'HISTORIC NAME':sid}
     with closing(M.db()) as con,con:con.execute("UPDATE people SET email='',phone='' WHERE id=?",(person['id'],))
     editor.locked=False;offer_parties.salesperson_snapshot(editor,values)
     assert values['issuer_email_snapshot']==values['issuer_phone_snapshot']==''

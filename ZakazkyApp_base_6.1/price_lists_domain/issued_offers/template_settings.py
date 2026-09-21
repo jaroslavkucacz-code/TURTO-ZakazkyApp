@@ -38,7 +38,7 @@ class TemplateEditor:
         self.M,self.app=M,app
         self.preview_document=copy.deepcopy(preview_document) if preview_document is not None else None
         self.preview_items=copy.deepcopy(preview_items or [])
-        self.win=M.tk.Toplevel(app);self.win._turto_template_editor=self;self.win.title("PDF šablony – TURTO CRM")
+        self.win=M.tk.Toplevel(app);self.win._turto_template_editor=self;self.win.title("Vzhled nabídky – TURTO Standard" if standard_only else "PDF šablony – TURTO CRM")
         self.win.transient(app)
         M.enable_dialog_maximize(self.win,1440,840)
         self.win.grab_set()
@@ -58,7 +58,7 @@ class TemplateEditor:
         form=M.ttk.Frame(outer,padding=(0,0,10,0));form.grid(row=1,column=1,sticky="nsew")
         form.columnconfigure(0,weight=1);form.rowconfigure(2,weight=1)
         self.name=M.tk.StringVar();M.ttk.Label(form,text="Název šablony").grid(row=0,column=0,sticky="w")
-        M.ttk.Entry(form,textvariable=self.name).grid(row=1,column=0,sticky="ew",pady=(2,8))
+        M.ttk.Entry(form,textvariable=self.name,state='readonly' if standard_only else 'normal').grid(row=1,column=0,sticky="ew",pady=(2,8))
         self.notebook=M.ttk.Notebook(form);self.notebook.grid(row=2,column=0,sticky="nsew")
         self.tabs={}
         for key,title in (("page","Stránka"),("type","Písmo"),("columns","Sloupce"),("blocks","Dolní bloky"),("branding","Záhlaví a zápatí")):
@@ -88,7 +88,7 @@ class TemplateEditor:
         for row,(key,label) in enumerate(specs,2):entry(page,row,label,key)
         check(page,8,"Záhlaví na každé stránce","header_every_page",False)
         check(page,9,"Zápatí na každé stránce","footer_every_page",False)
-        check(page,10,"Aktivní šablona","active",False)
+        if not standard_only:check(page,10,"Aktivní šablona","active",False)
         M.ttk.Label(page,text="Grafika se nepřekresluje ani nepřebarvuje.\nPoměr stran loga zůstává zachovaný.",wraplength=320).grid(row=11,column=0,columnspan=3,sticky="w",pady=12)
         tab=self.tabs["type"]
         for row,(key,label) in enumerate((("title","Nadpis dokumentu"),("font_size","Položky [pt]"),("subgroup_font_size","Podskupiny [pt]"),("category_font_size","Skupiny [pt]"),("row_padding_mm","Odsazení řádku [mm]"),("image_height_mm","Výška obrázku [mm]"),

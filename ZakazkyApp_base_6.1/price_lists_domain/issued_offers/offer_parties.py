@@ -30,6 +30,7 @@ def salesperson_snapshot(editor, values):
         row = con.execute('''SELECT s.name,p.email,p.phone FROM salespeople s
             LEFT JOIN people p ON p.id=s.person_id WHERE s.id=?''', (sid,)).fetchone()
     if row:
+        values['salesperson_snapshot'] = row['name']
         values['issuer_contact_snapshot'] = row['name']
         for field in ('email','phone'):
             values['issuer_'+field+'_snapshot'] = row[field] or ''
@@ -43,6 +44,12 @@ def standard_templates(M):
 
 
 def refresh_salespeople(editor, preserve=False):
+    if getattr(editor,'locked',False) and editor.document_id:
+        saved=str(editor.document.get('salesperson_snapshot') or '')
+        editor.salesperson_map={saved:editor.document.get('salesperson_id')} if saved else {}
+        editor.salesperson.set(saved)
+        editor.salesperson_box.configure(values=tuple(editor.salesperson_map))
+        return
     cid = editor.company_map.get(editor.company.get().strip())
     previous = editor.salesperson_map.get(editor.salesperson.get()) if hasattr(editor, 'salesperson_map') else None
     with closing(editor.M.db()) as con:

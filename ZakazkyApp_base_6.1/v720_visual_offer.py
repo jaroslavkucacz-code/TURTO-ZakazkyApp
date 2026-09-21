@@ -429,17 +429,20 @@ def apply(M) -> None:
             wrap = M.ttk.Frame(self.frame)
             wrap.grid(row=1, column=0, sticky="nsew")
             wrap.columnconfigure(0, weight=1)
-            wrap.rowconfigure(0, weight=1)
+            wrap.rowconfigure(1, weight=1)
+            self.pricing_header = M.tk.Canvas(wrap,height=26,background='#697078',highlightthickness=0,bd=0)
+            self.pricing_header.grid(row=0,column=0,sticky='ew')
             self.canvas = M.tk.Canvas(
                 wrap, background="#697078", highlightthickness=0, bd=0
             )
-            self.canvas.grid(row=0, column=0, sticky="nsew")
+            self.canvas.grid(row=1, column=0, sticky="nsew")
             ys = M.ttk.Scrollbar(wrap, orient="vertical", command=self.canvas.yview)
             xs = M.ttk.Scrollbar(wrap, orient="horizontal", command=self.canvas.xview)
-            ys.grid(row=0, column=1, sticky="ns")
-            xs.grid(row=1, column=0, sticky="ew")
+            ys.grid(row=1, column=1, sticky="ns")
+            xs.grid(row=2, column=0, sticky="ew")
             self.canvas.configure(
-                yscrollcommand=lambda first, last: (ys.set(first, last), self.scrolled()), xscrollcommand=xs.set
+                yscrollcommand=lambda first, last: (ys.set(first, last), self.scrolled()),
+                xscrollcommand=lambda first,last:(xs.set(first,last),self.refresh_price_header())
             )
             self.canvas.bind("<Button-1>", self.on_click)
             self.canvas.bind("<Double-1>", self.on_double_click)
@@ -457,6 +460,10 @@ def apply(M) -> None:
             panel = getattr(self.instance, '_v791_pricing_panel', None)
             if panel is not None: panel.sync_from_preview()
             self.queue_paint()
+
+        def refresh_price_header(self):
+            panel=getattr(self.instance,'_v791_pricing_panel',None)
+            if panel is not None:panel.draw_header()
 
         def destroy(self):
             if self.after_id is not None:

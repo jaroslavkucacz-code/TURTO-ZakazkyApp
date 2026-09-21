@@ -53,11 +53,13 @@ class PricingPanel:
     def draw(self):
         c, p = self.canvas, self.preview
         c.delete('internal_price'); self.cells=[]
-        if not self.visible or not getattr(p, 'page_offsets', None) or not p.geometry_valid: return
+        if not self.visible or not getattr(p, 'page_offsets', None) or not p.geometry_valid:
+            self.draw_header();return
         scale = p.zoom/100
         self.left = 22 + 595.276*scale + 16
         self.width = max(88, 69*scale)
         self.right = self.left + 3*self.width
+        self.draw_header()
         font=('Calibri', -max(10,round(9*scale)))
         def box(region, indices, group=False):
             if not indices: return
@@ -69,17 +71,26 @@ class PricingPanel:
                 c.create_rectangle(x0,y0,x1,y1,fill='#e4edf3' if group else '#f5f8fb',outline='#cdd8df',tags='internal_price')
                 values={self.editor.items[i].get('group_'+field) if group and self.editor.items[i].get('group_'+field) is not None else service.number(self.editor.items[i].get(field)) for i in indices}
                 value=fmt(next(iter(values))) if len(values)==1 else 'Různé'
-                if not group and self.editor.items[indices[0]].get(field.replace('_pct','_override')): value+=' *'
+                if not group and field in group_pricing.FIELDS and self.editor.items[indices[0]].get(field.replace('_pct','_override')): value+=' *'
                 c.create_text(x1-7,(y0+y1)/2,text=value,anchor='e',font=(*font,'bold') if group else font,fill='#183747',tags='internal_price')
                 self.cells.append(dict(x0=x0,x1=x1,y0=y0,y1=y1,indices=indices,field=field,group=group))
-        for offset_x,offset_y in p.page_offsets:
-            c.create_text(self.left,offset_y+8,anchor='nw',text='Interní cenotvorba',fill='white',font=(*font,'bold'),tags='internal_price')
-            for i,label in enumerate(LABELS):
-                c.create_text(self.left+(i+.5)*self.width,offset_y+32*scale,anchor='n',text=label,fill='white',font=font,tags='internal_price')
         for r in getattr(p,'canvas_group_regions',[]):
             if r['kind']=='subgroup': box(r,r['indices'],True)
         for r in p.canvas_regions: box(r,[r['index']])
         p.draw_selection()
+
+    def draw_header(self):
+        header=self.preview.pricing_header
+        header.delete('all')
+        if not self.visible or not hasattr(self,'left'):
+            header.grid_remove();return
+        header.grid()
+        x=self.left-self.canvas.canvasx(0)
+        header.create_rectangle(0,0,max(1,header.winfo_width()),26,fill='#697078',outline='')
+        header.create_text(8,13,anchor='w',text='Přetažením změníte pořadí · dvojklik upraví cenu · * vlastní marže / sleva',fill='white',font=('Calibri',10))
+        for i,label in enumerate(LABELS):
+            header.create_rectangle(x+i*self.width,0,x+(i+1)*self.width,26,fill='#183747',outline='#365565')
+            header.create_text(x+(i+.5)*self.width,13,text=label,fill='white',font=('Calibri',10,'bold'))
 
     def cell_at(self, event):
         x,y=self.canvas.canvasx(event.x),self.canvas.canvasy(event.y)
@@ -101,6 +112,7 @@ class PricingPanel:
     def open_editor(self, cell):
         if self.editor.locked: return
         self.cancel_edit(); self.preview.close_inline()
+        if not cell['group']:self.preview.select(cell['indices'][0])
         self.edit_cell=dict(cell)
         item=self.editor.items[cell['indices'][0]];field=cell['field']
         value=item.get('group_'+field) if cell['group'] else item.get(field)

@@ -97,7 +97,10 @@ def ui_checks(td):
         if '--no-screenshots' in sys.argv:return
         from PIL import ImageGrab
         settle(root,.2)
-        ImageGrab.grab(bbox=(window.winfo_rootx(),window.winfo_rooty(),window.winfo_rootx()+window.winfo_width(),window.winfo_rooty()+window.winfo_height())).save(output/name)
+        if sys.platform=='win32':
+            ImageGrab.grab(window=window.winfo_id()).save(output/name)
+        else:
+            ImageGrab.grab(bbox=(window.winfo_rootx(),window.winfo_rooty(),window.winfo_rootx()+window.winfo_width(),window.winfo_rooty()+window.winfo_height())).save(output/name)
     def walk(widget):
         yield widget
         for c in widget.winfo_children():yield from walk(c)
@@ -243,6 +246,10 @@ def ui_checks(td):
         assert len(stamps)>=3,'The event loop must stay responsive during PDF generation'
         assert max(b-a for a,b in zip(stamps,stamps[1:]))<1.0
         assert len(preview.images)<=3
+        root.apply_theme('Světlý')
+        heading=next(r for r in preview.canvas_group_regions if r['kind']=='category')
+        height=float(preview.canvas.cget('scrollregion').split()[3])
+        preview.canvas.yview_moveto(max(0,heading['y0']-35)/height);settle(root,.2)
         shot(view.win,'offer-aligned-845.png')
         print(f'845 UI: drag/cancel/confirmed reassignment and {len(view.items)} rows with responsive background layout OK ({time.perf_counter()-start:.2f}s)',flush=True)
         assert not errors,errors

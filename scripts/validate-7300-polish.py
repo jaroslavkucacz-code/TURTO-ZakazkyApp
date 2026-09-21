@@ -40,6 +40,7 @@ def main() -> None:
         def __init__(self, root):
             self.root = pathlib.Path(root)
             self.DB = self.root / "test.db"
+            self.connections = []
 
         def db(self):
             con = sqlite3.connect(self.DB)
@@ -48,6 +49,7 @@ def main() -> None:
                 "CZECH", lambda a, b: (str(a) > str(b)) - (str(a) < str(b))
             )
             con.execute("PRAGMA foreign_keys=ON")
+            self.connections.append(con)
             return con
 
         def ensure_schema(self):
@@ -337,6 +339,10 @@ def main() -> None:
         except ValueError as exc:
             raise AssertionError(version) from exc
         assert version_tuple >= (7, 3, 0), version
+        # SQLite's transaction context manager does not close the handle. On
+        # Windows every fixture connection must close before removing test.db.
+        for connection in module.connections:
+            connection.close()
         print(f"TURTO CRM {version} preview, offers and company-merge checks passed")
 
 
