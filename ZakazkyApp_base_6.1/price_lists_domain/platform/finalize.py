@@ -274,7 +274,7 @@ def _patch_safe_manual_archive(M) -> None:
                 else:
                     safe_ids = [
                         int(row[0]) for row in con.execute(
-                            f"SELECT id FROM tasks WHERE id IN ({marks}) AND done=1", tuple(safe_ids)
+                            f"SELECT id FROM visible_tasks WHERE id IN ({marks}) AND done=1", tuple(safe_ids)
                         ).fetchall()
                     ]
             if not safe_ids:

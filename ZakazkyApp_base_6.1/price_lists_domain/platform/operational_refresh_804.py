@@ -261,7 +261,7 @@ def _refresh_tasks_fast(M: Any, app: Any, schedule_separators: Any = None) -> No
     with M.db() as con:
         rows = con.execute(
             """SELECT t.*,a.name action_name
-               FROM tasks t JOIN actions a ON a.id=t.action_id
+               FROM visible_tasks t JOIN actions a ON a.id=t.action_id
                WHERE (?=1 OR COALESCE(t.archived,0)=0)
                  AND (?=1 OR t.done=0 OR COALESCE(t.archived,0)=1)
                ORDER BY COALESCE(t.archived,0),t.done,t.due_date,t.id""",

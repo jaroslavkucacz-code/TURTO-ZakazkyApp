@@ -90,8 +90,8 @@ def apply(M):
                 for iid in t.get_children():t.delete(iid)
                 cutoff=(datetime.datetime.now()-datetime.timedelta(days=14)).strftime('%Y-%m-%d %H:%M:%S')
                 with M.db() as c:
-                    if archive.get():rows=c.execute('SELECT * FROM audit_history WHERE created_at < ? ORDER BY id DESC LIMIT 1000',(cutoff,)).fetchall()
-                    else:rows=c.execute('SELECT * FROM audit_history WHERE created_at >= ? ORDER BY id DESC LIMIT 1000',(cutoff,)).fetchall()
+                    if archive.get():rows=c.execute('SELECT * FROM visible_audit_history WHERE created_at < ? ORDER BY id DESC LIMIT 1000',(cutoff,)).fetchall()
+                    else:rows=c.execute('SELECT * FROM visible_audit_history WHERE created_at >= ? ORDER BY id DESC LIMIT 1000',(cutoff,)).fetchall()
                 for x in rows:
                     rows_by_id[str(x['id'])]=x
                     if archive.get():state='ARCHIV'

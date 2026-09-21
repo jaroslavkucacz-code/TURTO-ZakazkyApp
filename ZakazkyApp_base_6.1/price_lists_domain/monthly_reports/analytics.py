@@ -164,7 +164,8 @@ class Analytics:
     def salespeople(self, year, month, mode='month'):
         start, end = self._where(year, month, mode)
         rows = []
-        groups = [('M','Milan'),('J','Jirka'),('H','Honza'),('OTHER','Nezařazené')]
+        from .constants import CENTER_NAMES
+        groups = [(code,CENTER_NAMES[code]) for code in ('M','J','H')] + [('OTHER','Nezařazené')]
         for code, name in groups:
             if code == 'OTHER':
                 sql = f'''SELECT COALESCE(SUM(base_amount),0) revenue, COUNT(*) cnt

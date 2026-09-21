@@ -148,7 +148,7 @@ def _patch_notification_center(M) -> None:
         user = M.get_setting("active_user", "")
         with M.db() as con:
             tasks = con.execute(
-                """SELECT t.id,t.due_date,t.text,a.name action_name FROM tasks t
+                """SELECT t.id,t.due_date,t.text,a.name action_name FROM visible_tasks t
                    JOIN actions a ON a.id=t.action_id
                    WHERE t.done=0 AND coalesce(t.archived,0)=0
                      AND (trim(coalesce(t.assigned_user,''))='' OR t.assigned_user=?)
@@ -214,7 +214,7 @@ def _patch_header_count(M) -> None:
                          AND trim(coalesce(received_date,''))=''"""
                 ).fetchone()[0]
                 tasks_today = con.execute(
-                    """SELECT COUNT(*) FROM tasks
+                    """SELECT COUNT(*) FROM visible_tasks
                        WHERE done=0 AND coalesce(archived,0)=0 AND due_date<=?""",
                     (date.today().isoformat(),),
                 ).fetchone()[0]

@@ -106,7 +106,7 @@ def render_report(d):
     body='<div class="grid">'+card('Podíl na obratu',charts.shares(sales,'revenue','name'),share_caption(sales,'revenue'))+card('Zisk obchodníků',charts.bars(sales,'profit','name'),'Částkové srovnání; zisk může obsahovat historické souhrny.')+'</div>'
     rows=[(x['name'],money(x['revenue']),profit(x),percent(x['margin']),count(x['count']),money(x['avg_order']),percent(x.get('profit_share')) if k['profit_available'] and k['profit'] else '—') for x in sorted(sales,key=lambda x:x.get('profit') or 0,reverse=True)]
     body+='<div class="break">'+table(('Obchodník','Obrat','Zisk','Marže','DL','Ø hodnota DL','Podíl na zisku'),rows,(16,18,18,11,7,17,13),(1,2,3,4,5,6))+'</div>'
-    body+=notice('J = Jirka · H = Honza · M = Milan. Neznámé a prázdné kódy středisek jsou zahrnuté jako Nezařazené. '+legacy_note(d))
+    body+=notice('J = Jiří Cír · H = Jan Mayer · M = Milan Soukup. Neznámé a prázdné kódy středisek jsou zahrnuté jako Nezařazené. '+legacy_note(d))
     pages.append(('Výkon obchodníků','Obrat, zisk, marže i objem dokladů ve společném období.',body))
 
     # Page 4: customer charts draw from the full customer set, not the top table.

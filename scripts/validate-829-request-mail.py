@@ -109,7 +109,7 @@ def source_checks(td):
         assert parse_qs(urlsplit(browser.call_args.args[0]).query, keep_blank_values=True)['body'] == ['']
     with M.db() as con:
         con.execute('UPDATE requests SET mail_body=?,urgent=1 WHERE id=?', (body, rid))
-    fake = SimpleNamespace(selected_id=lambda *a: rid, request_tree=None)
+    fake = SimpleNamespace(selected_id=lambda *a: rid, request_tree=None, refresh_after_request_change=lambda:None)
     with patch.object(M, 'open_mail_draft') as draft:
         M.App.mail_selected(fake)
         assert draft.call_args.kwargs['body'] == body

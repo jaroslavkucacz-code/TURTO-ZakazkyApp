@@ -221,6 +221,8 @@ def db():
     con.row_factory=sqlite3.Row
     con.create_collation("CZECH",_czech_collate)
     table_search.register_sql(con)
+    from price_lists_domain.platform import task_scope
+    task_scope.connect(con)
     con.execute("PRAGMA foreign_keys=ON")
     con.execute("PRAGMA journal_mode=WAL")
     return con
@@ -1174,7 +1176,11 @@ def ensure_schema():
         );
         CREATE INDEX IF NOT EXISTS idx_action_history_action ON action_history(action_id,created_at);
         """)
+        from price_lists_domain.platform import task_scope
+        task_scope.connect(con)
         company_roles.ensure_columns(con)
+        from price_lists_domain.platform import sales_identity
+        sales_identity.ensure_schema(con)
         from price_lists_domain.maps import model as map_model
         map_model.ensure_schema(con)
         from price_lists_domain.platform.user_access import ensure_columns as ensure_user_access
@@ -1213,6 +1219,9 @@ def ensure_schema():
                        ('Import původního Excelu','Historický záznam')""")
         con.execute("""UPDATE tasks SET assigned_user=created_by
                        WHERE trim(coalesce(assigned_user,''))='' AND trim(coalesce(created_by,''))<>''""")
+        from price_lists_domain.platform import task_scope, mail_tracking
+        task_scope.ensure_schema(con)
+        mail_tracking.ensure_schema(con)
         for col,decl in (
             ("date_created","TEXT DEFAULT ''"),
             ("ares_last_change","TEXT DEFAULT ''"),
@@ -1424,7 +1433,7 @@ def ensure_schema():
                     con.execute("UPDATE people SET company_id=? WHERE id=?",(next(iter(ids)),p["id"]))
 
         # Jednorázově vytvořit základ historie i ze starších dat, pokud historie ještě neexistuje.
-        if con.execute("SELECT COUNT(*) FROM action_history").fetchone()[0]==0:
+        if con.execute("SELECT COUNT(*) FROM visible_action_history").fetchone()[0]==0:
             for a in con.execute("SELECT id,created_date,updated_by FROM actions"):
                 created=(a["created_date"]+" 08:00:00") if a["created_date"] else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 con.execute("""INSERT INTO action_history(action_id,created_at,user_name,event_type,summary,details)
@@ -1495,6 +1504,8 @@ def ensure_schema():
                     con.execute("UPDATE requests SET requested_for_company_id=? WHERE requested_for_company_id=?",(keep_id,did))
                 if has_column(con,"action_history","related_company_id"):
                     con.execute("UPDATE action_history SET related_company_id=? WHERE related_company_id=?",(keep_id,did))
+                con.execute('''INSERT OR IGNORE INTO company_salespeople(company_id,salesperson_id,assigned_at,assigned_by)
+                    SELECT ?,salesperson_id,assigned_at,assigned_by FROM company_salespeople WHERE company_id=?''',(keep_id,did))
                 con.execute("DELETE FROM companies WHERE id=?",(did,))
 
         # Indexy pro nejčastější vazby, filtry a obnovování tabulek.
@@ -1624,13 +1635,16 @@ def find_or_create_company(con,name,ico=""):
         if norm_name(r["official_name"] or r["short_name"])==nn:return r["id"]
     return con.execute("INSERT INTO companies(short_name,official_name,ico) VALUES(?,?,?)",(name,name,ico or "")).lastrowid
 
-def log_history(action_id,event_type,summary,details="",company_id=None,request_id=None,user_name=None,related_request_id=None):
+def log_history(action_id,event_type,summary,details="",company_id=None,request_id=None,user_name=None,related_request_id=None,related_task_id=None):
     if not action_id:
         return
     if related_request_id is not None and request_id is None:
         request_id=related_request_id
     user_name=user_name or get_setting("active_user","")
     with db() as con:
+        if related_task_id is not None:
+            from price_lists_domain.platform import task_scope
+            return task_scope.history(con,related_task_id,user_name,event_type,summary,details)
         con.execute("""INSERT INTO action_history(
             action_id,created_at,user_name,event_type,summary,details,related_company_id,related_request_id
         ) VALUES(?,CURRENT_TIMESTAMP,?,?,?,?,?,?)""",
@@ -1742,7 +1756,7 @@ def build_subject(company_short,action,item,asked,include_action,is_mivo=None):
 
 EMAIL_BODY="Dobrý den,\r\n\r\n\r\n\r\nPředem velice děkuji,"
 
-def open_mail_draft(recipients,subject,cc=CC_ALWAYS,body=None):
+def open_mail_draft(recipients,subject,cc=CC_ALWAYS,body=None,tracking=None):
     recipients=[x.strip() for x in recipients if x and x.strip()]
     body=request_mail.text_lf(EMAIL_BODY if body is None else body).replace("\n","\r\n")
 
@@ -1752,6 +1766,9 @@ def open_mail_draft(recipients,subject,cc=CC_ALWAYS,body=None):
         env["ZAK_CC"]=cc or ""
         env["ZAK_SUBJECT"]=subject or ""
         env["ZAK_BODY"]=body
+        from price_lists_domain.platform.mail_tracking import PROPERTY
+        env["TURTO_MAIL_TOKEN"]=(tracking or {}).get("token", "")
+        env["TURTO_MAIL_PROPERTY"]=PROPERTY
         ps=r"""
 $ErrorActionPreference='Stop'
 try {
@@ -1781,6 +1798,12 @@ try {
   $safe=[System.Net.WebUtility]::HtmlEncode($env:ZAK_BODY).Replace("`r`n","<br>")
   $mail.HTMLBody="<div>"+$safe+"</div>"+$existing
 }
+if ($env:TURTO_MAIL_TOKEN) {
+  # Save a stable correlation property; no subject or recipient matching.
+  $mail.PropertyAccessor.SetProperty($env:TURTO_MAIL_PROPERTY,$env:TURTO_MAIL_TOKEN)
+  $mail.Save()
+  Write-Output ('TURTO_MAIL_SAVED=' + (@{entry_id=[string]$mail.EntryID;store_id=[string]$mail.Parent.StoreID} | ConvertTo-Json -Compress))
+}
 # Return the exact Inspector HWND to the CRM process. Calling Activate() only
 # inside this PowerShell child is not sufficient on Windows because foreground
 # activation may be refused for a non-foreground child process.
@@ -1795,6 +1818,10 @@ try {
                              env=env,capture_output=True,text=True,timeout=20,
                              creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
             if r.returncode==0:
+                if tracking is not None:
+                    match=re.search(r'TURTO_MAIL_SAVED=(.+)',r.stdout or '')
+                    if match:
+                        tracking.update(json.loads(match.group(1)),saved=True)
                 # CRM itself is the foreground process that initiated the user action,
                 # so let CRM bring the exact Outlook Inspector to the foreground.
                 try:
@@ -2757,7 +2784,7 @@ class TaskDialog(tk.Toplevel):
                 ORDER BY trim(name) COLLATE CZECH""").fetchall()
             users=[r["name"] for r in con.execute("SELECT name FROM users WHERE active=1 ORDER BY name COLLATE CZECH")]
             if task_id:
-                r=con.execute("""SELECT t.*,a.name action_name FROM tasks t
+                r=con.execute("""SELECT t.*,a.name action_name FROM visible_tasks t
                                  LEFT JOIN actions a ON a.id=t.action_id WHERE t.id=?""",(task_id,)).fetchone()
                 if r: vals=dict(r)
             elif pre_action_id:
@@ -2768,7 +2795,7 @@ class TaskDialog(tk.Toplevel):
         self.action=tk.StringVar(value=vals.get("action_name",""))
         self.due=tk.StringVar(value=vals.get("due_date",date.today().isoformat()))
         self.text=tk.StringVar(value=vals.get("text",""))
-        self.assigned=tk.StringVar(value=vals.get("assigned_user","") or get_setting("active_user",""))
+        self.assigned=tk.StringVar(value=vals.get("assigned_user","") or request_mail.logged_in_user(sys.modules[__name__],self))
         ttk.Label(f,text="Akce").grid(row=0,column=0,sticky="w",padx=(0,10),pady=5)
         self.action_box=AutocompleteEntry(f,textvariable=self.action,values=[r["name"] for r in actions])
         self.action_box.grid(row=0,column=1,sticky="ew",pady=5)
@@ -2787,35 +2814,19 @@ class TaskDialog(tk.Toplevel):
         ttk.Button(b,text="Zrušit",command=self.destroy).pack(side="right",padx=4)
         ttk.Button(b,text="Uložit",style="Accent.TButton",command=self.ok).pack(side="right")
     def ok(self):
+        from price_lists_domain.platform import task_scope
         an=self.action.get().strip()
         txt=self.text.get().strip()
         due=parse_date(self.due.get())
-        if not an:return messagebox.showwarning("Úkol","Vyberte Příležitost.",parent=self)
+        if not an:return messagebox.showwarning("Úkol","Vyberte Akci.",parent=self)
         if not txt:return messagebox.showwarning("Úkol","Napište, co je potřeba udělat.",parent=self)
         if not due:return messagebox.showwarning("Úkol","Vyplňte termín.",parent=self)
-        user=get_setting("active_user","")
-        assigned=self.assigned.get().strip() or user
-        note=self.note.get("1.0","end").strip()
-        action_id=None
-        event_type="task_create"
-        summary="Přidal úkol"
-        details=f"{fmt_date(due)} · {txt}"
-        with db() as con:
-            a=con.execute("""SELECT MIN(id) id FROM actions
-                                WHERE lower(trim(name))=lower(trim(?))""",(an,)).fetchone()
-            if not a:return messagebox.showwarning("Úkol","Vyberte existující Příležitost.",parent=self)
-            action_id=a["id"]
-            if self.task_id:
-                old=con.execute("SELECT * FROM tasks WHERE id=?",(self.task_id,)).fetchone()
-                con.execute("""UPDATE tasks SET action_id=?,due_date=?,text=?,note=?,assigned_user=?
-                               WHERE id=?""",(action_id,due,txt,note,assigned,self.task_id))
-                event_type="task_edit";summary="Upravil úkol"
-                details=f"{old['due_date'] if old else '—'} / {old['text'] if old else '—'} → {due} / {txt}"
-            else:
-                con.execute("""INSERT INTO tasks(action_id,due_date,text,note,created_by,assigned_user)
-                               VALUES(?,?,?,?,?,?)""",(action_id,due,txt,note,user,assigned))
-        # Historie až PO uzavření zapisovací transakce.
-        log_history(action_id,event_type,summary,details,user_name=user)
+        user=request_mail.logged_in_user(sys.modules[__name__],self)
+        try:
+            self.task_id=task_scope.save(sys.modules[__name__],self.task_id,an,due,txt,
+                self.note.get("1.0","end").strip(),self.assigned.get().strip() or user,user)
+        except (ValueError,sqlite3.Error) as exc:
+            return messagebox.showwarning("Úkol",str(exc),parent=self)
         self.result=True
         self.destroy()
 
@@ -3073,9 +3084,9 @@ class NotificationCenter(tk.Toplevel):
         for x in self.tree.get_children():self.tree.delete(x)
         today=date.today(); horizon=today.toordinal()+3
         with db() as con:
-            tasks=con.execute("""SELECT t.*,a.name action_name FROM tasks t
+            tasks=con.execute("""SELECT t.*,a.name action_name FROM visible_tasks t
                                  JOIN actions a ON a.id=t.action_id
-                                 WHERE t.done=0 AND (trim(coalesce(t.assigned_user,''))='' OR t.assigned_user=?)
+                                 WHERE t.done=0 AND (? IS NOT NULL)
                                  ORDER BY t.due_date,t.id""",(get_setting("active_user",""),)).fetchall()
             actions=con.execute("""SELECT id,name,deadline,status FROM actions
                                    WHERE trim(coalesce(deadline,''))<>'' AND status NOT IN ('Hotovo','Zrušeno')
@@ -3119,7 +3130,7 @@ class NotificationCenter(tk.Toplevel):
         if not s:return
         iid=s[0]
         if iid.startswith("t"):
-            with db() as con:r=con.execute("SELECT action_id FROM tasks WHERE id=?",(int(iid[1:]),)).fetchone()
+            with db() as con:r=con.execute("SELECT action_id FROM visible_tasks WHERE id=?",(int(iid[1:]),)).fetchone()
             if r:self.parent.edit_action_by_id(r["action_id"])
         elif iid.startswith("a"):
             self.parent.edit_action_by_id(int(iid[1:]))
@@ -3271,7 +3282,7 @@ class ActionDialog(tk.Toplevel):
             ys=ttk.Scrollbar(hf,orient="vertical",command=self.history_tree.yview)
             ys.grid(row=0,column=1,sticky="ns");self.history_tree.configure(yscrollcommand=ys.set)
             with db() as con:
-                hist=con.execute("SELECT * FROM action_history WHERE action_id=? ORDER BY datetime(created_at) DESC,id DESC",(aid,)).fetchall()
+                hist=con.execute("SELECT * FROM visible_action_history WHERE action_id=? ORDER BY datetime(created_at) DESC,id DESC",(aid,)).fetchall()
             for h in hist:
                 dt=fmt_history_datetime(h["created_at"])
                 self.history_tree.insert("","end",values=(dt,h["user_name"],h["summary"],h["details"]))
@@ -5653,7 +5664,7 @@ $s.Save()
         with db() as con:
             r=con.execute("SELECT name FROM actions WHERE id=?",(aid,)).fetchone()
             deps=con.execute("SELECT COUNT(*) FROM requests WHERE action_id=?",(aid,)).fetchone()[0]
-            hist=con.execute("SELECT COUNT(*) FROM action_history WHERE action_id=?",(aid,)).fetchone()[0]
+            hist=con.execute("SELECT COUNT(*) FROM visible_action_history WHERE action_id=?",(aid,)).fetchone()[0]
         if not r:return
         msg=f"Opravdu chcete odstranit „{r['name']}“?"
         if deps or hist:
@@ -5741,10 +5752,10 @@ $s.Save()
         s=self.task_tree.selection()
         if not s:return
         tid=int(s[0][1:])
-        with db() as con:r=con.execute("SELECT * FROM tasks WHERE id=?",(tid,)).fetchone()
+        with db() as con:r=con.execute("SELECT * FROM visible_tasks WHERE id=?",(tid,)).fetchone()
         if not r:return
         if not messagebox.askyesno("Smazat úkol",f"Opravdu chcete odstranit úkol „{r['text']}“?\\n\\nUdálost o odstranění zůstane v historii Akce.",parent=self):return
-        log_history(r["action_id"],"task_delete","Odstranil připomínku",f"{fmt_date(r['due_date'])} · {r['text']}",user_name=get_setting("active_user",""))
+        log_history(r["action_id"],"task_delete","Odstranil připomínku",f"{fmt_date(r['due_date'])} · {r['text']}",user_name=request_mail.logged_in_user(sys.modules[__name__],self),related_task_id=tid)
         with db() as con:con.execute("DELETE FROM tasks WHERE id=?",(tid,))
         self.refresh_after_task_change()
 
@@ -5792,10 +5803,10 @@ $s.Save()
         if d.result:self.refresh_after_task_change()
 
     def complete_task_by_id(self,tid):
-        user=get_setting("active_user","")
+        user=request_mail.logged_in_user(sys.modules[__name__],self)
         event=None;action_id=None;text=""
         with db() as con:
-            r=con.execute("SELECT * FROM tasks WHERE id=?",(tid,)).fetchone()
+            r=con.execute("SELECT * FROM visible_tasks WHERE id=?",(tid,)).fetchone()
             if not r:return
             action_id=r["action_id"];text=r["text"]
             if r["done"]:
@@ -5804,7 +5815,7 @@ $s.Save()
             else:
                 con.execute("UPDATE tasks SET done=1,done_at=CURRENT_TIMESTAMP,done_by=? WHERE id=?",(user,tid))
                 event=("task_done","Dokončil připomínku")
-        log_history(action_id,event[0],event[1],text,user_name=user)
+        log_history(action_id,event[0],event[1],text,user_name=user,related_task_id=tid)
         self.refresh_all()
 
     def complete_task(self):
@@ -5863,7 +5874,7 @@ $s.Save()
         uf=self.task_user_filter.get() if hasattr(self,"task_user_filter") else "Všichni"
         for x in self.task_tree.get_children():self.task_tree.delete(x)
         with db() as con:
-            sql="""SELECT t.*,a.name action_name FROM tasks t JOIN actions a ON a.id=t.action_id
+            sql="""SELECT t.*,a.name action_name FROM visible_tasks t JOIN actions a ON a.id=t.action_id
                    WHERE (?=1 OR t.done=0) ORDER BY t.done,t.due_date,t.id"""
             rows=con.execute(sql,(1 if show_done else 0,)).fetchall()
         today=date.today()
@@ -5889,7 +5900,7 @@ $s.Save()
     def notification_count(self):
         today=date.today();horizon=today.toordinal()+3;count=0
         with db() as con:
-            for r in con.execute("SELECT due_date FROM tasks WHERE done=0"):
+            for r in con.execute("SELECT due_date FROM visible_tasks WHERE done=0"):
                 try:d=datetime.strptime(r["due_date"],"%Y-%m-%d").date()
                 except:continue
                 if d.toordinal()<=horizon:count+=1
@@ -5950,7 +5961,7 @@ $s.Save()
                 waiting=con.execute("""SELECT COUNT(*) FROM requests
                                        WHERE trim(coalesce(received_date,''))=''
                                          AND (archived IS NULL OR trim(CAST(archived AS TEXT)) IN ('','0','False','false'))""").fetchone()[0]
-                tasks_today=con.execute("SELECT COUNT(*) FROM tasks WHERE done=0 AND due_date<=?",(date.today().isoformat(),)).fetchone()[0]
+                tasks_today=con.execute("SELECT COUNT(*) FROM visible_tasks WHERE done=0 AND due_date<=?",(date.today().isoformat(),)).fetchone()[0]
             self.today_summary.config(text=f"Dnes: {late} hořící termíny · {waiting} poptávek čeká na odpověď · {tasks_today} úkolů k řešení")
         except:
             pass
@@ -5978,7 +5989,7 @@ $s.Save()
                         WHERE trim(coalesce(received_date,''))='' AND coalesce(no_response,0)=0
                         AND coalesce(archived,0)=0 AND asked_date<>''
                         AND julianday(?) - julianday(asked_date) >= 7""",(date.today().isoformat(),)).fetchone()[0]
-                    due_tasks=con.execute("SELECT COUNT(*) FROM tasks WHERE done=0 AND due_date<=?",(date.today().isoformat(),)).fetchone()[0]
+                    due_tasks=con.execute("SELECT COUNT(*) FROM visible_tasks WHERE done=0 AND due_date<=?",(date.today().isoformat(),)).fetchone()[0]
             except Exception:
                 old_req=due_tasks=0
             parts=[]
@@ -6003,9 +6014,9 @@ $s.Save()
             for x in self.dash_tasks_tree.get_children():self.dash_tasks_tree.delete(x)
             user=get_setting("active_user","")
             with db() as con:
-                tasks=con.execute("""SELECT t.id,t.due_date,t.text,a.name action_name FROM tasks t
+                tasks=con.execute("""SELECT t.id,t.due_date,t.text,a.name action_name FROM visible_tasks t
                                      LEFT JOIN actions a ON a.id=t.action_id
-                                     WHERE t.done=0 AND (trim(coalesce(t.assigned_user,''))='' OR t.assigned_user=?)
+                                     WHERE t.done=0 AND (? IS NOT NULL)
                                      ORDER BY t.due_date,t.id LIMIT 7""",(user,)).fetchall()
             for r in tasks:
                 self.dash_tasks_tree.insert("","end",values=(fmt_date(r["due_date"]),f"{r['text']} · {r['action_name'] or ''}"))
@@ -6431,8 +6442,16 @@ $s.Save()
         subject=r["mail_subject"] or ""
         if request_mail.is_mivo_request(sys.modules[__name__],r):subject=request_mail.mivo_subject(subject)
         if request_mail.flag(r["urgent"]):subject=request_mail.with_urgency(subject,True)
-        open_mail_draft((r["recipients_snapshot"] or "").split(";"),subject,r["cc_snapshot"] or CC_ALWAYS,
-                        body=request_mail.body_for_request(sys.modules[__name__],r))
+        from price_lists_domain.platform import mail_tracking
+        try:
+            token=mail_tracking.begin(sys.modules[__name__],rid,request_mail.logged_in_user(sys.modules[__name__],self))
+            metadata={"token":token}
+            created=open_mail_draft((r["recipients_snapshot"] or "").split(";"),subject,r["cc_snapshot"] or CC_ALWAYS,
+                        body=request_mail.body_for_request(sys.modules[__name__],r),tracking=metadata)
+            if created:mail_tracking.draft_created(sys.modules[__name__],token,metadata)
+            self.refresh_after_request_change()
+        except (ValueError,sqlite3.Error) as exc:
+            messagebox.showwarning("E-mail",str(exc),parent=self)
     def export_people_csv(self):
         path=filedialog.asksaveasfilename(parent=self,title="Export adresáře",defaultextension=".csv",
                                           filetypes=[("CSV","*.csv")],initialfile="adresar_osob.csv")
@@ -6613,7 +6632,7 @@ $s.Save()
                 "příležitostí":con.execute("SELECT COUNT(*) FROM actions WHERE company_id=?",(cid,)).fetchone()[0],
                 "poptávek":con.execute("""SELECT COUNT(*) FROM requests
                                           WHERE company_id=? OR requested_for_company_id=?""",(cid,cid)).fetchone()[0],
-                "historických záznamů":con.execute("SELECT COUNT(*) FROM action_history WHERE related_company_id=?",(cid,)).fetchone()[0],
+                "historických záznamů":con.execute("SELECT COUNT(*) FROM visible_action_history WHERE related_company_id=?",(cid,)).fetchone()[0],
             }
             if con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='report_company_links'").fetchone():
                 deps["vazeb z přehledů"]=con.execute("SELECT COUNT(*) FROM report_company_links WHERE company_id=?",(cid,)).fetchone()[0]
@@ -6765,8 +6784,8 @@ $s.Save()
                 "Příležitosti":con.execute("SELECT COUNT(*) FROM actions").fetchone()[0],
                 "Akce":con.execute("SELECT COUNT(*) FROM projects").fetchone()[0],
                 "Poptávky":con.execute("SELECT COUNT(*) FROM requests").fetchone()[0],
-                "Úkoly":con.execute("SELECT COUNT(*) FROM tasks").fetchone()[0],
-                "Historie":con.execute("SELECT COUNT(*) FROM action_history").fetchone()[0],
+                "Úkoly":con.execute("SELECT COUNT(*) FROM visible_tasks").fetchone()[0],
+                "Historie":con.execute("SELECT COUNT(*) FROM visible_action_history").fetchone()[0],
                 "Uživatelé":con.execute("SELECT COUNT(*) FROM users").fetchone()[0],
             }
             checks=[
@@ -6780,7 +6799,7 @@ $s.Save()
                                                           WHERE r.company_id IS NOT NULL AND c.id IS NULL"""),
                 ("Poptávky bez existující Příležitosti","""SELECT COUNT(*) FROM requests r LEFT JOIN actions a ON a.id=r.action_id
                                                            WHERE r.action_id IS NOT NULL AND a.id IS NULL"""),
-                ("Úkoly bez existující Příležitosti","""SELECT COUNT(*) FROM tasks t LEFT JOIN actions a ON a.id=t.action_id
+                ("Úkoly bez existující Příležitosti","""SELECT COUNT(*) FROM visible_tasks t LEFT JOIN actions a ON a.id=t.action_id
                                                         WHERE t.action_id IS NOT NULL AND a.id IS NULL"""),
             ]
             for label,sql in checks:

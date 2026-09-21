@@ -25,6 +25,14 @@ def open_profile(M, app, parent, uid):
     M.ttk.Label(header, text='Funkce').grid(row=0, column=0, sticky='w', padx=(0, 12))
     title = M.tk.StringVar(master=win, value=original['job_title'])
     M.safe_combobox(header, textvariable=title, values=access.JOB_TITLES).grid(row=0, column=1, sticky='ew')
+    from . import sales_identity
+    with M.db() as con:
+        representatives = sales_identity.choices(con)
+    identities = {'Bez přiřazení': None, **{sales_identity.label(r):r['id'] for r in representatives}}
+    representative = M.tk.StringVar(master=win, value=next((label for label,sid in identities.items() if sid == original['salesperson_id']), 'Bez přiřazení'))
+    M.ttk.Label(header, text='Obchodník / středisko Pohody').grid(row=1,column=0,sticky='w',padx=(0,12),pady=(8,0))
+    M.safe_combobox(header,textvariable=representative,values=tuple(identities),state='readonly').grid(row=1,column=1,sticky='ew',pady=(8,0))
+    win.salesperson_variable = representative
     M.ttk.Label(outer, text='Funkci můžete zvolit nebo napsat vlastní. Přístup nastavte pro každou záložku zvlášť.',
                 wraplength=750).grid(row=1, column=0, sticky='w', pady=(8, 12))
     body = M.ttk.Frame(outer)
@@ -51,7 +59,8 @@ def open_profile(M, app, parent, uid):
     variables = {}
     admin = original['name'].strip().casefold() == 'admin'
     for index, (key, label) in enumerate(access.TITLES.items()):
-        variable = M.tk.StringVar(master=win, value=access.MODES[access.EDIT if admin else modes.get(key, access.EDIT)])
+        default = modes.get('business', access.EDIT) if key == 'portfolio' else access.EDIT
+        variable = M.tk.StringVar(master=win, value=access.MODES[access.EDIT if admin else modes.get(key, default)])
         variables[key] = variable
         M.ttk.Label(fields, text=label).grid(row=index, column=0, sticky='w', pady=4, padx=(0, 16))
         M.safe_combobox(fields, textvariable=variable, values=access.MODES,
@@ -64,11 +73,11 @@ def open_profile(M, app, parent, uid):
         group = M.tk.StringVar(master=win, value='Technika')
         bulk_mode = M.tk.StringVar(master=win, value=access.MODES[access.EDIT])
         M.ttk.Label(bulk, text='Celá sekce:').pack(side='left', padx=(0, 8))
-        M.safe_combobox(bulk, textvariable=group, values=('Technika', 'Adresář', 'Přehledy', 'Všechny záložky'),
+        M.safe_combobox(bulk, textvariable=group, values=('Obchod', 'Technika', 'Adresář', 'Přehledy', 'Všechny záložky'),
                        state='readonly', width=18).pack(side='left')
         M.safe_combobox(bulk, textvariable=bulk_mode, values=access.MODES, state='readonly', width=19).pack(side='left', padx=8)
         def apply_group():
-            key = {'Technika': 'technical', 'Adresář': 'directory', 'Přehledy': 'reports'}.get(group.get())
+            key = {'Obchod': 'business', 'Technika': 'technical', 'Adresář': 'directory', 'Přehledy': 'reports'}.get(group.get())
             for page in access.navigation.GROUPS[key] if key else variables:
                 variables[page].set(bulk_mode.get())
         M.ttk.Button(bulk, text='Nastavit', command=apply_group).pack(side='left')
@@ -78,7 +87,9 @@ def open_profile(M, app, parent, uid):
         try:
             updated = dict(modes)
             updated.update({key: access.MODES.index(var.get()) for key, var in variables.items()})
-            access.save_profile(M, uid, title.get(), updated, (original['job_title'], original['tab_permissions']))
+            access.save_profile(M, uid, title.get(), updated, (original['job_title'], original['tab_permissions']),
+                                salesperson_id=identities[representative.get()],
+                                expected_identity=(original['salesperson_id'],original['person_id']))
         except ValueError as exc:
             return M.messagebox.showwarning('Uživatel', str(exc), parent=win)
         win.result = True

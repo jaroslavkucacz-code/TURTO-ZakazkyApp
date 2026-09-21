@@ -150,7 +150,7 @@ def ui_checks(td):
         main_buttons = sorted(root.main_nav.place_slaves(), key=lambda w: (w.winfo_y(), w.winfo_x()))
         assert [key for widget in main_buttons for key, button in root.nav.items() if button is widget][:3] == ['dash', 'business', 'technical']
         root.show_page('business'); settle(root)
-        assert root._current_page == 'business' and not root.tabs['business'].winfo_children()
+        assert root._current_page == 'portfolio' and root.tabs['portfolio'].winfo_children()
         # Local logged-in user wins over another client's global preference.
         M.set_setting('active_user', '834 Bára')
         d = M.ActionDialog(root); settle(root)
