@@ -5,6 +5,11 @@ from . import user_access as access, catalog_selection
 FIELDS = {'Společnost / kontakt':'name','Telefon':'phone','E-mail':'email','Funkce':'role'}
 
 
+def display_value(column, value):
+    value=str(value or '')
+    return '\u2003\u2003↳  '+value if column=='Společnost / kontakt' else value
+
+
 def rows(M, company_id):
     access.require(M,'people',write=False)
     with closing(M.db()) as con:
@@ -56,12 +61,11 @@ class Editor:
         iid=self.tree.identify_row(event.y)
         region=self.tree.identify_region(event.x,event.y)
         if region not in ('cell','tree') or not iid:return
-        if iid.startswith('c'):
-            if region=='cell':self.tree.item(iid,open=not self.tree.item(iid,'open'))
-            return 'break' if region=='cell' else None
-        if iid.startswith('p') and region=='cell':
-            self.begin(iid,str(self.tree.column(self.tree.identify_column(event.x),'id')))
-            return 'break'
+        # The first press already toggled the native indicator. Never open a
+        # detail or let the Treeview double-click class binding toggle it again.
+        if 'indicator' not in self.tree.identify_element(event.x,event.y):
+            self.ws.open_detail(iid)
+        return 'break'
 
     def begin_selected(self):
         selected=self.tree.selection()
@@ -111,7 +115,7 @@ class Editor:
         self.busy=True
         try:
             save(self.M,self.cid,self.pid,FIELDS[self.column],self.variable.get(),self.original)
-            self.tree.set(self.iid,self.column,self.variable.get().strip())
+            self.tree.set(self.iid,self.column,display_value(self.column,self.variable.get().strip()))
             self.cancel()
             self.ws.app.refresh_people()
             return True
