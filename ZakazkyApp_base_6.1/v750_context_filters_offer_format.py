@@ -1194,6 +1194,10 @@ def apply(M: Any) -> None:
                 command=lambda: request_action(app, tree, "mail_selected"),
             )
             row_menu.add_command(
+                label="Ověřit odeslání v Outlooku",
+                command=lambda: app.check_selected_request_mail(tree),
+            )
+            row_menu.add_command(
                 label="Obdrženo dnes",
                 command=lambda: request_action(app, tree, "mark_received"),
             )

@@ -76,7 +76,7 @@ def isolated_case(source_root: Path, key: str, optimized: bool, helper) -> dict:
     app = SimpleNamespace()
     for name in ("edit_action", "request_from_selected_action", "task_from_selected_action",
                  "delete_action", "edit_request", "mail_selected", "mark_received",
-                 "mark_no_response", "hard_delete_request", "open_offer_detail", "delete_offer"):
+                 "mark_no_response", "hard_delete_request", "open_offer_detail", "delete_offer", "check_selected_request_mail"):
         setattr(app, name, record(name))
     app.offer_tree = tree
     app.mivo_tree = tree if key == "mivo" else None
@@ -276,6 +276,15 @@ def main():
         for key in ("offers", "actions", "requests", "mivo"):
             old = isolated_case(args.baseline, key, False, helper)
             new = isolated_case(BASE, key, True, helper)
+            # 8.0.43 deliberately adds one bulk verification command. Assert
+            # that exact addition and compare every legacy command unchanged.
+            if key in ('requests','mivo'):
+                addition=('command','Ověřit odeslání v Outlooku')
+                callback=('check_selected_request_mail',('tree',))
+                assert new['shapes'][1].count(addition)==1 and new['calls'].count(callback)==1
+                assert new['shapes'][1].index(addition)==new['shapes'][1].index(('command','Vytvořit e-mail'))+1
+                new['shapes'][1].remove(addition)
+                new['calls'].remove(callback)
             for field in ("shapes", "formatting", "calls"):
                 assert old[field] == new[field], (key, field, old[field], new[field])
             records.append({"page": key, "legacy_menus": old["menus_after_51_installs"],

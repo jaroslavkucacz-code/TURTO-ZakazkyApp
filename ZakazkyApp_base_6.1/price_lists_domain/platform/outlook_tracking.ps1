@@ -1,7 +1,11 @@
-# Read-only reconciliation with the already running classic Outlook profile.
+﻿# Read-only reconciliation with the already running classic Outlook profile.
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
-$attempts = @($env:TURTO_MAIL_ATTEMPTS | ConvertFrom-Json)
+# Windows PowerShell 5.1 emits a JSON array as ONE pipeline object. Wrapping
+# that pipeline in @() creates a nested array and breaks per-token lookups.
+$attempts = $env:TURTO_MAIL_ATTEMPTS | ConvertFrom-Json
+$attempts = @($attempts)
+if (-not $attempts.Count) { Write-Output '[]'; return }
 $property = $env:TURTO_MAIL_PROPERTY
 $known = @{}
 $results = @{}
@@ -45,12 +49,21 @@ try {
         if ($watch.Elapsed.TotalSeconds -gt 30) { break }
         try {
             $folder = $store.GetDefaultFolder(5) # olFolderSentMail; independent of translated folder names.
-            try { $items = $folder.Items.Restrict($tokenFilter) }
-            catch { $items = $folder.Items.Restrict($dateFilter) }
-            foreach ($item in $items) {
+            # Some stores return an EMPTY custom-property query even though
+            # the property survives on the sent message. Always reconcile
+            # unresolved tokens through the bounded date query as well.
+            foreach ($filter in @($tokenFilter, $dateFilter)) {
                 if ($watch.Elapsed.TotalSeconds -gt 30 -or $scanned -ge 20000) { break }
-                $scanned++
-                Read-TrackedItem $item $false
+                if (-not @($results.Values | Where-Object { $_.state -ne 'sent' }).Count) { break }
+                try {
+                    $items = $folder.Items.Restrict($filter)
+                    if ($filter -eq $dateFilter) { $items.Sort('[SentOn]', $true) }
+                    foreach ($item in $items) {
+                        if ($watch.Elapsed.TotalSeconds -gt 30 -or $scanned -ge 20000) { break }
+                        $scanned++
+                        Read-TrackedItem $item $false
+                    }
+                } catch {}
             }
         } catch {}
     }
