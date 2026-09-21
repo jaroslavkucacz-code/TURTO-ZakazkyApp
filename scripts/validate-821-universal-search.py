@@ -76,8 +76,11 @@ def run(td):
                     (name, cid, pid, '2099-09-16', 'Rozpracováno')).lastrowid
                 person = con.execute('INSERT INTO people(name,email,company_id) VALUES(?,?,?)',
                     (name, suffix + '@zlutoucka.invalid', cid)).lastrowid
-                task = con.execute('INSERT INTO tasks(action_id,due_date,text,assigned_user) VALUES(?,?,?,?)',
-                    (aid, '2099-09-16', name, 'Žluťoučká')).lastrowid
+                # Interactive tasks belong to their actual creator, including
+                # fixtures used only to exercise compound table searching.
+                session = app._user_access_session
+                task = con.execute('INSERT INTO tasks(action_id,due_date,text,assigned_user,created_by,created_by_user_id) VALUES(?,?,?,?,?,?)',
+                    (aid, '2099-09-16', name, 'Žluťoučká', session.name, session.user_id)).lastrowid
                 rid = con.execute('INSERT INTO requests(company_id,action_id,asked_date,item) VALUES(?,?,?,?)',
                     (cid, aid, '2099-09-16', name)).lastrowid
                 fixture[suffix] = dict(actions='a'+str(aid), projects='p'+str(pid), people='p'+str(person),
