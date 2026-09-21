@@ -222,11 +222,14 @@ def list_templates(M, include_inactive: bool = False) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
-def save_template(M, values: dict[str, Any], template_id: int | None = None) -> int:
+def save_template(M, values: dict[str, Any], template_id: int | None = None, *, standard=False) -> int:
     from . import template_layout
     previous = load_template(M, template_id) if template_id else {}
     values = {**previous, **values}
-    if template_id and previous.get("builtin_key"):
+    if standard:
+        if previous.get("builtin_key") != template_layout.BUILTIN_KEY: raise ValueError("Vyberte šablonu TURTO – Standard.")
+        values.update(name=previous["name"],active=1)
+    if template_id and previous.get("builtin_key") and not (standard and previous["builtin_key"]==template_layout.BUILTIN_KEY):
         raise ValueError("Výchozí firemní šablona je chráněná. Použijte Uložit jako kopii.")
     if template_layout.is_corporate(values):
         layout = template_layout.normalize(values.get("layout_json"))

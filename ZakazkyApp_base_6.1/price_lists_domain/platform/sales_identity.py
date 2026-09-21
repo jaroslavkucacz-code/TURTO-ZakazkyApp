@@ -13,6 +13,13 @@ def key(text):
                            if not unicodedata.combining(c)).casefold().split())
 
 
+def personal_key(text):
+    parts=key(text).split()
+    while parts and parts[0].rstrip('.') in {'ing','mgr','bc','judr','mudr','phdr','rndr','doc','prof'}:
+        parts.pop(0)
+    return ' '.join(parts)
+
+
 def ensure_schema(con):
     for table, columns in {
         'users': (('salesperson_id', 'INTEGER'), ('person_id', 'INTEGER')),
@@ -35,6 +42,7 @@ def ensure_schema(con):
 def migrate(con):
     """One-time alias consolidation; preserve IDs, history, contacts and privileges."""
     if con.execute("SELECT 1 FROM settings WHERE key='migration_sales_identity_840'").fetchone():
+        link_contacts(con)
         return
     for center, name, aliases in PEOPLE:
         accepted = {key(a) for a in aliases}
@@ -70,6 +78,38 @@ def migrate(con):
                 con.execute("""UPDATE users SET salesperson_id=?,person_id=?,
                     job_title=CASE WHEN trim(job_title)='' THEN 'Obchodní zástupce' ELSE job_title END WHERE id=?""", (sid, pid, user['id']))
     con.execute("INSERT INTO settings(key,value) VALUES('migration_sales_identity_840','1')")
+    link_contacts(con)
+
+
+def link_contacts(con):
+    """Directory contacts own personal data; stable sales IDs own business links."""
+    if not con.execute("SELECT 1 FROM settings WHERE key='migration_sales_contacts_845'").fetchone():
+        people=[dict(r) for r in con.execute('SELECT p.*,c.official_name company FROM people p LEFT JOIN companies c ON c.id=p.company_id')]
+        for rep in [dict(r) for r in con.execute('SELECT * FROM salespeople WHERE canonical_id IS NULL')]:
+            current=next((p for p in people if p['id']==rep['person_id']),None)
+            # A unique TURTO contact may replace an empty automatically seeded
+            # contact. Ambiguous or already populated links require an explicit choice.
+            candidates=[p for p in people if personal_key(p['name'])==personal_key(rep['name']) and key(p.get('company')).startswith('turto') and p['active']]
+            if (current is None or (not current.get('email') and not current.get('phone') and not current.get('company_id'))) and len(candidates)==1:
+                current=candidates[0]
+                con.execute('UPDATE salespeople SET person_id=? WHERE id=?',(current['id'],rep['id']))
+            if current is None:
+                pid=con.execute("INSERT INTO people(name,email,role,active) VALUES(?,'','Obchodní zástupce',?)",(rep['name'],rep['active'])).lastrowid
+                con.execute('UPDATE salespeople SET person_id=? WHERE id=?',(pid,rep['id']))
+            elif current['name']!=rep['name']:
+                con.execute('UPDATE salespeople SET name=? WHERE id=?',(current['name'],rep['id']))
+        con.execute('UPDATE users SET person_id=(SELECT person_id FROM salespeople WHERE id=users.salesperson_id) WHERE salesperson_id IS NOT NULL')
+        con.execute("INSERT INTO settings(key,value) VALUES('migration_sales_contacts_845','1')")
+    # Conditions make bidirectional name synchronization safe with SQLite's
+    # recursive_triggers either on or off, including edits from the address book.
+    con.execute('''CREATE TRIGGER IF NOT EXISTS sales_contact_name_845 AFTER UPDATE OF name ON people
+        BEGIN UPDATE salespeople SET name=NEW.name WHERE person_id=NEW.id AND canonical_id IS NULL AND name<>NEW.name; END''')
+    con.execute('''CREATE TRIGGER IF NOT EXISTS sales_person_name_845 AFTER UPDATE OF name ON salespeople
+        WHEN NEW.canonical_id IS NULL BEGIN
+        UPDATE people SET name=NEW.name WHERE id=NEW.person_id AND name<>NEW.name; END''')
+    con.execute('''CREATE TRIGGER IF NOT EXISTS sales_contact_link_845 AFTER UPDATE OF person_id ON salespeople
+        WHEN NEW.canonical_id IS NULL BEGIN
+        UPDATE users SET person_id=NEW.person_id WHERE salesperson_id=NEW.id; END''')
 
 
 def choices(con):

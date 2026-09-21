@@ -62,6 +62,8 @@ class Layout:
         self.page = None
         self.y = self.top
         self.regions = []
+        self.group_regions = []
+        self.current_group = None
         self.continuation_subgroup = ""
         self.image_cache = {}
         self.currency = str(document.get("currency") or "CZK")
@@ -109,9 +111,9 @@ class Layout:
         self.page.insert_text((x, y + font.ascender * size), value,
             fontsize=size, fontname="TRBold" if bold else "TRRegular", color=color or self.ink)
 
-    def lines(self, x, y, lines, bold=False, size=None, color=None, align="left", width=None):
+    def lines(self, x, y, lines, bold=False, size=None, color=None, align="left", width=None, leading=None):
         for index, value in enumerate(lines):
-            self.text(x, y + index*self.leading, value, bold, size, color, align, width)
+            self.text(x, y + index*(leading or self.leading), value, bold, size, color, align, width)
 
     def line(self, y, left=None, right=None, color=None):
         self.page.draw_line((self.left if left is None else left, y),
@@ -212,19 +214,22 @@ class Layout:
         if not self.continuation_subgroup:
             return
         width = self.width - 12
-        lines = self.wrap(self.continuation_subgroup, width, True, self.size-.3)
+        size = self.style["subgroup_font_size"]
+        leading = self.leading * size / self.size
+        lines = self.wrap(self.continuation_subgroup, width, True, size)
         # The complete heading is printed at the group's start. An unusually
         # long name must still leave space for product text/images on repeats.
-        limit = max(1, int(((self.bottom-self.y)/3-7)/self.leading))
+        limit = max(1, int(((self.bottom-self.y)/3-7)/leading))
         if len(lines) > limit:
             lines = lines[:limit]
             tail = lines[-1].rstrip()
-            while tail and self.fonts[1].text_length(tail+"…", fontsize=self.size-.3) > width:
+            while tail and self.fonts[1].text_length(tail+"…", fontsize=size) > width:
                 tail = tail[:-1]
             lines[-1] = tail+"…"
-        height = len(lines)*self.leading+7
+        height = len(lines)*leading+7
         self.page.draw_rect(fitz.Rect(self.left,self.y,self.right,self.y+height),color=None,fill=self.grey)
-        self.lines(self.left+6,self.y+3.5,lines,True,self.size-.3,self.navy)
+        self.lines(self.left+6,self.y+3.5,lines,True,size,self.navy,leading=leading)
+        self.group_region(self.y, self.y+height, "subgroup")
         self.y += height
 
     def ensure(self, height, table=False):
@@ -283,19 +288,27 @@ class Layout:
         self.ensure(self.header_height+45)
         self.table_header()
 
-    def band(self,text,fill,color,bold=True,table=False):
-        lines=self.wrap(text,self.width-12,bold,self.size-.3)
-        height=len(lines)*self.leading+7
+    def group_region(self, y0, y1, kind):
+        if self.current_group is not None:
+            self.group_regions.append(dict(self.current_group, kind=kind, page=self.pdf.page_count-1,
+                x0=self.left, x1=self.right, y0=y0, y1=y1))
+
+    def band(self,text,fill,color,bold=True,table=False,size=None,kind=None):
+        size = size or self.size-.3
+        leading = self.leading * size / self.size
+        lines=self.wrap(text,self.width-12,bold,size)
+        height=len(lines)*leading+7
         capacity=self.bottom-self.top-self.header_height-30
         self.ensure(min(height+30,capacity),table)
         while lines:
-            count=max(0,int((self.bottom-self.y-7)/self.leading))
+            count=max(0,int((self.bottom-self.y-7)/leading))
             if count<1:
                 self.new_page(table);continue
             part,lines=lines[:count],lines[count:]
-            height=len(part)*self.leading+7
+            height=len(part)*leading+7
             self.page.draw_rect(fitz.Rect(self.left,self.y,self.right,self.y+height),color=None,fill=fill)
-            self.lines(self.left+6,self.y+3.5,part,bold,self.size-.3,color)
+            self.lines(self.left+6,self.y+3.5,part,bold,size,color,leading=leading)
+            if kind: self.group_region(self.y, self.y+height, kind)
             self.y += height
             if lines:self.new_page(table)
 
@@ -323,8 +336,10 @@ class Layout:
         description=str(item.get("description") or "")
         if description==name: description=""
         if item.get("line_note"): description += ("\n" if description else "")+str(item["line_note"])
-        values={"position":str(position),"quantity":_qty(item.get("quantity")),"code":code,
-            "unit":str(item.get("unit") or ""),"unit_price":_money(item.get("unit_price"),self.currency),
+        unit = str(item.get("unit") or "").strip()
+        unit = {'KS':'ks','M':'m','M2':'m²','M²':'m²','M3':'m³','M³':'m³','KG':'kg','HOD':'hod','BAL':'bal'}.get(unit,unit)
+        values={"position":str(position),"quantity":(_qty(item.get("quantity"))+" "+unit).strip(),"code":code,
+            "unit":str(item.get("unit") or ""),"unit_price":_money(item.get("unit_price"),self.currency)+("/"+unit if unit else ""),
             "total":_money(item.get("total_price"),self.currency),
             "recommended":_money(item.get("recommended_unit_price"),self.currency) if item.get("show_recommended_price",1) else "",
             "discount":_qty(item.get("discount_pct"))+" %"}
@@ -408,8 +423,9 @@ class Layout:
         def subtotal():
             if in_group and self.style["show_group_subtotals"]:
                 self.ensure(self.leading+12,True)
-                self.text(self.left,self.y+4,"Mezisoučet oddílu bez DPH",size=self.size-.5,color=self.muted)
-                self.text(self.right-140,self.y+4,_money(group_total,self.currency),True,align="right",width=140)
+                self.text(self.left,self.y+4,"Mezisoučet skupiny bez DPH",size=self.size-.5,color=self.muted)
+                total_col = next(c for c in self.columns if c["key"]=="total")
+                self.text(total_col["x0"]+4,self.y+4,_money(group_total,self.currency),True,align="right",width=total_col["width_pt"]-8)
                 self.y += self.leading+12
         tokens=list(tokens)
         def next_row_height(at):
@@ -420,18 +436,25 @@ class Layout:
             return 35
         for at,token in enumerate(tokens):
             if token["kind"]=="group":
-                subtotal(); group_total=0; in_group=True
-                self.continuation_subgroup = ""
                 category=str(token.get("category") or "")
+                if category != last_category:
+                    subtotal(); group_total=0
+                in_group=True
+                self.continuation_subgroup = ""
+                members=[]
+                for following in tokens[at+1:]:
+                    if following["kind"]=="group": break
+                    if following["item"].get("row_type","product")=="product": members.append(following["index"])
+                self.current_group = dict(indices=members, category=category, subgroup=str(token.get("subgroup") or ""))
                 subgroup=str(token.get("subgroup") or "")
                 # At least a header plus the first product row must fit together.
-                headings=[t for t in (category if category!=last_category and category!="Nezařazeno" else "",subgroup if subgroup!="Bez podskupiny" else "") if t]
-                h=sum(len(self.wrap(t,self.width-12,True,self.size-.3))*self.leading+7 for t in headings)
+                headings=[(t,size) for t,size in ((category if category!=last_category and category!="Nezařazeno" else "",self.style["category_font_size"]),(subgroup if subgroup!="Bez podskupiny" else "",self.style["subgroup_font_size"])) if t]
+                h=sum(len(self.wrap(t,self.width-12,True,size))*self.leading*size/self.size+7 for t,size in headings)
                 self.ensure(min(h+next_row_height(at),self.bottom-self.top-self.header_height-30),True)
                 if category and category != last_category and category != "Nezařazeno":
-                    self.band(category,self.red,(1,1,1),True,True)
+                    self.band(category,self.red,(1,1,1),True,True,self.style["category_font_size"],"category")
                 if subgroup and subgroup != "Bez podskupiny":
-                    self.band(subgroup,self.grey,self.navy,True,True)
+                    self.band(subgroup,self.grey,self.navy,True,True,self.style["subgroup_font_size"],"subgroup")
                     self.continuation_subgroup = subgroup
                 last_category=category
                 continue
@@ -525,14 +548,15 @@ class Layout:
                 self.page=self.pdf[i]
                 self.text(self.right-120,HEIGHT-10,f"Strana {i+1}/{self.pdf.page_count}",size=6.5,color=self.muted,align="right",width=120)
             self.pdf.set_metadata({"title":self.document.get("document_number") or self.style["title"],"author":"TURTO s.r.o.","creator":"TURTO CRM · firemní šablona"})
-            self.pdf.subset_fonts()
+            if not self.template.get('_preview_fast'):
+                self.pdf.subset_fonts()
             fd,temp=tempfile.mkstemp(prefix=".turto_pdf_",suffix=".pdf",dir=str(target.parent));os.close(fd)
             try:
                 self.pdf.save(temp,garbage=3,deflate=True)
                 os.replace(temp,target)
             finally:
                 if os.path.exists(temp): os.unlink(temp)
-            return dict(path=target,regions=self.regions,pages=self.pdf.page_count,totals=totals)
+            return dict(path=target,regions=self.regions,group_regions=self.group_regions,pages=self.pdf.page_count,totals=totals)
         finally:
             self.pdf.close()
 

@@ -162,7 +162,12 @@ def ui_checks(td):
         print('844 UI: company-filtered representatives, shared contact create/edit and assignment edit OK',flush=True)
         view._v791_metadata_button.invoke();settle(root,.2)
         def edit(iid,col,value):
-            panel.tree.see(iid);settle(root,.1);panel._open_editor(iid,col)
+            assert panel.cells, (preview.status.get(),getattr(preview,'canvas_group_regions',None))
+            field={'#2':'purchase_unit_price','#3':'margin_pct','#4':'discount_pct'}[col]
+            group=iid.startswith('g')
+            index=0 if group else int(iid[1:])
+            cell=next(c for c in panel.cells if c['group']==group and index in c['indices'] and c['field']==field)
+            panel.open_editor(cell)
             assert panel.edit_widget is not None,(iid,col)
             panel.edit_variable.set(str(value));panel.commit_edit();settle(root,.3)
         edit('g0','#3',30);edit('p0','#3',50);edit('g0','#3',40);edit('g0','#4',10)
@@ -170,29 +175,76 @@ def ui_checks(td):
         assert all(view.items[i]['discount_pct']==10 for i in range(0,46,2))
         preview.refresh();settle(root,.3)
         assert preview.canvas_regions,preview.status.get()
-        drawn=[r['index'] for r in preview.canvas_regions]
-        visible=[int(i[1:]) for i in panel.tree.get_children() if i.startswith('p')]
-        assert visible==list(dict.fromkeys(drawn))
+        def aligned():
+            for r in preview.canvas_regions:
+                cells=[c for c in panel.cells if not c['group'] and c['indices']==[r['index']] and c['y0']==r['y0']]
+                assert len(cells)==3 and all(c['y1']==r['y1'] for c in cells),(r,cells)
+        aligned()
         target=next(r for r in preview.canvas_regions if r['index']==20)
         height=float(preview.canvas.cget('scrollregion').split()[3])
-        preview.canvas.yview_moveto(target['y0']/height);settle(root,.3)
-        first=next(panel.tree.identify_row(y) for y in range(1,65) if panel.tree.identify_row(y))
-        assert first=='p20',first
-        rows=panel.tree.get_children();panel.tree.yview_moveto(rows.index('p12')/len(rows));settle(root,.3)
-        top=preview.canvas.canvasy(0)
-        assert abs(top-next(r for r in preview.canvas_regions if r['index']==12)['y0'])<20
+        preview.canvas.yview_moveto(target['y0']/height);settle(root,.3);aligned()
         stable=preview.canvas.yview();settle(root,.25);assert preview.canvas.yview()==stable
-        preview.change_zoom(-20);settle(root,.4)
-        target=next(r for r in preview.canvas_regions if r['index']==32)
-        height=float(preview.canvas.cget('scrollregion').split()[3])
-        preview.canvas.yview_moveto(target['y0']/height);settle(root,.3)
-        assert panel.tree.bbox('p32')
+        cached=preview.pdf
+        preview.change_zoom(-20);settle(root,.4);aligned()
+        assert preview.pdf is cached,'Zoom must not regenerate the PDF'
+        assert 0<len(preview.images)<=3,'Only visible pages should be rasterized'
         shot(view.win,'offer-synchronized.png')
-        print('844 UI: renderer-order group pricing, both scroll directions, zoom and no feedback loop OK',flush=True)
+        print('845 UI: shared canvas, exact group/line geometry, scroll, lazy pages and cached zoom OK',flush=True)
         did=view.save(quiet=True);assert did
         stored_doc,stored=service.load_document(M,did)
         assert stored_doc['salesperson_id']==d['reps']['H'] and stored_doc['customer_contact_id']==pid
         assert stored[0]['margin_override']==1 and stored[2]['group_margin_pct']==40
+        # Real canvas gestures: same subgroup is immediate, taxonomy changes can
+        # be cancelled and require an explicit confirmation before mutation.
+        def ready():
+            import time
+            limit=time.monotonic()+8
+            while time.monotonic()<limit:
+                settle(root,.05)
+                if preview.render_future is None and preview.canvas_regions and preview.geometry_valid:return
+            raise AssertionError(preview.status.get())
+        ready()
+        def drag(source,target):
+            a=next(r for r in preview.canvas_regions if r['index']==source)
+            b=next(r for r in preview.canvas_regions if r['index']==target)
+            height=float(preview.canvas.cget('scrollregion').split()[3])
+            preview.canvas.yview_moveto(max(0,a['y0']-60)/height);settle(root,.1)
+            x=int(a['x0']+30-preview.canvas.canvasx(0)); y=int((a['y0']+a['y1'])/2-preview.canvas.canvasy(0))
+            # Direct pointer motion still addresses the common canvas coordinate
+            # system when the drop is on a different page.
+            from types import SimpleNamespace
+            panel.press(SimpleNamespace(x=x,y=y))
+            preview.canvas.yview_moveto(max(0,b['y0']-60)/height);settle(root,.1)
+            y2=int(b['y1']-2-preview.canvas.canvasy(0))
+            event=SimpleNamespace(x=x+10,y=y2)
+            panel.motion(event);assert panel.drag_target is not None
+            panel.release(event);ready()
+        first=view.items[0]['name'];drag(0,4)
+        assert [r['name'] for r in view.items].index(first)>[r['name'] for r in view.items].index('Výrobek 004')
+        source=next(i for i,r in enumerate(view.items) if r['name']==first)
+        target=next(i for i,r in enumerate(view.items) if r['subgroup_id']==d['sub2'])
+        import copy
+        unchanged=copy.deepcopy(view.items);prompts=[]
+        M.messagebox.askyesno=lambda *a,**k:(prompts.append(a),False)[1]
+        drag(source,target);assert view.items==unchanged and len(prompts)==1
+        M.messagebox.askyesno=lambda *a,**k:(prompts.append(a),True)[1]
+        price=view.items[source]['unit_price'];drag(source,target)
+        moved=next(r for r in view.items if r['name']==first)
+        assert moved['subgroup_id']==d['sub2'] and moved['unit_price']==price and len(prompts)==2
+        # Editing may continue while a long PDF is generated in another process.
+        view.items=[dict(r,_preview_row_key='stress-'+str(i)) for i,r in enumerate(view.items*10)]
+        view.refresh_items();settle(root,.1)
+        import time
+        stamps=[];start=time.perf_counter()
+        def tick():
+            stamps.append(time.perf_counter())
+            if preview.render_future is not None:root.after(20,tick)
+        root.after(20,tick);ready()
+        assert len(stamps)>=3,'The event loop must stay responsive during PDF generation'
+        assert max(b-a for a,b in zip(stamps,stamps[1:]))<1.0
+        assert len(preview.images)<=3
+        shot(view.win,'offer-aligned-845.png')
+        print(f'845 UI: drag/cancel/confirmed reassignment and {len(view.items)} rows with responsive background layout OK ({time.perf_counter()-start:.2f}s)',flush=True)
         assert not errors,errors
         view.win.destroy();settle(root,.1)
     finally:

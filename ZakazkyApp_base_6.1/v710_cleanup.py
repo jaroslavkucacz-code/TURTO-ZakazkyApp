@@ -59,20 +59,17 @@ def group_offer_items(items: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
         key = (category.casefold(), subgroup.casefold())
         if key in emitted:
             continue
-        emitted.add(key)
-        category, subgroup = labels[key]
-        result.append(
-            {
-                "kind": "group",
-                "category": category,
-                "subgroup": subgroup,
-                "label": f"{category} › {subgroup}",
-            }
-        )
-        for original_index, grouped_item in buckets.get(key, []):
+        # Keep all subgroups of a category together so the category has exactly
+        # one closing subtotal even when source rows arrive interleaved.
+        for group_key in [k for k in buckets if k[0] == key[0] and k not in emitted]:
+            emitted.add(group_key)
+            category, subgroup = labels[group_key]
             result.append(
-                {"kind": "item", "index": original_index, "item": grouped_item}
+                {"kind": "group", "category": category, "subgroup": subgroup,
+                 "label": f"{category} › {subgroup}"}
             )
+            for original_index, grouped_item in buckets[group_key]:
+                result.append({"kind": "item", "index": original_index, "item": grouped_item})
     return result
 
 

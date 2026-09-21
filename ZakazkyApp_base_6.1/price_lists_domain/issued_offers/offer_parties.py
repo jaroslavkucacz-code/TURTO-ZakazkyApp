@@ -20,16 +20,19 @@ def contact_choices(M, company_id):
 
 def salesperson_snapshot(editor, values):
     sid = values.get('salesperson_id')
-    if not sid: return
-    if editor.document_id and sid == editor.document.get('salesperson_id'):
-        return  # A saved offer keeps its issuer contact snapshot until reselected.
+    if not sid:
+        if editor.document.get('salesperson_id'):
+            for field in ('contact','email','phone'): values['issuer_'+field+'_snapshot']=''
+        return
+    if editor.document_id and getattr(editor,'locked',False) and sid == editor.document.get('salesperson_id'):
+        return  # Issued documents retain their historical issuer contact snapshot.
     with closing(editor.M.db()) as con:
         row = con.execute('''SELECT s.name,p.email,p.phone FROM salespeople s
             LEFT JOIN people p ON p.id=s.person_id WHERE s.id=?''', (sid,)).fetchone()
     if row:
         values['issuer_contact_snapshot'] = row['name']
         for field in ('email','phone'):
-            if row[field]: values['issuer_'+field+'_snapshot'] = row[field]
+            values['issuer_'+field+'_snapshot'] = row[field] or ''
 
 
 def standard_templates(M):

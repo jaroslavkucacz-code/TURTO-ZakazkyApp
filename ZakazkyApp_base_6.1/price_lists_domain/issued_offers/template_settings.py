@@ -33,7 +33,8 @@ def sample_offer():
 
 
 class TemplateEditor:
-    def __init__(self,M,app,preview_document=None,preview_items=None):
+    def __init__(self,M,app,preview_document=None,preview_items=None,standard_only=False):
+        self.standard_only=standard_only
         self.M,self.app=M,app
         self.preview_document=copy.deepcopy(preview_document) if preview_document is not None else None
         self.preview_items=copy.deepcopy(preview_items or [])
@@ -53,6 +54,7 @@ class TemplateEditor:
         self.list.bind("<<ListboxSelect>>",self.select)
         for text,cmd in (("Nová firemní šablona",self.new),("Použít jako výchozí",self.make_default),("Export šablony…",self.export),("Import šablony…",self.import_), ("Deaktivovat",self.deactivate)):
             M.ttk.Button(left,text=text,command=cmd).pack(fill="x",pady=(6,0))
+        if standard_only: left.grid_remove()
         form=M.ttk.Frame(outer,padding=(0,0,10,0));form.grid(row=1,column=1,sticky="nsew")
         form.columnconfigure(0,weight=1);form.rowconfigure(2,weight=1)
         self.name=M.tk.StringVar();M.ttk.Label(form,text="Název šablony").grid(row=0,column=0,sticky="w")
@@ -89,12 +91,12 @@ class TemplateEditor:
         check(page,10,"Aktivní šablona","active",False)
         M.ttk.Label(page,text="Grafika se nepřekresluje ani nepřebarvuje.\nPoměr stran loga zůstává zachovaný.",wraplength=320).grid(row=11,column=0,columnspan=3,sticky="w",pady=12)
         tab=self.tabs["type"]
-        for row,(key,label) in enumerate((("title","Nadpis dokumentu"),("font_size","Velikost písma [pt]"),("row_padding_mm","Odsazení řádku [mm]"),("image_height_mm","Výška obrázku [mm]"),
+        for row,(key,label) in enumerate((("title","Nadpis dokumentu"),("font_size","Položky [pt]"),("subgroup_font_size","Podskupiny [pt]"),("category_font_size","Skupiny [pt]"),("row_padding_mm","Odsazení řádku [mm]"),("image_height_mm","Výška obrázku [mm]"),
             ("primary_color","Tmavá barva #RRGGBB"),("section_color","Barva oddílu #RRGGBB"),("subsection_color","Podklad pododdílu #RRGGBB"))):entry(tab,row,label,key,layout=True)
-        check(tab,7,"Jemně střídat podklad řádků","zebra_rows")
-        check(tab,8,"Zobrazit obrázky výrobků","show_images")
-        check(tab,9,"Mezisoučty oddílů","show_group_subtotals")
-        M.ttk.Label(tab,text="Na Windows se používá lokální Calibri; bez něj dostupné náhradní písmo.",wraplength=320).grid(row=10,column=0,columnspan=3,pady=10,sticky="w")
+        check(tab,9,"Jemně střídat podklad řádků","zebra_rows")
+        check(tab,10,"Zobrazit obrázky výrobků","show_images")
+        check(tab,11,"Mezisoučty produktových skupin","show_group_subtotals")
+        M.ttk.Label(tab,text="Na Windows se používá lokální Calibri; bez něj dostupné náhradní písmo.",wraplength=320).grid(row=12,column=0,columnspan=3,pady=10,sticky="w")
         self.build_columns()
         tab=self.tabs["blocks"]
         for row,(key,label) in enumerate((("closing_columns","Podmínky a kontakty vedle sebe"),("show_contacts","Zobrazit důležité kontakty"),("show_salesperson","Zobrazit vystavitele"),("show_vat_summary","Zobrazit také DPH a cenu s DPH"))):check(tab,row,label,key)
@@ -130,6 +132,7 @@ class TemplateEditor:
         self.hint=M.tk.StringVar();M.ttk.Label(outer,textvariable=self.hint,wraplength=1100).grid(row=2,column=0,columnspan=3,sticky="w",pady=8)
         buttons=M.ttk.Frame(outer);buttons.grid(row=3,column=0,columnspan=3,sticky="ew")
         for text,cmd in (("Zavřít",self.close),("Uložit",self.save),("Uložit jako kopii…",lambda:self.save(True)),("Obnovit firemní vzhled",self.reset)):
+            if standard_only and text=="Uložit jako kopii…": continue
             M.ttk.Button(buttons,text=text,command=cmd).pack(side="right",padx=4)
         M.ttk.Button(buttons,text="Nápověda",command=self.help).pack(side="left")
         for var in [self.name,*self.vars.values(),*self.layout_vars.values()]:var.trace_add("write",lambda *_:self.schedule())
@@ -227,9 +230,11 @@ class TemplateEditor:
         for key in ("type","columns","blocks","branding"):self.notebook.tab(self.tabs[key],state="disabled" if self.legacy else "normal")
         self.refresh_columns();self.preview_page=0
         self.hint.set("Původní vzhled: geometrie zůstává upravitelná. Pro nový vzhled vytvořte firemní šablonu." if self.legacy else "Chráněná firemní předloha. Úpravy uložte jako vlastní kopii." if data.get("builtin_key") else "Vlastní šablona. Ukládá se do databáze a aktualizace programu ji nepřepisuje.")
+        if self.standard_only:self.hint.set("Vzhled TURTO – Standard pro náhled i export. Již vydané PDF zůstává zachované.")
         self.baseline=self.signature();self.loading=False;self.schedule()
     def refresh_list(self,selected=None):
         self.templates=service.list_templates(self.M,include_inactive=True)
+        if self.standard_only:self.templates=[t for t in self.templates if t.get("builtin_key")==template_layout.BUILTIN_KEY]
         self.list.delete(0,"end")
         for i,t in enumerate(self.templates):
             self.list.insert("end",("★ " if t.get("is_default") else "")+t["name"]+(" [neaktivní]" if not t.get("active") else ""))
@@ -252,12 +257,12 @@ class TemplateEditor:
             data=self.values();template_id=self.selected
             if not self.legacy and not self.render_preview():
                 raise ValueError(self.status.get())
-            if copy_as or data.get("builtin_key"):
+            if not self.standard_only and (copy_as or data.get("builtin_key")):
                 name=self.M.simpledialog.askstring("Kopie šablony","Název vlastní šablony:",initialvalue=self.name.get()+" – vlastní",parent=self.win)
                 if name is None:return
                 data["name"]=name;data["is_default"]=0;template_id=None
             data.pop("builtin_key",None)
-            result=service.save_template(self.M,data,template_id)
+            result=service.save_template(self.M,data,template_id,standard=self.standard_only)
             self.refresh_list(result);self.load(service.load_template(self.M,result))
             try:self.app.refresh_issued_offers()
             except Exception:pass
@@ -349,8 +354,8 @@ class TemplateEditor:
         self.win.destroy();self.temp.cleanup()
 
 
-def manage_templates(M,app,preview_document=None,preview_items=None):
-    return TemplateEditor(M,app,preview_document,preview_items)
+def manage_templates(M,app,preview_document=None,preview_items=None,standard_only=False):
+    return TemplateEditor(M,app,preview_document,preview_items,standard_only)
 
 
 def install(M):

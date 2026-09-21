@@ -41,15 +41,39 @@ def open_dialog(M, app, parent=None):
         active=M.tk.BooleanVar(master=d,value=bool(old['active']) if old else True)
         M.ttk.Label(f,text='Jméno obchodního zástupce').pack(anchor='w')
         entry=M.ttk.Entry(f,textvariable=name,width=45);entry.pack(fill='x',pady=8);entry.focus_set()
+        with closing(M.db()) as con:
+            contacts=[dict(r) for r in con.execute('''SELECT p.id,p.name,p.email,p.phone,c.official_name company
+                FROM people p LEFT JOIN companies c ON c.id=p.company_id
+                ORDER BY CASE WHEN upper(c.official_name) LIKE 'TURTO%' THEN 0 ELSE 1 END,p.name COLLATE CZECH''')]
+        options={f"{p['name']} · {p['company'] or 'bez společnosti'} · {p['email'] or p['id']}":p for p in contacts}
+        selected=M.tk.StringVar(master=d,value=next((label for label,p in options.items() if old and p['id']==old['person_id']),'Nová osoba'))
+        email=M.tk.StringVar(master=d);phone=M.tk.StringVar(master=d)
+        M.ttk.Label(f,text='Propojená osoba v adresáři').pack(anchor='w')
+        contact_box=M.safe_combobox(f,textvariable=selected,values=('Nová osoba',*options),state='readonly',width=65)
+        contact_box.pack(fill='x',pady=(4,8))
+        def load_contact(event=None):
+            p=options.get(selected.get())
+            if p:
+                name.set(p['name']);email.set(p['email'] or '');phone.set(p['phone'] or '')
+            else:email.set('');phone.set('')
+        contact_box.bind('<<ComboboxSelected>>',load_contact)
+        load_contact()
+        for label,var in (('E-mail',email),('Telefon',phone)):
+            M.ttk.Label(f,text=label).pack(anchor='w')
+            M.ttk.Entry(f,textvariable=var).pack(fill='x',pady=(4,8))
+        M.ttk.Label(f,text='Jméno, e-mail a telefon jsou společné s adresářem a používají se v nových nabídkách.',wraplength=460).pack(anchor='w',pady=5)
         M.ttk.Checkbutton(f,text='Aktivní obchodník',variable=active).pack(anchor='w')
         M.ttk.Label(f,text='Odchod obchodníka řešte deaktivací. Jeho portfolio a historie zůstanou zachované; středisko můžete níže předat nástupci.',wraplength=460).pack(anchor='w',pady=10)
         def commit():
-            try:service.save_person(M,old['id'] if old else None,name.get(),active.get(),(old['name'],old['active']) if old else None)
+            p=options.get(selected.get())
+            contact=dict(person_id=p['id'] if p else None,email=email.get(),phone=phone.get(),
+                         expected=(p['name'],p['email'],p['phone']) if p else None)
+            try:service.save_person(M,old['id'] if old else None,name.get(),active.get(),(old['name'],old['active']) if old else None,contact)
             except (ValueError,M.sqlite3.Error) as exc:return M.messagebox.showwarning('Obchodník',str(exc),parent=d)
             d.destroy();refresh()
         M.ttk.Button(f,text='Uložit',style='Accent.TButton',command=commit).pack(anchor='e')
         d.bind('<Return>',lambda e:commit());d.bind('<Escape>',lambda e:d.destroy())
-        d.name_variable=name;d.active_variable=active;d.save=commit
+        d.name_variable=name;d.active_variable=active;d.email_variable=email;d.phone_variable=phone;d.contact_variable=selected;d.save=commit
         return d
 
     buttons=M.ttk.Frame(body);buttons.pack(fill='x',pady=8)

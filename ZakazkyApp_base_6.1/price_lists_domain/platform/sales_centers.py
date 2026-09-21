@@ -66,22 +66,44 @@ def assign(M, center, salesperson_id, valid_from, expected):
                     (center,salesperson_id,valid_from,session.name if session else ''))
 
 
-def save_person(M, sid, name, active, expected=None):
+def save_person(M, sid, name, active, expected=None, contact=None):
     access.require(M,'settings')
     name=str(name or '').strip()
     if not name:raise ValueError('Vyplňte jméno obchodního zástupce.')
     with closing(M.db()) as con,con:
         con.execute('BEGIN IMMEDIATE')
+        if contact is not None:
+            access.require(M,'people')
+            pid=contact.get('person_id')
+            person=con.execute('SELECT name,email,phone FROM people WHERE id=?',(pid,)).fetchone() if pid else None
+            if pid and not person:raise ValueError('Kontaktní osoba již neexistuje.')
+            if pid and con.execute('SELECT 1 FROM salespeople WHERE person_id=? AND id<>? AND canonical_id IS NULL',(pid,sid or -1)).fetchone():
+                raise ValueError('Tato osoba je již propojená s jiným obchodním zástupcem.')
+            if person and tuple(person)!=tuple(contact.get('expected',())):
+                raise ValueError('Kontaktní údaje se mezitím změnily. Obnovte dialog.')
         if con.execute('SELECT 1 FROM salespeople WHERE lower(trim(name))=lower(?) AND id<>?',(name,sid or -1)).fetchone():
             raise ValueError('Obchodník se stejným jménem už existuje; případně znovu aktivujte původní záznam.')
         if sid:
             old=con.execute('SELECT name,active FROM salespeople WHERE id=? AND canonical_id IS NULL',(sid,)).fetchone()
             if not old or tuple(old)!=expected:raise ValueError('Obchodník byl mezitím změněn. Obnovte přehled.')
+            if contact is not None:
+                if not pid:pid=con.execute("INSERT INTO people(name,email,role) VALUES(?,'','Obchodní zástupce')",(name,)).lastrowid
+                con.execute('UPDATE salespeople SET person_id=? WHERE id=?',(pid,sid))
             con.execute('UPDATE salespeople SET name=?,active=? WHERE id=?',(name,int(active),sid))
         else:
             access.require(M,'people')
-            person=con.execute('SELECT id FROM people WHERE lower(trim(name))=lower(?) ORDER BY active DESC,id LIMIT 1',(name,)).fetchone()
-            pid=person[0] if person else con.execute("INSERT INTO people(name,email,role) VALUES(?,'','Obchodní zástupce')",(name,)).lastrowid
+            if contact is None:
+                matches=con.execute('SELECT id FROM people WHERE lower(trim(name))=lower(?) ORDER BY active DESC,id',(name,)).fetchall()
+                if len(matches)>1:raise ValueError('V adresáři je více osob stejného jména. Vyberte konkrétní osobu.')
+                pid=matches[0][0] if matches else None
+            if not pid:pid=con.execute("INSERT INTO people(name,email,role) VALUES(?,'','Obchodní zástupce')",(name,)).lastrowid
             sid=con.execute('INSERT INTO salespeople(name,active) VALUES(?,?)',(name,int(active))).lastrowid
             con.execute('UPDATE salespeople SET person_id=? WHERE id=?',(pid,sid))
+        if contact is not None:
+            email=str(contact.get('email') or '').strip()
+            phone=str(contact.get('phone') or '').strip()
+            if email and con.execute('SELECT 1 FROM people WHERE lower(email)=lower(?) AND id<>?',(email,pid)).fetchone():
+                raise ValueError('Tento e-mail již má jiná osoba. Vyberte její existující záznam v adresáři.')
+            con.execute('UPDATE salespeople SET person_id=? WHERE id=?',(pid,sid))
+            con.execute('UPDATE people SET name=?,email=?,phone=? WHERE id=?',(name,email,phone,pid))
         return sid

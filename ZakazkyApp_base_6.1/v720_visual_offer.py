@@ -8,6 +8,7 @@ document number, revision or database row.
 from __future__ import annotations
 
 import base64
+import json
 import tempfile
 import threading
 from typing import Any
@@ -162,8 +163,10 @@ def apply(M) -> None:
         from price_lists_domain.issued_offers.template_layout import is_corporate
         template = service.load_template(M, document.get("template_id"))
         if is_corporate(template):
+            template = dict(template, _preview_fast=True)
             result = pdf_renderer.render_offer_snapshot(M, document, items, template, target)
             document["_render_regions"] = result["regions"]
+            document["_group_regions"] = result.get("group_regions", [])
             return document, items
         with _PREVIEW_LOCK:
             original_load = service.load_document
@@ -373,7 +376,15 @@ def apply(M) -> None:
             self.after_id = None
             self.inline_window = None
             self.inline_frame = None
-            self.images = []
+            self.images = {}
+            self.pdf = None
+            self.render_key = None
+            self.render_worker = None
+            self.render_future = None
+            self.future_key = None
+            self.paint_id = None
+            self.page_offsets = []
+            self.canvas_group_regions = []
             self.canvas_regions = []
             self.selected_index = None
             self.zoom = 125
@@ -445,6 +456,7 @@ def apply(M) -> None:
         def scrolled(self):
             panel = getattr(self.instance, '_v791_pricing_panel', None)
             if panel is not None: panel.sync_from_preview()
+            self.queue_paint()
 
         def destroy(self):
             if self.after_id is not None:
@@ -454,6 +466,12 @@ def apply(M) -> None:
                     pass
                 self.after_id = None
             self.close_inline()
+            if self.pdf is not None:
+                self.pdf.close(); self.pdf = None
+            if self.render_worker is not None:
+                self.render_worker.close(); self.render_worker=None
+            if self.paint_id is not None:
+                self.frame.after_cancel(self.paint_id); self.paint_id=None
 
         def on_mousewheel(self, event):
             delta = int(getattr(event, "delta", 0) or 0)
@@ -467,7 +485,7 @@ def apply(M) -> None:
                 self.schedule(180)
 
         def fit_width(self):
-            width = max(320, int(self.canvas.winfo_width() or 800) - 54)
+            width = max(320, int(self.canvas.winfo_width() or 800) - 54 - self.pricing_width())
             self.zoom = max(
                 55, min(185, int(width / float(pdf_renderer.A4_WIDTH) * 100))
             )
@@ -510,93 +528,109 @@ def apply(M) -> None:
             except Exception:
                 self.after_id = None
 
+        def pricing_width(self):
+            panel = getattr(self.instance, '_v791_pricing_panel', None)
+            return 290 if panel is not None and panel.visible else 0
+
+        def queue_paint(self):
+            if self.paint_id is None and self.pdf is not None:
+                self.paint_id = self.frame.after_idle(self.paint_visible)
+
+        def paint_visible(self):
+            self.paint_id = None
+            if self.pdf is None or not self.canvas.winfo_exists(): return
+            top = self.canvas.canvasy(0); bottom = top+self.canvas.winfo_height()
+            height = pdf_renderer.A4_HEIGHT*self.zoom/100
+            wanted = [n for n,(_,y) in enumerate(self.page_offsets) if y+height>=top-100 and y<=bottom+100]
+            for n in list(self.images):
+                if n not in wanted:
+                    self.canvas.delete('page_image_'+str(n)); del self.images[n]
+            missing = next((n for n in wanted if n not in self.images), None)
+            if missing is None: return
+            # Rasterize only one visible page per event-loop turn. A long offer
+            # keeps at most the visible pages in Tk/Pixmap memory.
+            pix = self.pdf[missing].get_pixmap(matrix=fitz.Matrix(self.zoom/100,self.zoom/100),alpha=False)
+            image = M.tk.PhotoImage(data=base64.b64encode(pix.tobytes('png')).decode('ascii'))
+            self.images[missing] = image
+            x,y=self.page_offsets[missing]
+            tag='page_image_'+str(missing)
+            self.canvas.create_image(x,y,anchor='nw',image=image,tags=(tag,'pdf_image'))
+            self.canvas.tag_lower(tag)
+            self.canvas.tag_lower('paper')
+            self.queue_paint()
+
         def refresh(self):
             self.after_id = None
-            if not self.visible:
-                return
+            if not self.visible or not self.instance.win.winfo_exists(): return
+            panel = getattr(self.instance, '_v791_pricing_panel', None)
+            if panel is not None and panel.edit_widget is not None:
+                self.schedule(200); return  # Never interrupt typing or Tab edits.
+            if self.inline_frame is not None:
+                self.schedule(200); return
             try:
-                if not self.instance.win.winfo_exists():
-                    return
-            except Exception:
-                return
-            self.close_inline()
-            try:
-                with tempfile.TemporaryDirectory(prefix="turto_cn_preview_") as temp:
-                    target = f"{temp}/preview.pdf"
-                    document, items = render_preview_pdf(self.instance, target)
-                    pdf = fitz.open(target)
-                    scale = self.zoom / 100.0
-                    self.canvas.delete("all")
-                    self.images = []
-                    self.canvas_regions = []
-                    page_gap = 18
-                    page_x = 22
-                    page_offsets = []
-                    y = page_gap
-                    for page_no, page in enumerate(pdf):
-                        pix = page.get_pixmap(
-                            matrix=fitz.Matrix(scale, scale), alpha=False
-                        )
-                        encoded = base64.b64encode(pix.tobytes("png")).decode("ascii")
-                        image = M.tk.PhotoImage(data=encoded)
-                        self.images.append(image)
-                        width = int(image.width())
-                        height = int(image.height())
-                        self.canvas.create_rectangle(
-                            page_x + 5, y + 6, page_x + width + 5, y + height + 6,
-                            fill="#4f555b", outline="",
-                        )
-                        self.canvas.create_image(
-                            page_x, y, anchor="nw", image=image
-                        )
-                        self.canvas.create_rectangle(
-                            page_x, y, page_x + width, y + height,
-                            outline="#c9cdd1", width=1,
-                        )
-                        page_offsets.append((page_x, y))
-                        y += height + page_gap
-                    page_count = int(pdf.page_count)
-                    pdf.close()
-
-                    for region in row_regions(document, items):
-                        page_no = int(region["page"])
-                        if not 0 <= page_no < len(page_offsets):
-                            continue
-                        offset_x, offset_y = page_offsets[page_no]
-                        self.canvas_regions.append(
-                            {
-                                "index": int(region["index"]),
-                                "x0": offset_x + region["x0"] * scale,
-                                "y0": offset_y + region["y0"] * scale,
-                                "x1": offset_x + region["x1"] * scale,
-                                "y1": offset_y + region["y1"] * scale,
-                            }
-                        )
-                    bbox = self.canvas.bbox("all") or (0, 0, 100, 100)
-                    self.canvas.configure(
-                        scrollregion=(
-                            0, 0, max(bbox[2] + 22, self.canvas.winfo_width()),
-                            bbox[3] + page_gap,
-                        )
-                    )
-                    self.status.set(
-                        f"Náhled používá finální PDF renderer · {page_count} "
-                        f"{'strana' if page_count == 1 else 'strany'}"
-                    )
-                    self.draw_selection()
+                view = getattr(self, '_v730_restore_view', None) or (self.canvas.xview()[0],self.canvas.yview()[0])
+                self._v730_restore_view = None
+                document = preview_document(self.instance)
+                from price_lists_domain.issued_offers.canvas_pricing import ensure_row_keys
+                ensure_row_keys(self.instance.items)
+                items = [dict(i) for i in self.instance.items]
+                template = service.load_template(M,document.get('template_id'))
+                key = json.dumps([document,items,template],sort_keys=True,default=str)
+                if key != self.render_key or self.pdf is None:
+                    from price_lists_domain.issued_offers import preview_worker, template_layout
+                    if template_layout.is_corporate(template):
+                        if self.render_future is not None:
+                            if not self.render_future.done():
+                                self.schedule(80); return
+                            future,self.render_future=self.render_future,None
+                            if self.future_key == key:
+                                result=future.result()
+                                data=result['pdf']
+                                document['_render_regions']=result['regions']
+                                document['_group_regions']=result['group_regions']
+                            else:
+                                self.schedule(10);return  # Discard an obsolete snapshot.
+                        else:
+                            if self.render_worker is None:self.render_worker=preview_worker.Worker()
+                            self.future_key=key
+                            self.render_future=self.render_worker.submit(preview_worker.payload(M,document,items,template))
+                            self.status.set('Aktualizuji náhled PDF… lze pokračovat v úpravách')
+                            self.schedule(80);return
+                    else:
+                        with tempfile.TemporaryDirectory(prefix='turto_cn_preview_') as temp:
+                            target = f'{temp}/preview.pdf'
+                            document,items = render_preview_pdf(self.instance,target)
+                            with open(target,'rb') as stream: data=stream.read()
+                    new_pdf=fitz.open(stream=data,filetype='pdf')
+                    if self.pdf is not None: self.pdf.close()
+                    self.pdf=new_pdf
+                    self.render_document=document;self.render_items=items;self.render_key=key
+                else:
+                    document,items=self.render_document,self.render_items
+                if self.auto_fit:
+                    width=max(320,self.canvas.winfo_width()-54-self.pricing_width())
+                    self.zoom=max(55,min(185,int(width/pdf_renderer.A4_WIDTH*100)))
+                    self.zoom_label.set(f'{self.zoom} %')
+                scale=self.zoom/100; height=pdf_renderer.A4_HEIGHT*scale
+                self.canvas.delete('all');self.images={};self.page_offsets=[]
+                for n in range(self.pdf.page_count):
+                    x,y=22,18+n*(height+18);self.page_offsets.append((x,y))
+                    self.canvas.create_rectangle(x,y,x+pdf_renderer.A4_WIDTH*scale,y+height,fill='white',outline='#c9cdd1',tags='paper')
+                def transform(region):
+                    x,y=self.page_offsets[int(region['page'])]
+                    return dict(region,x0=x+region['x0']*scale,x1=x+region['x1']*scale,
+                        y0=y+region['y0']*scale,y1=y+region['y1']*scale)
+                self.canvas_regions=[transform(r) for r in row_regions(document,items)]
+                self.canvas_group_regions=[transform(r) for r in document.get('_group_regions',[])]
+                if panel is not None: panel.refresh()
+                bbox=self.canvas.bbox('all') or (0,0,100,100)
+                self.canvas.configure(scrollregion=(0,0,max(bbox[2]+22,self.canvas.winfo_width()),bbox[3]+18))
+                self.canvas.xview_moveto(0 if self.auto_fit else view[0])
+                self.canvas.yview_moveto(view[1])
+                self.status.set(f'Živý náhled PDF · {self.pdf.page_count} str. · dvojklik upraví řádek')
+                self.draw_selection();self.queue_paint()
             except Exception as exc:
-                self.canvas.delete("all")
-                self.images = []
-                self.canvas.create_text(
-                    24, 24, anchor="nw", fill="white",
-                    font=("Calibri", 12, "bold"),
-                    text="Náhled PDF se nepodařilo vytvořit.",
-                )
-                self.canvas.create_text(
-                    24, 54, anchor="nw", fill="white", width=700,
-                    font=("Calibri", 10), text=str(exc),
-                )
-                self.status.set("Náhled není dostupný – data lze dál upravovat v tabulce.")
+                self.status.set('Náhled se nepodařilo obnovit: '+str(exc))
 
         def region_at(self, x, y):
             for region in self.canvas_regions:
@@ -608,6 +642,7 @@ def apply(M) -> None:
             return None
 
         def on_click(self, event):
+            if not getattr(self, 'geometry_valid', True):return
             region = self.region_at(
                 self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
             )
@@ -654,7 +689,8 @@ def apply(M) -> None:
             if region is None:
                 return
             self.canvas.create_rectangle(
-                region["x0"], region["y0"], region["x1"], region["y1"],
+                region["x0"], region["y0"],
+                getattr(getattr(self.instance, "_v791_pricing_panel", None), "right", region["x1"]) if self.pricing_width() else region["x1"], region["y1"],
                 outline="#d7a51c", width=3, tags=("v720_selection",),
             )
             self.canvas.tag_raise("v720_selection")

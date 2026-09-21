@@ -160,7 +160,7 @@ def main():
             assert '9876543' not in text and '9876' not in text and 'Marže' not in text
             # OS fonts may extract a visible space as NBSP or wrap a heading.
             normalized_text=' '.join(text.split())
-            for heading in ('Název / popis','Cena celkem','Množ.'):
+            for heading in ('Název / popis','Cena celkem','Množství','Jednotková cena'):
                 assert heading in normalized_text, (ascii(heading),ascii(text),final[0].get_fonts())
             assert len(final[0].get_images())>=3
         old_hash=hashlib.sha256(target.read_bytes()).hexdigest()
