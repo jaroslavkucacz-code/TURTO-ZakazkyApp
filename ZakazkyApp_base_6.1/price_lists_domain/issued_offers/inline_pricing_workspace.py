@@ -212,7 +212,9 @@ class PricingPanel:
         preview = getattr(self.editor, '_v720_preview', None)
         if self._syncing or self._refreshing or preview is None or not preview.canvas_regions: return
         top = preview.canvas.canvasy(0)
-        region = next((r for r in preview.canvas_regions if r['y1'] > top), preview.canvas_regions[-1])
+        # Canvas positions round to whole screen pixels. Ignore a clipped border
+        # from the preceding item instead of keeping pricing one row behind.
+        region = next((r for r in preview.canvas_regions if r['y1'] > top + 2), preview.canvas_regions[-1])
         iid = 'p'+str(region['index'])
         rows = self.tree.get_children()
         if iid not in rows: return

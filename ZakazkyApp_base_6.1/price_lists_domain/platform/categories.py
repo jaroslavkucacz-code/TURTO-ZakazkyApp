@@ -356,6 +356,8 @@ def choose_taxonomy(
     current_category_id=None, current_subgroup_id=None,
 ):
     from .taxonomy_tree import choose
+    if current_subgroup_id:
+        current_category_id = subgroup_parent_id(M, current_subgroup_id) or current_category_id
     return choose(M, parent, title, current_category_id, current_subgroup_id)
 
 
