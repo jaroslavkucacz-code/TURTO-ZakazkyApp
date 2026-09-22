@@ -45,6 +45,9 @@ class TemplateEditor:
         self.selected=None;self.loaded={};self.loading=True;self.pending=None;self.preview_page=0
         self.preview_valid=False;self.preview_images=[];self.temp=tempfile.TemporaryDirectory(prefix="turto_template_")
         self.preview_target=Path(self.temp.name)/"preview.pdf"
+        self.subgroup_rules=[];self.preview_generation=0;self.preview_worker=None
+        self.preview_job=None;self.preview_poll=None;self.disposed=False
+        self.preview_mode=M.tk.StringVar(value='Aktuální nabídka' if preview_document is not None else 'Vybrané podskupiny – ukázka')
         outer=M.ttk.Frame(self.win,padding=12);outer.pack(fill="both",expand=True)
         outer.columnconfigure(1,weight=1);outer.columnconfigure(2,weight=2);outer.rowconfigure(1,weight=1)
         M.ttk.Label(outer,text="PDF šablony vydaných nabídek",font=("Calibri",16,"bold")).grid(row=0,column=0,columnspan=3,sticky="w",pady=(0,10))
@@ -61,7 +64,7 @@ class TemplateEditor:
         M.ttk.Entry(form,textvariable=self.name,state='readonly' if standard_only else 'normal').grid(row=1,column=0,sticky="ew",pady=(2,8))
         self.notebook=M.ttk.Notebook(form);self.notebook.grid(row=2,column=0,sticky="nsew")
         self.tabs={}
-        for key,title in (("page","Stránka"),("type","Písmo"),("columns","Sloupce"),("blocks","Dolní bloky"),("branding","Záhlaví a zápatí")):
+        for key,title in (("subgroups","Podskupiny"),("columns","Společné sloupce"),("page","Stránka"),("type","Písmo"),("blocks","Texty"),("branding","Značka")):
             tab=M.ttk.Frame(self.notebook,padding=10);tab.columnconfigure(1,weight=1)
             self.notebook.add(tab,text=title);self.tabs[key]=tab
         self.vars={};self.layout_vars={}
@@ -89,7 +92,7 @@ class TemplateEditor:
         check(page,8,"Záhlaví na každé stránce","header_every_page",False)
         check(page,9,"Zápatí na každé stránce","footer_every_page",False)
         if not standard_only:check(page,10,"Aktivní šablona","active",False)
-        M.ttk.Label(page,text="Grafika se nepřekresluje ani nepřebarvuje.\nPoměr stran loga zůstává zachovaný.",wraplength=320).grid(row=11,column=0,columnspan=3,sticky="w",pady=12)
+        M.ttk.Label(page,text="Firemní záhlaví navazuje na šířku tabulky.\nPoměr stran loga zůstává zachovaný.",wraplength=320).grid(row=11,column=0,columnspan=3,sticky="w",pady=12)
         tab=self.tabs["type"]
         for row,(key,label) in enumerate((("title","Nadpis dokumentu"),("font_size","Položky [pt]"),("subgroup_font_size","Podskupiny [pt]"),("category_font_size","Skupiny [pt]"),("row_padding_mm","Odsazení řádku [mm]"),("image_height_mm","Výška obrázku [mm]"),
             ("primary_color","Tmavá barva #RRGGBB"),("section_color","Barva oddílu #RRGGBB"),("subsection_color","Podklad pododdílu #RRGGBB"))):entry(tab,row,label,key,layout=True)
@@ -98,6 +101,8 @@ class TemplateEditor:
         check(tab,11,"Mezisoučty produktových skupin","show_group_subtotals")
         M.ttk.Label(tab,text="Na Windows se používá lokální Calibri; bez něj dostupné náhradní písmo.",wraplength=320).grid(row=12,column=0,columnspan=3,pady=10,sticky="w")
         self.build_columns()
+        from .subgroup_settings import SubgroupSettings
+        self.subgroups=SubgroupSettings(self,self.tabs['subgroups'])
         tab=self.tabs["blocks"]
         for row,(key,label) in enumerate((("closing_columns","Podmínky a kontakty vedle sebe"),("show_contacts","Zobrazit důležité kontakty"),("show_salesperson","Zobrazit vystavitele"),("show_vat_summary","Zobrazit také DPH a cenu s DPH"))):check(tab,row,label,key)
         self.texts={}
@@ -120,14 +125,12 @@ class TemplateEditor:
         preview=M.ttk.Frame(outer);preview.grid(row=1,column=2,sticky="nsew")
         preview.columnconfigure(0,weight=1);preview.rowconfigure(1,weight=1)
         self.status=M.tk.StringVar()
-        M.ttk.Label(preview,text="Náhled aktuální nabídky – bez uložení" if self.preview_document is not None else "Náhled šablony – ukázková data",font=("Calibri",11,"bold")).grid(row=0,column=0,sticky="w")
-        self.canvas=M.tk.Canvas(preview,background="#E4E7E9",highlightthickness=0,width=420,height=600)
-        self.canvas.grid(row=1,column=0,sticky="nsew",pady=5)
-        self.canvas.bind("<Configure>",lambda e:self.schedule())
-        navigation=M.ttk.Frame(preview);navigation.grid(row=2,column=0,sticky="ew")
-        M.ttk.Button(navigation,text="‹",width=4,command=lambda:self.change_page(-1)).pack(side="left")
-        M.ttk.Button(navigation,text="›",width=4,command=lambda:self.change_page(1)).pack(side="left")
-        M.ttk.Button(navigation,text="Otevřít PDF",command=self.open_preview).pack(side="right")
+        sources=(['Aktuální nabídka'] if self.preview_document is not None else [])+['Vybrané podskupiny – ukázka']
+        source=M.ttk.Combobox(preview,textvariable=self.preview_mode,values=sources,state='readonly',width=35)
+        source.grid(row=0,column=0,sticky='ew')
+        source.bind('<<ComboboxSelected>>',lambda e:self.schedule())
+        from .template_preview import TemplatePreview
+        self.viewer=TemplatePreview(self,preview);self.canvas=self.viewer.canvas
         M.ttk.Label(preview,textvariable=self.status,wraplength=420).grid(row=3,column=0,sticky="w",pady=5)
         self.hint=M.tk.StringVar();M.ttk.Label(outer,textvariable=self.hint,wraplength=1100).grid(row=2,column=0,columnspan=3,sticky="w",pady=8)
         buttons=M.ttk.Frame(outer);buttons.grid(row=3,column=0,columnspan=3,sticky="ew")
@@ -137,6 +140,7 @@ class TemplateEditor:
         M.ttk.Button(buttons,text="Nápověda",command=self.help).pack(side="left")
         for var in [self.name,*self.vars.values(),*self.layout_vars.values()]:var.trace_add("write",lambda *_:self.schedule())
         self.win.protocol("WM_DELETE_WINDOW",self.close)
+        self.win.bind('<Destroy>',lambda e:self.dispose() if e.widget is self.win else None,add='+')
         self.win.bind("<Escape>",lambda e:self.close())
         self.win.bind("<Control-s>",lambda e:self.save())
         self.win.bind("<F5>",lambda e:self.render_preview())
@@ -206,7 +210,7 @@ class TemplateEditor:
     def raw_values(self):
         data={**self.loaded,"name":self.name.get(),**{k:v.get() for k,v in self.vars.items()}}
         if not self.legacy:
-            layout={**self.layout,**{k:v.get() for k,v in self.layout_vars.items()},"columns":copy.deepcopy(self.columns)}
+            layout={**self.layout,**{k:v.get() for k,v in self.layout_vars.items()},"columns":copy.deepcopy(self.columns),"subgroup_layouts":copy.deepcopy(self.subgroup_rules)}
             layout.update({k:t.get("1.0","end-1c") for k,t in self.texts.items()})
             data["layout_json"]=json.dumps(layout,ensure_ascii=False,sort_keys=True)
         return data
@@ -224,10 +228,12 @@ class TemplateEditor:
         self.legacy=not template_layout.is_corporate(data)
         self.layout=template_layout.normalize(data.get("layout_json")) if not self.legacy else copy.deepcopy(template_layout.DEFAULT)
         self.columns=copy.deepcopy(self.layout["columns"])
+        self.subgroup_rules=copy.deepcopy(self.layout['subgroup_layouts'])
         for k,v in self.vars.items():v.set(data.get(k,True if k in {"active","header_every_page","footer_every_page"} else ""))
         for k,v in self.layout_vars.items():v.set(self.layout[k])
         for k,t in self.texts.items():t.delete("1.0","end");t.insert("1.0",self.layout[k]);t.edit_modified(False)
-        for key in ("type","columns","blocks","branding"):self.notebook.tab(self.tabs[key],state="disabled" if self.legacy else "normal")
+        for key in ("type","columns","blocks","branding","subgroups"):self.notebook.tab(self.tabs[key],state="disabled" if self.legacy else "normal")
+        self.subgroups.load()
         self.refresh_columns();self.preview_page=0
         self.hint.set("Původní vzhled: geometrie zůstává upravitelná. Pro nový vzhled vytvořte firemní šablonu." if self.legacy else "Chráněná firemní předloha. Úpravy uložte jako vlastní kopii." if data.get("builtin_key") else "Vlastní šablona. Ukládá se do databáze a aktualizace programu ji nepřepisuje.")
         if self.standard_only:self.hint.set("Vzhled TURTO – Standard pro náhled i export. Již vydané PDF zůstává zachované.")
@@ -298,43 +304,99 @@ class TemplateEditor:
     def schedule(self):
         if self.loading:return
         self.preview_valid=False
+        self.preview_generation+=1
+        if hasattr(self,'subgroups'):self.subgroups.refresh_choices()
         if self.pending is not None:
             try:self.win.after_cancel(self.pending)
             except Exception:pass
-        self.pending=self.win.after(400,self.render_preview)
+        self.pending=self.win.after(300,self.start_preview)
+
+    def preview_data(self):
+        if self.preview_mode.get()=='Aktuální nabídka' and self.preview_document is not None:
+            return copy.deepcopy(self.preview_document),copy.deepcopy(self.preview_items)
+        doc,items=sample_offer()
+        selected=self.subgroups.targets()
+        if selected:
+            examples=[]
+            for record in selected[:8]:
+                for i in range(2):
+                    item=dict(items[i],category_id=record['category_id'],subgroup_id=record['subgroup_id'],
+                              category_name_snapshot=record['category'],subgroup_name_snapshot=record['subgroup'],
+                              name=f'Ukázkový výrobek {i+1}',description='Technický popis výrobku; rozměry a provedení dle specifikace.',
+                              line_note='Ukázková poznámka k položce',discount_pct=5,unit_price=items[i]['unit_price']*.95)
+                    examples.append(item)
+            items=examples
+        return doc,items
+
+    def preview_status(self):
+        label='Aktuální nabídka' if self.preview_mode.get()=='Aktuální nabídka' else 'Ukázkové údaje'
+        if self.preview_mode.get()!='Aktuální nabídka' and len(self.subgroups.targets())>8:label+=' (prvních 8 vybraných podskupin)'
+        self.status.set(f'{label} · {self.page_count} stran. Kliknutím vyberete podskupinu.'+
+                        (' Změny nejsou uložené.' if self.signature()!=self.baseline else ''))
+
+    def accept_preview(self,result,items):
+        self.viewer.load(self.preview_target,result,items)
+        self.viewer.select_scopes(self.subgroups.targets())
+        self.preview_result=result;self.last_preview_items=items
+        self.page_count=len(self.viewer.pdf);self.preview_valid=True;self.preview_status()
+
+    def start_preview(self):
+        self.pending=None
+        if self.disposed:return
+        if self.preview_job is not None:
+            self.pending=self.win.after(60,self.start_preview);return
+        if self.legacy:
+            self.viewer.clear();self.status.set('Původní šablona – pro nový náhled zvolte firemní vzhled.');return
+        try:
+            from . import preview_worker
+            data=self.values();doc,items=self.preview_data()
+            if not doc.get('document_number'):doc['document_number']='NÁHLED NABÍDKY'
+            payload=preview_worker.payload(self.M,doc,items,data)
+            if self.preview_worker is None:self.preview_worker=preview_worker.Worker()
+            self.preview_job=(self.preview_generation,self.preview_worker.submit(payload),items)
+            self.status.set('Aktualizuji náhled…')
+            self.preview_poll=self.win.after(40,self.poll_preview)
+        except Exception as exc:
+            self.status.set(str(exc));self.viewer.clear()
+
+    def poll_preview(self):
+        self.preview_poll=None
+        if self.disposed or self.preview_job is None:return
+        generation,future,items=self.preview_job
+        if not future.done():
+            self.preview_poll=self.win.after(40,self.poll_preview);return
+        self.preview_job=None
+        if generation!=self.preview_generation:return
+        try:
+            result=future.result();self.preview_target.write_bytes(result['pdf'])
+            self.accept_preview(result,items)
+        except Exception as exc:
+            self.status.set(str(exc));self.viewer.clear();self.preview_valid=False
+
     def render_preview(self):
+        self.preview_generation+=1
         if self.pending is not None:
             try:self.win.after_cancel(self.pending)
             except Exception:pass
         self.pending=None
         self.preview_valid=False
         if self.legacy:
-            self.canvas.delete("all");self.status.set("Původní šablona – pro nový náhled zvolte firemní vzhled.");return
+            self.viewer.clear();self.status.set("Původní šablona – pro nový náhled zvolte firemní vzhled.");return
         try:
             from . import pdf_renderer
             data=self.values()
-            doc,items=(copy.deepcopy(self.preview_document),copy.deepcopy(self.preview_items)) if self.preview_document is not None else sample_offer()
+            doc,items=self.preview_data()
             if not doc.get("document_number"): doc["document_number"]="NÁHLED NABÍDKY"
-            pdf_renderer.render_offer_snapshot(self.M,doc,items,data,self.preview_target)
-            self.show_page();self.preview_valid=True;self.status.set(f"Ukázka: strana {self.preview_page+1}/{self.page_count}. Změny nejsou uložené." if self.signature()!=self.baseline else f"Ukázka: strana {self.preview_page+1}/{self.page_count}.")
+            result=pdf_renderer.render_offer_snapshot(self.M,doc,items,data,self.preview_target)
+            self.accept_preview(result,items)
             return True
         except Exception as exc:
-            self.status.set(str(exc));self.canvas.delete("all");self.preview_images=[]
+            self.status.set(str(exc));self.viewer.clear();self.preview_images=[]
             return False
     def show_page(self):
-        import fitz
-        from PIL import Image,ImageTk
-        with fitz.open(self.preview_target) as pdf:
-            self.page_count=pdf.page_count;self.preview_page=max(0,min(self.preview_page,self.page_count-1))
-            page=pdf[self.preview_page]
-            width=max(100,self.canvas.winfo_width()-20);height=max(100,self.canvas.winfo_height()-20)
-            scale=min(width/page.rect.width,height/page.rect.height,2)
-            pix=page.get_pixmap(matrix=fitz.Matrix(scale,scale),alpha=False)
-            photo=ImageTk.PhotoImage(Image.frombytes("RGB",(pix.width,pix.height),pix.samples),master=self.win)
-        self.canvas.delete("all");self.preview_images=[photo]
-        self.canvas.create_image(max(0,(self.canvas.winfo_width()-pix.width)/2),8,image=photo,anchor="nw")
+        self.viewer.draw()
     def change_page(self,delta):
-        if self.preview_valid and self.preview_target.exists():self.preview_page+=delta;self.show_page();self.preview_valid=True;self.status.set(f"Ukázka: strana {self.preview_page+1}/{self.page_count}.")
+        if self.preview_valid:self.viewer.change_page(delta)
     def open_preview(self):
         if self.render_preview() and self.preview_target.exists():service.open_path(self.preview_target)
     def help(self):
@@ -351,7 +413,17 @@ class TemplateEditor:
         if self.pending is not None:
             try:self.win.after_cancel(self.pending)
             except Exception:pass
-        self.win.destroy();self.temp.cleanup()
+        self.dispose();self.win.destroy()
+
+    def dispose(self):
+        if self.disposed:return
+        self.disposed=True
+        for token in (self.pending,self.preview_poll):
+            if token is not None:
+                try:self.win.after_cancel(token)
+                except Exception:pass
+        if self.preview_worker is not None:self.preview_worker.close()
+        self.viewer.close();self.temp.cleanup()
 
 
 def manage_templates(M,app,preview_document=None,preview_items=None,standard_only=False):

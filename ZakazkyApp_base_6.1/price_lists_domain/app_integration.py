@@ -63,9 +63,8 @@ def _install_settings(module):
     def build_settings(self, *args, **kwargs):
         result = old_settings(self, *args, **kwargs)
         try:
-            page = self.tabs["settings"]
-            card = module.ttk.Frame(page, style="Panel.TFrame", padding=18)
-            card.pack(fill="x", pady=(10, 0))
+            from .platform.settings_layout import card as settings_card
+            card = settings_card(self, "data")
             module.ttk.Label(
                 card,
                 text="Trvalý archiv Ceníků",

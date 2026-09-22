@@ -12,7 +12,8 @@ LIMIT=16*1024*1024
 
 
 def export_template(M, template, target):
-    layout=template_layout.normalize(template.get("layout_json"))
+    from .subgroup_layout import portable
+    layout=portable(template_layout.normalize(template.get("layout_json")))
     data=template_layout.validate_geometry(template,layout)
     for key in ("id","builtin_key","created_at","updated_at"):
         data.pop(key,None)
@@ -51,7 +52,8 @@ def import_template(M, path):
         if manifest.get("format")!="TURTO-PDF-template" or manifest.get("version")!=1:
             raise ValueError("Nepodporovaný formát balíčku šablony.")
         data=dict(manifest["template"])
-        layout=template_layout.normalize(data.get("layout_json"))
+        from .subgroup_layout import portable
+        layout=portable(template_layout.normalize(data.get("layout_json")))
         data=template_layout.validate_geometry(data,layout)
         payloads=[]
         for owner,key in ((data,"header_path"),(data,"footer_path"),(layout,"signature_path")):

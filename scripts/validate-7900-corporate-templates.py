@@ -162,7 +162,9 @@ def main():
             normalized_text=' '.join(text.split())
             for heading in ('Název / popis','Cena celkem','Množství','Jednotková cena'):
                 assert heading in normalized_text, (ascii(heading),ascii(text),final[0].get_fonts())
-            assert len(final[0].get_images())>=3
+            assert len(final[0].get_images())>=1  # Product image; stationery is native PDF.
+            for caption in ('CENOVÁ NABÍDKA', 'Fakturační adresa / sídlo společnosti:', 'Sklad a provozovna:'):
+                assert caption in normalized_text
         old_hash=hashlib.sha256(target.read_bytes()).hexdigest()
         fp1=wf.template_fingerprint(M,tid)
         changed=service.load_template(M,tid);changed_layout=tl.normalize(changed['layout_json']);changed_layout['row_padding_mm']=2
