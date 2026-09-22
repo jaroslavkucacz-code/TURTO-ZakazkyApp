@@ -92,12 +92,17 @@ def ui_checks(td):
         root.minsize(700, 450)
         root.show_page('settings')
         settle(root, 1)
-        for geometry, theme in (('900x620+0+0', 'Světlý'), ('740x520+0+0', 'Tmavý'), ('1450x900+0+0', 'Světlý')):
+        # Hosted Windows may provide only a 1024x768 desktop. Keep the two
+        # small-window checks exact and size the larger case to the real screen.
+        large = f'{min(1450, root.winfo_screenwidth()-40)}x{min(900, root.winfo_screenheight()-80)}+0+0'
+        tested_sizes = []
+        for case, (geometry, theme) in enumerate((('900x620+0+0', 'Světlý'), ('740x520+0+0', 'Tmavý'), (large, 'Světlý'))):
             root.apply_theme(theme, False)
             root.state('normal')
             root.geometry(geometry)
             settle(root, .3)
             assert root.winfo_width() == int(geometry.split('x')[0]), root.geometry()
+            tested_sizes.append(root.geometry())
             for index, (key, section) in enumerate(root._settings_sections.items()):
                 root._settings_notebook.select(index)
                 settle(root, .3)
@@ -122,7 +127,7 @@ def ui_checks(td):
                     assert section.canvas.yview()[0] > 0, ('Wheel over child did not scroll', key, geometry, buttons[0].bindtags(), section.canvas.yview())
                 section.canvas.yview_moveto(0)
                 settle(root, .1)
-                if not geometry.startswith('1450'):
+                if case < 2:
                     suffix = '-dark' if theme == 'Tmavý' else ''
                     ImageGrab.grab(window=root.winfo_id()).save(OUTPUT / ('settings-' + key + suffix + '.png'))
         # Every original settings action is still represented, including the old hidden last card.
@@ -131,7 +136,7 @@ def ui_checks(td):
                         'Trvalý archiv Ceníků', 'Optimalizovat databázi', 'Obnovení předchozí verze'):
             assert caption in all_text, caption
         assert not errors, errors
-        print('Settings: all sections and controls reachable at 740/900/1450 px, local wheel, keyboard focus and both themes OK', flush=True)
+        print(f'Settings: all sections and controls reachable at {tested_sizes}, local wheel, keyboard focus and both themes OK', flush=True)
     finally:
         root.destroy()
 

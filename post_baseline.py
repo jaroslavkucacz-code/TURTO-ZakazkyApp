@@ -613,9 +613,8 @@ def apply(M):
             try:
                 from tkinter import filedialog, ttk
 
-                page = self.tabs['settings']
-                card = ttk.Frame(page, style='Panel.TFrame', padding=18)
-                card.pack(fill='x', pady=(10, 0))
+                from price_lists_domain.platform.settings_layout import card as settings_card
+                card = settings_card(self, 'data')
                 ttk.Label(
                     card,
                     text='Ukládání zpracovaných nabídek',
