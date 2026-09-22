@@ -1,6 +1,6 @@
 """Measured A4 corporate quotation. One layout pass owns PDF and click regions.
 
-No logo drawing, no customer price calculations, no mutable global service hooks.
+No customer price calculations or mutable global service hooks.
 """
 from __future__ import annotations
 import os
@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 import fitz
-from . import service, template_layout, font_support, offer_images
+from . import service, template_layout, font_support, offer_images, corporate_artwork, subgroup_layout
 
 MM = 72 / 25.4
 WIDTH, HEIGHT = 595.276, 841.890
@@ -41,6 +41,8 @@ class Layout:
         self.bottom = HEIGHT - 12 - (self.template["footer_height_mm"] + self.template["body_bottom_gap_mm"]) * MM
         self.number_in_header = bool(self.style["number_in_header"] and self.template["header_height_mm"]
             and template_layout.is_original_asset(self.template.get("header_path"), "builtin:turto-offer-header"))
+        self.vector_header = template_layout.is_original_asset(self.template.get("header_path"), "builtin:turto-offer-header")
+        self.vector_footer = template_layout.is_original_asset(self.template.get("footer_path"), "builtin:turto-offer-footer")
         self.size = self.style["font_size"]
         self.pad = self.style["row_padding_mm"] * MM
         self.ink = (0.08, 0.10, 0.12)
@@ -49,11 +51,6 @@ class Layout:
         self.navy = _color(self.style["primary_color"])
         self.red = _color(self.style["section_color"])
         self.grey = _color(self.style["subsection_color"])
-        self.columns = template_layout.columns_for(self.style, self.width)
-        x = self.left
-        for c in self.columns:
-            c["x0"], c["x1"] = x, x + c["width_pt"]
-            x = c["x1"]
         regular, bold = font_support._font_files()
         self.font_files = (regular, bold)
         self.fonts = [fitz.Font(fontfile=str(p)) if p else fitz.Font("hebo" if n else "helv") for n, p in enumerate((regular, bold))]
@@ -63,10 +60,20 @@ class Layout:
         self.y = self.top
         self.regions = []
         self.group_regions = []
+        self.table_regions = []
         self.current_group = None
         self.continuation_subgroup = ""
         self.image_cache = {}
         self.currency = str(document.get("currency") or "CZK")
+        self.set_columns({})
+
+    def set_columns(self, item):
+        self.table_style = subgroup_layout.effective(self.style, item)
+        self.columns = template_layout.columns_for(self.table_style, self.width)
+        x = self.left
+        for c in self.columns:
+            c['x0'], c['x1'] = x, x + c['width_pt']
+            x = c['x1']
         self.header_lines = [self.wrap(c["label"], c["width_pt"]-8, True, self.size-.5) for c in self.columns]
         self.header_height = max(len(lines) for lines in self.header_lines) * self.leading + 8
         if self.header_height > min(130, (self.bottom-self.top)/3):
@@ -133,51 +140,6 @@ class Layout:
         else:
             self.page.insert_image(rect, stream=path.read_bytes(), keep_proportion=True)
 
-    def artwork_rect(self, value, rect):
-        # insert_image(keep_proportion=True) centers inside this rectangle.
-        with fitz.open(template_layout.asset_path(value)) as art:
-            source = art[0].rect
-        factor = min(rect.width/source.width, rect.height/source.height)
-        w, h = source.width*factor, source.height*factor
-        return fitz.Rect(rect.x0+(rect.width-w)/2, rect.y0+(rect.height-h)/2,
-                         rect.x0+(rect.width+w)/2, rect.y0+(rect.height+h)/2)
-
-    def header_number(self, rect):
-        value = str(self.document.get("document_number") or "KONCEPT")
-        r = self.artwork_rect(self.template["header_path"], rect)
-        # Free right-hand portion of the original red stripe, away from logo/title.
-        box = fitz.Rect(r.x0+r.width*.282, r.y0+r.height*.505,
-                        r.x0+r.width*.483, r.y0+r.height*.85)
-        size = min(11.0, box.height/(self.fonts[1].ascender-self.fonts[1].descender))
-        while self.fonts[1].text_length(value, fontsize=size)>box.width and size>5:
-            size -= .25
-        if self.fonts[1].text_length(value, fontsize=size)>box.width:
-            raise ValueError("Číslo je příliš dlouhé pro horní pruh. Vypněte číslo v záhlaví v nastavení šablony.")
-        self.text(box.x0,box.y0,value,True,size,(1,1,1),"right",box.width)
-        # Make the caption embedded in the original bitmap searchable without
-        # drawing a second title or changing the corporate artwork.
-        self.page.insert_text((r.x0+r.width*.10, box.y0+size), "CENOVÁ NABÍDKA",
-                              fontname="TRBold", fontsize=8, render_mode=3)
-
-    def footer_hours(self, rect):
-        r = self.artwork_rect(self.template["footer_path"], rect)
-        # Only the warehouse hours to the right of the original red separator.
-        box = fitz.Rect(r.x0+r.width*.647,r.y0+r.height*.345,
-                        r.x1,r.y0+r.height*.965)
-        self.page.draw_rect(box,color=None,fill=(1,1,1))
-        hours = self.style["opening_hours"]
-        if not hours:
-            return
-        lines = ["Prodejní sklad"] + hours.splitlines()
-        size = min(7.0, box.height/(len(lines)*1.22))
-        width = box.width-5
-        while max(self.fonts[0].text_length(s,fontsize=size) for s in lines)>width and size>4.5:
-            size -= .25
-        if size<4.5:
-            raise ValueError("Otevírací doba je příliš dlouhá pro zápatí; zkraťte text nebo zvětšete zápatí.")
-        for i,line in enumerate(lines):
-            self.text(box.x0+3,box.y0+i*size*1.22,line,size=size)
-
     def new_page(self, table=False):
         self.page = self.pdf.new_page(width=WIDTH, height=HEIGHT)
         for n, (name, p) in enumerate(zip(("TRRegular", "TRBold"), self.font_files)):
@@ -190,15 +152,17 @@ class Layout:
         if first or t.get("header_every_page", True):
             if t["header_height_mm"]:
                 rect = fitz.Rect(self.left,8,self.right,8+t["header_height_mm"]*MM)
-                self.asset(t.get("header_path"), rect)
-                if self.number_in_header:
-                    self.header_number(rect)
+                if self.vector_header:
+                    corporate_artwork.header(self, rect)
+                else:
+                    self.asset(t.get("header_path"), rect)
         if first or t.get("footer_every_page", True):
             if t["footer_height_mm"]:
                 rect = fitz.Rect(self.left,HEIGHT-12-t["footer_height_mm"]*MM,self.right,HEIGHT-12)
-                self.asset(t.get("footer_path"), rect)
-                if self.style["edit_opening_hours"] and template_layout.is_original_asset(t.get("footer_path"), "builtin:turto-offer-footer"):
-                    self.footer_hours(rect)
+                if self.vector_footer:
+                    corporate_artwork.footer(self, rect)
+                else:
+                    self.asset(t.get("footer_path"), rect)
         self.y = self.top
         if not first:
             if not self.number_in_header or not t.get("header_every_page",True):
@@ -206,8 +170,8 @@ class Layout:
             self.text(self.right-180,self.y,"Pokračování cenové nabídky",size=8,color=self.muted,align="right",width=180)
             self.y += self.leading + 7
         if table:
-            self.table_header()
             self.repeat_subgroup()
+            self.table_header()
 
     def repeat_subgroup(self):
         """Repeat the current subgroup without recursively creating pages."""
@@ -243,6 +207,8 @@ class Layout:
             alignment = "left" if c["key"] in {"name","code"} else "right" if c["key"] in {"unit_price","total","recommended"} else "center"
             self.lines(c["x0"]+4,y+4,lines,True,self.size-.5,(1,1,1),alignment,c["width_pt"]-8)
         self.y += self.header_height
+        self.table_regions.append(dict(self.current_group or {}, page=self.pdf.page_count-1,
+            x0=self.left, x1=self.right, y0=y, y1=self.y, columns=[c['key'] for c in self.columns]))
 
     def intro(self):
         self.new_page()
@@ -285,8 +251,6 @@ class Layout:
         if self.document.get("customer_reference"):
             self.paragraph("Reference: "+str(self.document["customer_reference"]))
         self.y += 10
-        self.ensure(self.header_height+45)
-        self.table_header()
 
     def group_region(self, y0, y1, kind):
         if self.current_group is not None:
@@ -331,11 +295,11 @@ class Layout:
         name=str(item.get("name") or item.get("internal_name_snapshot") or "")
         code=str(item.get("internal_code_snapshot") or item.get("product_code") or "")
         has_code=any(c["key"]=="code" for c in self.columns)
-        if code and not item.get("supplier_presentation_snapshot") and not has_code and code not in name:
+        if code and self.table_style['show_code'] and not item.get("supplier_presentation_snapshot") and not has_code and code not in name:
             name=code+" · "+name
-        description=str(item.get("description") or "")
+        description=str(item.get("description") or "") if self.table_style['show_description'] else ''
         if description==name: description=""
-        if item.get("line_note"): description += ("\n" if description else "")+str(item["line_note"])
+        if self.table_style['show_line_note'] and item.get("line_note"): description += ("\n" if description else "")+str(item["line_note"])
         unit = str(item.get("unit") or "").strip()
         unit = {'KS':'ks','M':'m','M2':'m²','M²':'m²','M3':'m³','M³':'m³','KG':'kg','HOD':'hod','BAL':'bal'}.get(unit,unit)
         values={"position":str(position),"quantity":(_qty(item.get("quantity"))+" "+unit).strip(),"code":code,
@@ -344,7 +308,7 @@ class Layout:
             "recommended":_money(item.get("recommended_unit_price"),self.currency) if item.get("show_recommended_price",1) else "",
             "discount":_qty(item.get("discount_pct"))+" %"}
         cells=[]
-        blob=self.image(item) if self.style["show_images"] and any(c["key"]=="image" for c in self.columns) else None
+        blob=self.image(item) if self.table_style["show_images"] and any(c["key"]=="image" for c in self.columns) else None
         for c in self.columns:
             key=c["key"]
             if key=="name":
@@ -418,13 +382,16 @@ class Layout:
 
     def body(self):
         grouper=getattr(self.M,"group_issued_offer_items",None) or getattr(service,"group_offer_items",None)
-        tokens=grouper(self.items) if callable(grouper) else [{"kind":"item","index":i,"item":item} for i,item in enumerate(self.items)]
-        position=0; last_category=None; group_total=0; in_group=False
+        if not callable(grouper):
+            from v710_cleanup import group_offer_items
+            grouper = group_offer_items
+        tokens=grouper(self.items)
+        position=0; last_category=None; group_total=0; in_group=False; standalone_table=False
         def subtotal():
             if in_group and self.style["show_group_subtotals"]:
-                self.ensure(self.leading+12,True)
+                self.ensure(self.leading+12)
                 self.text(self.left,self.y+4,"Mezisoučet skupiny bez DPH",size=self.size-.5,color=self.muted)
-                total_col = next(c for c in self.columns if c["key"]=="total")
+                total_col = next((c for c in self.columns if c["key"]=="total"), dict(x0=self.right-140,width_pt=140))
                 self.text(total_col["x0"]+4,self.y+4,_money(group_total,self.currency),True,align="right",width=total_col["width_pt"]-8)
                 self.y += self.leading+12
         tokens=list(tokens)
@@ -436,6 +403,7 @@ class Layout:
             return 35
         for at,token in enumerate(tokens):
             if token["kind"]=="group":
+                standalone_table=False
                 category=str(token.get("category") or "")
                 if category != last_category:
                     subtotal(); group_total=0
@@ -446,31 +414,44 @@ class Layout:
                     if following["kind"]=="group": break
                     if following["item"].get("row_type","product")=="product": members.append(following["index"])
                 self.current_group = dict(indices=members, category=category, subgroup=str(token.get("subgroup") or ""))
+                self.set_columns(self.items[members[0]] if members else {})
                 subgroup=str(token.get("subgroup") or "")
                 # At least a header plus the first product row must fit together.
                 headings=[(t,size) for t,size in ((category if category!=last_category and category!="Nezařazeno" else "",self.style["category_font_size"]),(subgroup if subgroup!="Bez podskupiny" else "",self.style["subgroup_font_size"])) if t]
                 h=sum(len(self.wrap(t,self.width-12,True,size))*self.leading*size/self.size+7 for t,size in headings)
-                self.ensure(min(h+next_row_height(at),self.bottom-self.top-self.header_height-30),True)
+                self.ensure(min(h+self.header_height+next_row_height(at),self.bottom-self.top-30))
                 if category and category != last_category and category != "Nezařazeno":
-                    self.band(category,self.red,(1,1,1),True,True,self.style["category_font_size"],"category")
+                    self.band(category,self.red,(1,1,1),True,False,self.style["category_font_size"],"category")
                 if subgroup and subgroup != "Bez podskupiny":
-                    self.band(subgroup,self.grey,self.navy,True,True,self.style["subgroup_font_size"],"subgroup")
+                    self.band(subgroup,self.grey,self.navy,True,False,self.style["subgroup_font_size"],"subgroup")
                     self.continuation_subgroup = subgroup
+                if self.y+self.header_height+self.leading+2*self.pad > self.bottom:
+                    self.new_page(True)
+                else:
+                    self.table_header()
                 last_category=category
                 continue
             item=dict(token["item"]);index=int(token.get("index",0))
             typ=item.get("row_type","product")
             if typ=="heading":
                 subtotal();group_total=0;in_group=False
+                standalone_table=False;self.current_group=None
                 self.continuation_subgroup = ""
                 heading=item.get("name") or item.get("description") or ""
                 h=len(self.wrap(heading,self.width-12,True,self.size-.3))*self.leading+7
-                self.ensure(min(h+next_row_height(at),self.bottom-self.top-self.header_height-30),True)
-                self.band(heading,self.red,(1,1,1),True,True)
+                self.ensure(min(h+next_row_height(at),self.bottom-self.top-30))
+                self.band(heading,self.red,(1,1,1),True,False)
                 last_category=None
             elif typ=="text":
+                standalone_table=False
                 self.paragraph(item.get("description") or item.get("name") or "")
             else:
+                if typ!='product' and not standalone_table:
+                    subtotal();group_total=0;in_group=False;last_category=None
+                    self.current_group=None;self.continuation_subgroup=''
+                    self.set_columns({})
+                    self.ensure(self.header_height+self.leading+2*self.pad)
+                    self.table_header();standalone_table=True
                 position += 1
                 self.row(item,index,position)
                 group_total += service.normalize_item(item)["total_price"]
@@ -556,7 +537,7 @@ class Layout:
                 os.replace(temp,target)
             finally:
                 if os.path.exists(temp): os.unlink(temp)
-            return dict(path=target,regions=self.regions,group_regions=self.group_regions,pages=self.pdf.page_count,totals=totals)
+            return dict(path=target,regions=self.regions,group_regions=self.group_regions,table_regions=self.table_regions,pages=self.pdf.page_count,totals=totals)
         finally:
             self.pdf.close()
 

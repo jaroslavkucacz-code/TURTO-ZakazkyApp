@@ -895,10 +895,9 @@ def _install_rollback_ui(M: Any) -> None:
     def build_settings(self, *args, **kwargs):
         result = previous(self, *args, **kwargs)
         try:
-            page = self.tabs["settings"]
-            card = M.ttk.Frame(page, style="Panel.TFrame", padding=18)
-            card.pack(fill="x", pady=(10, 0))
-            M.ttk.Label(card, text="Obnovení předchozí verze", font=("Calibri", 12, "bold")).pack(anchor="w")
+            from price_lists_domain.platform.settings_layout import card as settings_card
+            card = settings_card(self, "maintenance")
+            M.ttk.Label(card, text="Obnovení předchozí verze", style="Panel.TLabel", font=("Calibri", 12, "bold")).pack(anchor="w")
             candidate = _rollback_candidate(M)
             if candidate:
                 version = candidate[0]
@@ -912,7 +911,7 @@ def _install_rollback_ui(M: Any) -> None:
                 description = "Předchozí instalační balíček zatím není v této instalaci dostupný."
                 button_text = "Předchozí verze není dostupná"
                 state = "disabled"
-            M.ttk.Label(card, text=description, style="PageSubtitle.TLabel", wraplength=900).pack(anchor="w", pady=(3, 9))
+            M.ttk.Label(card, text=description, style="PanelMuted.TLabel", wraplength=420).pack(anchor="w", pady=(3, 9))
             M.ttk.Button(
                 card, text=button_text, state=state,
                 command=lambda current=self: _launch_rollback(M, current),

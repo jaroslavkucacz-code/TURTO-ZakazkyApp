@@ -17,11 +17,16 @@ def render(payload):
     for i,item in enumerate(items):
         if str(i) in images:item['_image_bytes']=base64.b64decode(images[str(i)])
     dates=payload.get('dates',{})
-    M=SimpleNamespace(fmt_date=lambda value:dates.get(str(value),str(value or '')),group_issued_offer_items=group_offer_items)
+    def grouped(current):
+        # Catalogue names/order are captured by the owner; this process has no DB.
+        tokens=payload.get('group_tokens')
+        if tokens is None:return group_offer_items(current)
+        return [dict(t,item=current[t['index']]) if t['kind']=='item' else dict(t) for t in tokens]
+    M=SimpleNamespace(fmt_date=lambda value:dates.get(str(value),str(value or '')),group_issued_offer_items=grouped)
     with tempfile.TemporaryDirectory(prefix='turto_preview_worker_') as td:
         path=Path(td)/'preview.pdf'
         result=corporate_renderer.render(M,document,items,dict(template,_preview_fast=True),path)
-        return dict(pdf=base64.b64encode(path.read_bytes()).decode('ascii'),regions=result['regions'],group_regions=result['group_regions'])
+        return dict(pdf=base64.b64encode(path.read_bytes()).decode('ascii'),regions=result['regions'],group_regions=result['group_regions'],table_regions=result.get('table_regions', []))
 
 
 def main(directory):
@@ -89,16 +94,22 @@ class Worker:
 
 def payload(M,document,items,template):
     """Capture directory-free artwork while still on the owner's DB thread."""
-    from . import offer_images,template_layout
+    from . import offer_images,template_layout,subgroup_layout,service
     from contextlib import closing
     import copy
     data=dict(document=copy.deepcopy(document),items=copy.deepcopy(items),template=copy.deepcopy(template),images={},
               dates={str(document.get(k)):M.fmt_date(document.get(k)) for k in ('issue_date','valid_to')})
+    grouper=getattr(M,'group_issued_offer_items',None) or getattr(service,'group_offer_items',None)
+    if callable(grouper):
+        data['group_tokens']=[{k:v for k,v in token.items() if k!='item'} for token in grouper(items)]
     layout=template_layout.normalize(template.get('layout_json'))
-    if layout['show_images']:
+    if layout['show_images'] or any('image' in r['columns'] for r in layout['subgroup_layouts']):
         with closing(M.db()) as con:
             cache={}
             for i,item in enumerate(items):
+                current = subgroup_layout.effective(layout, item)
+                if not current['show_images'] or not any(c['key']=='image' for c in current['columns']):
+                    continue
                 key=(item.get('image_file_snapshot'),item.get('image_asset_key_snapshot'),item.get('source_supplier_offer_item_id'))
                 if key not in cache:cache[key]=offer_images.resolve(M,item,con)
                 if cache[key]:data['images'][str(i)]=base64.b64encode(cache[key]).decode('ascii')

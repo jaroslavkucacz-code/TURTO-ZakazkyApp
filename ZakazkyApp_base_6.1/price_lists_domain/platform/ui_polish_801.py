@@ -339,7 +339,7 @@ def _polish_settings(app: Any, M: Any) -> None:
             except Exception:
                 pass
 
-        if not (getattr(sys, "frozen", False) and sys.platform.startswith("win")):
+        if getattr(app, "_settings_sections", None) or not (getattr(sys, "frozen", False) and sys.platform.startswith("win")):
             continue
 
         if widget_class == "TEntry":

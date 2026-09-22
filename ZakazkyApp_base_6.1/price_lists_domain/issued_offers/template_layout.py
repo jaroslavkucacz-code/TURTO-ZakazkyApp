@@ -29,6 +29,8 @@ DEFAULT = {
     "show_vat_summary": False, "show_contacts": True,
     "show_salesperson": True, "closing_columns": True,
     "show_group_subtotals": True, "zebra_rows": False,
+    "show_description": True, "show_code": True, "show_line_note": True,
+    "subgroup_layouts": [],
     "primary_color": "#0E354A", "section_color": "#C31F40",
     "subsection_color": "#EBEEF0", "contacts_text": "",
     "signature_path": "", "closing_note": "",
@@ -102,6 +104,12 @@ def normalize(value=None):
         if result[key] not in (True, False, 0, 1):
             raise ValueError(f"Neplatná volba: {key}")
         result[key] = bool(result[key])
+    for key in ('show_description', 'show_code', 'show_line_note'):
+        if result[key] not in (True, False, 0, 1):
+            raise ValueError(f"Neplatná volba: {key}")
+        result[key] = bool(result[key])
+    from . import subgroup_layout
+    result['subgroup_layouts'] = subgroup_layout.normalize(result['subgroup_layouts'])
     rows = result["columns"]
     # Upgrade displayed columns, retaining custom widths and unrelated columns.
     if isinstance(rows, list) and any(isinstance(c, dict) and c.get("key")=="unit" for c in rows):
@@ -156,6 +164,9 @@ def validate_geometry(template, layout):
     if result["header_height_mm"] + result["footer_height_mm"] + result["body_top_gap_mm"] + result["body_bottom_gap_mm"] > 90:
         raise ValueError("Záhlaví, zápatí a mezery zabírají příliš velkou část stránky.")
     columns_for(layout, (210 - result["margin_left_mm"] - result["margin_right_mm"]) * 72 / 25.4)
+    from . import subgroup_layout
+    for rule in layout.get('subgroup_layouts', []):
+        columns_for(subgroup_layout.effective(layout, rule), (210 - result['margin_left_mm'] - result['margin_right_mm']) * 72 / 25.4)
     return result
 
 

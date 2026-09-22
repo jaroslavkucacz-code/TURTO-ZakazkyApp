@@ -460,9 +460,8 @@ def _patch_settings(M, App) -> None:
     def build_settings(self, *args, **kwargs):
         result = old_settings(self, *args, **kwargs)
         try:
-            page = self.tabs["settings"]
-            card = M.ttk.Frame(page, style="Panel.TFrame", padding=18)
-            card.pack(fill="x", pady=(10, 0))
+            from .settings_layout import card as settings_card
+            card = settings_card(self, "maintenance")
             M.ttk.Label(card, text="Výkon, archiv a katalog", style="Panel.TLabel", font=("Calibri", 12, "bold")).grid(
                 row=0, column=0, columnspan=4, sticky="w"
             )
@@ -470,19 +469,19 @@ def _patch_settings(M, App) -> None:
                 row=1, column=0, sticky="w", pady=6
             )
             M.ttk.Button(card, text="Produktové skupiny a podskupiny…", command=lambda: categories.manage_categories(M, self)).grid(
-                row=1, column=1, sticky="w", padx=8, pady=6
+                row=2, column=0, sticky="w", pady=6
             )
             M.ttk.Button(card, text="Otestovat OCR na PDF…", command=lambda: test_ocr(M, self)).grid(
-                row=1, column=2, sticky="w", padx=8, pady=6
+                row=3, column=0, sticky="w", pady=6
             )
             M.ttk.Button(card, text="Optimalizovat databázi", command=lambda: maintain_database(M, self)).grid(
-                row=1, column=3, sticky="w", padx=8, pady=6
+                row=4, column=0, sticky="w", pady=6
             )
             M.ttk.Label(
                 card,
-                text="Připraven je také indexovaný datový základ pro budoucí vydané nabídky a vydané objednávky.",
+                text="Správa uložených podkladů, katalogu a výkonu databáze.",
                 style="Panel.TLabel",
-            ).grid(row=2, column=0, columnspan=4, sticky="w")
+            ).grid(row=5, column=0, sticky="w")
         except Exception:
             pass
         return result

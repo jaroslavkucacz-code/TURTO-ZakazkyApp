@@ -326,6 +326,8 @@ def template_fingerprint(M: Any, template_id: Any) -> str:
     payload["footer_asset"] = _asset_digest(asset_path(template.get("footer_path")))
     from price_lists_domain.issued_offers.template_layout import is_corporate, normalize
     if is_corporate(template):
+        payload["stationery_renderer"] = "native-vector-1"
+        payload["subgroup_renderer"] = "columns-after-subgroup-1"
         layout = normalize(template.get("layout_json"))
         payload["signature_asset"] = _asset_digest(asset_path(layout.get("signature_path")))
     encoded = json.dumps(
@@ -859,21 +861,31 @@ HELP_TOPICS: dict[str, dict[str, Any]] = {
     "help_templates": {
         "category": "Vydané nabídky",
         "title": "Firemní vzhled a vlastní PDF šablony",
-        "summary": "Výchozí firemní šablona, vlastní kopie, šířky sloupců a živý náhled.",
-        "keywords": "šablona logo hlavička patička písmo obrázky sloupce vzhled kopie PDF",
+        "summary": "Vzhled nabídky, údaje pro jednotlivé podskupiny, hromadné změny a živý náhled PDF.",
+        "keywords": "šablona logo hlavička patička písmo obrázky sloupce vzhled kopie PDF podskupiny hromadně",
         "body": """## Základní postup
 
-V záložce Vydané nabídky otevřete Šablony PDF. Vyberte TURTO – Standard a použijte Uložit jako kopii. Vlastní kopii pojmenujte například TURTO – akustika. V editoru cenové nabídky poté zvolte tuto šablonu.
+V editoru cenové nabídky otevřete Vzhled nabídky. Změny firemní šablony TURTO – Standard platí pro náhled i nově vydané PDF. Samostatná správa Šablony PDF nabízí také vlastní kopie, import a export šablon.
+
+## Údaje podle podskupiny
+
+V záložce Podskupiny vyberte jednu či více podskupin. Ctrl přidává jednotlivé podskupiny, Shift rozsah. Výběrem skupiny zahrnete její podskupiny; Vybrat vše zahrne všechny zobrazené výsledky hledání. Podskupinu lze vybrat také kliknutím na její záhlaví nebo položku v náhledu PDF.
+
+Zaškrtněte požadované sloupce a údaje: obrázek, kód, pořadové číslo, množství, jednotkovou a celkovou cenu, doporučenou cenu, slevu, popis a poznámku. Název výrobku zůstává vždy viditelný. Modré záhlaví příslušných sloupců je pod každou podskupinou a opakuje se při pokračování na další stránce. Skrytí sloupce nemění cenový výpočet ani závěrečný souhrn nabídky.
+
+U více vybraných podskupin se odlišné volby zobrazují jako smíšené. Přepnutím se sjednotí pouze tato volba; ostatní rozdíly zůstanou zachované. Použít společné nastavení zruší vlastní volby vybraných podskupin. Podskupiny bez vlastní úpravy používají společné sloupce.
+
+Náhled nabízí aktuální nabídku nebo označenou ukázku vybraných podskupin. Lze jej posouvat, přibližovat a otevřít jako PDF. Hromadné změny platí pro celý výběr; ukázka zobrazuje nejvýše prvních osm vybraných podskupin.
 
 ## Co lze upravovat
 
-Stránka: okraje, výška a odstup záhlaví i zápatí, opakování na dalších stránkách. Typografie: velikost písma, výška obrázků, odsazení řádků a barvy těla dokumentu. Sloupce: pořadí, popisky a poměrné šířky, volitelný kód, pořadové číslo, obrázek, doporučená cena a sleva. Povinný popis, množství, MJ a prodejní ceny nelze omylem skrýt. Šířky se přepočítají na dostupnou šířku A4; příliš úzké sloupce se odmítnou.
+Stránka: okraje, výška a odstup záhlaví i zápatí, opakování na dalších stránkách. Písmo: velikosti, výška obrázků, odsazení řádků a barvy těla dokumentu. Společné sloupce: pořadí, popisky a poměrné šířky. Společný základ obsahuje název, množství a prodejní ceny; jednotlivé podskupiny mohou mít jiný výběr. Šířky se přepočítají na dostupnou šířku A4; příliš úzké sloupce se odmítnou.
 
 Dolní bloky: obchodní podmínky vedle sebe nebo pod sebou, kontakty, vystavitel, poznámka, volitelné vlastní razítko/podpis a rozpis DPH. Text obchodních podmínek konkrétní zakázky se upravuje v nabídce, nikoli v šabloně.
 
 ## Záhlaví, číslo nabídky a otevírací doba
 
-V Šablonách PDF otevřete vlastní kopii šablony a záložku Záhlaví a zápatí. Volba Číslo nabídky do horního pruhu vloží číslo vedle původního nápisu CENOVÁ NABÍDKA a vynechá jeho duplicitu v těle. Datum zůstává. U jiné vlastní grafiky se číslo bezpečně zobrazí v těle stránky.
+V záložce Značka volba Číslo nabídky do horního pruhu vloží číslo vedle nápisu CENOVÁ NABÍDKA a vynechá jeho duplicitu v těle. Datum zůstává. U jiné vlastní grafiky se číslo zobrazí v těle stránky.
 
 Zaškrtněte Nahradit původní otevírací dobu vlastním textem. Zadejte nejvýše 4 řádky dnů a časů; prázdný text dobu skryje. Vypnutím volby obnovíte původní podobu. Uložte vlastní kopii šablony a zvolte ji v nabídce. Změna platí pro nově vytvořené PDF, nikoli starší archiv.
 
@@ -883,11 +895,11 @@ Označené zdrojové a nákupní ceny se z popisu při převzetí, načtení a v
 
 ## Logo zůstává originální
 
-Výchozí záhlaví a zápatí jsou převzaté přímo z dodaných firemních podkladů. Mění se pouze jejich velikost při zachování poměru stran. Změna barvy těla dokumentu nepřebarvuje logo. Vlastní grafiku PNG/JPG/PDF lze nahrát zvlášť; výchozí originál zůstává dostupný.
+Standardní záhlaví a zápatí vycházejí z dodaných firemních podkladů a vykreslují se vektorově. Záhlaví navazuje na přesnou šířku tabulky; rozšiřuje se prázdná část pruhů, logo zachovává poměr stran. Texty jsou ostré a lze je kopírovat z PDF. Změna barvy těla dokumentu nepřebarvuje logo. Vlastní grafiku PNG/JPG/PDF lze nahrát zvlášť.
 
 ## Náhled, ukládání a návrat
 
-Náhled používá stejný generátor jako finální PDF. Při otevření přes Upravit šablony v editoru nabídky vidíte přímo aktuální položky, ceny a obrázky této nabídky, včetně dosud neuložených úprav. Při otevření ze záložky Vydané nabídky se zobrazí označené ukázkové údaje. Náhled nikdy nezaloží číslo ani revizi a nemění obchodní data. Uložit uloží vlastní šablonu, Uložit jako kopii vytvoří jinou variantu. Obnovit firemní vzhled vrátí rozpracované nastavení na původní předlohu, ale do uložení se databáze nemění. Výchozí firemní šablonu nelze přepsat.
+Náhled používá stejný generátor jako finální PDF. Při otevření z editoru nabídky vidíte přímo aktuální položky, ceny a obrázky této nabídky, včetně dosud neuložených úprav. Náhled nikdy nezaloží číslo ani revizi a nemění obchodní data. Uložit uloží vzhled; ve správě vlastních šablon Uložit jako kopii vytvoří jinou variantu. Obnovit firemní vzhled vrátí rozpracované nastavení na původní předlohu, ale do uložení se databáze nemění.
 
 Vlastní nastavení je uložené v databázi, nahraná grafika ve složce Dokumenty/TURTO Zakazky/Sablony/Vydane nabidky. Aktualizace programu tyto údaje nepřepisuje. Pro přenos na jiný počítač použijte Export šablony; balíček obsahuje i grafické soubory. Import vždy založí novou kopii, nikdy nepřepíše původní šablonu.
 
