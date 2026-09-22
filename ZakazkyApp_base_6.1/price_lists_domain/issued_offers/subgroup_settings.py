@@ -19,7 +19,8 @@ class SubgroupSettings:
         box = M.ttk.Frame(parent)
         box.grid(row=2, column=0, sticky='nsew')
         box.rowconfigure(0, weight=1); box.columnconfigure(0, weight=1)
-        self.tree = M.ttk.Treeview(box, columns=('mode',), selectmode='extended', height=7)
+        self.tree = M.ttk.Treeview(box, columns=('mode',), selectmode='extended', height=7,
+                                   name='layout__issued_offers_subgroup_settings__subgroups')
         self.tree.heading('#0', text='Skupina / podskupina')
         self.tree.heading('mode', text='Vzhled')
         self.tree.column('#0', width=315, minwidth=180)
