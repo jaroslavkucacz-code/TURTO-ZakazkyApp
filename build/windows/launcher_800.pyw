@@ -18,6 +18,11 @@ ROOT = (
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+if '--pdf-preview-worker' in sys.argv:
+    from price_lists_domain.issued_offers.preview_worker import main as preview_worker_main
+    preview_worker_main(sys.argv[sys.argv.index('--pdf-preview-worker')+1])
+    raise SystemExit(0)
+
 SMOKE_TEST = "--smoke-test" in sys.argv
 DATA_SETUP = "--data-setup" in sys.argv
 _CI_SMOKE_RESULT_ENV = str(os.environ.get("TURTO_CRM_SMOKE_RESULT", "")).strip()
@@ -259,6 +264,8 @@ if SMOKE_TEST:
     reports_pages = _run_phase("reports-payload", lambda: check_reports(app))
     from price_lists_domain.maps.smoke import check as check_map
     map_checks = _run_phase('map-payload', lambda: check_map(app))
+    from price_lists_domain.issued_offers.preview_worker import smoke as check_pdf_worker
+    pdf_worker_checks = _run_phase('pdf-preview-worker', lambda: check_pdf_worker(app))
     con = app.db()
     try:
         quick = con.execute("PRAGMA quick_check").fetchone()
@@ -286,6 +293,7 @@ if SMOKE_TEST:
                 "branding_assets": branding_assets,
                 "reports_pages": reports_pages,
                 "map_checks": map_checks,
+                "pdf_preview_worker": pdf_worker_checks,
                 "frozen": bool(getattr(sys, "frozen", False)),
             },
             ensure_ascii=False,

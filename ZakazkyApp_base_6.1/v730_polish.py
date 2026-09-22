@@ -380,7 +380,8 @@ def apply(M) -> None:
                     return "break"
                 return None
 
-            preview.refresh = types.MethodType(safe_refresh, preview)
+            if not hasattr(preview, 'pdf'):
+                preview.refresh = types.MethodType(safe_refresh, preview)
             preview.change_zoom = types.MethodType(safe_change_zoom, preview)
             preview.set_zoom_100 = types.MethodType(set_zoom_100, preview)
             preview.fit_width = types.MethodType(safe_fit_width, preview)

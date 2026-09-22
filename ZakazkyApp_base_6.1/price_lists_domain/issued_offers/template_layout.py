@@ -12,27 +12,28 @@ ASSETS = {
     "builtin:turto-offer-footer": "turto_offer_footer.jpg",
 }
 COLUMNS = {
-    "position": ("Poz.", 5), "quantity": ("Množ.", 8),
+    "position": ("Poz.", 5), "quantity": ("Množství", 11),
     "name": ("Název / popis", 41), "image": ("Obrázek", 16),
-    "code": ("Kód", 12), "unit": ("MJ", 5),
+    "code": ("Kód", 12),
     "recommended": ("Doporučená cena", 14), "discount": ("Sleva", 7),
-    "unit_price": ("Cena/MJ", 14), "total": ("Cena celkem", 16),
+    "unit_price": ("Jednotková cena", 20), "total": ("Cena celkem", 16),
 }
-REQUIRED = {"quantity", "name", "unit", "unit_price", "total"}
+REQUIRED = {"quantity", "name", "unit_price", "total"}
 DEFAULT = {
     "engine": ENGINE, "version": 1, "font_size": 9.0,
+    "subgroup_font_size": 10.0, "category_font_size": 14.0,
     "row_padding_mm": 1.6, "image_height_mm": 13.5,
     "title": "CENOVÁ NABÍDKA", "show_images": True,
     "number_in_header": True, "edit_opening_hours": False,
     "opening_hours": "Po – Čt: 7:30 – 15:30\nPá: 8:30 – 15:00",
     "show_vat_summary": False, "show_contacts": True,
     "show_salesperson": True, "closing_columns": True,
-    "show_group_subtotals": False, "zebra_rows": False,
+    "show_group_subtotals": True, "zebra_rows": False,
     "primary_color": "#0E354A", "section_color": "#C31F40",
     "subsection_color": "#EBEEF0", "contacts_text": "",
     "signature_path": "", "closing_note": "",
     "columns": [dict(key=k, label=COLUMNS[k][0], width=COLUMNS[k][1])
-                for k in ("quantity", "name", "image", "unit", "unit_price", "total")],
+                for k in ("name", "image", "unit_price", "quantity", "total")],
 }
 
 
@@ -79,6 +80,8 @@ def normalize(value=None):
     if result["engine"] != ENGINE or result["version"] != 1:
         raise ValueError("Tato verze formátu šablony není podporovaná.")
     for key, label, lo, hi in (("font_size", "Písmo [pt]", 7.5, 12),
+        ("subgroup_font_size", "Písmo podskupin [pt]", 7.5, 24),
+        ("category_font_size", "Písmo skupin [pt]", 7.5, 30),
         ("row_padding_mm", "Odsazení řádku [mm]", 1, 6),
         ("image_height_mm", "Výška obrázku [mm]", 8, 35)):
         result[key] = _finite(result[key], label, lo, hi)
@@ -100,8 +103,17 @@ def normalize(value=None):
             raise ValueError(f"Neplatná volba: {key}")
         result[key] = bool(result[key])
     rows = result["columns"]
-    if not isinstance(rows, list) or not 5 <= len(rows) <= len(COLUMNS):
-        raise ValueError("Vyberte 5 až 10 sloupců tabulky.")
+    # Upgrade displayed columns, retaining custom widths and unrelated columns.
+    if isinstance(rows, list) and any(isinstance(c, dict) and c.get("key")=="unit" for c in rows):
+        rows = [dict(c) for c in rows if c.get("key")!="unit"]
+        qty = next((c for c in rows if c.get("key")=="quantity"), None)
+        price = next((c for c in rows if c.get("key")=="unit_price"), None)
+        if qty and price:
+            rows.remove(qty); rows.insert(rows.index(price)+1, qty)
+            if qty.get("label")=="Množ.": qty.update(label="Množství", width=max(11,qty.get("width",8)))
+            if price.get("label")=="Cena/MJ": price.update(label="Jednotková cena", width=max(20,price.get("width",14)))
+    if not isinstance(rows, list) or not 4 <= len(rows) <= len(COLUMNS):
+        raise ValueError("Vyberte 4 až 9 sloupců tabulky.")
     seen = set()
     clean = []
     for row in rows:
@@ -114,7 +126,7 @@ def normalize(value=None):
             raise ValueError("Záhlaví sloupce smí mít nejvýše 45 znaků.")
         clean.append(dict(key=key, label=label, width=_finite(row.get("width"), label, 1, 100)))
     if not REQUIRED <= seen:
-        raise ValueError("Nelze skrýt popis, množství, MJ ani prodejní ceny.")
+        raise ValueError("Nelze skrýt popis, množství ani prodejní ceny.")
     result["columns"] = clean
     return result
 
@@ -157,7 +169,13 @@ def builtin_template():
 
 def ensure_builtin(con):
     """Seed once, retaining every existing template and document assignment."""
-    if con.execute("SELECT id FROM business_document_templates WHERE builtin_key=?", (BUILTIN_KEY,)).fetchone():
+    existing=con.execute("SELECT id,layout_json FROM business_document_templates WHERE builtin_key=?", (BUILTIN_KEY,)).fetchone()
+    if existing:
+        old=json.loads(existing[1] or '{}')
+        if 'category_font_size' not in old:
+            upgraded=normalize(old)
+            upgraded['show_group_subtotals']=True
+            con.execute('UPDATE business_document_templates SET layout_json=? WHERE id=?',(json.dumps(upgraded,ensure_ascii=False),existing[0]))
         return
     old = con.execute("SELECT name,header_path,footer_path FROM business_document_templates WHERE is_default=1 AND active=1 AND document_type='issued_offer' LIMIT 1").fetchone()
     promote = not old or (old[0] == "Standardní nabídka TURTO" and not old[1] and not old[2])

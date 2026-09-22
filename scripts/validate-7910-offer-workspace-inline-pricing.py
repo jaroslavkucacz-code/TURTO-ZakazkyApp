@@ -55,11 +55,11 @@ def main():
                 {'row_type':'product','name':'Položka B','quantity':5,'unit':'m','purchase_unit_price':200,'margin_pct':25,'discount_pct':0,'recommended_unit_price':250,'unit_price':250,'vat_rate':12},
             ]
             view=editor.IssuedOfferEditor(M,root,initial_document=document,initial_items=items)
-            pump(.8)
+            pump(2)
             panel=view._v791_pricing_panel
-            assert panel.frame.winfo_ismapped(), 'pricing panel must be default visible'
+            assert panel.visible and panel.cells, 'pricing fields must be default visible'
             assert not view._v791_metadata_panel.winfo_ismapped(), 'metadata must default collapsed'
-            assert len(panel.tree.get_children(''))==len(items)
+            assert {i for c in panel.cells for i in c['indices']}=={1,2}
             assert 'DPH' not in panel.summary.get()
             assert 'Zisk' in panel.summary.get()
             assert round(work._profit(service,items[1],10),2)==215.00
@@ -67,7 +67,7 @@ def main():
             purchase,sale,profit=work._profit_totals(service,items,10)
             assert (round(purchase,2),round(sale,2),round(profit,2))==(2000.00,2340.00,340.00)
             assert '340,00' in panel.summary.get(),panel.summary.get()
-            panel._open_editor('p1','#3');pump(.1)
+            panel.open_editor(next(c for c in panel.cells if c['indices']==[1] and c['field']=='margin_pct'));pump(.1)
             assert panel.edit_widget is not None
             panel.edit_variable.set('60')
             panel.commit_edit();pump(.35)

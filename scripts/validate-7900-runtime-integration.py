@@ -85,7 +85,7 @@ def main():
             view=editor.IssuedOfferEditor(M,root,initial_document=doc,initial_items=items)
             pump(.8)
             preview=view._v720_preview
-            preview.visible=True;preview.refresh();pump()
+            preview.visible=True;preview.refresh();pump(2)
             assert preview.images,preview.status.get()
             assert len(preview.canvas_regions)==len(items),preview.status.get()
             assert sorted({r['index'] for r in preview.canvas_regions})==list(range(len(items)))
@@ -95,7 +95,7 @@ def main():
                 for child in view.win.winfo_children():
                     controller=getattr(child,'_turto_template_editor',None)
                     if controller is not None:
-                        controller.refresh_list(tid);controller.load(service.load_template(M,tid))
+                        controller.refresh_list(default["id"]);controller.load(service.load_template(M,default["id"]))
                         assert controller.preview_document["document_number"] == "INTEGRAČNÍ NÁHLED"
                         assert controller.preview_document["customer_note"] == "Skutečný neuložený obsah nabídky"
                         assert len(controller.preview_items) == len(items)
@@ -118,10 +118,10 @@ def main():
                 view.win.after(100,visit_child)
             view.win.after(500,visit_child)
             view.edit_pdf_template();pump()
-            assert template_layout.normalize(service.load_template(M,tid)['layout_json'])['font_size']==10
+            assert template_layout.normalize(service.load_template(M,default['id'])['layout_json'])['font_size']==10
             assert view.win.grab_current()==view.win
             assert view.template_map[view.template.get()]==default['id']
-            preview.refresh();pump()
+            preview.refresh();pump(2)
             assert preview.images and preview.canvas_regions
             view.win.destroy();pump()
             assert not errors,'\n'.join(errors)

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     # Complete branch validation is also required before promoting Windows releases.
-    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress, feature/8.0.13-remove-quick-actions, fix/8.0.14-table-initial-layout, feature/8.0.15-persistent-table-layouts, fix/8.0.16-autocomplete-focus, feature/8.0.17-form-navigation-unsaved, feature/8.0.18-large-dialogs, fix/8.0.19-dialog-first-show, feature/8.0.20-calm-theme, feature/8.0.21-universal-search, fix/8.0.22-filter-highlights-separators, feature/8.0.23-issued-delete-project-activity, feature/8.0.24-received-offer-detail, feature/8.0.25-offer-request-received, feature/8.0.26-grouped-navigation, feature/8.0.27-work-processing-catalogs, feature/8.0.28-company-roles-orders, feature/8.0.29-request-mail-profiles, feature/8.0.30-backup-retention, fix/8.0.31-legacy-backup-cleanup, feature/8.0.32-monthly-reports, feature/8.0.33-request-assignees-company-links, feature/8.0.34-user-permissions-assignees, feature/crm-map, codex/online-gps-parcels, codex/map-orthophoto, codex/map-company-layout, codex/mivo-offers-layout, codex/portfolio-tasks-mail, codex/portfolio-contacts-centers, codex/portfolio-row-details, fix/outlook-sent-reconciliation, feature/8.0.44-offer-workspace]
+    branches: [hotfix-808-updater-safety, feature/8.0.9-new-turto-logo, fix/8.0.10-transparent-branding, fix/8.0.11-taskbar-icon, feature/8.0.12-manual-update-progress, feature/8.0.13-remove-quick-actions, fix/8.0.14-table-initial-layout, feature/8.0.15-persistent-table-layouts, fix/8.0.16-autocomplete-focus, feature/8.0.17-form-navigation-unsaved, feature/8.0.18-large-dialogs, fix/8.0.19-dialog-first-show, feature/8.0.20-calm-theme, feature/8.0.21-universal-search, fix/8.0.22-filter-highlights-separators, feature/8.0.23-issued-delete-project-activity, feature/8.0.24-received-offer-detail, feature/8.0.25-offer-request-received, feature/8.0.26-grouped-navigation, feature/8.0.27-work-processing-catalogs, feature/8.0.28-company-roles-orders, feature/8.0.29-request-mail-profiles, feature/8.0.30-backup-retention, fix/8.0.31-legacy-backup-cleanup, feature/8.0.32-monthly-reports, feature/8.0.33-request-assignees-company-links, feature/8.0.34-user-permissions-assignees, feature/crm-map, codex/online-gps-parcels, codex/map-orthophoto, codex/map-company-layout, codex/mivo-offers-layout, codex/portfolio-tasks-mail, codex/portfolio-contacts-centers, codex/portfolio-row-details, fix/outlook-sent-reconciliation, feature/8.0.44-offer-workspace, feature/8.0.45-pdf-pricing-rows]
   pull_request:
     paths:
       - ZakazkyApp_base_6.1/price_lists_domain/maps/**
@@ -18,6 +18,7 @@ on:
       - scripts/validate-841-centers-contacts.py
       - scripts/validate-842-portfolio-details.py
       - scripts/validate-843-mail-selection.py
+      - scripts/validate-845-pdf-rows.py
       - scripts/validate-844-offer-workspace.py
       - scripts/validate-840-outlook.ps1
       - ZakazkyApp_base_6.1/price_lists_domain/platform/mail_tracking*.py
@@ -112,7 +113,8 @@ jobs:
           python-version: '3.14'
       - name: Behavioral source regressions on Linux
         run: |
-          python -m pip install XlsxWriter 'pyproj>=3.7,<4'
+          python -m pip install XlsxWriter 'pyproj>=3.7,<4' PyMuPDF
+          python scripts/validate-845-pdf-rows.py
           python scripts/validate-844-offer-workspace.py --source-only
           python scripts/validate-843-mail-selection.py --source-only
           python scripts/validate-841-centers-contacts.py --source-only
@@ -160,6 +162,8 @@ jobs:
         shell: pwsh
         timeout-minutes: 6
         run: |
+          python scripts/validate-845-pdf-rows.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-844-offer-workspace.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/validate-7900-corporate-templates.py ZakazkyApp_base_6.1

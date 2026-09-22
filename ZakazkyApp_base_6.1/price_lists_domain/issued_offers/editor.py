@@ -383,8 +383,6 @@ class IssuedOfferEditor:
         M.ttk.Button(tools, text="+ Text", command=lambda: self.add_special("text")).pack(side="left", padx=4)
         M.ttk.Button(tools, text="Upravit", command=self.edit_item).pack(side="left", padx=(14, 4))
         M.ttk.Button(tools, text="Odebrat", command=self.remove_items).pack(side="left", padx=4)
-        M.ttk.Button(tools, text="Nahoru", command=lambda: self.move_item(-1)).pack(side="left", padx=(14, 4))
-        M.ttk.Button(tools, text="Dolů", command=lambda: self.move_item(1)).pack(side="left", padx=4)
 
         columns = (
             "Poz.", "Typ", "Kód", "Označení", "Množství", "MJ", "Nákupní cena", "Marže",
@@ -479,7 +477,7 @@ class IssuedOfferEditor:
         """Modal child of this offer, with refreshed choices after editing."""
         from .template_settings import manage_templates
         old_id = self.template_map.get(self.template.get())
-        dialog = manage_templates(self.M, self.win, preview_document=self.collect(), preview_items=self.items)
+        dialog = manage_templates(self.M, self.win, preview_document=self.collect(), preview_items=self.items, standard_only=True)
         if old_id:
             dialog.refresh_list(old_id)
             dialog.load(service.load_template(self.M, old_id))
